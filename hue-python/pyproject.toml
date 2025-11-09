@@ -1,0 +1,14 @@
+[project]
+name = "hue"
+version = "0.1.0"
+authors = [
+    { name = "Daniel Kjellid", email = "daniel@kjellid.no" },
+]
+description = "A component library for Python and html template rendering engine"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "arel>=0.4.0",
+    "htmy>=0.8.2",
+    "pytailwindcss>=0.3.0",
+]
