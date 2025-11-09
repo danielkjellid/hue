@@ -29,10 +29,6 @@ class HueView(BaseView, ViewValidationMixin, View):
         """Get the CSS URL using Django's static files storage."""
         return staticfiles_storage.url("hue/styles/tailwind.css")
 
-    @cached_property
-    def should_inject_hmr(self) -> bool:
-        return False  # TODO: Make hmr available
-
     async def get(self, request: HttpRequest) -> HttpResponse:
         context = HueContextArgs[HttpRequest](
             request=request,

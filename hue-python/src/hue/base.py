@@ -3,9 +3,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar
-from hue.types import Component, ComponentType, Undefined
+from hue.types import Component, ComponentType
 from hue.formatter import HueFormatter
-from hue.hmr import hmr_script
 from hue.context import HueContext, HueContextArgs
 from htmy import Context, html, Renderer
 import json
@@ -64,21 +63,9 @@ class BaseView:
         """
         super().__init_subclass__()
 
-    def maybe_inject_hmr(self) -> ComponentType:
-        if self.should_inject_hmr:
-            return hmr_script()
-
-        return Undefined
-
     @cached_property
     def css_url(self) -> str:
         raise NotImplementedError("css_url must be implemented in the subclass")
-
-    @cached_property
-    def should_inject_hmr(self) -> bool:
-        raise NotImplementedError(
-            "should_inject_hmr must be implemented in the subclass"
-        )
 
     @abstractmethod
     def body(self, context: Context) -> ComponentType:
@@ -127,7 +114,6 @@ class BaseView:
                         src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
                         defer=True,
                     ),
-                    self.maybe_inject_hmr(),
                     html.link(
                         rel="stylesheet",
                         href=self.css_url,
@@ -136,23 +122,6 @@ class BaseView:
                 ),
                 html.body(
                     self.body(context),
-                    # html.div(
-                    #     IconButton(
-                    #         name="moon",
-                    #         variant="outline",
-                    #         size="xs-icon",
-                    #         x_on_click="theme = 'dark'",
-                    #         x_show="theme === 'light'",
-                    #     ),
-                    #     IconButton(
-                    #         name="sun",
-                    #         variant="outline",
-                    #         size="xs-icon",
-                    #         x_on_click="theme = 'light'",
-                    #         x_show="theme === 'dark'",
-                    #     ),
-                    #     class_="fixed bottom-0 left-0 p-4",
-                    # ),
                     x_data=self.inject_x_data(),
                     x_bind_data_theme="theme",
                     class_="min-h-screen bg-background relative",
