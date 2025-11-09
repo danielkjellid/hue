@@ -1,0 +1,14 @@
+[project]
+name = "hue-django"
+version = "0.1.0"
+description = "Django integration for the hue component library"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "hue>=0.1.0",
+    "django>=5.0",
+]
+
+[tool.uv.sources]
+
+hue = { path = "../hue-python", editable = true }
