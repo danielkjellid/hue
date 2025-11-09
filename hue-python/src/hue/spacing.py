@@ -12,19 +12,3 @@ SPACING: Mapping[Size, XY] = {
     "lg": XY(x="space-x-8", y="space-y-8"),
     "xl": XY(x="space-x-16", y="space-y-16"),
 }
-
-JustifyContent = Literal[
-    "justify-start",
-    "justify-center",
-    "justify-end",
-    "justify-between",
-    "justify-around",
-    "justify-evenly",
-]
-AlignItems = Literal[
-    "items-start",
-    "items-center",
-    "items-end",
-    "items-stretch",
-    "items-baseline",
-]

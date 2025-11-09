@@ -72,7 +72,6 @@ class BaseProps:
     hx_include: str | None = None
 
     # Aria props
-    # Aria props
     aria_label: str | None = None
     aria_hidden: Literal["true", "false"] | None = None
     aria_expanded: str | None = None
@@ -125,3 +124,20 @@ class BaseComponent(ABC, BaseProps):
         """
 
         return (value,) if not isinstance(value, tuple) else value
+
+
+JustifyContent = Literal[
+    "justify-start",
+    "justify-center",
+    "justify-end",
+    "justify-between",
+    "justify-around",
+    "justify-evenly",
+]
+AlignItems = Literal[
+    "items-start",
+    "items-center",
+    "items-end",
+    "items-stretch",
+    "items-baseline",
+]

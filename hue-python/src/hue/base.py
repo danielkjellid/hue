@@ -1,10 +1,13 @@
 from abc import abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from typing import ClassVar
+from typing import Any, ClassVar
 from hue.types import Component, ComponentType, Undefined
 from hue.formatter import HueFormatter
-from htmy import Context, html
+from hue.hmr import hmr_script
+from hue.context import HueContext, HueContextArgs
+from htmy import Context, html, Renderer
 import json
 
 type X_Data = dict[str, str]
@@ -62,14 +65,20 @@ class BaseView:
         super().__init_subclass__()
 
     def maybe_inject_hmr(self) -> ComponentType:
-        # if not settings.IS_PRODUCTION:
-        #     return hmr_script()
+        if self.should_inject_hmr:
+            return hmr_script()
 
         return Undefined
 
     @cached_property
     def css_url(self) -> str:
         raise NotImplementedError("css_url must be implemented in the subclass")
+
+    @cached_property
+    def should_inject_hmr(self) -> bool:
+        raise NotImplementedError(
+            "should_inject_hmr must be implemented in the subclass"
+        )
 
     @abstractmethod
     def body(self, context: Context) -> ComponentType:
@@ -94,8 +103,17 @@ class BaseView:
 
         return merged
 
-    async def htmy(self, context) -> Component:
-        # csrf_token = request.cookies.get("csrftoken")
+    async def render[T_Request: Mapping[str, Any]](
+        self, context_args: HueContextArgs[T_Request]
+    ) -> str:
+        page = HueContext(self, **context_args)
+        renderer = Renderer()
+        return await renderer.render(page)
+
+    async def htmy(self, context: Context) -> Component:
+        # Extract HueContext from the context provided by the renderer
+        # This context is populated by HueContext.htmy_context()
+        ctx = HueContext.from_context(context)
 
         return HueFormatter().in_context(
             html.DOCTYPE.html,
@@ -138,7 +156,7 @@ class BaseView:
                     x_data=self.inject_x_data(),
                     x_bind_data_theme="theme",
                     class_="min-h-screen bg-background relative",
-                    hx_headers=json.dumps({"X-CSRFToken": ""}),
+                    hx_headers=json.dumps({"X-CSRFToken": ctx.csrf_token}),
                 ),
             ),
         )

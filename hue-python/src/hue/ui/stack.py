@@ -19,7 +19,7 @@ def Stack(
     justify_content: JustifyContent = "justify-start",
     align_items: AlignItems = "items-start",
     position: Literal["relative", "absolute", "fixed", "sticky"] = "relative",
-) -> ComponentType:
+) -> html.div:
     """
     The stack component is a flex container that can be used to layout its children in a
     row or column. It provides additional (even) spacing between its children.
