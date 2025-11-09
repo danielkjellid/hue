@@ -1,11 +1,14 @@
 from functools import cached_property
-from typing import ClassVar
 
 from hue.base import BaseView, ViewValidationMixin
+from hue.context import HueContextArgs
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.views import View
+from django.http import HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
 
 
-class HueView(BaseView, ViewValidationMixin):
+class HueView(BaseView, ViewValidationMixin, View):
     """
     Django-specific base view that provides framework defaults.
 
@@ -24,4 +27,16 @@ class HueView(BaseView, ViewValidationMixin):
     @cached_property
     def css_url(self) -> str:
         """Get the CSS URL using Django's static files storage."""
-        return staticfiles_storage.url("styles/tailwind.css")
+        return staticfiles_storage.url("hue/styles/tailwind.css")
+
+    @cached_property
+    def should_inject_hmr(self) -> bool:
+        return False  # TODO: Make hmr available
+
+    async def get(self, request: HttpRequest) -> HttpResponse:
+        context = HueContextArgs[HttpRequest](
+            request=request,
+            csrf_token=get_token(request),
+        )
+        page_content = await self.render(context)
+        return HttpResponse(page_content)
