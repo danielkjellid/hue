@@ -2,8 +2,8 @@ from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar
-from hue.types import Component, ComponentType
+from typing import Any, Callable, ClassVar
+from hue.types.core import Component, ComponentType
 from hue.formatter import HueFormatter
 from hue.context import HueContext, HueContextArgs
 from htmy import Context, html, Renderer
@@ -67,6 +67,11 @@ class BaseView:
     def css_url(self) -> str:
         raise NotImplementedError("css_url must be implemented in the subclass")
 
+    def html_title_factory(self) -> Callable[[str], str]:
+        raise NotImplementedError(
+            "html_title_factory must be implemented in the subclass"
+        )
+
     @abstractmethod
     def body(self, context: Context) -> ComponentType:
         raise NotImplementedError("body must be implemented in the subclass")
@@ -106,7 +111,7 @@ class BaseView:
             html.DOCTYPE.html,
             html.html(
                 html.head(
-                    html.title(f"{self.title} - Storeganizersss"),
+                    html.title(self.html_title_factory(self.title)),
                     html.meta.charset(),
                     html.meta.viewport(),
                     html.script(src="https://unpkg.com/htmx.org@2.0.2"),

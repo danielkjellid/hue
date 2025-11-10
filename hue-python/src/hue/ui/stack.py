@@ -4,12 +4,12 @@ from htmy import html
 
 from hue.spacing import (
     SPACING,
-    AlignItems,
-    JustifyContent,
     Size,
 )
 
-from hue.types import ComponentType
+from hue.types.core import ComponentType
+from hue.types.css import AlignItems, JustifyContent
+from hue.decorators import concatenate_classes
 
 
 def Stack(
@@ -36,6 +36,7 @@ def Stack(
     return html.div(*children, class_=classes)
 
 
+@concatenate_classes
 def _get_stack_component_classes(
     direction: Literal["horizontal", "vertical"] = "vertical",
     spacing: Size = "sm",
