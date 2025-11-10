@@ -1,7 +1,7 @@
 from typing import Any, Mapping, TypedDict
 
 from htmy import Context
-from hue.types import Component, ComponentType
+from hue.types.core import Component, ComponentType
 
 
 class HueContextArgs[T_Request: Mapping[str, Any]](TypedDict):

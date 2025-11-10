@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import Any, Literal, Protocol, TypeAlias, TypeVar
+from typing import Any, Literal, Protocol
 
 from htmy import Component as HTMYComponent
 from htmy import ComponentType as HTMYComponentType
 from htmy import Context
+
+from hue.types.html import AriaAtomic, AriaLive, AriaRole
 
 
 class Undefined(Protocol):
@@ -16,43 +18,8 @@ class Undefined(Protocol):
         return ""
 
 
-Component: TypeAlias = HTMYComponent | Undefined
-ComponentType: TypeAlias = HTMYComponentType | Undefined
-
-T = TypeVar("T")
-
-T_AriaRole = (
-    Literal[
-        "button",
-        "checkbox",
-        "dialog",
-        "gridcell",
-        "link",
-        "menuitem",
-        "menuitemcheckbox",
-        "menuitemradio",
-        "option",
-        "progressbar",
-        "radio",
-        "scrollbar",
-        "searchbox",
-        "separator",
-        "slider",
-        "spinbutton",
-        "switch",
-        "tab",
-        "tabpanel",
-        "textbox",
-        "treeitem",
-    ]
-    | None
-)
-
-T_AriaHasPopup = (
-    Literal["menu", "listbox", "tree", "grid", "dialog", "true", "false"] | None
-)
-T_AriaAtomic = Literal["true", "false"] | None
-T_AriaLive = Literal["off", "polite", "assertive"] | None
+type Component = HTMYComponent | Undefined
+type ComponentType = HTMYComponentType | Undefined
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -76,10 +43,10 @@ class BaseProps:
     aria_hidden: Literal["true", "false"] | None = None
     aria_expanded: str | None = None
     aria_controls: str | None = None
-    aria_live: T_AriaLive = None
-    aria_atomic: T_AriaAtomic = None
+    aria_live: AriaLive = None
+    aria_atomic: AriaAtomic = None
     aria_describedby: str | None = None
-    role: T_AriaRole = None
+    role: AriaRole = None
 
     # Alpine props
     x_show: str | None = None
@@ -124,20 +91,3 @@ class BaseComponent(ABC, BaseProps):
         """
 
         return (value,) if not isinstance(value, tuple) else value
-
-
-JustifyContent = Literal[
-    "justify-start",
-    "justify-center",
-    "justify-end",
-    "justify-between",
-    "justify-around",
-    "justify-evenly",
-]
-AlignItems = Literal[
-    "items-start",
-    "items-center",
-    "items-end",
-    "items-stretch",
-    "items-baseline",
-]
