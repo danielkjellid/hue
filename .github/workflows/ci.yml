@@ -94,6 +94,18 @@ jobs:
           fi
           echo "✓ Version '$VERSION' is valid SemVer"
 
+  css-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path: [hue-python, hue-django]
+    steps:
+      - uses: actions/checkout@v3
+      - name: check css
+        working-directory: ${{ matrix.path }}
+        run: |
+          make check-css
+
   ci-done:
     # Gather job which deploy workflow can wait on.
     name: CI done
@@ -108,6 +120,7 @@ jobs:
       - unused-dependencies
       - python-missing-init
       - semver-check
+      - css-check
     runs-on: ubuntu-latest
     steps:
       - run: echo "CI done for ${{ matrix.path }}!"
