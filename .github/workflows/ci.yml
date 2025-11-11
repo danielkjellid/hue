@@ -101,7 +101,7 @@ jobs:
         path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
-      cmd: make css-check
+      cmd: make check-css
 
   ci-done:
     # Gather job which deploy workflow can wait on.
