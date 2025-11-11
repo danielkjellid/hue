@@ -1,0 +1,27 @@
+extend-exclude = [".git", ".venv", "__pycache__", "conftest.py"]
+
+[lint]
+select = [
+    # Regular flake8 AITH
+    "C",
+    "E",
+    "F",
+    "W",
+    # flake8-bugbear rules
+    "B",
+    # isort rules
+    "I",
+    # Pylint rules
+    "PLC",
+    "PLE",
+    "PLR",
+    "PLW",
+    "RUF",
+]
+ignore = []
+
+[lint.pylint]
+max-args = 10
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
