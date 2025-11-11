@@ -8,7 +8,7 @@ from hue.spacing import (
 )
 
 from hue.types.css import AlignItems, JustifyContent
-
+from hue.utils import concatenate_classes
 from hue.types.core import ComponentType
 
 
@@ -42,7 +42,7 @@ def _get_stack_component_classes(
     justify_content: JustifyContent = "justify-start",
     align_items: AlignItems = "items-start",
     position: Literal["relative", "absolute", "fixed", "sticky"] = "relative",
-) -> list[str]:
+) -> str:
     """
     Get the classes for a stack component.
     """
@@ -55,4 +55,4 @@ def _get_stack_component_classes(
     else:
         classes.extend(["flex-row", spacing_x])
 
-    return classes
+    return concatenate_classes(classes)
