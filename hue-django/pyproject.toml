@@ -16,6 +16,14 @@ hue = { path = "../hue-python", editable = true }
 [dependency-groups]
 dev = [
     "deptry>=0.24.0",
+    "django-stubs>=5.2.7",
     "mypy>=1.18.2",
     "ruff>=0.14.4",
 ]
+
+##########
+# Deptry #
+##########
+
+[tool.deptry]
+known_first_party = ["hue_django"]
