@@ -1,8 +1,7 @@
 from abc import abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar
+from typing import ClassVar
 from hue.types.core import Component, ComponentType
 from hue.formatter import HueFormatter
 from hue.context import HueContext, HueContextArgs
@@ -95,9 +94,7 @@ class BaseView:
 
         return merged
 
-    async def render[T_Request: Mapping[str, Any]](
-        self, context_args: HueContextArgs[T_Request]
-    ) -> str:
+    async def render[T_Request](self, context_args: HueContextArgs[T_Request]) -> str:
         # Htmy automatically calls the htmy function on all classes, so its enough
         # to pass self as an argument to the HueContext constructor, but mypy
         # does not understand it.

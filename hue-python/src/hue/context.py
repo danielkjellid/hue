@@ -1,15 +1,15 @@
-from typing import Any, Mapping, TypedDict
+from typing import TypedDict
 
 from htmy import Context
 from hue.types.core import Component, ComponentType
 
 
-class HueContextArgs[T_Request: Mapping[str, Any]](TypedDict):
+class HueContextArgs[T_Request](TypedDict):
     request: T_Request
     csrf_token: str
 
 
-class HueContext[T_Request: Mapping[str, Any]]:
+class HueContext[T_Request]:
     def __init__(
         self, *children: ComponentType, **kwargs: HueContextArgs[T_Request]
     ) -> None:
