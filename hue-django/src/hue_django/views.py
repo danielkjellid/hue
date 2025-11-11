@@ -6,6 +6,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views import View
 from django.http import HttpRequest, HttpResponse
 from django.middleware.csrf import get_token
+from hue_django.conf import settings
 
 
 class HueView(BaseView, ViewValidationMixin, View):
@@ -27,7 +28,7 @@ class HueView(BaseView, ViewValidationMixin, View):
     @cached_property
     def css_url(self) -> str:
         """Get the CSS URL using Django's static files storage."""
-        return staticfiles_storage.url("hue/styles/tailwind.css")
+        return staticfiles_storage.url(settings.HUE_CSS_STATIC_PATH)
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         context = HueContextArgs[HttpRequest](
