@@ -72,7 +72,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: check for missing __init__.py files
-        working-directory: ${{ matrix.path }}
         uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
