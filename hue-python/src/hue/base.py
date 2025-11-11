@@ -1,12 +1,14 @@
+import json
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from typing import ClassVar
-from hue.types.core import Component, ComponentType
-from hue.formatter import HueFormatter
+
+from htmy import Context, Renderer, html
+
 from hue.context import HueContext, HueContextArgs
-from htmy import Context, html, Renderer
-import json
+from hue.formatter import HueFormatter
+from hue.types.core import Component, ComponentType
 
 type X_Data = dict[str, str]
 
@@ -58,7 +60,8 @@ class BaseView:
     def __init_subclass__(cls) -> None:
         """
         Base initialization for subclasses.
-        Framework-specific base classes should override this to add their own validation.
+        Framework-specific base classes should override this to add their own
+        validation.
         """
         super().__init_subclass__()
 

@@ -1,12 +1,13 @@
 from functools import cached_property
 from typing import Callable
 
-from hue.base import BaseView, ViewValidationMixin
-from hue.context import HueContextArgs
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.views import View
 from django.http import HttpRequest, HttpResponse
 from django.middleware.csrf import get_token
+from django.views import View
+from hue.base import BaseView, ViewValidationMixin
+from hue.context import HueContextArgs
+
 from hue_django.conf import settings
 
 
