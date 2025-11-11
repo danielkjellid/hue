@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Callable
 
 from hue.base import BaseView, ViewValidationMixin
 from hue.context import HueContextArgs
@@ -29,6 +30,10 @@ class HueView(BaseView, ViewValidationMixin, View):
     def css_url(self) -> str:
         """Get the CSS URL using Django's static files storage."""
         return staticfiles_storage.url(settings.HUE_CSS_STATIC_PATH)
+
+    @cached_property
+    def html_title_factory(self) -> Callable[[str], str]:
+        return settings.HUE_HTML_TITLE_FACTORY
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         context = HueContextArgs[HttpRequest](
