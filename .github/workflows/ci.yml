@@ -95,16 +95,13 @@ jobs:
           echo "✓ Version '$VERSION' is valid SemVer"
 
   css-check:
-    runs-on: ubuntu-latest
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
         path: [hue-python, hue-django]
-    steps:
-      - uses: actions/checkout@v3
-      - name: check css
-        working-directory: ${{ matrix.path }}
-        run: |
-          make check-css
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: make css-check
 
   ci-done:
     # Gather job which deploy workflow can wait on.
