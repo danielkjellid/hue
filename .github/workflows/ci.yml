@@ -7,7 +7,7 @@ env:
 
 jobs:
   ruff-format:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@danielkjellid-patch-1
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
         path:
