@@ -92,6 +92,6 @@ jobs:
     #   - lockfile-consistency
     #   - unused-dependencies
     #   - python-missing-init
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - run: echo "CI done for ${{ matrix.path }}!"
