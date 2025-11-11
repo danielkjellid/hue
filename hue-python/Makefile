@@ -21,6 +21,17 @@ watch-css: .venv ; $(info $(M) watching css) @
 build-css: .venv ; $(info $(M) building minified css) @
 	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css
 
+.PHONY: check-css
+check-css: .venv ; $(info $(M) checking if css would change) @
+	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o /tmp/tailwind.css
+	@if diff -q $(PACKAGE)/static/styles/tailwind.css /tmp/tailwind.css > /dev/null 2>&1; then \
+		echo "No changes would be made"; \
+		exit 0; \
+	else \
+		echo "CSS would change. Diff:"; \
+		diff $(PACKAGE)/static/styles/tailwind.css /tmp/tailwind.css || exit 1; \
+	fi
+
 .PHONY: copy-css-to-frameworks
 copy-css-to-frameworks: copy-css-to-django
 
