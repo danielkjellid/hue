@@ -6,64 +6,64 @@ env:
   COLUMNS: 120
 
 jobs:
-  matrix:
-    spec:
-      - name: hue-python
-        path: hue-python
-      - name: hue-django
-        path: hue-django
-  steps:
-    # - ruff-format:
-    #   name: ruff format
-    #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    #   with:
-    #     cmd: cd ${{ matrix.path }} && make lint-ruff-format
+  # matrix:
+  #   spec:
+  #     - name: hue-python
+  #       path: hue-python
+  #     - name: hue-django
+  #       path: hue-django
+  # steps:
+  # - ruff-format:
+  #   name: ruff format
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   with:
+  #     cmd: cd ${{ matrix.path }} && make lint-ruff-format
 
-    # - ruff-lint:
-    #   name: ruff lint
-    #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    #   with:
-    #     cmd: cd ${{ matrix.path }} && make lint-ruff
+  # - ruff-lint:
+  #   name: ruff lint
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   with:
+  #     cmd: cd ${{ matrix.path }} && make lint-ruff
 
-    # - mypy:
-    #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    #   with:
-    #     cmd: cd ${{ matrix.path }} && make lint-mypy
+  # - mypy:
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   with:
+  #     cmd: cd ${{ matrix.path }} && make lint-mypy
 
-    # - lockfile-consistency:
-    #   name: lockfile consistency
-    #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    #   with:
-    #     cmd: cd ${{ matrix.path }} && uv lock --locked --offline
+  # - lockfile-consistency:
+  #   name: lockfile consistency
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   with:
+  #     cmd: cd ${{ matrix.path }} && uv lock --locked --offline
 
-    # - unused-dependencies:
-    #   name: unused dependencies
-    #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    #   with:
-    #     cmd: cd ${{ matrix.path }} && uv run deptry .
+  # - unused-dependencies:
+  #   name: unused dependencies
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   with:
+  #     cmd: cd ${{ matrix.path }} && uv run deptry .
 
-    # - python-missing-init:
-    #   name: missing __init__.py files
-    #   permissions: write-all
-    #   runs-on: ubuntu-20.04
-    #   steps:
-    #     - uses: actions/checkout@v3
-    #     - name: check for missing __init__.py files
-    #       uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
-    #       with:
-    #         github-token: ${{ secrets.GITHUB_TOKEN }}
-    #         paths: storeganizer
+  # - python-missing-init:
+  #   name: missing __init__.py files
+  #   permissions: write-all
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: check for missing __init__.py files
+  #       uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
+  #       with:
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         paths: storeganizer
 
-    - ci-done:
-      # Gather job which deploy workflow can wait on.
-      name: CI done
-      # needs:
-      #   - ruff-format
-      #   - ruff-lint
-      #   - mypy
-      #   - lockfile-consistency
-      #   - unused-dependencies
-      #   - python-missing-init
-      runs-on: ubuntu-20.04
-      steps:
-        - run: echo "CI done!"
+  ci-done:
+    # Gather job which deploy workflow can wait on.
+    name: CI done
+    # needs:
+    #   - ruff-format
+    #   - ruff-lint
+    #   - mypy
+    #   - lockfile-consistency
+    #   - unused-dependencies
+    #   - python-missing-init
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "CI done!"
