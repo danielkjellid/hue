@@ -12,3 +12,10 @@ dependencies = [
     "htmy>=0.8.2",
     "pytailwindcss>=0.3.0",
 ]
+
+[dependency-groups]
+dev = [
+    "deptry>=0.24.0",
+    "mypy>=1.18.2",
+    "ruff>=0.14.4",
+]
