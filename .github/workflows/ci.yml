@@ -67,8 +67,8 @@ jobs:
     strategy:
       matrix:
         path:
-          - hue-python
-          - hue-django
+          - hue-python/src/hue
+          - hue-django/src/hue_django
     steps:
       - uses: actions/checkout@v3
       - name: check for missing __init__.py files
