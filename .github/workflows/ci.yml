@@ -96,11 +96,8 @@ jobs:
 
   css-check:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    strategy:
-      matrix:
-        path: [hue-python, hue-django]
     with:
-      working-directory: ${{ matrix.path }}
+      working-directory: hue-python
       cmd: make check-css
 
   ci-done:
