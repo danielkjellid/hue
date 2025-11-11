@@ -6,10 +6,9 @@ from hue.spacing import (
     SPACING,
     Size,
 )
-
+from hue.types.core import ComponentType
 from hue.types.css import AlignItems, JustifyContent
 from hue.utils import concatenate_classes
-from hue.types.core import ComponentType
 
 
 def Stack(
