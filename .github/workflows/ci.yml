@@ -13,8 +13,9 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     with:
-      cmd: cd ${{ matrix.path }} && make lint-ruff-format
+      cmd: make lint-ruff-format
 
   ruff-lint:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
@@ -23,8 +24,9 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     with:
-      cmd: cd ${{ matrix.path }} && make lint-ruff
+      cmd: make lint-ruff
 
   mypy:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
@@ -33,8 +35,9 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     with:
-      cmd: cd ${{ matrix.path }} && make lint-mypy
+      cmd: make lint-mypy
 
   lockfile-consistency:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
@@ -43,8 +46,9 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     with:
-      cmd: cd ${{ matrix.path }} && uv lock --locked --offline
+      cmd: uv lock --locked --offline
 
   unused-dependencies:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
@@ -53,8 +57,9 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     with:
-      cmd: cd ${{ matrix.path }} && uv run deptry .
+      cmd: uv run deptry .
 
   python-missing-init:
     permissions: write-all
@@ -64,6 +69,7 @@ jobs:
         path:
           - hue-python
           - hue-django
+    working-directory: ${{ matrix.path }}
     steps:
       - uses: actions/checkout@v3
       - name: check for missing __init__.py files
