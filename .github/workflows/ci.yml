@@ -1,0 +1,97 @@
+name: CI
+
+on: push
+
+env:
+  COLUMNS: 120
+
+jobs:
+  ruff-format:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: make lint-ruff-format
+
+  ruff-lint:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: make lint-ruff
+
+  mypy:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: make lint-mypy
+
+  lockfile-consistency:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: uv lock --locked --offline
+
+  unused-dependencies:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    with:
+      working-directory: ${{ matrix.path }}
+      cmd: uv run deptry .
+
+  python-missing-init:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path:
+          - hue-python/src/hue
+          - hue-django/src/hue_django
+    steps:
+      - uses: actions/checkout@v3
+      - name: check for missing __init__.py files
+        uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          paths: ${{ matrix.path }}
+
+  ci-done:
+    # Gather job which deploy workflow can wait on.
+    name: CI done
+    strategy:
+      matrix:
+        path:
+          - hue-python
+          - hue-django
+    needs:
+      - ruff-format
+      - ruff-lint
+      - mypy
+      - lockfile-consistency
+      - unused-dependencies
+      - python-missing-init
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI done for ${{ matrix.path }}!"

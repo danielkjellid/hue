@@ -1,44 +1,33 @@
-PACKAGE = hue
-BASE  	= $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+PACKAGE = src/hue
+BASE  	= $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
 TESTS		= tests
 
-UV      = uv
+include ../base.mk
 
-V = 0
-Q = $(if $(filter 1,$V),,@)
-M = $(shell printf "\033[34;1m▶\033[0m")
-
-$(UV): ; $(info $(M) checking uv)
-	$Q
-
-$(BASE): | $(UV) ; $(info $(M) checking PROJECT)
-	$Q
-
-.venv: pyproject.toml uv.lock | $(BASE) ; $(info $(M) retrieving dependecies) @
-	$Q cd $(BASE) && $(UV) pip install -U pip
-	$Q cd $(BASE) && $(UV) sync
-	@touch $@
+.venv: pyproject.toml uv.lock ; $(info $(M) retrieving dependecies) @
+	$Q test -d .venv || $(UV) venv .venv
+	$Q $(UV) sync
+	@touch .venv
 
 #######
 # CSS #
 #######
 
 .PHONY: watch-css
-watch-css: .venv | $(BASE) ; $(info $(M) watching css) @
-	$Q cd $(BASE) && $(UV) run tailwindcss -i ./src/$(PACKAGE)/static/styles/tailwind.input.css -o ./src/$(PACKAGE)/static/styles/tailwind.css --watch
+watch-css: .venv ; $(info $(M) watching css) @
+	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css --watch
 
 .PHONY: build-css
-build-css: .venv | $(BASE) ; $(info $(M) building minified css) @
-	$Q cd $(BASE) && $(UV) run tailwindcss -i ./src/$(PACKAGE)/static/styles/tailwind.input.css -o ./src/$(PACKAGE)/static/styles/tailwind.css
+build-css: .venv ; $(info $(M) building minified css) @
+	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css
 
 .PHONY: copy-css-to-frameworks
 copy-css-to-frameworks: copy-css-to-django
 
-
 .PHONY: copy-css-to-django
-copy-css-to-django: .venv | $(BASE) ; $(info $(M) copying css to django) @
+copy-css-to-django: .venv ; $(info $(M) copying css to django) @
 	$Q mkdir -p ../hue-django/src/hue_django/static/hue/styles
-	$Q cp ./src/$(PACKAGE)/static/styles/tailwind.css ../hue-django/src/hue_django/static/hue/styles/tailwind.css
+	$Q cp $(PACKAGE)/static/styles/tailwind.css ../hue-django/src/hue_django/static/hue/styles/tailwind.css
 
 
 #########
