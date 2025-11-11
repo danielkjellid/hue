@@ -29,8 +29,7 @@ watch-css: .venv | $(BASE) ; $(info $(M) watching css) @
 
 .PHONY: build-css
 build-css: .venv | $(BASE) ; $(info $(M) building minified css) @
-	$Q cd $(BASE) && $(UV) run tailwindcss -i ./src/$(PACKAGE)/static/styles/tailwind.input.css -o ./src/$(PACKAGE)/static/styles/tailwind.css --minify
-
+	$Q cd $(BASE) && $(UV) run tailwindcss -i ./src/$(PACKAGE)/static/styles/tailwind.input.css -o ./src/$(PACKAGE)/static/styles/tailwind.css
 
 .PHONY: copy-css-to-frameworks
 copy-css-to-frameworks: copy-css-to-django
