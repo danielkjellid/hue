@@ -24,8 +24,8 @@ jobs:
         path:
           - hue-python
           - hue-django
-    working-directory: ${{ matrix.path }}
     with:
+      working-directory: ${{ matrix.path }}
       cmd: make lint-ruff
 
   mypy:
@@ -35,8 +35,8 @@ jobs:
         path:
           - hue-python
           - hue-django
-    working-directory: ${{ matrix.path }}
     with:
+      working-directory: ${{ matrix.path }}
       cmd: make lint-mypy
 
   lockfile-consistency:
@@ -46,8 +46,8 @@ jobs:
         path:
           - hue-python
           - hue-django
-    working-directory: ${{ matrix.path }}
     with:
+      working-directory: ${{ matrix.path }}
       cmd: uv lock --locked --offline
 
   unused-dependencies:
@@ -57,8 +57,8 @@ jobs:
         path:
           - hue-python
           - hue-django
-    working-directory: ${{ matrix.path }}
     with:
+      working-directory: ${{ matrix.path }}
       cmd: uv run deptry .
 
   python-missing-init:
