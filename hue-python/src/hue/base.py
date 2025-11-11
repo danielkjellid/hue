@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar
-from hue.types import Component, ComponentType
+from hue.types.core import Component, ComponentType
 from hue.formatter import HueFormatter
 from hue.context import HueContext, HueContextArgs
 from htmy import Context, html, Renderer

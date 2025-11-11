@@ -9,7 +9,7 @@ from hue.spacing import (
     Size,
 )
 
-from hue.types import ComponentType
+from hue.types.core import ComponentType
 
 
 def Stack(
