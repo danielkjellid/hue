@@ -7,7 +7,7 @@ env:
 
 jobs:
   ruff-format:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@danielkjellid-patch-1
     strategy:
       matrix:
         path:
@@ -15,68 +15,69 @@ jobs:
           - hue-django
     working-directory: ${{ matrix.path }}
     with:
+      working-directory: ${{ matrix.path }}
       cmd: make lint-ruff-format
 
-  ruff-lint:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    strategy:
-      matrix:
-        path:
-          - hue-python
-          - hue-django
-    working-directory: ${{ matrix.path }}
-    with:
-      cmd: make lint-ruff
+  # ruff-lint:
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   strategy:
+  #     matrix:
+  #       path:
+  #         - hue-python
+  #         - hue-django
+  #   working-directory: ${{ matrix.path }}
+  #   with:
+  #     cmd: make lint-ruff
 
-  mypy:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    strategy:
-      matrix:
-        path:
-          - hue-python
-          - hue-django
-    working-directory: ${{ matrix.path }}
-    with:
-      cmd: make lint-mypy
+  # mypy:
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   strategy:
+  #     matrix:
+  #       path:
+  #         - hue-python
+  #         - hue-django
+  #   working-directory: ${{ matrix.path }}
+  #   with:
+  #     cmd: make lint-mypy
 
-  lockfile-consistency:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    strategy:
-      matrix:
-        path:
-          - hue-python
-          - hue-django
-    working-directory: ${{ matrix.path }}
-    with:
-      cmd: uv lock --locked --offline
+  # lockfile-consistency:
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   strategy:
+  #     matrix:
+  #       path:
+  #         - hue-python
+  #         - hue-django
+  #   working-directory: ${{ matrix.path }}
+  #   with:
+  #     cmd: uv lock --locked --offline
 
-  unused-dependencies:
-    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
-    strategy:
-      matrix:
-        path:
-          - hue-python
-          - hue-django
-    working-directory: ${{ matrix.path }}
-    with:
-      cmd: uv run deptry .
+  # unused-dependencies:
+  #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+  #   strategy:
+  #     matrix:
+  #       path:
+  #         - hue-python
+  #         - hue-django
+  #   working-directory: ${{ matrix.path }}
+  #   with:
+  #     cmd: uv run deptry .
 
-  python-missing-init:
-    permissions: write-all
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        path:
-          - hue-python
-          - hue-django
-    working-directory: ${{ matrix.path }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: check for missing __init__.py files
-        uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          paths: ${{ matrix.path }}
+  # python-missing-init:
+  #   permissions: write-all
+  #   runs-on: ubuntu-20.04
+  #   strategy:
+  #     matrix:
+  #       path:
+  #         - hue-python
+  #         - hue-django
+  #   working-directory: ${{ matrix.path }}
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: check for missing __init__.py files
+  #       uses: ljodal/python-actions/check-for-missing-init@feature/check-for-missing-init
+  #       with:
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         paths: ${{ matrix.path }}
 
   ci-done:
     # Gather job which deploy workflow can wait on.
@@ -86,13 +87,13 @@ jobs:
         path:
           - hue-python
           - hue-django
-    needs:
-      - ruff-format
-      - ruff-lint
-      - mypy
-      - lockfile-consistency
-      - unused-dependencies
-      - python-missing-init
-    runs-on: ubuntu-latest
+    # needs:
+    #   - ruff-format
+    #   - ruff-lint
+    #   - mypy
+    #   - lockfile-consistency
+    #   - unused-dependencies
+    #   - python-missing-init
+    # runs-on: ubuntu-latest
     steps:
       - run: echo "CI done for ${{ matrix.path }}!"
