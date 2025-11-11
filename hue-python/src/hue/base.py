@@ -2,7 +2,7 @@ from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
 from hue.types.core import Component, ComponentType
 from hue.formatter import HueFormatter
 from hue.context import HueContext, HueContextArgs
@@ -67,7 +67,7 @@ class BaseView:
     def css_url(self) -> str:
         raise NotImplementedError("css_url must be implemented in the subclass")
 
-    def html_title_factory(self) -> Callable[[str], str]:
+    def html_title_factory(self, text: str) -> str:
         raise NotImplementedError(
             "html_title_factory must be implemented in the subclass"
         )
@@ -98,7 +98,10 @@ class BaseView:
     async def render[T_Request: Mapping[str, Any]](
         self, context_args: HueContextArgs[T_Request]
     ) -> str:
-        page = HueContext(self, **context_args)
+        # Htmy automatically calls the htmy function on all classes, so its enough
+        # to pass self as an argument to the HueContext constructor, but mypy
+        # does not understand it.
+        page = HueContext[T_Request](self, **context_args)  # type: ignore
         renderer = Renderer()
         return await renderer.render(page)
 

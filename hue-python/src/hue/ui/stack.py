@@ -4,10 +4,10 @@ from htmy import html
 
 from hue.spacing import (
     SPACING,
-    AlignItems,
-    JustifyContent,
     Size,
 )
+
+from hue.types.css import AlignItems, JustifyContent
 
 from hue.types.core import ComponentType
 
