@@ -16,7 +16,6 @@ jobs:
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-ruff-format
-
   # ruff-lint:
   #   uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
   #   strategy:
