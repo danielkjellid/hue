@@ -64,6 +64,6 @@ jobs:
     #   - lockfile-consistency
     #   - unused-dependencies
     #   - python-missing-init
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - run: echo "CI done!"
