@@ -5,14 +5,15 @@ on: push
 env:
   COLUMNS: 120
 
+# Projects to run CI for (update matrix.path in each job when adding new projects)
+# Note: GitHub Actions doesn't support shared matrix definitions, so each job must define it
+
 jobs:
   ruff-format:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-ruff-format
@@ -21,9 +22,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-ruff
@@ -32,9 +31,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-mypy
@@ -43,9 +40,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: uv lock --locked --offline
@@ -54,9 +49,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: uv run deptry .
@@ -77,14 +70,36 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           paths: ${{ matrix.path }}
 
+  semver-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path: [hue-python, hue-django]
+    steps:
+      - uses: actions/checkout@v3
+      - name: check for semver violations
+        run: |
+          cd ${{ matrix.path }}
+          VERSION=$(grep -E '^version\s*=' pyproject.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not find version in pyproject.toml"
+            exit 1
+          fi
+          echo "Found version: $VERSION"
+          SEMVER_REGEX='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
+          if ! echo "$VERSION" | grep -qE "$SEMVER_REGEX"; then
+            echo "Error: Version '$VERSION' does not match SemVer specification"
+            echo "Expected format: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]"
+            exit 1
+          fi
+          echo "✓ Version '$VERSION' is valid SemVer"
+
   ci-done:
     # Gather job which deploy workflow can wait on.
     name: CI done
     strategy:
       matrix:
-        path:
-          - hue-python
-          - hue-django
+        path: [hue-python, hue-django]
     needs:
       - ruff-format
       - ruff-lint
@@ -92,6 +107,7 @@ jobs:
       - lockfile-consistency
       - unused-dependencies
       - python-missing-init
+      - semver-check
     runs-on: ubuntu-latest
     steps:
       - run: echo "CI done for ${{ matrix.path }}!"
