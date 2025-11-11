@@ -19,7 +19,7 @@ watch-css: .venv ; $(info $(M) watching css) @
 
 .PHONY: build-css
 build-css: .venv ; $(info $(M) building minified css) @
-	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css
+	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css --minify
 
 .PHONY: check-css
 check-css: .venv ; $(info $(M) checking if css would change) @
