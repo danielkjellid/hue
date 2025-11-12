@@ -32,7 +32,8 @@ type TextAlign = Literal["text-left", "text-center", "text-right"]
 
 
 def Text[T: TextTag](
-    *children: ComponentType,
+    text: str,
+    *,
     muted: bool = False,
     destructive: bool = False,
     tag: Type[T] | None = None,
@@ -54,7 +55,7 @@ def Text[T: TextTag](
     )
 
     return BaseText(
-        *[str(child) for child in children],
+        text,
         classes=classes,
         tag=tag or html.p,
         variant=variant,
@@ -74,7 +75,7 @@ def Label(
     """
     The label component is a component that adds a label to a form field.
     """
-    content: list[ComponentType] = [html.span(text)]
+    content: list[html.span] = [html.span(text)]
 
     if required:
         content.append(html.span("*", class_="text-destructive"))

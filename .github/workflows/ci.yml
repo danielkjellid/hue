@@ -100,6 +100,15 @@ jobs:
       working-directory: hue-python
       cmd: make check-css
 
+  tests:
+    uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
+    strategy:
+      matrix:
+        path: [hue-python]
+    with:
+      working-directory: hue-python
+      cmd: uv run pytest .
+
   ci-done:
     # Gather job which deploy workflow can wait on.
     name: CI done
@@ -115,6 +124,7 @@ jobs:
       - python-missing-init
       - semver-check
       - css-check
+      - tests
     runs-on: ubuntu-latest
     steps:
       - run: echo "CI done for ${{ matrix.path }}!"
