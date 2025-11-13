@@ -116,73 +116,89 @@ class _BaseInput(BaseComponent):
     def aria_invalid(self) -> bool:
         return self.error_text is not None
 
+    @property
+    def error_text_id(self) -> str:
+        return f"{self.name}-error"
+
+    @property
+    def description_id(self) -> str:
+        return f"{self.name}-description"
+
+    @property
+    def aria_describedby(self) -> str:
+        description_ids = [
+            self.description_id if self.help_text else None,
+            self.error_text_id if self.error_text else None,
+        ]
+        return " ".join([val for val in description_ids if val is not None])
+
+    @property
+    def is_number_input(self) -> bool:
+        return isinstance(self, NumberInput)
+
     def htmy(self, *args, **kwargs) -> Stack:
         classes = (
             _get_base_input_classes(
-                disabled=input.disabled,
-                aria_invalid=input.aria_invalid,
-                class_=input.class_,
+                disabled=self.disabled,
+                aria_invalid=self.aria_invalid,
+                class_=self.class_,
             ),
         )
 
         # Some attributes are only relevant for certain input types.
         input_attrs = {}
-        if _is_number_input(self):
+        if self.is_number_input:
             input_attrs = {
-                "min": input.min,
-                "max": input.max,
-                "step": input.step,
+                "min": self.min,
+                "max": self.max,
+                "step": self.step,
             }
         else:
             input_attrs = {
-                "min_length": input.min_length,
-                "max_length": input.max_length,
+                "min_length": self.min_length,
+                "max_length": self.max_length,
             }
 
         return Stack(
             Label(
-                input.label,
-                required=input.required,
-                disabled=input.disabled,
-                hidden_label=input.hidden_label,
-                html_for=input.name,
+                self.label,
+                required=self.required,
+                disabled=self.disabled,
+                hidden_label=self.hidden_label,
+                html_for=self.name,
             ),
             html.div(
                 html.input_(
-                    type=input.type,
-                    name=input.name,
-                    id=input.name,
+                    type=self.type,
+                    name=self.name,
+                    id=self.name,
                     class_=classes,
-                    placeholder=input.placeholder,
-                    autocomplete=input.autocomplete,
+                    placeholder=self.placeholder,
+                    autocomplete=self.autocomplete,
                     # Aria attributes
-                    aria_label=input.label,
-                    aria_required=input.required,
-                    aria_invalid=input.aria_invalid,
-                    aria_disabled=input.disabled,
-                    aria_errormessage=input.error_text,
-                    aria_describedby=_get_aria_describedby(
-                        name=input.name,
-                        help_text=input.help_text,
-                        error_text=input.error_text,
-                    ),
+                    aria_label=self.label,
+                    aria_required=self.required,
+                    aria_invalid=self.aria_invalid,
+                    aria_disabled=self.disabled,
+                    aria_errormessage=self.error_text,
+                    aria_describedby=self.aria_describedby,
                     **input_attrs,
                 ),
                 class_="relative flex items-center w-full",
             ),
             render_if(
-                input.help_text is not None,
+                self.help_text is not None,
                 Text(
-                    input.help_text,  # type: ignore
+                    self.help_text,  # type: ignore
                     variant="body",
                     muted=True,
                     tag=html.span,
                 ),
             ),
             render_if(
-                input.error_text is not None,
+                self.error_text is not None,
                 Text(
-                    input.error_text,  # type: ignore
+                    self.error_text,  # type: ignore
                     variant="body",
                     destructive=True,
                     role="alert",
@@ -222,29 +238,6 @@ class PasswordInput(_BaseInput):
     autocomplete: Literal["current-password"] = field(
         default="current-password", init=False
     )
-
-
-def _is_number_input(input: _BaseInput) -> bool:
-    return isinstance(input, NumberInput)
-
-
-def _get_error_text_id(name) -> str:
-    return f"{name}-error"
-
-
-def _get_description_id(name) -> str:
-    return f"{name}-description"
-
-
-def _get_aria_describedby(
-    name: str, help_text: str | None, error_text: str | None
-) -> str:
-    description_ids = [
-        _get_description_id(name) if help_text else None,
-        _get_error_text_id(name) if error_text else None,
-    ]
-
-    return " ".join([val for val in description_ids if val is not None])
 
 
 def _get_base_input_classes(
