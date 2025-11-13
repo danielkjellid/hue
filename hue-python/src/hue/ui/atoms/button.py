@@ -1,9 +1,10 @@
 from dataclasses import KW_ONLY, dataclass, field
 from typing import Any, Literal
 
-from htmy import Context, html
+from htmy import html
 from typing_extensions import Annotated, Doc
 
+from hue.context import HueContext
 from hue.types.core import BaseComponent, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.utils import classnames
@@ -72,7 +73,7 @@ class Button(BaseComponent):
         Doc("Determines if the button has a aria-haspopup attribute."),
     ] = None
 
-    def htmy(self, context: Context, **kwargs: Any) -> html.button:
+    def htmy(self, context: HueContext, **kwargs: Any) -> html.button:
         classes = classnames(
             _get_base_button_classes(
                 fluid=self.fluid,
