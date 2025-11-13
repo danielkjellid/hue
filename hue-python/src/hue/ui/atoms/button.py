@@ -6,7 +6,7 @@ from typing_extensions import Annotated, Doc
 
 from hue.types.core import BaseComponent, ComponentType
 from hue.types.html import AriaHasPopup
-from hue.ui.atoms.icon import Icon, IconName
+from hue.ui.atoms.icon import BaseIcon, Icon, IconName
 from hue.utils import classnames
 
 type ButtonVariant = Literal[
@@ -98,8 +98,8 @@ class Button(BaseComponent):
 
 
 @dataclass(slots=True, kw_only=True, frozen=True)
-class IconButton(Button):
-    name: IconName
+class IconButton[T: BaseIcon](Button):
+    icon: T
 
     def htmy(self, context: Context, **kwargs: Any) -> html.button:
         icon_classes = classnames(
@@ -130,7 +130,7 @@ class IconButton(Button):
         )
 
         return html.button(
-            Icon(name=self.name, class_=icon_classes),
+            self.icon(class_=icon_classes),
             class_=button_classes,
             tabindex="0",
             type=self.type,
