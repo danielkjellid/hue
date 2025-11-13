@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from htmy import html
 from typing_extensions import Doc
 
+from hue.context import HueContext
 from hue.types.core import BaseComponent
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
@@ -136,7 +137,7 @@ class _BaseInput(BaseComponent):
     def is_number_input(self) -> bool:
         return isinstance(self, NumberInput)
 
-    def htmy(self, *args, **kwargs) -> Stack:
+    def htmy(self, context: HueContext, **kwargs: Any) -> Stack:
         classes = (
             _get_base_input_classes(
                 disabled=self.disabled,
