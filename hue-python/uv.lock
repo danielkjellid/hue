@@ -102,6 +102,7 @@ dependencies = [
     { name = "arel" },
     { name = "htmy" },
     { name = "pytailwindcss" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -117,6 +118,7 @@ requires-dist = [
     { name = "arel", specifier = ">=0.4.0" },
     { name = "htmy", specifier = ">=0.8.2" },
     { name = "pytailwindcss", specifier = ">=0.3.0" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 
 [package.metadata.requires-dev]
