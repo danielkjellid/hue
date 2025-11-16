@@ -302,8 +302,14 @@
   .inline-flex {
     display: inline-flex;
   }
+  .h-5 {
+    height: calc(var(--spacing) * 5);
+  }
   .min-h-screen {
     min-height: 100vh;
+  }
+  .w-5 {
+    width: calc(var(--spacing) * 5);
   }
   .w-fit {
     width: fit-content;
