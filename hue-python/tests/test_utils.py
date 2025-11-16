@@ -1,6 +1,6 @@
 import pytest
 
-from src.hue.utils import classnames
+from hue.utils import classnames
 
 
 @pytest.mark.parametrize(
