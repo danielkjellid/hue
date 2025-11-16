@@ -126,18 +126,18 @@ class _BaseInput(BaseComponent):
         return f"{self.name}-description"
 
     @property
-    def aria_describedby(self) -> str:
+    def _aria_describedby(self) -> str | None:
         description_ids = [
             self.description_id if self.help_text else None,
             self.error_text_id if self.error_text else None,
         ]
-        return " ".join([val for val in description_ids if val is not None])
+        return (
+            " ".join([val for val in description_ids if val is not None])
+            if description_ids
+            else self.aria_describedby
+        )
 
-    @property
-    def is_number_input(self) -> bool:
-        return isinstance(self, NumberInput)
-
-    def htmy(self, context: HueContext, **kwargs: Any) -> Stack:
+    def htmy(self, context: HueContext, **kwargs: Any) -> html.div:
         classes = (
             _get_base_input_classes(
                 disabled=self.disabled,
@@ -148,7 +148,7 @@ class _BaseInput(BaseComponent):
 
         # Some attributes are only relevant for certain input types.
         input_attrs = {}
-        if self.is_number_input:
+        if isinstance(self, NumberInput):
             input_attrs = {
                 "min": self.min,
                 "max": self.max,
@@ -182,7 +182,7 @@ class _BaseInput(BaseComponent):
                     aria_invalid=self.aria_invalid,
                     aria_disabled=self.disabled,
                     aria_errormessage=self.error_text,
-                    aria_describedby=self.aria_describedby,
+                    aria_describedby=self._aria_describedby,
                     **input_attrs,
                 ),
                 class_="relative flex items-center w-full",

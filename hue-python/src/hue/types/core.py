@@ -4,8 +4,8 @@ from typing import Any, Literal, Protocol
 
 from htmy import Component as HTMYComponent
 from htmy import ComponentType as HTMYComponentType
-from htmy import Context
 
+from hue.context import HueContext
 from hue.types.html import AriaAtomic, AriaLive, AriaRole
 
 
@@ -68,7 +68,7 @@ class BaseComponent(ABC, BaseProps):
     class_: str | None = None
 
     @abstractmethod
-    def htmy(self, context: Context, **kwargs: Any) -> Component: ...
+    def htmy(self, context: HueContext, **kwargs: Any) -> Component: ...
 
     @property
     def base_props(self) -> dict[str, Any]:
