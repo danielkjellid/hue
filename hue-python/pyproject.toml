@@ -31,6 +31,14 @@ extend = "../ruff.toml"
 
 [tool.deptry]
 known_first_party = ["hue"]
+extend_exclude = ["tests", "test_.*\\.py"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = ["arel", "pytailwindcss"]
+
+##########
+# Pytest #
+##########
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

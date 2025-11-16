@@ -32,7 +32,7 @@ lint-mypy: .venv | $(BASE) ; $(info $(M) running mypy...) @
 
 .PHONY: lint-deptry
 lint-deptry: .venv | $(BASE) ; $(info $(M) running deptry...) @
-	$Q cd $(BASE) && $(UV) run deptry $(BASE)
+	$Q cd $(BASE) && $(UV) run deptry . --config pyproject.toml
 
 ##########
 # Fixers #
