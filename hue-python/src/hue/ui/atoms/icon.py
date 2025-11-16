@@ -1,9 +1,8 @@
-import html
 import os
 from dataclasses import dataclass
 from xml.dom import minidom
 
-from htmy import Tag
+from htmy import Tag, html
 from typing_extensions import Any
 
 from hue.context import HueContext
@@ -28,14 +27,14 @@ class HueIcon(BaseComponent):
 
     def htmy(self, context: HueContext, **kwargs: Any) -> html.svg:
         return _render_icon(
-            path=os.path.join(self.icons_dir, self.name),
+            icon_path=f"{os.path.join(self.icons_dir, self.name)}.svg",
             class_=self.class_,
         )
 
 
-def _render_icon(*, path: str, class_: str | None = None) -> html.svg:
+def _render_icon(*, icon_path: str, class_: str | None = None) -> html.svg:
     try:
-        with open(path, "r") as f:
+        with open(icon_path, "r") as f:
             icon_file = f.read()
 
             icon_doc = minidom.parseString(icon_file)
