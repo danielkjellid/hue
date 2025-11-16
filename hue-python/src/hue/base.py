@@ -108,7 +108,7 @@ class BaseView:
     async def htmy(self, context: Context) -> Component:
         # Extract HueContext from the context provided by the renderer
         # This context is populated by HueContext.htmy_context()
-        ctx = HueContext.from_context(context)
+        # ctx = HueContext.from_context(context)
 
         return HueFormatter().in_context(
             html.DOCTYPE.html,
@@ -133,7 +133,6 @@ class BaseView:
                     x_data=self.inject_x_data(),
                     x_bind_data_theme="theme",
                     class_="min-h-screen bg-background relative",
-                    hx_headers=json.dumps({"X-CSRFToken": ctx.csrf_token}),
                 ),
             ),
         )

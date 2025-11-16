@@ -26,20 +26,6 @@ type ComponentType = HTMYComponentType | Undefined
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class BaseProps:
-    # HTMX props
-    hx_get: str | None = None
-    hx_post: str | None = None
-    hx_swap: str | None = None
-    hx_target: str | None = None
-    hx_trigger: str | None = None
-    hx_on: str | None = None
-    hx_push_url: str | None = None
-    hx_select: str | None = None
-    hx_vals: str | None = None
-    hx_confirm: str | None = None
-    hx_indicator: str | None = None
-    hx_include: str | None = None
-
     # Aria props
     aria_label: str | None = None
     aria_hidden: Literal["true", "false"] | None = None
