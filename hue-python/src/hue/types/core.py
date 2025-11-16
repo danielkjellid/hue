@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from htmy import Component as HTMYComponent
 from htmy import ComponentType as HTMYComponentType
 
-from hue.context import HueContext
 from hue.types.html import AriaAtomic, AriaLive, AriaRole
+
+if TYPE_CHECKING:
+    from hue.context import HueContext
 
 
 class Undefined(Protocol):
@@ -68,7 +70,7 @@ class BaseComponent(ABC, BaseProps):
     class_: str | None = None
 
     @abstractmethod
-    def htmy(self, context: HueContext, **kwargs: Any) -> Component: ...
+    def htmy(self, context: "HueContext", **kwargs: Any) -> Component: ...
 
     @property
     def base_props(self) -> dict[str, Any]:
