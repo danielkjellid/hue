@@ -7,6 +7,7 @@ include ../base.mk
 .venv: pyproject.toml uv.lock ; $(info $(M) retrieving dependecies) @
 	$Q test -d .venv || $(UV) venv .venv
 	$Q $(UV) sync
+	$Q $(UV) pip install -e .
 	@touch .venv
 
 #######

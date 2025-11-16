@@ -1,0 +1,4 @@
+{
+  "python.analysis.extraPaths": ["${workspaceFolder}/hue-python/src"],
+  "python.analysis.typeCheckingMode": "basic"
+}
