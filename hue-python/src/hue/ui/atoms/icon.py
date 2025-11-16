@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Annotated
 from xml.dom import minidom
 
@@ -43,7 +43,7 @@ class Icon(BaseComponent):
     def icons_dir(self) -> str:
         raise NotImplementedError("Icons dir must be specified")
 
-    def htmy(self, context: HueContext, **kwargs: Any) -> html.svg:
+    def htmy(self, context: HueContext, **kwargs: Any) -> html.svg | Undefined:
         if not self.name:
             return Undefined
 
