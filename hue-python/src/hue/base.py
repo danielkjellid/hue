@@ -75,7 +75,7 @@ class BaseView:
         )
 
     @abstractmethod
-    def body(self, context: Context) -> ComponentType:
+    def body(self, context: HueContext) -> ComponentType:
         raise NotImplementedError("body must be implemented in the subclass")
 
     def inject_x_data(self) -> str:
