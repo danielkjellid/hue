@@ -75,7 +75,7 @@ class BaseView:
         )
 
     @abstractmethod
-    def body(self, context: Context) -> ComponentType:
+    def body(self, context: HueContext) -> ComponentType:
         raise NotImplementedError("body must be implemented in the subclass")
 
     def inject_x_data(self) -> str:
@@ -85,6 +85,22 @@ class BaseView:
         # Merge base_x_data with child's x_data, giving precedence to child's data
         combined_data = {**self.base_x_data, **self.collect_x_data()}
         return json.dumps(combined_data)
+
+    def configure_alpine(self, context: HueContext) -> html.script:
+        # Use separate conditions to avoid && being escaped
+        script_content = f"""
+        document.addEventListener('DOMContentLoaded', function() {{
+            if (typeof Alpine !== 'undefined') {{
+                if (typeof ajax !== 'undefined') {{
+                    Alpine.plugin(ajax.configure({{
+                        headers: {{"X-CSRF-Token": "{context.csrf_token}" }}
+                    }}));
+                    Alpine.start();
+                }}
+            }}
+        }});
+        """
+        return html.script(script_content)
 
     def collect_x_data(self) -> dict:
         merged = {}
@@ -108,7 +124,7 @@ class BaseView:
     async def htmy(self, context: Context) -> Component:
         # Extract HueContext from the context provided by the renderer
         # This context is populated by HueContext.htmy_context()
-        # ctx = HueContext.from_context(context)
+        ctx = HueContext.from_context(context)
 
         return HueFormatter().in_context(
             html.DOCTYPE.html,
@@ -117,7 +133,10 @@ class BaseView:
                     html.title(self.html_title_factory(self.title)),
                     html.meta.charset(),
                     html.meta.viewport(),
-                    html.script(src="https://unpkg.com/htmx.org@2.0.2"),
+                    html.script(
+                        src="https://cdn.jsdelivr.net/npm/@imacrayon/alpine-ajax@0.12.6/dist/cdn.min.js",
+                        defer=True,
+                    ),
                     html.script(
                         src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
                         defer=True,
@@ -129,10 +148,11 @@ class BaseView:
                     ),
                 ),
                 html.body(
-                    self.body(context),
+                    self.body(ctx),
                     x_data=self.inject_x_data(),
                     x_bind_data_theme="theme",
                     class_="min-h-screen bg-background relative",
                 ),
+                self.configure_alpine(ctx),
             ),
         )
