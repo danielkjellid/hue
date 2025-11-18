@@ -154,8 +154,8 @@ class BaseComponent(ABC, BaseProps):
     @property
     def base_props(self) -> dict[str, Any]:
         """
-        Get the base props of the component. Note: The `class_` field is not included.
-        because it is a special field that is handled by the `combine_classes` util.
+        Get the base props of the component. Note: The `class_` field is not included as
+        its often handled on a component basis.
         """
         return {
             field.name: getattr(self, field.name)
