@@ -1,6 +1,6 @@
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partialmethod
 
 
 @dataclass
@@ -11,7 +11,8 @@ class Route:
     path: str
     handler: Callable
     is_ajax: bool = False
-    # List of parameter names from path like <int:comment_id>
+    # List of parameter names extracted from path
+    # Framework-specific routers can populate this based on their path syntax
     path_params: list[str] = None
 
     def __post_init__(self):
@@ -21,10 +22,11 @@ class Route:
 
 class Router[T_Request]:
     """
-    Lightweight router for defining routes in HueView.
+    Framework-agnostic base router for defining routes in HueView.
 
     Routes can be regular (full page) or AJAX (fragments).
-    Supports Django URL patterns like "comments/<int:comment_id>/".
+    Path parameter parsing is framework-specific and should be handled
+    by framework-specific router subclasses.
 
     Example:
         class MyView(HueView):
@@ -43,28 +45,20 @@ class Router[T_Request]:
         # Store routes as: (method, path_pattern) -> Route
         self._routes: list[Route] = []
 
+    def _normalize_path(self, path: str) -> str:
+        """
+        Normalize the path (e.g., strip leading slashes).
+
+        Can be overridden by framework-specific routers for custom normalization.
+        """
+        # Default: strip leading slash
+        # Root path "/" becomes "" (empty string)
+        return path.lstrip("/")
+
     def _parse_path_params(self, path: str) -> tuple[str, list[str]]:
-        """
-        Parse Django URL pattern parameters from path.
-
-        Example:
-            "comments/<int:comment_id>/" -> (
-                "comments/<int:comment_id>/", ["comment_id"]
-            )
-            "users/<str:username>/posts/" -> (
-                "users/<str:username>/posts/", ["username"]
-            )
-
-        Returns:
-            Tuple of (django_path_pattern, list_of_param_names)
-        """
-        # Find all <type:name> patterns
-        param_pattern = r"<(\w+):(\w+)>"
-        matches = re.findall(param_pattern, path)
-        param_names = [name for _, name in matches]
-
-        # The path is already in Django URL pattern format, just return it
-        return path, param_names
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
 
     def _register(
         self,
@@ -74,17 +68,16 @@ class Router[T_Request]:
         is_ajax: bool = False,
     ) -> Callable:
         """Register a route handler."""
-        # Strip leading slash - Django URL patterns don't need it
-        # Root path "/" becomes "" (empty string)
-        normalized_path = path.lstrip("/")
+        # Normalize path (framework-specific routers can override)
+        normalized_path = self._normalize_path(path)
 
-        # Parse path parameters
-        django_path, param_names = self._parse_path_params(normalized_path)
+        # Parse path parameters (framework-specific routers can override)
+        final_path, param_names = self._parse_path_params(normalized_path)
 
         # Create route
         route = Route(
             method=method.upper(),
-            path=django_path,
+            path=final_path,
             handler=handler,
             is_ajax=is_ajax,
             path_params=param_names,
@@ -93,29 +86,26 @@ class Router[T_Request]:
         self._routes.append(route)
         return handler
 
-    def get(self, path: str) -> Callable:
-        """Register a GET route (full page)."""
-        return lambda handler: self._register("GET", path, handler, is_ajax=False)
+    def _request(
+        self, method: str, is_ajax: bool, path: str
+    ) -> Callable[[Callable], Callable]:
+        """
+        Internal method to register a route.
 
-    def ajax_get(self, path: str) -> Callable:
-        """Register an AJAX GET route (fragment)."""
-        return lambda handler: self._register("GET", path, handler, is_ajax=True)
+        Used with partialmethod to create the route decorator methods.
+        """
 
-    def ajax_post(self, path: str) -> Callable:
-        """Register an AJAX POST route (fragment)."""
-        return lambda handler: self._register("POST", path, handler, is_ajax=True)
+        def decorator(handler: Callable) -> Callable:
+            return self._register(method, path, handler, is_ajax=is_ajax)
 
-    def ajax_put(self, path: str) -> Callable:
-        """Register an AJAX PUT route (fragment)."""
-        return lambda handler: self._register("PUT", path, handler, is_ajax=True)
+        return decorator
 
-    def ajax_delete(self, path: str) -> Callable:
-        """Register an AJAX DELETE route (fragment)."""
-        return lambda handler: self._register("DELETE", path, handler, is_ajax=True)
-
-    def ajax_patch(self, path: str) -> Callable:
-        """Register an AJAX PATCH route (fragment)."""
-        return lambda handler: self._register("PATCH", path, handler, is_ajax=True)
+    get = partialmethod(_request, "GET", False)
+    ajax_get = partialmethod(_request, "GET", True)
+    ajax_post = partialmethod(_request, "POST", True)
+    ajax_put = partialmethod(_request, "PUT", True)
+    ajax_delete = partialmethod(_request, "DELETE", True)
+    ajax_patch = partialmethod(_request, "PATCH", True)
 
     def get_routes(self) -> list[Route]:
         """Get all registered routes."""

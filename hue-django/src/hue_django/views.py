@@ -11,10 +11,10 @@ from htmy import Renderer
 
 from hue.base import BaseView, ViewValidationMixin
 from hue.context import HueContext, HueContextArgs
-from hue.router import Router
 from hue.types.core import ComponentType
 
 from hue_django.conf import settings
+from hue_django.router import Router
 
 
 class HueViewMeta(type):
@@ -41,9 +41,9 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
             async def index(self, request: HttpRequest):
                 return html.div("Index")
 
-            @router.ajax_get("comments/")
-            async def comments(self, request: HttpRequest):
-                return html.div("Comments")
+            @router.ajax_get("comments/<int:comment_id>/")
+            async def comment(self, request: HttpRequest, comment_id: int):
+                return html.div(f"Comment {comment_id}")
     """
 
     @cached_property
@@ -75,7 +75,7 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
             # or
             urlpatterns = MyView.urls[0]  # Just get the patterns
         """
-        router: Router[HttpRequest] | None = getattr(cls, "router", None)
+        router = getattr(cls, "router", None)
         if not router:
             # No router, return empty tuple
             return ([], "")

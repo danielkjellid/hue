@@ -4,8 +4,8 @@ from django.urls import include, path
 import pytest
 from django.http import HttpRequest
 from htmy import html
-from hue.router import Router
 
+from src.hue_django.router import Router
 from src.hue_django.views import HueView
 
 

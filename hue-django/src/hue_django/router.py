@@ -1,81 +1,48 @@
-from collections.abc import Callable
-from functools import partialmethod
-from typing import Any, Literal
+import re
 
-from django.http import HttpRequest
-from hue.types.core import ComponentType
+from hue.router import Router as HueRouter
 
 
-class ViewRouter:
+class Router[T_Request](HueRouter[T_Request]):
     """
-    Router for defining child routes within a HueView.
+    Django-specific router that extends the base Router.
 
-    Routes are matched against the relative path after the view's base URL.
-    Supports all HTTP methods: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS.
+    Handles Django URL pattern syntax like "comments/<int:comment_id>/".
 
     Example:
-        class AlbumView(HueView):
-            router = ViewRouter()
+        class MyView(HueView):
+            router = DjangoRouter[HttpRequest]()
 
-            @router.get("comments/")
-            async def get_comments(self, request: HttpRequest) -> ComponentType:
-                comments = await get_comments_from_db()
-                return [html.p(comment.text) for comment in comments]
+            @router.get("/")
+            async def index(self, request: HttpRequest):
+                return html.div("Index")
+
+            @router.ajax_get("comments/<int:comment_id>/")
+            async def comment(self, request: HttpRequest, comment_id: int):
+                return html.div(f"Comment {comment_id}")
     """
 
-    def __init__(self):
-        # Store routes as: (method, path) -> handler
-        self._routes: dict[tuple[str, str], Callable] = {}
-
-    def _cleaned_path(self, path: str) -> str:
+    def _parse_path_params(self, path: str) -> tuple[str, list[str]]:
         """
-        Clean the path by removing leading/trailing slashes and adding a trailing slash.
-        """
-        if normalized_path := path.strip("/"):
-            normalized_path = f"{normalized_path}/"
-        else:
-            normalized_path = "/"
+        Parse Django URL pattern parameters from path.
 
-        return normalized_path
+        Django uses syntax like <int:comment_id> or <str:username>.
 
-    def _register(
-        self,
-        method: str,
-        path: str,
-        handler: Callable[[Any, HttpRequest], ComponentType],
-    ) -> Callable[[Any, HttpRequest], ComponentType]:
-        """Register a route handler."""
-        # Normalize path: remove leading/trailing slashes, then add trailing slash
-        normalized_path = self._cleaned_path(path)
-        self._routes[(method.upper(), normalized_path)] = handler
-        return handler
-
-    def find_route(self, method: str, path: str) -> Callable | None:
-        """
-        Find a route handler for the given method and path.
-
-        Args:
-            method: HTTP method (e.g., "GET", "POST")
-            path: Relative path (e.g., "comments/")
+        Example:
+            "comments/<int:comment_id>/" -> (
+                "comments/<int:comment_id>/", ["comment_id"]
+            )
+            "users/<str:username>/posts/" -> (
+                "users/<str:username>/posts/", ["username"]
+            )
 
         Returns:
-            The route handler if found, None otherwise.
+            Tuple of (django_path_pattern, list_of_param_names)
         """
-        # Normalize the path the same way as registration
-        normalized_path = self._cleaned_path(path)
-        return self._routes.get((method.upper(), normalized_path))
+        # Find all <type:name> patterns (Django URL pattern syntax)
+        param_pattern = r"<(\w+):(\w+)>"
+        matches = re.findall(param_pattern, path)
+        param_names = [name for _, name in matches]
 
-    def _request(
-        self,
-        method: Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
-        path: str,
-    ) -> Callable[[Any, HttpRequest], ComponentType]:
-        return self._register(method, path)
-
-    get = partialmethod(_request, "GET")
-    post = partialmethod(_request, "POST")
-    put = partialmethod(_request, "PUT")
-    delete = partialmethod(_request, "DELETE")
-    patch = partialmethod(_request, "PATCH")
-    head = partialmethod(_request, "HEAD")
-    options = partialmethod(_request, "OPTIONS")
+        # The path is already in Django URL pattern format, just return it
+        return path, param_names
