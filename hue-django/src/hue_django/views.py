@@ -5,16 +5,13 @@ from typing import Callable
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpRequest, HttpResponse
 from django.middleware.csrf import get_token
-from django.urls import path, URLPattern
+from django.urls import URLPattern, path
 from django.views import View
-from htmy import Renderer
-
 from hue.base import BaseView, ViewValidationMixin
 from hue.context import HueContext, HueContextArgs
 from hue.types.core import ComponentType
 
 from hue_django.conf import settings
-from hue_django.router import Router
 
 
 class HueViewMeta(type):
@@ -115,8 +112,8 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
         """
         Handle a route request.
 
-        Calls the route handler and returns either a fragment (AJAX) or
-        full page (regular request).
+        The router wraps handlers to automatically render Components to HTML,
+        so we just call the wrapped handler and return the HTML string.
         """
         # Check method matches
         if route.method != request.method.upper():
@@ -125,57 +122,15 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
         # Extract only path parameters for the handler
         handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
 
-        # Call the handler (support both sync and async)
-        # Call the handler and check if result is a coroutine
+        # Call the wrapped handler (which returns HTML string, not Component)
         handler_result = route.handler(self, request, **handler_kwargs)
 
-        # Always check if result is a coroutine and await if needed
-        # This handles both async functions and any coroutine objects
+        # Await if it's a coroutine (wrapped handler is async)
         while inspect.iscoroutine(handler_result):
             handler_result = await handler_result
 
-        component = handler_result
-
-        # Check if it's an AJAX request
-        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-        if route.is_ajax or is_ajax:
-            # Return fragment
-            html_content = await self._render_component(component, request)
-            return HttpResponse(html_content)
-        else:
-            # Return full page (only for non-AJAX routes)
-            # Store component temporarily for body() to use
-            # Ensure component is not a coroutine before storing
-            if inspect.iscoroutine(component):
-                component = await component
-            self._router_component = component
-            try:
-                context = HueContextArgs[HttpRequest](
-                    request=request,
-                    csrf_token=get_token(request),
-                )
-                html_content = await self.render(context)
-            finally:
-                delattr(self, "_router_component")
-            return HttpResponse(html_content)
-
-    async def _render_component(
-        self, component: ComponentType, request: HttpRequest
-    ) -> str:
-        """
-        Render a Component to HTML string (fragment).
-
-        This is used for AJAX routes that return Components.
-        """
-        context_args = HueContextArgs[HttpRequest](
-            request=request,
-            csrf_token=get_token(request),
-        )
-        # Wrap the component in a HueContext and render it
-        context = HueContext[HttpRequest](component, **context_args)
-        renderer = Renderer()
-        return await renderer.render(context)
+        # Handler now returns HTML string (thanks to router wrapping)
+        return HttpResponse(handler_result)
 
     def body(self, context: HueContext) -> ComponentType:
         """
@@ -200,12 +155,3 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
 
         # Fall back to parent's body() or raise NotImplementedError
         return super().body(context)
-
-    async def get(self, request: HttpRequest) -> HttpResponse:
-        """Fallback GET handler if no router routes match."""
-        context = HueContextArgs[HttpRequest](
-            request=request,
-            csrf_token=get_token(request),
-        )
-        page_content = await self.render(context)
-        return HttpResponse(page_content)

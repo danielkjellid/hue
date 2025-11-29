@@ -1,5 +1,9 @@
 import re
 
+from django.http import HttpRequest
+from django.middleware.csrf import get_token
+
+from hue.context import HueContextArgs
 from hue.router import Router as HueRouter
 
 
@@ -46,3 +50,16 @@ class Router[T_Request](HueRouter[T_Request]):
 
         # The path is already in Django URL pattern format, just return it
         return path, param_names
+
+    def _get_context_args(
+        self, view_instance: object, request: HttpRequest
+    ) -> HueContextArgs[HttpRequest]:
+        """
+        Get Django-specific context arguments.
+
+        Returns request and CSRF token for Django.
+        """
+        return HueContextArgs[HttpRequest](
+            request=request,
+            csrf_token=get_token(request),
+        )
