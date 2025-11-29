@@ -39,12 +39,14 @@ class Router[T_Request]:
             router = Router[HttpRequest]()
 
             @router.get("/")
-            async def index(self, request: HttpRequest):
+            async def index(self, request: HttpRequest, context: HueContext):
                 return html.div("Index")
 
-            @router.ajax_get("comments/")
-            async def comments(self, request: HttpRequest):
-                return html.div("Comments")
+            @router.ajax_get("comments/<int:comment_id>/")
+            async def comment(
+                self, request: HttpRequest, context: HueContext, comment_id: int
+            ):
+                return html.div(f"Comment {comment_id}")
     """
 
     def __init__(self):
@@ -144,6 +146,12 @@ class Router[T_Request]:
         This is core logic - handlers return Components, and this wrapper
         automatically renders them to HTML (fragment or full page).
 
+        Handlers receive: (self, request, context, **path_params)
+        - self: The view instance
+        - request: The framework request object
+        - context: HueContext with request and csrf_token
+        - **path_params: Path parameters extracted from the URL
+
         Args:
             handler: The original handler function
             is_ajax: Whether this is an AJAX route (fragment) or full page
@@ -153,8 +161,14 @@ class Router[T_Request]:
         """
 
         async def wrapped_handler(view_instance, request, **kwargs):
-            # Call the original handler
-            handler_result = handler(view_instance, request, **kwargs)
+            # Create context args and context before calling handler
+            context_args = self._get_context_args(view_instance, request)
+            # Create a context (without children) to pass to handler
+            # The handler can access context.request and context.csrf_token
+            context = HueContext(**context_args)
+
+            # Call the original handler with self, request, context, and path params
+            handler_result = handler(view_instance, request, context, **kwargs)
 
             # Await if it's a coroutine
             while inspect.iscoroutine(handler_result):
@@ -171,14 +185,18 @@ class Router[T_Request]:
             if is_ajax or is_ajax_request:
                 # Fragment: render component directly
                 return await self._render(component, view_instance, request)
-            else:
-                # Full page: store component for view's body() to use,
-                # then render the view instance itself
+            elif hasattr(view_instance, "htmy"):
+                # Full page: view has htmy(), use old behavior
+                # Store component for view's body() to use, then render view instance
                 view_instance._router_component = component
                 try:
                     return await self._render(view_instance, view_instance, request)
                 finally:
                     delattr(view_instance, "_router_component")
+            else:
+                # Full page: view doesn't have htmy(), so component must handle
+                # full page structure (e.g., Page component)
+                return await self._render(component, view_instance, request)
 
         # Always return async wrapper (handlers should be async for rendering)
         return wrapped_handler

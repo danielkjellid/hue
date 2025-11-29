@@ -4,12 +4,8 @@ from typing import Callable
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpRequest, HttpResponse
-from django.middleware.csrf import get_token
 from django.urls import URLPattern, path
 from django.views import View
-from hue.base import BaseView, ViewValidationMixin
-from hue.context import HueContext, HueContextArgs
-from hue.types.core import ComponentType
 
 from hue_django.conf import settings
 
@@ -23,7 +19,7 @@ class HueViewMeta(type):
         raise AttributeError(f"{cls.__name__} has no attribute {name}")
 
 
-class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
+class HueView(View, metaclass=HueViewMeta):
     """
     Django-specific base view that provides framework defaults.
 
@@ -35,11 +31,18 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
             router = Router[HttpRequest]()
 
             @router.get("/")
-            async def index(self, request: HttpRequest):
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ):
                 return html.div("Index")
 
             @router.ajax_get("comments/<int:comment_id>/")
-            async def comment(self, request: HttpRequest, comment_id: int):
+            async def comment(
+                self,
+                request: HttpRequest,
+                context: HueContext[HttpRequest],
+                comment_id: int,
+            ):
                 return html.div(f"Comment {comment_id}")
     """
 
@@ -131,27 +134,3 @@ class HueView(BaseView, View, ViewValidationMixin, metaclass=HueViewMeta):
 
         # Handler now returns HTML string (thanks to router wrapping)
         return HttpResponse(handler_result)
-
-    def body(self, context: HueContext) -> ComponentType:
-        """
-        Override body to check for router component first.
-
-        If a router route component is stored, return that instead of
-        the default body() implementation.
-        """
-        # Check if we have a stored component from a router route
-        if hasattr(self, "_router_component"):
-            component = self._router_component
-            # Safety check: ensure component is not a coroutine
-            if inspect.iscoroutine(component):
-                raise RuntimeError(
-                    "Router component is still a coroutine. "
-                    "Handler must be properly awaited."
-                )
-            # Handle both single Component and iterable
-            if isinstance(component, (list, tuple)):
-                return component
-            return component
-
-        # Fall back to parent's body() or raise NotImplementedError
-        return super().body(context)

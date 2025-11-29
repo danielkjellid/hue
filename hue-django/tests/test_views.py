@@ -5,6 +5,7 @@ import pytest
 from django.http import HttpRequest
 from htmy import html
 
+from src.hue.context import HueContext
 from src.hue_django.router import Router
 from src.hue_django.views import HueView
 
@@ -15,20 +16,32 @@ def test_hue_view__index():
         router = Router[HttpRequest]()
 
         @router.get("/")
-        async def index(self, request: HttpRequest) -> html.p:
+        async def index(
+            self, request: HttpRequest, context: HueContext[HttpRequest]
+        ) -> html.p:
             return html.p("Index")
 
         @router.ajax_get("comments/")
-        async def comments(self, request: HttpRequest) -> html.p:
+        async def comments(
+            self, request: HttpRequest, context: HueContext[HttpRequest]
+        ) -> html.p:
             return html.p("Comments")
 
         @router.ajax_get("comments/<int:comment_id>/")
-        async def comment(self, request: HttpRequest, comment_id: int) -> html.p:
+        async def comment(
+            self,
+            request: HttpRequest,
+            context: HueContext[HttpRequest],
+            comment_id: int,
+        ) -> html.p:
             return html.p(f"Comment {comment_id}")
 
         @router.ajax_post("comments/")
         async def create_comment(
-            self, request: HttpRequest, body: dict[str, Any]
+            self,
+            request: HttpRequest,
+            context: HueContext[HttpRequest],
+            body: dict[str, Any],
         ) -> html.p:
             return html.p(f"Create comment {body}")
 

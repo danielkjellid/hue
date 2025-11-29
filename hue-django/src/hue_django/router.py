@@ -15,14 +15,21 @@ class Router[T_Request](HueRouter[T_Request]):
 
     Example:
         class MyView(HueView):
-            router = DjangoRouter[HttpRequest]()
+            router = Router[HttpRequest]()
 
             @router.get("/")
-            async def index(self, request: HttpRequest):
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ):
                 return html.div("Index")
 
             @router.ajax_get("comments/<int:comment_id>/")
-            async def comment(self, request: HttpRequest, comment_id: int):
+            async def comment(
+                self,
+                request: HttpRequest,
+                context: HueContext[HttpRequest],
+                comment_id: int,
+            ):
                 return html.div(f"Comment {comment_id}")
     """
 
