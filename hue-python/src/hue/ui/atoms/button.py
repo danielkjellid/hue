@@ -74,6 +74,9 @@ class Button(BaseComponent):
     ] = None
 
     def htmy(self, context: HueContext, **kwargs: Any) -> html.button:
+        print(context)
+
+        print("-------------")
         classes = classnames(
             _get_base_button_classes(
                 fluid=self.fluid,
