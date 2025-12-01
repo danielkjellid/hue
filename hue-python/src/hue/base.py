@@ -69,6 +69,10 @@ class BaseView:
     def css_url(self) -> str:
         raise NotImplementedError("css_url must be implemented in the subclass")
 
+    @cached_property
+    def js_url(self) -> str:
+        raise NotImplementedError("alpine_js_url must be implemented in the subclass")
+
     def html_title_factory(self, text: str) -> str:
         raise NotImplementedError(
             "html_title_factory must be implemented in the subclass"
@@ -87,20 +91,14 @@ class BaseView:
         return json.dumps(combined_data)
 
     def configure_alpine(self, context: HueContext) -> html.script:
-        # Use separate conditions to avoid && being escaped
         script_content = f"""
+        import {{ configureAlpine }} from '{self.js_url}';
+
         document.addEventListener('DOMContentLoaded', function() {{
-            if (typeof Alpine !== 'undefined') {{
-                if (typeof ajax !== 'undefined') {{
-                    Alpine.plugin(ajax.configure({{
-                        headers: {{"X-CSRF-Token": "{context.csrf_token}" }}
-                    }}));
-                    Alpine.start();
-                }}
-            }}
+          configureAlpine("{context.csrf_token}");
         }});
         """
-        return html.script(script_content)
+        return html.script(script_content, type="module")
 
     def collect_x_data(self) -> dict:
         merged = {}
@@ -134,12 +132,8 @@ class BaseView:
                     html.meta.charset(),
                     html.meta.viewport(),
                     html.script(
-                        src="https://cdn.jsdelivr.net/npm/@imacrayon/alpine-ajax@0.12.6/dist/cdn.min.js",
-                        defer=True,
-                    ),
-                    html.script(
-                        src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
-                        defer=True,
+                        src=self.js_url,
+                        type="module",
                     ),
                     html.link(
                         rel="stylesheet",

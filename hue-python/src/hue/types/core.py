@@ -53,7 +53,7 @@ class AlpineAjaxProps:
     x_target__replace: str | None = None
     x_target__push: str | None = None
 
-    formnoajax: bool = False
+    formnoajax: bool | None = None
 
     x_headers: dict[str, str] | None = None
     x_merge: (
@@ -68,8 +68,8 @@ class AlpineAjaxProps:
         | None
     ) = None
 
-    x_autofocus: bool = False
-    x_sync: bool = False
+    x_autofocus: bool | None = None
+    x_sync: bool | None = None
 
     ajax__before: str | None = None
     ajax__send: str | None = None

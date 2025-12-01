@@ -178,6 +178,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "django" },
+    { name = "htmy" },
     { name = "hue" },
 ]
 
@@ -192,6 +193,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "django", specifier = ">=5.0" },
+    { name = "htmy", specifier = ">=0.8.2" },
     { name = "hue", editable = "../hue-python" },
 ]
 
