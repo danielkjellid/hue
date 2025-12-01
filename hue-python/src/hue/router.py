@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import partialmethod
 from typing import Any
 
-from htmy import Renderer
+from htmy import PropertyValue, Renderer
 
 from hue.context import HueContext, HueContextArgs
 
@@ -50,8 +50,11 @@ class Router[T_Request]:
     """
 
     def __init__(self):
-        # Store routes as: (method, path_pattern) -> Route
         self._routes: list[Route] = []
+
+    @property
+    def routes(self) -> list[Route]:
+        return self._routes.copy()
 
     def _normalize_path(self, path: str) -> str:
         """
@@ -250,29 +253,3 @@ class Router[T_Request]:
     ajax_put = partialmethod(_request, "PUT", True)
     ajax_delete = partialmethod(_request, "DELETE", True)
     ajax_patch = partialmethod(_request, "PATCH", True)
-
-    def get_routes(self) -> list[Route]:
-        """Get all registered routes."""
-        return self._routes.copy()
-
-    def find_route(
-        self,
-        method: str,
-        path: str,
-        is_ajax: bool | None = None,
-    ) -> Route | None:
-        """
-        Find a route by method and path.
-
-        This is a simple implementation - in a real scenario, you'd want
-        to match Django URL patterns properly. This is mainly for testing.
-        """
-        method = method.upper()
-        for route in self._routes:
-            if route.method == method:
-                if is_ajax is not None and route.is_ajax != is_ajax:
-                    continue
-                # Simple path matching (Django will handle the actual matching)
-                if route.path == path or route.path.rstrip("/") == path.rstrip("/"):
-                    return route
-        return None

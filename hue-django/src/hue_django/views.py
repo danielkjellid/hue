@@ -81,7 +81,7 @@ class HueView(View, metaclass=HueViewMeta):
             return ([], "")
 
         url_patterns = []
-        routes = router.get_routes()
+        routes = router.routes
 
         for route in routes:
             # Create a view method name based on the handler
