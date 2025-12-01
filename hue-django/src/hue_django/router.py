@@ -4,7 +4,7 @@ from django.http import HttpRequest
 from django.middleware.csrf import get_token
 
 from hue.context import HueContextArgs
-from hue.router import Router as HueRouter
+from hue.router import PathParseResult, Router as HueRouter
 
 
 class Router[T_Request](HueRouter[T_Request]):
@@ -33,22 +33,11 @@ class Router[T_Request](HueRouter[T_Request]):
                 return html.div(f"Comment {comment_id}")
     """
 
-    def _parse_path_params(self, path: str) -> tuple[str, list[str]]:
+    def _parse_path_params(self, path: str) -> PathParseResult:
         """
         Parse Django URL pattern parameters from path.
 
         Django uses syntax like <int:comment_id> or <str:username>.
-
-        Example:
-            "comments/<int:comment_id>/" -> (
-                "comments/<int:comment_id>/", ["comment_id"]
-            )
-            "users/<str:username>/posts/" -> (
-                "users/<str:username>/posts/", ["username"]
-            )
-
-        Returns:
-            Tuple of (django_path_pattern, list_of_param_names)
         """
         # Find all <type:name> patterns (Django URL pattern syntax)
         param_pattern = r"<(\w+):(\w+)>"
@@ -56,11 +45,9 @@ class Router[T_Request](HueRouter[T_Request]):
         param_names = [name for _, name in matches]
 
         # The path is already in Django URL pattern format, just return it
-        return path, param_names
+        return PathParseResult(path=path, param_names=param_names)
 
-    def _get_context_args(
-        self, view_instance: object, request: HttpRequest
-    ) -> HueContextArgs[HttpRequest]:
+    def _get_context_args(self, request: HttpRequest) -> HueContextArgs[HttpRequest]:
         """
         Get Django-specific context arguments.
 

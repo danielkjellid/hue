@@ -4,10 +4,15 @@ from typing import Callable
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
 from django.urls import URLPattern, path
 from django.views import View
+from htmy import Renderer
+
+from hue.context import HueContext, HueContextArgs
 
 from hue_django.conf import settings
+from hue_django.router import Router  # noqa: F401
 
 
 class HueViewMeta(type):
@@ -19,46 +24,29 @@ class HueViewMeta(type):
         raise AttributeError(f"{cls.__name__} has no attribute {name}")
 
 
-class HueView(View, metaclass=HueViewMeta):
+class HueFragmentsView(View, metaclass=HueViewMeta):
     """
-    Django-specific base view that provides framework defaults.
+    Django-specific base view for fragment-only routes.
 
-    Supports routing via Router for both full page and AJAX fragment routes.
+    This view is meant as a collective view for fragments with similar attributes.
+    It must have a router defined, and only handles decorated routes (fragments).
 
     Example:
-        class MyView(HueView):
-            title = "My Page"
+        class CommentsFragments(HueFragmentsView):
             router = Router[HttpRequest]()
 
-            @router.get("/")
-            async def index(
+            @router.ajax_get("comments/")
+            async def list_comments(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ):
-                return html.div("Index")
+                return html.div("Comments list")
 
-            @router.ajax_get("comments/<int:comment_id>/")
-            async def comment(
-                self,
-                request: HttpRequest,
-                context: HueContext[HttpRequest],
-                comment_id: int,
+            @router.ajax_post("comments/")
+            async def create_comment(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
             ):
-                return html.div(f"Comment {comment_id}")
+                return html.div("Comment created")
     """
-
-    @cached_property
-    def css_url(self) -> str:
-        """Get the CSS URL using Django's static files storage."""
-        return staticfiles_storage.url(settings.HUE_CSS_STATIC_PATH)
-
-    @cached_property
-    def js_url(self) -> str:
-        """Get the Alpine.js bundle URL using Django's static files storage."""
-        return staticfiles_storage.url("hue/js/alpine-bundle.js")
-
-    @cached_property
-    def html_title_factory(self) -> Callable[[str], str]:
-        return settings.HUE_HTML_TITLE_FACTORY
 
     @classmethod
     def _get_urls(cls) -> tuple[list[URLPattern], str]:
@@ -68,24 +56,22 @@ class HueView(View, metaclass=HueViewMeta):
         Returns a tuple of (urlpatterns, app_name) compatible
         with Django's include() function.
 
-        Usage:
-            urlpatterns = [path("myview/", include(MyView.urls))]
-            # With namespace:
-            urlpatterns = [path("myview/", include(MyView.urls, namespace="myview"))]
-            # or
-            urlpatterns = MyView.urls[0]  # Just get the patterns
+        Raises:
+            ValueError: If no router is defined on the class.
         """
         router = getattr(cls, "router", None)
         if not router:
-            # No router, return empty tuple
-            return ([], "")
+            raise ValueError(
+                f"{cls.__name__} must define a 'router' attribute. "
+                "HueFragmentsView requires a router to handle fragment routes."
+            )
 
         url_patterns = []
         routes = router.routes
 
         for route in routes:
-            # Create a view method name based on the handler
-            handler_name = route.handler.__name__
+            # Create a view method name based on the view function
+            view_func_name = route.view_func.__name__
 
             # Create URL pattern that dispatches to this route
             # Capture route in closure properly
@@ -100,7 +86,7 @@ class HueView(View, metaclass=HueViewMeta):
                 path(
                     route.path,
                     view_func,
-                    name=handler_name,
+                    name=view_func_name,
                 )
             )
 
@@ -115,7 +101,7 @@ class HueView(View, metaclass=HueViewMeta):
         """
         Handle a route request.
 
-        The router wraps handlers to automatically render Components to HTML,
+        The router wraps view functions to automatically render Components to HTML,
         so we just call the wrapped handler and return the HTML string.
         """
         # Check method matches
@@ -126,11 +112,136 @@ class HueView(View, metaclass=HueViewMeta):
         handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
 
         # Call the wrapped handler (which returns HTML string, not Component)
-        handler_result = route.handler(self, request, **handler_kwargs)
+        view_func_result = route.view_func(self, request, **handler_kwargs)
 
         # Await if it's a coroutine (wrapped handler is async)
-        while inspect.iscoroutine(handler_result):
-            handler_result = await handler_result
+        while inspect.iscoroutine(view_func_result):
+            view_func_result = await view_func_result
 
         # Handler now returns HTML string (thanks to router wrapping)
-        return HttpResponse(handler_result)
+        return HttpResponse(view_func_result)
+
+
+class HueView(HueFragmentsView):
+    """
+    Django-specific base view for full page views with optional fragment routes.
+
+    This view must have an `async def index` method that handles the initial
+    page load (GET "/"). It can optionally define a router for additional
+    AJAX fragment routes.
+
+    Example:
+        class LoginView(HueView):
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ):
+                return Page(...)  # Full page on initial load
+
+            router = Router[HttpRequest]()
+
+            @router.ajax_post("login/")
+            async def login(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ):
+                return html.div("Login successful")  # Fragment
+    """
+
+    @classmethod
+    def _get_urls(cls) -> tuple[list[URLPattern], str]:
+        """
+        Generate Django URL patterns from the index method and optional router.
+
+        Returns a tuple of (urlpatterns, app_name) compatible
+        with Django's include() function.
+
+        Raises:
+            ValueError: If no index method is defined on the class.
+        """
+        # Check for index method
+        if not hasattr(cls, "index"):
+            raise ValueError(
+                f"{cls.__name__} must define an 'async def index' method. "
+                "HueView requires an index method to handle the initial page load."
+            )
+
+        if not callable(cls.index):
+            raise ValueError(f"{cls.__name__}.index must be a callable method.")
+
+        # Check if it's async (should be, but we'll handle both)
+        is_async = inspect.iscoroutinefunction(cls.index)
+
+        url_patterns = []
+
+        # Get router if it exists (for context creation)
+        router = getattr(cls, "router", None)
+
+        # Create index route (GET "/") - always full page
+        async def index_view_func(request, **kwargs):
+            view_instance = cls()
+            view_instance.setup(request, **kwargs)
+
+            # Create context
+            if router:
+                context_args = router._get_context_args(request)
+            else:
+                # Fallback if no router - create minimal context
+                context_args = HueContextArgs[HttpRequest](
+                    request=request,
+                    csrf_token=get_token(request),
+                )
+
+            context = HueContext(**context_args)
+
+            # Call index method
+            if is_async:
+                component = await cls.index(view_instance, request, context, **kwargs)
+            else:
+                component = cls.index(view_instance, request, context, **kwargs)
+
+            # Render as full page (not fragment)
+            # Since this is the index route, it should always render as full page
+            # We need to ensure it's not treated as an AJAX request
+            if router:
+                # Use router's render method for full page
+                # The router's _wrap_handler checks for AJAX headers, but we're
+                # calling _render directly, so it will render as full page
+                html_string = await router._render(component, view_instance, request)
+            else:
+                # No router, use basic rendering
+                renderer = Renderer()
+                html_string = await renderer.render(
+                    HueContext(component, **context_args)
+                )
+
+            return HttpResponse(html_string)
+
+        url_patterns.append(path("", index_view_func, name="index"))
+
+        # Add router routes if router exists (all fragments)
+        if router:
+            routes = router.routes
+
+            for route in routes:
+                # Create a view method name based on the handler
+                view_func_name = route.view_func.__name__
+
+                # Create URL pattern that dispatches to this route
+                async def view_func(request, route=route, **kwargs):
+                    # Create view instance and set it up properly
+                    view_instance = cls()
+                    view_instance.setup(request, **kwargs)
+                    # Call the async handler
+                    return await view_instance._handle_route(request, route, **kwargs)
+
+                url_patterns.append(
+                    path(
+                        route.path,
+                        view_func,
+                        name=view_func_name,
+                    )
+                )
+
+        # Return tuple compatible with Django's include()
+        # Django expects (urlpatterns, app_name)
+        app_name = getattr(cls, "app_name", cls.__name__.lower())
+        return (url_patterns, app_name)

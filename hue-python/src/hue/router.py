@@ -1,55 +1,50 @@
 import inspect
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from functools import partialmethod
-from typing import Any
+from typing import Any, cast
 
-from htmy import PropertyValue, Renderer
+from htmy import Renderer
 
 from hue.context import HueContext, HueContextArgs
+from hue.types.core import Component, ComponentType
+
+# Type alias for wrapped view functions (return HTML string)
+# Signature: (view_instance, request: T_Request, **kwargs) -> Awaitable[str]
+type WrappedViewFunc = Callable[..., Awaitable[str]]
+
+# Type alias for original view functions (return Component)
+# Signature: (view_instance, request: T_Request, context: HueContext[T_Request],
+#             **kwargs) -> Component | Awaitable[Component]
+type ViewFunc = Callable[..., Component | Awaitable[Component]]
+
+
+@dataclass
+class PathParseResult:
+    path: str
+    param_names: list[str]
 
 
 @dataclass
 class Route:
-    """Represents a single route with its handler and metadata."""
+    """Represents a single route with its view function and metadata."""
 
     method: str
     path: str
-    handler: Callable
-    is_ajax: bool = False
+    view_func: WrappedViewFunc
     # List of parameter names extracted from path
     # Framework-specific routers can populate this based on their path syntax
-    path_params: list[str] = None
-
-    def __post_init__(self):
-        if self.path_params is None:
-            self.path_params = []
+    path_params: list[str] = field(default_factory=list)
 
 
 class Router[T_Request]:
     """
     Framework-agnostic base router for defining routes in HueView.
 
-    Routes can be regular (full page) or AJAX (fragments).
-    Path parameter parsing is framework-specific and should be handled
-    by framework-specific router subclasses.
-
-    Example:
-        class MyView(HueView):
-            router = Router[HttpRequest]()
-
-            @router.get("/")
-            async def index(self, request: HttpRequest, context: HueContext):
-                return html.div("Index")
-
-            @router.ajax_get("comments/<int:comment_id>/")
-            async def comment(
-                self, request: HttpRequest, context: HueContext, comment_id: int
-            ):
-                return html.div(f"Comment {comment_id}")
+    Routes should be AJAX requests and return fragments (Component).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._routes: list[Route] = []
 
     @property
@@ -59,197 +54,124 @@ class Router[T_Request]:
     def _normalize_path(self, path: str) -> str:
         """
         Normalize the path (e.g., strip leading slashes).
-
-        Can be overridden by framework-specific routers for custom normalization.
         """
         # Default: strip leading slash
         # Root path "/" becomes "" (empty string)
         return path.lstrip("/")
 
-    def _parse_path_params(self, path: str) -> tuple[str, list[str]]:
+    def _parse_path_params(self, path: str) -> PathParseResult:
+        """
+        Parse the path parameters from the path.
+        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
-    def _is_ajax_request(self, request: object) -> bool:
-        """
-        Check if the request is an AJAX request.
-
-        Framework-specific routers can override this to provide
-        framework-specific AJAX detection.
-
-        Default implementation checks for X-Requested-With header.
-
-        Args:
-            request: The framework request object
-
-        Returns:
-            True if the request is an AJAX request
-        """
-        # Default: check for X-Requested-With header
-        # Framework-specific routers can override this
-        headers = getattr(request, "headers", {})
-        if hasattr(headers, "get"):
-            return headers.get("X-Requested-With") == "XMLHttpRequest"
-        return False
-
-    def _get_context_args(
-        self, view_instance: object, request: object
-    ) -> HueContextArgs:
+    def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
         """
         Get framework-specific context arguments (request, CSRF token, etc.).
-
-        Framework-specific routers must override this to provide
-        framework-specific context.
-
-        Args:
-            view_instance: The view instance
-            request: The framework request object
-
-        Returns:
-            HueContextArgs dictionary with request and csrf_token
         """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
+    def _build_context(
+        self,
+        component: ComponentType,
+        request: T_Request,
+    ) -> HueContext[T_Request]:
+        """
+        Build the hue context for the component and request.
+        """
+        context_args = self._get_context_args(request)
+        return HueContext(component, **context_args)
+
     async def _render(
-        self, component_or_view: Any, view_instance: object, request: object
+        self,
+        component: ComponentType,
+        request: T_Request,
     ) -> str:
         """
-        Render a Component or View to HTML string.
+        Render a Component to HTML string.
 
         This is framework-agnostic - it uses Renderer to convert Components to HTML.
         The renderer calls .htmy() on all components, so both fragments and full
         pages are rendered the same way.
-
-        For full pages, pass the view_instance itself (which has htmy() that creates
-        the full page structure). For fragments, pass the component directly.
-
-        Args:
-            component_or_view: The Component to render (fragment) or View instance
-                (full page)
-            view_instance: The view instance (for context)
-            request: The framework request object
-
-        Returns:
-            HTML string of the rendered component
         """
-        context_args = self._get_context_args(view_instance, request)
-        # Wrap in a HueContext and render it
-        # The renderer will call .htmy() on component_or_view
-        context = HueContext(component_or_view, **context_args)
+        context = self._build_context(component, request)
         renderer = Renderer()
-        return await renderer.render(context)
+        result: str = await renderer.render(context)
+        return result
 
-    def _wrap_handler(self, handler: Callable, is_ajax: bool) -> Callable:
+    def _wrap_view(self, view_func: ViewFunc) -> WrappedViewFunc:
         """
-        Wrap a handler to automatically render Components.
-
-        This is core logic - handlers return Components, and this wrapper
-        automatically renders them to HTML (fragment or full page).
-
-        Handlers receive: (self, request, context, **path_params)
-        - self: The view instance
-        - request: The framework request object
-        - context: HueContext with request and csrf_token
-        - **path_params: Path parameters extracted from the URL
-
-        Args:
-            handler: The original handler function
-            is_ajax: Whether this is an AJAX route (fragment) or full page
-
-        Returns:
-            Wrapped handler that returns HTML string instead of Component
+        Wrap a view function to automatically render Components and pass the hue
+        context.
         """
 
-        async def wrapped_handler(view_instance, request, **kwargs):
-            # Create context args and context before calling handler
-            context_args = self._get_context_args(view_instance, request)
-            # Create a context (without children) to pass to handler
-            # The handler can access context.request and context.csrf_token
-            context = HueContext(**context_args)
+        async def wrapped_view(
+            view_instance: object, request: T_Request, **kwargs: Any
+        ) -> str:
+            is_ajax_req = False
+            is_alpine_ajax_req = False
+            headers = getattr(request, "headers", {})
+            if hasattr(headers, "get"):
+                is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
+                is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
 
-            # Call the original handler with self, request, context, and path params
-            handler_result = handler(view_instance, request, context, **kwargs)
+            if not is_ajax_req and not is_alpine_ajax_req:
+                raise ValueError("Not an AJAX request")
+
+            # Build context for the handler (without component yet)
+            context_args: HueContextArgs[T_Request] = self._get_context_args(request)
+            context: HueContext[T_Request] = HueContext(**context_args)
+
+            # Call the original view function with self, request, context, and path
+            # params
+            view_func_result = view_func(view_instance, request, context, **kwargs)
 
             # Await if it's a coroutine
-            while inspect.iscoroutine(handler_result):
-                handler_result = await handler_result
+            while inspect.iscoroutine(view_func_result):
+                view_func_result = await view_func_result
 
-            component = handler_result
+            # After awaiting, result is Component, not Awaitable[Component]
+            # Type checker needs help understanding this
+            component = cast(ComponentType, view_func_result)
 
-            # Determine if this should be a full page or fragment:
-            # - Explicit AJAX routes always return fragments
-            # - Regular routes return fragments if accessed via AJAX,
-            #   otherwise full page
-            is_ajax_request = self._is_ajax_request(request)
+            return await self._render(component, request)
 
-            if is_ajax or is_ajax_request:
-                # Fragment: render component directly
-                return await self._render(component, view_instance, request)
-            elif hasattr(view_instance, "htmy"):
-                # Full page: view has htmy(), use old behavior
-                # Store component for view's body() to use, then render view instance
-                view_instance._router_component = component
-                try:
-                    return await self._render(view_instance, view_instance, request)
-                finally:
-                    delattr(view_instance, "_router_component")
-            else:
-                # Full page: view doesn't have htmy(), so component must handle
-                # full page structure (e.g., Page component)
-                return await self._render(component, view_instance, request)
+        # Always return async wrapper (view functions should be async for rendering)
+        return wrapped_view
 
-        # Always return async wrapper (handlers should be async for rendering)
-        return wrapped_handler
-
-    def _register(
-        self,
-        method: str,
-        path: str,
-        handler: Callable,
-        is_ajax: bool = False,
-    ) -> Callable:
-        """Register a route handler."""
-        # Normalize path (framework-specific routers can override)
-        normalized_path = self._normalize_path(path)
-
-        # Parse path parameters (framework-specific routers can override)
-        final_path, param_names = self._parse_path_params(normalized_path)
-
-        # Wrap handler with rendering logic (framework-specific routers can override)
-        wrapped_handler = self._wrap_handler(handler, is_ajax)
-
-        # Create route
-        route = Route(
-            method=method.upper(),
-            path=final_path,
-            handler=wrapped_handler,
-            is_ajax=is_ajax,
-            path_params=param_names,
-        )
-
-        self._routes.append(route)
-        return handler  # Return original handler for decorator chain
-
-    def _request(
-        self, method: str, is_ajax: bool, path: str
-    ) -> Callable[[Callable], Callable]:
+    def _request(self, method: str, path: str) -> Callable[[ViewFunc], ViewFunc]:
         """
         Internal method to register a route.
 
         Used with partialmethod to create the route decorator methods.
         """
 
-        def decorator(handler: Callable) -> Callable:
-            return self._register(method, path, handler, is_ajax=is_ajax)
+        def decorator(view_func: ViewFunc) -> ViewFunc:
+            normalized_path = self._normalize_path(path)
+
+            parsed_path = self._parse_path_params(normalized_path)
+            wrapped_view = self._wrap_view(view_func)
+
+            route = Route(
+                method=method.upper(),
+                path=parsed_path.path,
+                view_func=wrapped_view,
+                path_params=parsed_path.param_names,
+            )
+
+            self._routes.append(route)
+
+            # Return the original view function for decorator chain.
+            return view_func
 
         return decorator
 
-    get = partialmethod(_request, "GET", False)
-    ajax_get = partialmethod(_request, "GET", True)
-    ajax_post = partialmethod(_request, "POST", True)
-    ajax_put = partialmethod(_request, "PUT", True)
-    ajax_delete = partialmethod(_request, "DELETE", True)
-    ajax_patch = partialmethod(_request, "PATCH", True)
+    ajax_get = partialmethod(_request, "GET")
+    ajax_post = partialmethod(_request, "POST")
+    ajax_put = partialmethod(_request, "PUT")
+    ajax_delete = partialmethod(_request, "DELETE")
+    ajax_patch = partialmethod(_request, "PATCH")

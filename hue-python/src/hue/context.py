@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Unpack
 
 from htmy import Context
 
@@ -12,7 +12,7 @@ class HueContextArgs[T_Request](TypedDict):
 
 class HueContext[T_Request]:
     def __init__(
-        self, *children: ComponentType, **kwargs: HueContextArgs[T_Request]
+        self, *children: ComponentType, **kwargs: Unpack[HueContextArgs[T_Request]]
     ) -> None:
         self._children = children
         self.request = kwargs["request"]
