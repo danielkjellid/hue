@@ -119,8 +119,7 @@ class Router[T_Request]:
                 is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
                 is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
 
-            if not is_ajax_req and not is_alpine_ajax_req:
-                raise ValueError("Not an AJAX request")
+            assert is_ajax_req or is_alpine_ajax_req, "Not an AJAX request"
 
             # Build context for the handler (without component yet)
             context_args: HueContextArgs[T_Request] = self._get_context_args(request)
