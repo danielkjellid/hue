@@ -32,26 +32,26 @@ class BasePage:
         )
 
     @cached_property
+    def js_url(self) -> str:
+        raise NotImplementedError(
+            "js_url must be implemented by constructing the class through create_base_page()"
+        )
+
+    @cached_property
     def html_title_factory(self) -> Callable[[str], str]:
         raise NotImplementedError(
             "html_title_factory must be implemented by constructing the class through create_base_page()"
         )
 
     def configure_alpine(self, context: HueContext) -> html.script:
-        # Use separate conditions to avoid && being escaped
         script_content = f"""
+        import {{ configureAlpine }} from '{self.js_url}';
+
         document.addEventListener('DOMContentLoaded', function() {{
-            if (typeof Alpine !== 'undefined') {{
-                if (typeof ajax !== 'undefined') {{
-                    Alpine.plugin(ajax.configure({{
-                        headers: {{"X-CSRF-Token": "{context.csrf_token}" }}
-                    }}));
-                    Alpine.start();
-                }}
-            }}
+          configureAlpine("{context.csrf_token}");
         }});
         """
-        return html.script(script_content)
+        return html.script(script_content, type="module")
 
     def inject_x_data(self) -> str:
         """Convert x_data dictionary to Alpine.js x-data format.
@@ -73,12 +73,8 @@ class BasePage:
                     html.meta.charset(),
                     html.meta.viewport(),
                     html.script(
-                        src="https://cdn.jsdelivr.net/npm/@imacrayon/alpine-ajax@0.12.6/dist/cdn.min.js",
-                        defer=True,
-                    ),
-                    html.script(
-                        src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
-                        defer=True,
+                        src=self.js_url,
+                        type="module",
                     ),
                     html.link(
                         rel="stylesheet",
@@ -98,12 +94,19 @@ class BasePage:
 
 
 def create_page_base(
-    css_url: str, html_title_factory: Callable[[str], str]
+    *,
+    css_url: str,
+    js_url: str,
+    html_title_factory: Callable[[str], str],
 ) -> type[BasePage]:
     class Page(BasePage):
         @cached_property
         def css_url(self) -> str:
             return css_url
+
+        @cached_property
+        def js_url(self) -> str:
+            return js_url
 
         @cached_property
         def html_title_factory(self) -> Callable[[str], str]:
