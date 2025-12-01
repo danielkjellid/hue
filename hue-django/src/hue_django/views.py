@@ -33,6 +33,11 @@ class HueView(BaseView, ViewValidationMixin, View):
         return staticfiles_storage.url(settings.HUE_CSS_STATIC_PATH)
 
     @cached_property
+    def js_url(self) -> str:
+        """Get the Alpine.js bundle URL using Django's static files storage."""
+        return staticfiles_storage.url("hue/js/alpine-bundle.js")
+
+    @cached_property
     def html_title_factory(self) -> Callable[[str], str]:
         return settings.HUE_HTML_TITLE_FACTORY
 
