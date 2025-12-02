@@ -21,13 +21,13 @@ def test_hue_view__index():
         ) -> html.p:
             return html.p("Index")
 
-        @router.ajax_get("comments/")
+        @router.fragment_get("comments/")
         async def comments(
             self, request: HttpRequest, context: HueContext[HttpRequest]
         ) -> html.p:
             return html.p("Comments")
 
-        @router.ajax_get("comments/<int:comment_id>/")
+        @router.fragment_get("comments/<int:comment_id>/")
         async def comment(
             self,
             request: HttpRequest,
@@ -36,7 +36,7 @@ def test_hue_view__index():
         ) -> html.p:
             return html.p(f"Comment {comment_id}")
 
-        @router.ajax_post("comments/")
+        @router.fragment_post("comments/")
         async def create_comment(
             self,
             request: HttpRequest,

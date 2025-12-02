@@ -2,9 +2,9 @@ import re
 
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
-
 from hue.context import HueContextArgs
-from hue.router import PathParseResult, Router as HueRouter
+from hue.router import PathParseResult
+from hue.router import Router as HueRouter
 
 
 class Router[T_Request](HueRouter[T_Request]):
@@ -17,13 +17,12 @@ class Router[T_Request](HueRouter[T_Request]):
         class MyView(HueView):
             router = Router[HttpRequest]()
 
-            @router.get("/")
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ):
                 return html.div("Index")
 
-            @router.ajax_get("comments/<int:comment_id>/")
+            @router.fragment_get("comments/<int:comment_id>/")
             async def comment(
                 self,
                 request: HttpRequest,
