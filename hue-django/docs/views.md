@@ -42,7 +42,7 @@ async def get_comment(
     request: HttpRequest,
     context: HueContext[HttpRequest],
     comment_id: int,  # Extracted from path
-):
+) -> html.div:
     return html.div(f"Comment {comment_id}")
 ```
 
@@ -68,7 +68,7 @@ async def get_post(
     context: HueContext[HttpRequest],
     user_id: int,
     post_id: int,
-):
+) -> html.div:
     return html.div(f"Post {post_id} by user {user_id}")
 ```
 
@@ -89,7 +89,7 @@ from htmy import html
 class LoginView(HueView):
     async def index(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> Page:
         return Page(body=html.div("Login Page"))
 
     router = Router[HttpRequest]()
@@ -97,7 +97,7 @@ class LoginView(HueView):
     @router.fragment_post("login/")
     async def login(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         # Process login form
         return html.div("Login successful")
 ```
@@ -142,7 +142,7 @@ You can add fragment routes to `HueView` using the router:
 class CommentsView(HueView):
     async def index(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> Page:
         return Page(body=html.div("Comments Page"))
 
     router = Router[HttpRequest]()
@@ -150,13 +150,13 @@ class CommentsView(HueView):
     @router.fragment_get("comments/")
     async def list_comments(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         return html.div("Comments list")
 
     @router.fragment_post("comments/")
     async def create_comment(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         return html.div("Comment created")
 ```
 
@@ -181,13 +181,13 @@ class CommentsFragments(HueFragmentsView):
     @router.fragment_get("comments/")
     async def list_comments(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         return html.div("Comments list")
 
     @router.fragment_post("comments/")
     async def create_comment(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         return html.div("Comment created")
 ```
 
@@ -249,7 +249,7 @@ from htmy import html
 class BlogView(HueView):
     async def index(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> Page:
         return Page(
             body=html.div(
                 html.h1("Blog"),
@@ -262,7 +262,7 @@ class BlogView(HueView):
     @router.fragment_get("posts/")
     async def list_posts(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         posts = ["Post 1", "Post 2", "Post 3"]
         return html.div(*[html.p(post) for post in posts])
 
@@ -272,13 +272,13 @@ class BlogView(HueView):
         request: HttpRequest,
         context: HueContext[HttpRequest],
         post_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Post {post_id}")
 
     @router.fragment_post("posts/")
     async def create_post(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         # Process form data
         return html.div("Post created")
 ```
@@ -298,7 +298,7 @@ class CommentsAPI(HueFragmentsView):
     @router.fragment_get("comments/")
     async def list_comments(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         comments = ["Comment 1", "Comment 2"]
         return html.div(*[html.p(c) for c in comments])
 
@@ -308,13 +308,13 @@ class CommentsAPI(HueFragmentsView):
         request: HttpRequest,
         context: HueContext[HttpRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Comment {comment_id}")
 
     @router.fragment_post("comments/")
     async def create_comment(
         self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
+    ) -> html.div:
         return html.div("Comment created")
 
     @router.fragment_put("comments/<int:comment_id>/")
@@ -323,7 +323,7 @@ class CommentsAPI(HueFragmentsView):
         request: HttpRequest,
         context: HueContext[HttpRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Updated comment {comment_id}")
 
     @router.fragment_delete("comments/<int:comment_id>/")
@@ -332,7 +332,7 @@ class CommentsAPI(HueFragmentsView):
         request: HttpRequest,
         context: HueContext[HttpRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Deleted comment {comment_id}")
 ```
 
@@ -382,11 +382,11 @@ Multiple methods can be defined for the same path:
 
 ```python
 @router.fragment_get("comments/")
-async def list_comments(...):
+async def list_comments(...) -> html.div:
     return html.div("List")
 
 @router.fragment_post("comments/")
-async def create_comment(...):
+async def create_comment(...) -> html.div:
     return html.div("Create")
 ```
 
