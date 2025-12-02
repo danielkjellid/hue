@@ -1,12 +1,13 @@
-from functools import cached_property
 import json
+from functools import cached_property
 from typing import Callable
-from htmy import Context
+
+from htmy import Context, html
 from typing_extensions import Any
-from hue.types.core import Component, ComponentType
+
 from hue.context import HueContext
 from hue.formatter import HueFormatter
-from htmy import html
+from hue.types.core import Component
 
 
 class BasePage:
@@ -28,19 +29,22 @@ class BasePage:
     @cached_property
     def css_url(self) -> str:
         raise NotImplementedError(
-            "css_url must be implemented by constructing the class through create_base_page()"
+            "css_url must be implemented by constructing the class through "
+            "create_base_page()"
         )
 
     @cached_property
     def js_url(self) -> str:
         raise NotImplementedError(
-            "js_url must be implemented by constructing the class through create_base_page()"
+            "js_url must be implemented by constructing the class through "
+            "create_base_page()"
         )
 
     @cached_property
     def html_title_factory(self) -> Callable[[str], str]:
         raise NotImplementedError(
-            "html_title_factory must be implemented by constructing the class through create_base_page()"
+            "html_title_factory must be implemented by constructing the class through "
+            "create_base_page()"
         )
 
     def configure_alpine(self, context: HueContext) -> html.script:

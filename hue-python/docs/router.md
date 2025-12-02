@@ -42,13 +42,13 @@ from htmy import html
 class MyView:
     router = Router[MyRequest]()
 
-    @router.ajax_get("comments/")
+    @router.fragment_get("comments/")
     async def list_comments(
         self, request: MyRequest, context: HueContext[MyRequest]
     ):
         return html.div("Comments list")
 
-    @router.ajax_post("comments/")
+    @router.fragment_post("comments/")
     async def create_comment(
         self, request: MyRequest, context: HueContext[MyRequest]
     ):
@@ -59,13 +59,13 @@ class MyView:
 
 The router provides decorators for all standard HTTP methods:
 
-- `@router.ajax_get(path)` - GET requests
-- `@router.ajax_post(path)` - POST requests
-- `@router.ajax_put(path)` - PUT requests
-- `@router.ajax_delete(path)` - DELETE requests
-- `@router.ajax_patch(path)` - PATCH requests
+- `@router.fragment_get(path)` - AJAX GET requests
+- `@router.fragment_post(path)` - AJAX POST requests
+- `@router.fragment_put(path)` - AJAX PUT requests
+- `@router.fragment_delete(path)` - AJAX DELETE requests
+- `@router.fragment_patch(path)` - AJAX PATCH requests
 
-All routes are **AJAX-only** - they require either:
+All fragment routes are **AJAX-only** - they require either:
 
 - `X-Requested-With: XMLHttpRequest` header, or
 - `X-Alpine-Request: true` header
@@ -83,7 +83,7 @@ Path parameter syntax is framework-specific. Framework-specific routers implemen
 For example, Django routers use Django's URL pattern syntax:
 
 ```python
-@router.ajax_get("comments/<int:comment_id>/")
+@router.fragment_get("comments/<int:comment_id>/")
 async def get_comment(
     self,
     request: MyRequest,
@@ -100,7 +100,7 @@ The exact syntax depends on the framework-specific router implementation.
 You can define multiple path parameters:
 
 ```python
-@router.ajax_get("users/<int:user_id>/posts/<int:post_id>/")
+@router.fragment_get("users/<int:user_id>/posts/<int:post_id>/")
 async def get_post(
     self,
     request: HttpRequest,
@@ -147,16 +147,16 @@ Both synchronous and asynchronous view functions are supported:
 
 ```python
 # Async function
-@router.ajax_get("async/")
+@router.fragment_get("async/")
 async def async_handler(
-    self, request: HttpRequest, context: HueContext[HttpRequest]
+    self, request: MyRequest, context: HueContext[MyRequest]
 ):
     return html.div("Async")
 
 # Sync function
-@router.ajax_get("sync/")
+@router.fragment_get("sync/")
 def sync_handler(
-    self, request: HttpRequest, context: HueContext[HttpRequest]
+    self, request: MyRequest, context: HueContext[MyRequest]
 ):
     return html.div("Sync")
 ```
@@ -176,7 +176,7 @@ class CommentsView:
     router = Router[MyRequest]()
 
     # List comments (fragment)
-    @router.ajax_get("comments/")
+    @router.fragment_get("comments/")
     async def list_comments(
         self, request: MyRequest, context: HueContext[MyRequest]
     ):
@@ -186,7 +186,7 @@ class CommentsView:
         )
 
     # Get single comment (fragment with path parameter)
-    @router.ajax_get("comments/<int:comment_id>/")
+    @router.fragment_get("comments/<int:comment_id>/")
     async def get_comment(
         self,
         request: MyRequest,
@@ -196,7 +196,7 @@ class CommentsView:
         return html.div(f"Comment {comment_id}")
 
     # Create comment (fragment)
-    @router.ajax_post("comments/")
+    @router.fragment_post("comments/")
     async def create_comment(
         self, request: MyRequest, context: HueContext[MyRequest]
     ):
@@ -205,7 +205,7 @@ class CommentsView:
         return html.div(f"Created: {comment_text}")
 
     # Update comment (fragment)
-    @router.ajax_put("comments/<int:comment_id>/")
+    @router.fragment_put("comments/<int:comment_id>/")
     async def update_comment(
         self,
         request: MyRequest,
@@ -215,7 +215,7 @@ class CommentsView:
         return html.div(f"Updated comment {comment_id}")
 
     # Delete comment (fragment)
-    @router.ajax_delete("comments/<int:comment_id>/")
+    @router.fragment_delete("comments/<int:comment_id>/")
     async def delete_comment(
         self,
         request: MyRequest,
@@ -262,7 +262,7 @@ class MyFrameworkRouter(Router[MyRequest]):
 
 ## How It Works
 
-1. **Route Registration**: When you use a decorator like `@router.ajax_get("path/")`, the router:
+1. **Route Registration**: When you use a decorator like `@router.fragment_get("path/")`, the router:
 
    - Normalizes the path
    - Parses path parameters

@@ -4,9 +4,8 @@ from dataclasses import dataclass, field
 from functools import partialmethod
 from typing import Any, cast
 
-from htmy import Renderer
-
 from hue.context import HueContext, HueContextArgs
+from hue.renderer import render_tree
 from hue.types.core import Component, ComponentType
 
 # Type alias for wrapped view functions (return HTML string)
@@ -41,7 +40,8 @@ class Router[T_Request]:
     """
     Framework-agnostic base router for defining routes in HueView.
 
-    Routes should be AJAX requests and return fragments (Component).
+    Fragment routes return HTML fragments (Component) and require AJAX requests.
+    Page routes return full pages and don't require AJAX.
     """
 
     def __init__(self) -> None:
@@ -75,18 +75,7 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
-    def _build_context(
-        self,
-        component: ComponentType,
-        request: T_Request,
-    ) -> HueContext[T_Request]:
-        """
-        Build the hue context for the component and request.
-        """
-        context_args = self._get_context_args(request)
-        return HueContext(component, **context_args)
-
-    async def _render(
+    async def render(
         self,
         component: ComponentType,
         request: T_Request,
@@ -98,12 +87,13 @@ class Router[T_Request]:
         The renderer calls .htmy() on all components, so both fragments and full
         pages are rendered the same way.
         """
-        context = self._build_context(component, request)
-        renderer = Renderer()
-        result: str = await renderer.render(context)
-        return result
+        return await render_tree(
+            component, context_args=self._get_context_args(request)
+        )
 
-    def _wrap_view(self, view_func: ViewFunc) -> WrappedViewFunc:
+    def _wrap_view(
+        self, view_func: ViewFunc, require_ajax: bool = True
+    ) -> WrappedViewFunc:
         """
         Wrap a view function to automatically render Components and pass the hue
         context.
@@ -112,14 +102,15 @@ class Router[T_Request]:
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
         ) -> str:
-            is_ajax_req = False
-            is_alpine_ajax_req = False
-            headers = getattr(request, "headers", {})
-            if hasattr(headers, "get"):
-                is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
-                is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
+            if require_ajax:
+                is_ajax_req = False
+                is_alpine_ajax_req = False
+                headers = getattr(request, "headers", {})
+                if hasattr(headers, "get"):
+                    is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
+                    is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
 
-            assert is_ajax_req or is_alpine_ajax_req, "Not an AJAX request"
+                assert is_ajax_req or is_alpine_ajax_req, "Not an AJAX request"
 
             # Build context for the handler (without component yet)
             context_args: HueContextArgs[T_Request] = self._get_context_args(request)
@@ -137,12 +128,14 @@ class Router[T_Request]:
             # Type checker needs help understanding this
             component = cast(ComponentType, view_func_result)
 
-            return await self._render(component, request)
+            return await self.render(component, request)
 
         # Always return async wrapper (view functions should be async for rendering)
         return wrapped_view
 
-    def _request(self, method: str, path: str) -> Callable[[ViewFunc], ViewFunc]:
+    def _request(
+        self, method: str, path: str, require_ajax: bool = True
+    ) -> Callable[[ViewFunc], ViewFunc]:
         """
         Internal method to register a route.
 
@@ -153,7 +146,7 @@ class Router[T_Request]:
             normalized_path = self._normalize_path(path)
 
             parsed_path = self._parse_path_params(normalized_path)
-            wrapped_view = self._wrap_view(view_func)
+            wrapped_view = self._wrap_view(view_func, require_ajax=require_ajax)
 
             route = Route(
                 method=method.upper(),
@@ -169,8 +162,12 @@ class Router[T_Request]:
 
         return decorator
 
-    ajax_get = partialmethod(_request, "GET")
-    ajax_post = partialmethod(_request, "POST")
-    ajax_put = partialmethod(_request, "PUT")
-    ajax_delete = partialmethod(_request, "DELETE")
-    ajax_patch = partialmethod(_request, "PATCH")
+    # Non-AJAX route decorator for full page loads (e.g., index routes)
+    # Should not be used normally, but is useful for constructing the router manually.
+    _page = partialmethod(_request, "GET", require_ajax=False)
+
+    fragment_get = partialmethod(_request, "GET", require_ajax=True)
+    fragment_post = partialmethod(_request, "POST", require_ajax=True)
+    fragment_put = partialmethod(_request, "PUT", require_ajax=True)
+    fragment_delete = partialmethod(_request, "DELETE", require_ajax=True)
+    fragment_patch = partialmethod(_request, "PATCH", require_ajax=True)
