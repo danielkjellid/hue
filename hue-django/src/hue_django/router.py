@@ -7,7 +7,7 @@ from hue.router import PathParseResult
 from hue.router import Router as HueRouter
 
 
-class Router[T_Request](HueRouter[T_Request]):
+class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     """
     Django-specific router that extends the base Router.
 
@@ -46,18 +46,18 @@ class Router[T_Request](HueRouter[T_Request]):
         # The path is already in Django URL pattern format, just return it
         return PathParseResult(path=path, param_names=param_names)
 
-    def _get_context_args(self, request: HttpRequest) -> HueContextArgs[HttpRequest]:
+    def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
         """
         Get Django-specific context arguments.
 
         Returns request and CSRF token for Django.
         """
-        return HueContextArgs[HttpRequest](
+        return HueContextArgs(
             request=request,
             csrf_token=get_token(request),
         )
 
-    def _is_ajax_request(self, request: HttpRequest) -> bool:
+    def _is_ajax_request(self, request: T_Request) -> bool:
         """
         Check if the request is an AJAX request using Django's request.META.
 

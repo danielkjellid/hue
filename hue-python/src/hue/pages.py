@@ -7,16 +7,16 @@ from typing_extensions import Any
 
 from hue.context import HueContext
 from hue.formatter import HueFormatter
-from hue.types.core import Component
+from hue.types.core import Component, ComponentType
 
 
 class BasePage:
     def __init__(
         self,
         *,
-        body: Component,
+        title: str,
+        body: ComponentType,
         x_data: dict[str, Any] | None = None,
-        title: str | None = None,
     ):
         self.body = body
         self.x_data = x_data or {}
@@ -40,7 +40,6 @@ class BasePage:
             "create_base_page()"
         )
 
-    @cached_property
     def html_title_factory(self) -> Callable[[str], str]:
         raise NotImplementedError(
             "html_title_factory must be implemented by constructing the class through "
@@ -73,7 +72,7 @@ class BasePage:
             html.DOCTYPE.html,
             html.html(
                 html.head(
-                    html.title(self.html_title_factory(self.title)),
+                    html.title(self.html_title_factory()(self.title)),
                     html.meta.charset(),
                     html.meta.viewport(),
                     html.script(
@@ -103,6 +102,8 @@ def create_page_base(
     js_url: str,
     html_title_factory: Callable[[str], str],
 ) -> type[BasePage]:
+    html_title_factory_func = html_title_factory
+
     class Page(BasePage):
         @cached_property
         def css_url(self) -> str:
@@ -112,8 +113,7 @@ def create_page_base(
         def js_url(self) -> str:
             return js_url
 
-        @cached_property
         def html_title_factory(self) -> Callable[[str], str]:
-            return html_title_factory
+            return html_title_factory_func
 
     return Page

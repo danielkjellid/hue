@@ -1,11 +1,29 @@
 import inspect
+from typing import TYPE_CHECKING, Awaitable, Protocol
 
 from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern, path
 from django.views import View
+from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError
+from hue.pages import BasePage
 
 from hue_django.router import Router
+
+
+class IndexMethod(Protocol):
+    """
+    Protocol defining the signature for the index method in HueView subclasses.
+
+    The index method can be either synchronous or asynchronous, returning
+    a BasePage instance or an Awaitable[BasePage] respectively.
+    """
+
+    def __call__(
+        self,
+        request: HttpRequest,
+        context: HueContext[HttpRequest],
+    ) -> BasePage | Awaitable[BasePage]: ...
 
 
 class _BaseViewMeta(type):
@@ -180,6 +198,10 @@ class HueView(_BaseView):
             ):
                 return html.div("Login successful")  # Fragment
     """
+
+    if TYPE_CHECKING:
+        # Type hint for subclasses - index method must match IndexMethod protocol
+        index: IndexMethod
 
     @classmethod
     def _get_urls(cls) -> tuple[list[URLPattern], str]:
