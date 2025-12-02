@@ -3,6 +3,7 @@ import inspect
 from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern, path
 from django.views import View
+from hue.exceptions import AJAXRequiredError
 
 from hue_django.router import Router
 
@@ -31,22 +32,44 @@ class _BaseView(View, metaclass=_BaseViewMeta):
         url_patterns: list[URLPattern] = []
         routes = router.routes
 
+        # Group routes by path to handle multiple methods on same path
+        routes_by_path: dict[str, list] = {}
         for route in routes:
-            # Create a view method name based on the view function
-            view_func_name = route.view_func.__name__
+            if route.path not in routes_by_path:
+                routes_by_path[route.path] = []
+            routes_by_path[route.path].append(route)
 
-            # Create URL pattern that dispatches to this route
-            # Capture route in closure properly
-            async def view_func(request, route=route, **kwargs):
+        # Create one URL pattern per unique path
+        for path_str, path_routes in routes_by_path.items():
+            # Create a dispatcher that checks all routes for this path
+            async def view_func(request, routes=path_routes, **kwargs):
                 # Create view instance and set it up properly
                 view_instance = cls()
                 view_instance.setup(request, **kwargs)
-                # Call the async handler
-                return await view_instance._handle_route(request, route, **kwargs)
+                # Find the route that matches the HTTP method
+                matching_route = None
+                for route in routes:
+                    if route.method == request.method.upper():
+                        matching_route = route
+                        break
+                # If no matching route, return 405
+                if not matching_route:
+                    return HttpResponse("Method not allowed", status=405)
+                # Call the async handler with the matching route
+                # Catch AssertionError from AJAX validation and return 400
+                try:
+                    return await view_instance._handle_route(
+                        request, matching_route, **kwargs
+                    )
+                except AJAXRequiredError:
+                    return HttpResponse("Bad Request", status=400)
+
+            # Use the first route's function name for the URL pattern name
+            view_func_name = path_routes[0].view_func.__name__
 
             url_patterns.append(
                 path(
-                    route.path,
+                    path_str,
                     view_func,
                     name=view_func_name,
                 )
@@ -63,22 +86,22 @@ class _BaseView(View, metaclass=_BaseViewMeta):
         The router wraps view functions to automatically render Components to HTML,
         so we just call the wrapped handler and return the HTML string.
         """
-        # Check method matches
-        if route.method != request.method.upper():
-            return HttpResponse("Method not allowed", status=405)
-
         # Extract only path parameters for the handler
         handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
 
         # Call the wrapped handler (which returns HTML string, not Component)
-        view_func_result = route.view_func(self, request, **handler_kwargs)
+        # Catch AJAXRequiredError from AJAX validation
+        try:
+            view_func_result = route.view_func(self, request, **handler_kwargs)
 
-        # Await if it's a coroutine (wrapped handler is async)
-        while inspect.iscoroutine(view_func_result):
-            view_func_result = await view_func_result
+            # Await if it's a coroutine (wrapped handler is async)
+            while inspect.iscoroutine(view_func_result):
+                view_func_result = await view_func_result
 
-        # Handler now returns HTML string (thanks to router wrapping)
-        return HttpResponse(view_func_result)
+            # Handler now returns HTML string (thanks to router wrapping)
+            return HttpResponse(view_func_result)
+        except AJAXRequiredError:
+            return HttpResponse("Bad Request", status=400)
 
 
 class HueFragmentsView(_BaseView):

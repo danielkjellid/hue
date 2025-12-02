@@ -2,9 +2,9 @@ import re
 
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
+
 from hue.context import HueContextArgs
-from hue.router import PathParseResult
-from hue.router import Router as HueRouter
+from hue.router import PathParseResult, Router as HueRouter
 
 
 class Router[T_Request](HueRouter[T_Request]):
@@ -56,3 +56,13 @@ class Router[T_Request](HueRouter[T_Request]):
             request=request,
             csrf_token=get_token(request),
         )
+
+    def _is_ajax_request(self, request: HttpRequest) -> bool:
+        """
+        Check if the request is an AJAX request using Django's request.META.
+
+        Django stores HTTP headers in request.META with the HTTP_ prefix.
+        """
+        is_ajax_req = request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
+        is_alpine_ajax_req = request.META.get("HTTP_X_ALPINE_REQUEST") == "true"
+        return is_ajax_req or is_alpine_ajax_req
