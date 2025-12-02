@@ -37,12 +37,3 @@ extend_exclude = ["tests", "test_.*\\.py"]
 [tool.deptry.per_rule_ignores]
 DEP002 = ["arel", "pytailwindcss"]
 
-##########
-# Pytest #
-##########
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-
-[tool.basedpyright]
-include = ["src"]
