@@ -29,7 +29,7 @@ class TestHueView:
 
     def test_hue_view_requires_index_method(self):
         """HueView must define an index method."""
-        with pytest.raises(ValueError, match="must define an 'async def index' method"):
+        with pytest.raises(ValueError, match="must define an 'index' method"):
 
             class InvalidView(HueView):
                 pass

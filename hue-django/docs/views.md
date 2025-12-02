@@ -105,14 +105,23 @@ class LoginView(HueView):
 ### Requirements
 
 - **Must define `index` method**: The `index` method handles GET requests to the root path (`/`)
-- **`index` must be async**: The method must be defined as `async def index(...)`
+- **`index` can be sync or async**: The method can be defined as either `def index(...)` or `async def index(...)`
 - **Returns a `Page`**: The `index` method should return a `Page` instance (full HTML page)
 - **Router is optional**: If no router is defined, one is automatically created for the index route
 
 ### Index Method Signature
 
 ```python
+# Async version (recommended)
 async def index(
+    self,
+    request: HttpRequest,
+    context: HueContext[HttpRequest],
+) -> Page:
+    return Page(body=html.div("Content"))
+
+# Sync version (also supported)
+def index(
     self,
     request: HttpRequest,
     context: HueContext[HttpRequest],

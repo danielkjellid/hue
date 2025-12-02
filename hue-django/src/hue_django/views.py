@@ -161,7 +161,7 @@ class HueView(_BaseView):
     """
     Django-specific base view for full page views with optional fragment routes.
 
-    This view must have an `async def index` method that handles the initial
+    This view must have an `index` method (sync or async) that handles the initial
     page load (GET "/"). It can optionally define a router for additional
     AJAX fragment routes.
 
@@ -189,7 +189,7 @@ class HueView(_BaseView):
         # Check for index method
         if not hasattr(cls, "index"):
             raise ValueError(
-                f"{cls.__name__} must define an 'async def index' method. "
+                f"{cls.__name__} must define an 'index' method. "
                 "HueView requires an index method to handle the initial page load."
             )
 
