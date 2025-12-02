@@ -4,9 +4,10 @@ from unittest.mock import Mock
 import pytest
 from htmy import html
 
-from src.hue.context import HueContext, HueContextArgs
-from src.hue.router import PathParseResult, Router
-from src.hue.types.core import Component
+from hue.context import HueContext, HueContextArgs
+from hue.exceptions import AJAXRequiredError
+from hue.router import PathParseResult, Router
+from hue.types.core import Component
 
 
 # Mock request object
@@ -205,7 +206,7 @@ async def test_wrapped_view_validates_ajax_request():
 
     # Non-AJAX request should raise error
     request = MockRequest(headers={})
-    with pytest.raises(AssertionError, match="Not an AJAX request"):
+    with pytest.raises(AJAXRequiredError):
         await wrapped(view_instance, request)
 
 

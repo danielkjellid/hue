@@ -43,3 +43,6 @@ DEP002 = ["arel", "pytailwindcss"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.basedpyright]
+include = ["src"]

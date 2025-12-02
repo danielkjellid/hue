@@ -5,6 +5,7 @@ from functools import partialmethod
 from typing import Any, cast
 
 from hue.context import HueContext, HueContextArgs
+from hue.exceptions import AJAXRequiredError
 from hue.renderer import render_tree
 from hue.types.core import Component, ComponentType
 
@@ -91,6 +92,26 @@ class Router[T_Request]:
             component, context_args=self._get_context_args(request)
         )
 
+    def _is_ajax_request(self, request: T_Request) -> bool:
+        """
+        Check if the request is an AJAX request.
+
+        Framework-specific routers should override this method to handle
+        framework-specific header access.
+
+        Returns True if the request has either:
+        - X-Requested-With: XMLHttpRequest header, or
+        - X-Alpine-Request: true header
+        """
+        headers = getattr(request, "headers", {})
+
+        if hasattr(headers, "get"):
+            is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
+            is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
+            return is_ajax_req or is_alpine_ajax_req
+
+        return False
+
     def _wrap_view(
         self, view_func: ViewFunc, require_ajax: bool = True
     ) -> WrappedViewFunc:
@@ -102,15 +123,8 @@ class Router[T_Request]:
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
         ) -> str:
-            if require_ajax:
-                is_ajax_req = False
-                is_alpine_ajax_req = False
-                headers = getattr(request, "headers", {})
-                if hasattr(headers, "get"):
-                    is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
-                    is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
-
-                assert is_ajax_req or is_alpine_ajax_req, "Not an AJAX request"
+            if require_ajax and not self._is_ajax_request(request):
+                raise AJAXRequiredError()
 
             # Build context for the handler (without component yet)
             context_args: HueContextArgs[T_Request] = self._get_context_args(request)
