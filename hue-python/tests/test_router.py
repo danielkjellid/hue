@@ -1,91 +1,50 @@
-import re
 from unittest.mock import Mock
 
 import pytest
 from htmy import html
 
-from hue.context import HueContext, HueContextArgs
+from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError
-from hue.router import PathParseResult, Router
+from hue.router import PathParseResult
 from hue.types.core import Component
+from tests.conftest import MockRequest, MockRouter
 
 
-# Mock request object
-class MockRequest:
-    def __init__(self, headers: dict[str, str] | None = None):
-        self.headers = headers or {}
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("/test", "test"),
+        ("/test/path", "test/path"),
+        ("/", ""),
+        ("///test", "test"),
+        ("/test/", "test/"),
+    ],
+)
+def test_normalize_path(router: MockRouter, path: str, expected: str):
+    assert router._normalize_path(path) == expected
 
 
-# Test router implementation
-class MockRouter(Router[MockRequest]):
-    """Concrete router implementation for testing."""
-
-    def _parse_path_params(self, path: str) -> PathParseResult:
-        """Simple path parser that extracts {param} patterns."""
-
-        # Find all {param} patterns
-        param_pattern = r"\{(\w+)\}"
-        matches = re.findall(param_pattern, path)
-        param_names = list(matches)
-
-        # Convert to simple path format (remove braces for testing)
-        final_path = re.sub(r"\{(\w+)\}", r"<\1>", path)
-
-        return PathParseResult(path=final_path, param_names=param_names)
-
-    def _get_context_args(self, request: MockRequest) -> HueContextArgs[MockRequest]:
-        """Return mock context args."""
-        return HueContextArgs[MockRequest](
-            request=request,
-            csrf_token="test-csrf-token",
-        )
+@pytest.mark.parametrize(
+    "path, parsed_path, expected",
+    [
+        (
+            "users/{user_id}/posts/{post_id}",
+            "users/<user_id>/posts/<post_id>",
+            ["user_id", "post_id"],
+        ),
+        ("users/posts", "users/posts", []),
+        ("{id}", "<id>", ["id"]),
+    ],
+)
+def test_parse_path_params(
+    router: MockRouter, path: str, parsed_path: str, expected: PathParseResult
+):
+    result = router._parse_path_params(path)
+    assert result.path == parsed_path
+    assert result.param_names == expected
 
 
-def test_normalize_path_strips_leading_slash():
-    router = MockRouter()
-    assert router._normalize_path("/test") == "test"
-    assert router._normalize_path("/test/path") == "test/path"
-
-
-def test_normalize_path_handles_root_path():
-    router = MockRouter()
-    assert router._normalize_path("/") == ""
-
-
-def test_normalize_path_handles_multiple_leading_slashes():
-    router = MockRouter()
-    assert router._normalize_path("///test") == "test"
-
-
-def test_normalize_path_preserves_trailing_slash():
-    router = MockRouter()
-    assert router._normalize_path("/test/") == "test/"
-
-
-def test_parse_path_params_extracts_parameters():
-    router = MockRouter()
-    result = router._parse_path_params("users/{user_id}/posts/{post_id}")
-    assert result.path == "users/<user_id>/posts/<post_id>"
-    assert result.param_names == ["user_id", "post_id"]
-
-
-def test_parse_path_params_handles_no_parameters():
-    router = MockRouter()
-    result = router._parse_path_params("users/posts")
-    assert result.path == "users/posts"
-    assert result.param_names == []
-
-
-def test_parse_path_params_handles_single_parameter():
-    router = MockRouter()
-    result = router._parse_path_params("{id}")
-    assert result.path == "<id>"
-    assert result.param_names == ["id"]
-
-
-def test_fragment_get_registers_route():
-    router = MockRouter()
-
+def test_fragment_get_registers_route(router: MockRouter):
     @router.fragment_get("users/")
     async def get_users(
         view_instance: object,
@@ -101,9 +60,7 @@ def test_fragment_get_registers_route():
     assert route.path_params == []
 
 
-def test_fragment_post_registers_route():
-    router = MockRouter()
-
+def test_fragment_post_registers_route(router: MockRouter):
     @router.fragment_post("users/")
     async def create_user(
         view_instance: object,
@@ -117,9 +74,7 @@ def test_fragment_post_registers_route():
     assert route.method == "POST"
 
 
-def test_multiple_routes_registered():
-    router = MockRouter()
-
+def test_multiple_routes_registered(router: MockRouter):
     @router.fragment_get("users/")
     async def get_users(
         view_instance: object,
@@ -136,15 +91,12 @@ def test_multiple_routes_registered():
     ) -> Component:
         return html.div("Posts")
 
-    EXPECTED_ROUTES = 2
-    assert len(router.routes) == EXPECTED_ROUTES
+    assert len(router.routes) == 2
     assert router.routes[0].path == "users/"
     assert router.routes[1].path == "posts/"
 
 
-def test_route_with_path_parameters():
-    router = MockRouter()
-
+def test_route_with_path_parameters(router: MockRouter):
     @router.fragment_get("users/{user_id}")
     async def get_user(
         view_instance: object,
@@ -160,9 +112,7 @@ def test_route_with_path_parameters():
     assert route.path_params == ["user_id"]
 
 
-def test_route_method_uppercased():
-    router = MockRouter()
-
+def test_route_method_uppercased(router: MockRouter):
     @router.fragment_get("test/")
     async def handler(
         view_instance: object,
@@ -174,9 +124,7 @@ def test_route_method_uppercased():
     assert router.routes[0].method == "GET"
 
 
-def test_decorator_returns_original_function():
-    router = MockRouter()
-
+def test_decorator_returns_original_function(router: MockRouter):
     @router.fragment_get("test/")
     async def handler(
         view_instance: object,
@@ -191,8 +139,9 @@ def test_decorator_returns_original_function():
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_validates_ajax_request():
-    router = MockRouter()
+async def test_wrapped_view_validates_ajax_request(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -205,14 +154,15 @@ async def test_wrapped_view_validates_ajax_request():
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     # Non-AJAX request should raise error
-    request = MockRequest(headers={})
+    request = mock_request(headers={})
     with pytest.raises(AJAXRequiredError):
         await wrapped(view_instance, request)
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_allows_non_ajax_request():
-    router = MockRouter()
+async def test_wrapped_view_allows_non_ajax_request(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -226,15 +176,16 @@ async def test_wrapped_view_allows_non_ajax_request():
     wrapped = router._wrap_view(view_func, require_ajax=False)
 
     # Non-AJAX request should work
-    request = MockRequest(headers={})
+    request = mock_request(headers={})
     result = await wrapped(view_instance, request)
     assert isinstance(result, str)
     assert "Test" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_accepts_xmlhttprequest():
-    router = MockRouter()
+async def test_wrapped_view_accepts_xmlhttprequest(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -248,15 +199,16 @@ async def test_wrapped_view_accepts_xmlhttprequest():
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     # XMLHttpRequest header should work
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     result = await wrapped(view_instance, request)
     assert isinstance(result, str)
     assert "Test" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_accepts_alpine_ajax():
-    router = MockRouter()
+async def test_wrapped_view_accepts_alpine_ajax(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -270,15 +222,16 @@ async def test_wrapped_view_accepts_alpine_ajax():
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     # Alpine AJAX header should work
-    request = MockRequest(headers={"X-Alpine-Request": "true"})
+    request = mock_request(headers={"X-Alpine-Request": "true"})
     result = await wrapped(view_instance, request)
     assert isinstance(result, str)
     assert "Test" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_handles_sync_function():
-    router = MockRouter()
+async def test_wrapped_view_handles_sync_function(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     def view_func(
@@ -291,15 +244,16 @@ async def test_wrapped_view_handles_sync_function():
     # Fragment routes require AJAX
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     result = await wrapped(view_instance, request)
     assert isinstance(result, str)
     assert "Sync Test" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_handles_async_function():
-    router = MockRouter()
+async def test_wrapped_view_handles_async_function(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -312,15 +266,16 @@ async def test_wrapped_view_handles_async_function():
     # Fragment routes require AJAX
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     result = await wrapped(view_instance, request)
     assert isinstance(result, str)
     assert "Async Test" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_passes_path_parameters():
-    router = MockRouter()
+async def test_wrapped_view_passes_path_parameters(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     async def view_func(
@@ -334,15 +289,16 @@ async def test_wrapped_view_passes_path_parameters():
     # Fragment routes require AJAX
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     result = await wrapped(view_instance, request, user_id="123")
     assert isinstance(result, str)
     assert "User 123" in result
 
 
 @pytest.mark.asyncio
-async def test_wrapped_view_passes_context():
-    router = MockRouter()
+async def test_wrapped_view_passes_context(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
     captured_context = None
 
@@ -358,7 +314,7 @@ async def test_wrapped_view_passes_context():
     # Fragment routes require AJAX
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     await wrapped(view_instance, request)
 
     assert captured_context is not None
@@ -369,10 +325,11 @@ async def test_wrapped_view_passes_context():
 
 
 @pytest.mark.asyncio
-async def test_render_converts_component_to_html():
-    router = MockRouter()
+async def test_render_converts_component_to_html(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     component = html.div("Hello World")
-    request = MockRequest()
+    request = mock_request()
 
     result = await router.render(component, request)
 
@@ -382,10 +339,11 @@ async def test_render_converts_component_to_html():
 
 
 @pytest.mark.asyncio
-async def test_render_handles_nested_components():
-    router = MockRouter()
+async def test_render_handles_nested_components(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     component = html.div(html.span("Nested"), html.p("Content"))
-    request = MockRequest()
+    request = mock_request()
 
     result = await router.render(component, request)
 
@@ -395,8 +353,9 @@ async def test_render_handles_nested_components():
 
 
 @pytest.mark.asyncio
-async def test_full_route_execution():
-    router = MockRouter()
+async def test_full_route_execution(
+    router: MockRouter, mock_request: type[MockRequest]
+):
     view_instance = Mock()
 
     @router.fragment_get("users/{user_id}")
@@ -415,7 +374,7 @@ async def test_full_route_execution():
     assert route.path_params == ["user_id"]
 
     # Execute the wrapped view
-    request = MockRequest(headers={"X-Requested-With": "XMLHttpRequest"})
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
     result = await route.view_func(view_instance, request, user_id="42")
 
     assert isinstance(result, str)
@@ -423,9 +382,7 @@ async def test_full_route_execution():
 
 
 @pytest.mark.asyncio
-async def test_multiple_http_methods():
-    router = MockRouter()
-
+async def test_multiple_http_methods(router: MockRouter):
     @router.fragment_get("users/")
     async def get_users(
         view_instance: object,
@@ -469,16 +426,13 @@ async def test_multiple_http_methods():
     ) -> Component:
         return html.div("PATCH")
 
-    EXPECTED_ROUTES = 5
-    assert len(router.routes) == EXPECTED_ROUTES
+    assert len(router.routes) == 5
     methods = {route.method for route in router.routes}
     assert methods == {"GET", "POST", "PUT", "DELETE", "PATCH"}
 
 
 @pytest.mark.asyncio
-async def test_routes_property_returns_copy():
-    router = MockRouter()
-
+async def test_routes_property_returns_copy(router: MockRouter):
     @router.fragment_get("test/")
     async def handler(
         view_instance: object,
