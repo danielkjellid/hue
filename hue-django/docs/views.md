@@ -225,20 +225,6 @@ The `urls` attribute returns a tuple `(urlpatterns, app_name)` compatible with D
 - **`urlpatterns`**: List of `URLPattern` objects for all routes
 - **`app_name`**: Namespace for the view (defaults to the class name in lowercase)
 
-### Custom App Name
-
-You can customize the app name by setting the `app_name` class attribute:
-
-```python
-class MyView(HueView):
-    app_name = "custom_name"
-
-    async def index(
-        self, request: HttpRequest, context: HueContext[HttpRequest]
-    ):
-        return Page(body=html.div("Content"))
-```
-
 ## Complete Examples
 
 ### Example 1: Full Page with Fragments

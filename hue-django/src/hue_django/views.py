@@ -14,6 +14,8 @@ class _BaseViewMeta(type):
     def __getattr__(cls, name: str):
         if name == "urls":
             return cls._get_urls()
+        if name == "app_name":
+            return cls.get_app_name()
         raise AttributeError(f"{cls.__name__} has no attribute {name}")
 
 
@@ -21,6 +23,10 @@ class _BaseView(View, metaclass=_BaseViewMeta):
     @classmethod
     def _get_urls(cls) -> tuple[list[URLPattern], str]:
         raise NotImplementedError("Subclasses must implement this method")
+
+    @classmethod
+    def get_app_name(cls) -> str:
+        return cls.__name__.lower()
 
     @classmethod
     def _create_url_patterns_from_router(
@@ -65,7 +71,7 @@ class _BaseView(View, metaclass=_BaseViewMeta):
                     return HttpResponse("Bad Request", status=400)
 
             # Use the first route's function name for the URL pattern name
-            view_func_name = path_routes[0].view_func.__name__
+            view_func_name = path_routes[0].name
 
             url_patterns.append(
                 path(
@@ -148,8 +154,7 @@ class HueFragmentsView(_BaseView):
 
         # Return tuple compatible with Django's include()
         # Django expects (urlpatterns, app_name)
-        app_name = getattr(cls, "app_name", cls.__name__.lower())
-        return (url_patterns, app_name)
+        return (url_patterns, cls.app_name)
 
 
 class HueView(_BaseView):
@@ -200,5 +205,4 @@ class HueView(_BaseView):
 
         # Return tuple compatible with Django's include()
         # Django expects (urlpatterns, app_name)
-        app_name = getattr(cls, "app_name", cls.__name__.lower())
-        return (url_patterns, app_name)
+        return (url_patterns, cls.app_name)

@@ -31,6 +31,7 @@ class Route:
 
     method: str
     path: str
+    name: str
     view_func: WrappedViewFunc
     # List of parameter names extracted from path
     # Framework-specific routers can populate this based on their path syntax
@@ -163,6 +164,7 @@ class Router[T_Request]:
             wrapped_view = self._wrap_view(view_func, require_ajax=require_ajax)
 
             route = Route(
+                name=view_func.__name__.lower(),
                 method=method.upper(),
                 path=parsed_path.path,
                 view_func=wrapped_view,
