@@ -142,13 +142,13 @@ class HueFragmentsView(_BaseView):
             @router.fragment_get("comments/")
             async def list_comments(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ):
+            ) -> html.div:
                 return html.div("Comments list")
 
             @router.fragment_post("comments/")
             async def create_comment(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ):
+            ) -> html.div:
                 return html.div("Comment created")
     """
 
@@ -187,7 +187,7 @@ class HueView(_BaseView):
         class LoginView(HueView):
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ):
+            ) -> Page:
                 return Page(...)  # Full page on initial load
 
             router = Router[HttpRequest]()
@@ -195,7 +195,7 @@ class HueView(_BaseView):
             @router.fragment_post("login/")
             async def login(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ):
+            ) -> html.div:
                 return html.div("Login successful")  # Fragment
     """
 
@@ -221,7 +221,8 @@ class HueView(_BaseView):
         if (router := getattr(cls, "router", None)) is None:
             router = Router[HttpRequest]()
 
-        # Register index route with the router (non-AJAX GET "/")
+        # Register index route with the router. Uses _page decorator to
+        # mark it as a non-AJAX route.
         router._page("/")(cls.index)
         url_patterns = cls._create_url_patterns_from_router(router)
 
