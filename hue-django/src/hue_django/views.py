@@ -1,50 +1,231 @@
-from functools import cached_property
-from typing import Callable
+import inspect
+from typing import TYPE_CHECKING, Awaitable, Protocol
 
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpRequest, HttpResponse
-from django.middleware.csrf import get_token
+from django.urls import URLPattern, path
 from django.views import View
-from hue.base import BaseView, ViewValidationMixin
-from hue.context import HueContextArgs
+from hue.context import HueContext
+from hue.exceptions import AJAXRequiredError
+from hue.pages import BasePage
 
-from hue_django.conf import settings
+from hue_django.router import Router
 
 
-class HueView(BaseView, ViewValidationMixin, View):
+class IndexMethod(Protocol):
     """
-    Django-specific base view that provides framework defaults.
+    Protocol defining the signature for the index method in HueView subclasses.
 
-    Subclasses can override any attribute as needed - you don't need to
-    redefine all attributes, only the ones you want to change.
+    The index method can be either synchronous or asynchronous, returning
+    a BasePage instance or an Awaitable[BasePage] respectively.
+    """
+
+    def __call__(
+        self,
+        request: HttpRequest,
+        context: HueContext[HttpRequest],
+    ) -> BasePage | Awaitable[BasePage]: ...
+
+
+class _BaseViewMeta(type):
+    """Metaclass to make urls accessible as a class attribute."""
+
+    def __getattr__(cls, name: str):
+        if name == "urls":
+            return cls._get_urls()
+        if name == "app_name":
+            return cls.get_app_name()
+        raise AttributeError(f"{cls.__name__} has no attribute {name}")
+
+
+class _BaseView(View, metaclass=_BaseViewMeta):
+    @classmethod
+    def _get_urls(cls) -> tuple[list[URLPattern], str]:
+        raise NotImplementedError("Subclasses must implement this method")
+
+    @classmethod
+    def get_app_name(cls) -> str:
+        return cls.__name__.lower()
+
+    @classmethod
+    def _create_url_patterns_from_router(
+        cls, router: Router[HttpRequest] | None
+    ) -> list[URLPattern]:
+        if not router:
+            return []
+
+        url_patterns: list[URLPattern] = []
+        routes = router.routes
+
+        # Group routes by path to handle multiple methods on same path
+        routes_by_path: dict[str, list] = {}
+        for route in routes:
+            if route.path not in routes_by_path:
+                routes_by_path[route.path] = []
+            routes_by_path[route.path].append(route)
+
+        # Create one URL pattern per unique path
+        for path_str, path_routes in routes_by_path.items():
+            # Create a dispatcher that checks all routes for this path
+            async def view_func(request, routes=path_routes, **kwargs):
+                # Create view instance and set it up properly
+                view_instance = cls()
+                view_instance.setup(request, **kwargs)
+                # Find the route that matches the HTTP method
+                matching_route = None
+                for route in routes:
+                    if route.method == request.method.upper():
+                        matching_route = route
+                        break
+                # If no matching route, return 405
+                if not matching_route:
+                    return HttpResponse("Method not allowed", status=405)
+                # Call the async handler with the matching route
+                # Catch AssertionError from AJAX validation and return 400
+                try:
+                    return await view_instance._handle_route(
+                        request, matching_route, **kwargs
+                    )
+                except AJAXRequiredError:
+                    return HttpResponse("Bad Request", status=400)
+
+            # Use the first route's function name for the URL pattern name
+            view_func_name = path_routes[0].name
+
+            url_patterns.append(
+                path(
+                    path_str,
+                    view_func,
+                    name=view_func_name,
+                )
+            )
+
+        return url_patterns
+
+    async def _handle_route(
+        self, request: HttpRequest, route, **kwargs
+    ) -> HttpResponse:
+        """
+        Handle a route request.
+
+        The router wraps view functions to automatically render Components to HTML,
+        so we just call the wrapped handler and return the HTML string.
+        """
+        # Extract only path parameters for the handler
+        handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
+
+        # Call the wrapped handler (which returns HTML string, not Component)
+        # Catch AJAXRequiredError from AJAX validation
+        try:
+            view_func_result = route.view_func(self, request, **handler_kwargs)
+
+            # Await if it's a coroutine (wrapped handler is async)
+            while inspect.iscoroutine(view_func_result):
+                view_func_result = await view_func_result
+
+            # Handler now returns HTML string (thanks to router wrapping)
+            return HttpResponse(view_func_result)
+        except AJAXRequiredError:
+            return HttpResponse("Bad Request", status=400)
+
+
+class HueFragmentsView(_BaseView):
+    """
+    Django-specific base view for fragment-only routes.
+
+    This view is meant as a collective view for fragments with similar attributes.
+    It must have a router defined, and only handles decorated routes (fragments).
 
     Example:
-        class MyView(HueView):
-            title = "My Page"  # Only override what you need
+        class CommentsFragments(HueFragmentsView):
+            router = Router[HttpRequest]()
 
-        class AnotherView(HueView):
-            title = "Another Page"
-            x_data = {"custom": "value"}  # Can also override x_data
+            @router.fragment_get("comments/")
+            async def list_comments(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> html.div:
+                return html.div("Comments list")
+
+            @router.fragment_post("comments/")
+            async def create_comment(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> html.div:
+                return html.div("Comment created")
     """
 
-    @cached_property
-    def css_url(self) -> str:
-        """Get the CSS URL using Django's static files storage."""
-        return staticfiles_storage.url(settings.HUE_CSS_STATIC_PATH)
+    @classmethod
+    def _get_urls(cls) -> tuple[list[URLPattern], str]:
+        """
+        Generate Django URL patterns from the router.
 
-    @cached_property
-    def js_url(self) -> str:
-        """Get the Alpine.js bundle URL using Django's static files storage."""
-        return staticfiles_storage.url("hue/js/alpine-bundle.js")
+        Returns a tuple of (urlpatterns, app_name) compatible with Django's include()
+        function.
+        """
+        router = getattr(cls, "router", None)
 
-    @cached_property
-    def html_title_factory(self) -> Callable[[str], str]:
-        return settings.HUE_HTML_TITLE_FACTORY
+        if not router:
+            raise ValueError(
+                f"{cls.__name__} must define a 'router' attribute. "
+                "HueFragmentsView requires a router to handle fragment routes."
+            )
 
-    async def get(self, request: HttpRequest) -> HttpResponse:
-        context = HueContextArgs[HttpRequest](
-            request=request,
-            csrf_token=get_token(request),
-        )
-        page_content = await self.render(context)
-        return HttpResponse(page_content)
+        url_patterns = cls._create_url_patterns_from_router(router)
+
+        # Return tuple compatible with Django's include()
+        # Django expects (urlpatterns, app_name)
+        return (url_patterns, cls.app_name)
+
+
+class HueView(_BaseView):
+    """
+    Django-specific base view for full page views with optional fragment routes.
+
+    This view must have an `index` method (sync or async) that handles the initial
+    page load (GET "/"). It can optionally define a router for additional
+    AJAX fragment routes.
+
+    Example:
+        class LoginView(HueView):
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> Page:
+                return Page(...)  # Full page on initial load
+
+            router = Router[HttpRequest]()
+
+            @router.fragment_post("login/")
+            async def login(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> html.div:
+                return html.div("Login successful")  # Fragment
+    """
+
+    if TYPE_CHECKING:
+        # Type hint for subclasses - index method must match IndexMethod protocol
+        index: IndexMethod
+
+    @classmethod
+    def _get_urls(cls) -> tuple[list[URLPattern], str]:
+        """
+        Generate Django URL patterns from the index method and optional router.
+        """
+        # Check for index method
+        if not hasattr(cls, "index"):
+            raise ValueError(
+                f"{cls.__name__} must define an 'index' method. "
+                "HueView requires an index method to handle the initial page load."
+            )
+
+        if not callable(cls.index):
+            raise ValueError(f"{cls.__name__}.index must be a callable method.")
+
+        if (router := getattr(cls, "router", None)) is None:
+            router = Router[HttpRequest]()
+
+        # Register index route with the router. Uses _page decorator to
+        # mark it as a non-AJAX route.
+        router._page("/")(cls.index)
+        url_patterns = cls._create_url_patterns_from_router(router)
+
+        # Return tuple compatible with Django's include()
+        # Django expects (urlpatterns, app_name)
+        return (url_patterns, cls.app_name)

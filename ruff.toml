@@ -18,7 +18,9 @@ select = [
     "PLW",
     "RUF",
 ]
-ignore = []
+ignore = [
+    "PLR2004"
+]
 
 [lint.pylint]
 max-args = 10

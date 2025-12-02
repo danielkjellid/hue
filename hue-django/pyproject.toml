@@ -19,6 +19,7 @@ dev = [
     "deptry>=0.24.0",
     "django-stubs>=5.2.7",
     "mypy>=1.18.2",
+    "pytest>=9.0.1",
     "ruff>=0.14.4",
 ]
 
@@ -31,3 +32,10 @@ extend = "../ruff.toml"
 
 [tool.deptry]
 known_first_party = ["hue_django"]
+
+##########
+# Pytest #
+##########
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
