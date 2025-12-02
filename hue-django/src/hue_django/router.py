@@ -19,7 +19,7 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
 
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ):
+            ) -> html.div:
                 return html.div("Index")
 
             @router.fragment_get("comments/<int:comment_id>/")
@@ -28,7 +28,7 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 request: HttpRequest,
                 context: HueContext[HttpRequest],
                 comment_id: int,
-            ):
+            ) -> html.div:
                 return html.div(f"Comment {comment_id}")
     """
 
@@ -43,7 +43,6 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         matches = re.findall(param_pattern, path)
         param_names = [name for _, name in matches]
 
-        # The path is already in Django URL pattern format, just return it
         return PathParseResult(path=path, param_names=param_names)
 
     def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
