@@ -146,6 +146,7 @@ class BaseProps(AlpineAjaxProps):
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class BaseComponent(ABC, BaseProps):
+    id: str | None = None
     class_: str | None = None
 
     @abstractmethod
