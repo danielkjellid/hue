@@ -30,6 +30,11 @@ Framework-specific routers (like `hue_django.router.Router`) extend the base rou
 - `_parse_path_params()`: Parse framework-specific path parameter syntax
 - `_get_context_args()`: Extract framework-specific context (request, CSRF token, etc.)
 
+Optionally, framework-specific routers can also override:
+
+- `_is_ajax_request()`: Customize AJAX request detection for framework-specific header access
+- `_normalize_path()`: Customize path normalization (default strips leading slashes)
+
 ## Basic Usage
 
 The router is used within view classes to define AJAX fragment routes. Framework-specific view classes (like `HueView` in Django) integrate the router to handle route registration and request dispatching.
@@ -45,13 +50,13 @@ class MyView:
     @router.fragment_get("comments/")
     async def list_comments(
         self, request: MyRequest, context: HueContext[MyRequest]
-    ):
+    ) -> html.div:
         return html.div("Comments list")
 
     @router.fragment_post("comments/")
     async def create_comment(
         self, request: MyRequest, context: HueContext[MyRequest]
-    ):
+    ) -> html.div:
         return html.div("Comment created")
 ```
 
@@ -70,7 +75,7 @@ All fragment routes are **AJAX-only** - they require either:
 - `X-Requested-With: XMLHttpRequest` header, or
 - `X-Alpine-Request: true` header
 
-If a request doesn't have these headers, an `AssertionError` is raised.
+If a request doesn't have these headers, an `hue.exceptions.AJAXRequiredError` is raised.
 
 ## Path Parameters
 
@@ -89,7 +94,7 @@ async def get_comment(
     request: MyRequest,
     context: HueContext[MyRequest],
     comment_id: int,  # Extracted from path
-):
+) -> html.div:
     return html.div(f"Comment {comment_id}")
 ```
 
@@ -107,7 +112,7 @@ async def get_post(
     context: HueContext[HttpRequest],
     user_id: int,
     post_id: int,
-):
+) -> html.div:
     return html.div(f"Post {post_id} by user {user_id}")
 ```
 
@@ -150,14 +155,14 @@ Both synchronous and asynchronous view functions are supported:
 @router.fragment_get("async/")
 async def async_handler(
     self, request: MyRequest, context: HueContext[MyRequest]
-):
+) -> html.div:
     return html.div("Async")
 
 # Sync function
 @router.fragment_get("sync/")
 def sync_handler(
     self, request: MyRequest, context: HueContext[MyRequest]
-):
+) -> html.div:
     return html.div("Sync")
 ```
 
@@ -179,7 +184,7 @@ class CommentsView:
     @router.fragment_get("comments/")
     async def list_comments(
         self, request: MyRequest, context: HueContext[MyRequest]
-    ):
+    ) -> html.div:
         comments = ["Comment 1", "Comment 2", "Comment 3"]
         return html.div(
             *[html.p(comment) for comment in comments]
@@ -192,14 +197,14 @@ class CommentsView:
         request: MyRequest,
         context: HueContext[MyRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Comment {comment_id}")
 
     # Create comment (fragment)
     @router.fragment_post("comments/")
     async def create_comment(
         self, request: MyRequest, context: HueContext[MyRequest]
-    ):
+    ) -> html.div:
         # Process form data from request
         comment_text = get_comment_from_request(request)
         return html.div(f"Created: {comment_text}")
@@ -211,7 +216,7 @@ class CommentsView:
         request: MyRequest,
         context: HueContext[MyRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Updated comment {comment_id}")
 
     # Delete comment (fragment)
@@ -221,7 +226,7 @@ class CommentsView:
         request: MyRequest,
         context: HueContext[MyRequest],
         comment_id: int,
-    ):
+    ) -> html.div:
         return html.div(f"Deleted comment {comment_id}")
 ```
 
@@ -238,6 +243,8 @@ class MyFrameworkRouter(Router[MyRequest]):
         """Parse framework-specific path parameter syntax."""
         # Extract parameters from path
         # Return PathParseResult(path="final_path", param_names=["param1", "param2"])
+        # E.g. /comments/{comment_id}/replies/{reply_id}/
+        # Retuen PathParseResult(path="/comments/{comment_id}/replies/{reply_id}/", param_names=["comment_id", "reply_id"])
         pass
 
     def _get_context_args(self, request: MyRequest) -> HueContextArgs[MyRequest]:
@@ -246,6 +253,10 @@ class MyFrameworkRouter(Router[MyRequest]):
             request=request,
             csrf_token=get_csrf_token(request),  # Framework-specific
         )
+
+    # Optional: Override if needed for framework-specific header access
+    # def _is_ajax_request(self, request: MyRequest) -> bool:
+    #     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 ```
 
 ### Required Methods
@@ -260,6 +271,24 @@ class MyFrameworkRouter(Router[MyRequest]):
    - Extract the request object and CSRF token
    - Return a `HueContextArgs` TypedDict
 
+### Optional Methods
+
+3. **`_is_ajax_request(request: T_Request) -> bool`**
+
+   - Override if your framework has a different way to access request headers
+   - Default implementation checks for `X-Requested-With: XMLHttpRequest` or `X-Alpine-Request: true` headers
+
+4. **`_normalize_path(path: str) -> str`**
+   - Override to customize path normalization
+   - Default implementation strips leading slashes (e.g., `"/path/"` becomes `"path/"`)
+
+## Public API
+
+The router provides a few public methods and properties:
+
+- **`routes`**: A property that returns a copy of all registered routes (useful for debugging or introspection)
+- **`render(component, request)`**: An async method that renders a Component to an HTML string using the router's context
+
 ## How It Works
 
 1. **Route Registration**: When you use a decorator like `@router.fragment_get("path/")`, the router:
@@ -273,12 +302,12 @@ class MyFrameworkRouter(Router[MyRequest]):
 
    - The framework-specific view (e.g., `HueView`) finds the matching route
    - Calls the wrapped view function with the request and path parameters
-   - The wrapped function validates AJAX headers
+   - The wrapped function validates AJAX headers (raises `AJAXRequiredError` if not AJAX)
    - Creates a `HueContext` and calls the original view function
-   - Renders the returned Component to HTML
+   - Renders the returned Component to HTML using the `render()` method
    - Returns the HTML string
 
-3. **Rendering**: The router uses the `Renderer` from `htmy` to convert Components to HTML strings. This is the same renderer used for full pages, ensuring consistency.
+3. **Rendering**: The router uses the `render()` method which internally calls `render_tree()` from `hue.renderer` to convert Components to HTML strings. This is the same renderer used for full pages, ensuring consistency.
 
 ## Best Practices
 
