@@ -2,9 +2,9 @@ import re
 
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
-
 from hue.context import HueContextArgs
-from hue.router import PathParseResult, Router as HueRouter
+from hue.router import PathParseResult
+from hue.router import Router as HueRouter
 
 
 class Router[T_Request](HueRouter[T_Request]):
