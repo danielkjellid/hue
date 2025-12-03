@@ -42,8 +42,6 @@ class Callout(BaseComponent):
         Doc("Determines the variant (color) of the callout."),
     ] = "gray"
 
-    # icon: Annotated[Icon | None, Doc("The icon to display in the callout.")] = None
-
     def htmy(self, context: HueContext, **kwargs: Any) -> html.div:
         children = self.ensure_iterable_children(self.children)
 
