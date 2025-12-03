@@ -573,9 +573,6 @@
   .py-3 {
     padding-block: calc(var(--spacing) * 3);
   }
-  .pt-1 {
-    padding-top: calc(var(--spacing) * 1);
-  }
   .text-center {
     text-align: center;
   }
@@ -625,9 +622,6 @@
   }
   .text-primary {
     color: var(--color-primary);
-  }
-  .text-surface-200 {
-    color: var(--color-surface-200);
   }
   .text-surface-300 {
     color: var(--color-surface-300);
@@ -889,21 +883,6 @@
   .disabled\:opacity-50 {
     &:disabled {
       opacity: 50%;
-    }
-  }
-  .sm\:flex-row {
-    @media (width >= 40rem) {
-      flex-direction: row;
-    }
-  }
-  .sm\:items-center {
-    @media (width >= 40rem) {
-      align-items: center;
-    }
-  }
-  .sm\:gap-2 {
-    @media (width >= 40rem) {
-      gap: calc(var(--spacing) * 2);
     }
   }
   .dark\:border-destructive {
