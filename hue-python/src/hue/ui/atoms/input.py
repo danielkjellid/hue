@@ -188,18 +188,18 @@ class _BaseInput(BaseComponent):
                 class_="relative flex items-center w-full",
             ),
             render_if(
-                self.help_text is not None,
-                Text(
-                    self.help_text,  # type: ignore
+                self.help_text,
+                lambda help_text: Text(
+                    help_text,
                     variant="body",
                     muted=True,
                     tag=html.span,
                 ),
             ),
             render_if(
-                self.error_text is not None,
-                Text(
-                    self.error_text,  # type: ignore
+                self.error_text,
+                lambda error_text: Text(
+                    error_text,
                     variant="body",
                     destructive=True,
                     role="alert",

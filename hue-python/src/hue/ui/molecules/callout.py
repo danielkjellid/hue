@@ -17,7 +17,7 @@ CalloutIcon = create_icon_base(icons_dir=os.path.abspath(_icons_dir))
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
-class CiecleInfoIcon(CalloutIcon):
+class CiecleInfoIcon(CalloutIcon):  # type: ignore
     name: Literal["circle-info"] = field(default="circle-info", init=False)
 
 
@@ -62,9 +62,9 @@ class Callout(BaseComponent):
                 ),
                 Stack(
                     render_if(
-                        self.title is not None,
-                        html.p(
-                            self.title,
+                        self.title,
+                        lambda title: html.p(
+                            title,
                             class_=classnames(
                                 "font-medium leading-6",
                                 classes_if(
