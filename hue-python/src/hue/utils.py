@@ -1,15 +1,21 @@
+from typing import Callable, TypeGuard
+
 from hue.types.core import ComponentType, Undefined
 
 
-def render_if(
-    condition: bool,
-    component: ComponentType,
+def _is_not_none[T: object](value: T | None) -> TypeGuard[T]:
+    return value is not None
+
+
+def render_if[T: object](
+    value: T | None,
+    component_factory: Callable[[T], ComponentType],
     fallback: ComponentType | Undefined = Undefined,
 ) -> ComponentType | Undefined:
     """
     Render a component if the condition is true, if not render fallback.
     """
-    return component if condition else fallback
+    return component_factory(value) if _is_not_none(value) else fallback
 
 
 def classnames(*args: str | list[str] | dict[str, bool] | None) -> str:

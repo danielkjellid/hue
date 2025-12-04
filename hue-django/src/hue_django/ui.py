@@ -7,6 +7,7 @@ from htmy import Context, html
 from hue.context import HueContext
 from hue.ui import (
     Button,
+    Callout,
     EmailInput,
     Icon,
     Label,
@@ -38,6 +39,7 @@ class CsrfTokenInput:
 
 __all__ = [
     "Button",
+    "Callout",
     "CsrfTokenInput",
     "EmailInput",
     "Icon",
