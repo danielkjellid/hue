@@ -1,16 +1,15 @@
-from typing import Literal
+from typing import Literal, Unpack
 
 from htmy import html
 
-from hue.spacing import (
-    SPACING,
-    Size,
-)
-from hue.types.core import ComponentType
+from hue.decorators import function_component
+from hue.spacing import SPACING, Size
+from hue.types.core import BasePropsKwargs, ComponentType
 from hue.types.css import AlignItems, JustifyContent
 from hue.utils import classnames
 
 
+@function_component
 def Stack(
     *children: ComponentType,
     direction: Literal["horizontal", "vertical"] = "vertical",
@@ -18,6 +17,7 @@ def Stack(
     justify_content: JustifyContent = "justify-start",
     align_items: AlignItems = "items-start",
     position: Literal["relative", "absolute", "fixed", "sticky"] = "relative",
+    **base_props: Unpack[BasePropsKwargs],
 ) -> html.div:
     """
     The stack component is a flex container that can be used to layout its children in a
@@ -37,4 +37,4 @@ def Stack(
         spacing_y if direction == "vertical" else spacing_x,
     )
 
-    return html.div(*children, class_=classes)
+    return html.div(*children, class_=classes, **base_props)

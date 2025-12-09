@@ -88,7 +88,7 @@ class BasePage:
                 html.body(
                     self.body,
                     x_data=self.inject_x_data(),
-                    x_bind_data_theme="theme",
+                    x_bind__data_theme="theme",
                     class_="min-h-screen bg-background relative",
                 ),
                 self.configure_alpine(ctx),
