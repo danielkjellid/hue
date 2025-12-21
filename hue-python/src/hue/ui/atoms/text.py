@@ -50,12 +50,15 @@ def Text[T: TextTag](
     keeping the text structured.
     """
 
+    class_ = base_props.pop("class_", None)
+
     classes = classnames(
         {
             "text-surface-500": muted and not destructive,
             "text-destructive": destructive,
             "text-surface-900": not muted and not destructive,
-        }
+        },
+        class_,
     )
 
     return BaseText(
@@ -82,6 +85,9 @@ def Label(
     """
     The label component is a component that adds a label to a form field.
     """
+
+    class_ = base_props.pop("class_", None)
+
     content: list[html.span] = [html.span(text)]
 
     if required:
@@ -94,6 +100,7 @@ def Label(
             "sr-only": hidden_label,
         },
         "inline-flex items-center gap-1 text-surface-900",
+        class_,
     )
 
     return BaseText(

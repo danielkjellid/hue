@@ -2,27 +2,72 @@ import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from functools import partialmethod
+from http import HTTPStatus
 from typing import Any, cast
+
+from htmy import html
 
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError
 from hue.renderer import render_tree
 from hue.types.core import Component, ComponentType
 
-# Type alias for wrapped view functions (return HTML string)
-# Signature: (view_instance, request: T_Request, **kwargs) -> Awaitable[str]
-type WrappedViewFunc = Callable[..., Awaitable[str]]
+# Default HTTP status code for successful responses
+DEFAULT_STATUS_CODE = HTTPStatus.OK
 
-# Type alias for original view functions (return Component)
-# Signature: (view_instance, request: T_Request, context: HueContext[T_Request],
-#             **kwargs) -> Component | Awaitable[Component]
-type ViewFunc = Callable[..., Component | Awaitable[Component]]
+
+@dataclass(slots=True, frozen=True)
+class HueResponse:
+    """
+    A structured response for fragment handlers.
+
+    Wraps a component with a target ID and status code. The component is rendered
+    inside a div with the target ID, which is necessary for Alpine AJAX to properly
+    merge the content using innerHTML.
+
+    Example:
+        @router.fragment_post("login/")
+        async def login(self, request, context):
+            if not valid:
+                # Returns 422 with error fragment wrapped in <div id="login-form">
+                return HueResponse(
+                    target="login-form",
+                    component=LoginError(message="Invalid credentials"),
+                    status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+                )
+            return SuccessFragment()
+    """
+
+    component: ComponentType
+    target: str | None = None
+    status_code: int = DEFAULT_STATUS_CODE
+
+    def htmy(self, context: Any) -> Component:
+        """Wrap the component in a div with the target ID for Alpine AJAX merging."""
+        if self.target:
+            return html.div(self.component, id=self.target)
+        return self.component
 
 
 @dataclass
 class PathParseResult:
     path: str
     param_names: list[str]
+
+
+# Type alias for view function results
+# Can be: Component or HueResponse (for custom status codes and targets)
+type ViewResult = Component | HueResponse
+type AwaitableViewResult = ViewResult | Awaitable[ViewResult]
+
+# Type alias for wrapped view functions (return HTML string + status code)
+# Signature: (view_instance, request: T_Request, **kwargs) -> Awaitable[tuple[str, int]]
+type WrappedViewFunc = Callable[..., Awaitable[tuple[str, int]]]
+
+# Type alias for original view functions (return Component or HueResponse)
+# Signature: (view_instance, request: T_Request, context: HueContext[T_Request],
+#             **kwargs) -> ViewResult | Awaitable[ViewResult]
+type ViewFunc = Callable[..., AwaitableViewResult]
 
 
 @dataclass
@@ -119,11 +164,16 @@ class Router[T_Request]:
         """
         Wrap a view function to automatically render Components and pass the hue
         context.
+
+        The wrapped view returns a tuple of (html_string, status_code).
+        View functions can return:
+        - Component (uses default 200 status)
+        - HueResponse (structured response with target, component, and status_code)
         """
 
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
-        ) -> str:
+        ) -> tuple[str, int]:
             if require_ajax and not self._is_ajax_request(request):
                 raise AJAXRequiredError()
 
@@ -139,11 +189,18 @@ class Router[T_Request]:
             while inspect.iscoroutine(view_func_result):
                 view_func_result = await view_func_result
 
-            # After awaiting, result is Component, not Awaitable[Component]
-            # Type checker needs help understanding this
-            component = cast(ComponentType, view_func_result)
+            # Extract component and status code based on return type
+            if isinstance(view_func_result, HueResponse):
+                # HueResponse: use its properties (htmy() wraps in div with target)
+                component = cast(ComponentType, view_func_result)
+                status_code = view_func_result.status_code
+            else:
+                # Plain Component: use default status
+                component = cast(ComponentType, view_func_result)
+                status_code = DEFAULT_STATUS_CODE
 
-            return await self.render(component, request)
+            rendered_html = await self.render(component, request)
+            return rendered_html, status_code
 
         # Always return async wrapper (view functions should be async for rendering)
         return wrapped_view

@@ -3,7 +3,7 @@ from typing import Literal, Unpack
 from htmy import html
 
 from hue.decorators import function_component
-from hue.spacing import SPACING, Size
+from hue.spacing import SPACE_BETWEEN, Size
 from hue.types.core import BasePropsKwargs, ComponentType
 from hue.types.css import AlignItems, JustifyContent
 from hue.utils import classnames
@@ -23,7 +23,7 @@ def Stack(
     The stack component is a flex container that can be used to layout its children in a
     row or column. It provides additional (even) spacing between its children.
     """
-    spacing_x, spacing_y = SPACING[spacing]
+    spacing_x, spacing_y = SPACE_BETWEEN[spacing]
     classes = classnames(
         "flex",
         "w-full",

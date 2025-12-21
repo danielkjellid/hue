@@ -1,4 +1,5 @@
 import inspect
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Awaitable, Protocol
 
 from django.http import HttpRequest, HttpResponse
@@ -7,6 +8,7 @@ from django.views import View
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError
 from hue.pages import BasePage
+from hue.router import HueResponse
 
 from hue_django.router import Router
 
@@ -108,12 +110,12 @@ class _BaseView(View, metaclass=_BaseViewMeta):
         Handle a route request.
 
         The router wraps view functions to automatically render Components to HTML,
-        so we just call the wrapped handler and return the HTML string.
+        so we just call the wrapped handler and return the tuple (html, status_code).
         """
         # Extract only path parameters for the handler
         handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
 
-        # Call the wrapped handler (which returns HTML string, not Component)
+        # Call the wrapped handler (which returns (html_string, status_code))
         # Catch AJAXRequiredError from AJAX validation
         try:
             view_func_result = route.view_func(self, request, **handler_kwargs)
@@ -122,8 +124,9 @@ class _BaseView(View, metaclass=_BaseViewMeta):
             while inspect.iscoroutine(view_func_result):
                 view_func_result = await view_func_result
 
-            # Handler now returns HTML string (thanks to router wrapping)
-            return HttpResponse(view_func_result)
+            # Handler returns tuple of (html_string, status_code)
+            html, status_code = view_func_result
+            return HttpResponse(html, status=status_code)
         except AJAXRequiredError:
             return HttpResponse("Bad Request", status=400)
 
@@ -142,14 +145,22 @@ class HueFragmentsView(_BaseView):
             @router.fragment_get("comments/")
             async def list_comments(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ) -> html.div:
-                return html.div("Comments list")
+            ) -> Component:
+                return CommentsList(comments=comments)
 
             @router.fragment_post("comments/")
             async def create_comment(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ) -> html.div:
-                return html.div("Comment created")
+            ) -> Component | HueResponse:
+                form = CommentForm(request.POST)
+                if not form.is_valid():
+                    # Return 422 with error fragment wrapped in target div
+                    return HueResponse(
+                        component=FormErrors(errors=form.errors),
+                        target="comment-form",
+                        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+                    )
+                return CommentCreated(comment=form.save())
     """
 
     @classmethod
@@ -192,11 +203,25 @@ class HueView(_BaseView):
 
             router = Router[HttpRequest]()
 
-            @router.fragment_post("login/")
-            async def login(
+            @router.fragment_post("authenticate/")
+            async def authenticate(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
-            ) -> html.div:
-                return html.div("Login successful")  # Fragment
+            ) -> Component | HueResponse:
+                form = LoginForm(request.POST)
+                if not form.is_valid():
+                    return HueResponse(
+                        component=LoginError(errors=form.errors),
+                        target="login-form",
+                        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+                    )
+                user = authenticate(**form.cleaned_data)
+                if not user:
+                    return HueResponse(
+                        component=LoginError(message="Invalid credentials"),
+                        target="login-form",
+                        status_code=HTTPStatus.UNAUTHORIZED,
+                    )
+                return LoginSuccess()
     """
 
     if TYPE_CHECKING:

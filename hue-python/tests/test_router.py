@@ -5,7 +5,7 @@ from htmy import html
 
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError
-from hue.router import PathParseResult
+from hue.router import HueResponse, PathParseResult
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter
 
@@ -177,9 +177,10 @@ async def test_wrapped_view_allows_non_ajax_request(
 
     # Non-AJAX request should work
     request = mock_request(headers={})
-    result = await wrapped(view_instance, request)
-    assert isinstance(result, str)
-    assert "Test" in result
+    html_result, status_code = await wrapped(view_instance, request)
+    assert isinstance(html_result, str)
+    assert "Test" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -200,9 +201,10 @@ async def test_wrapped_view_accepts_xmlhttprequest(
 
     # XMLHttpRequest header should work
     request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-    result = await wrapped(view_instance, request)
-    assert isinstance(result, str)
-    assert "Test" in result
+    html_result, status_code = await wrapped(view_instance, request)
+    assert isinstance(html_result, str)
+    assert "Test" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -223,9 +225,10 @@ async def test_wrapped_view_accepts_alpine_ajax(
 
     # Alpine AJAX header should work
     request = mock_request(headers={"X-Alpine-Request": "true"})
-    result = await wrapped(view_instance, request)
-    assert isinstance(result, str)
-    assert "Test" in result
+    html_result, status_code = await wrapped(view_instance, request)
+    assert isinstance(html_result, str)
+    assert "Test" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -245,9 +248,10 @@ async def test_wrapped_view_handles_sync_function(
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-    result = await wrapped(view_instance, request)
-    assert isinstance(result, str)
-    assert "Sync Test" in result
+    html_result, status_code = await wrapped(view_instance, request)
+    assert isinstance(html_result, str)
+    assert "Sync Test" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -267,9 +271,10 @@ async def test_wrapped_view_handles_async_function(
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-    result = await wrapped(view_instance, request)
-    assert isinstance(result, str)
-    assert "Async Test" in result
+    html_result, status_code = await wrapped(view_instance, request)
+    assert isinstance(html_result, str)
+    assert "Async Test" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -290,9 +295,10 @@ async def test_wrapped_view_passes_path_parameters(
     wrapped = router._wrap_view(view_func, require_ajax=True)
 
     request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-    result = await wrapped(view_instance, request, user_id="123")
-    assert isinstance(result, str)
-    assert "User 123" in result
+    html_result, status_code = await wrapped(view_instance, request, user_id="123")
+    assert isinstance(html_result, str)
+    assert "User 123" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -375,10 +381,13 @@ async def test_full_route_execution(
 
     # Execute the wrapped view
     request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-    result = await route.view_func(view_instance, request, user_id="42")
+    html_result, status_code = await route.view_func(
+        view_instance, request, user_id="42"
+    )
 
-    assert isinstance(result, str)
-    assert "User 42" in result
+    assert isinstance(html_result, str)
+    assert "User 42" in html_result
+    assert status_code == 200
 
 
 @pytest.mark.asyncio
@@ -448,3 +457,139 @@ async def test_routes_property_returns_copy(router: MockRouter):
     assert routes1 is not routes2
     # But should have same content
     assert len(routes1) == len(routes2) == 1
+
+
+# Tests for HueResponse
+@pytest.mark.asyncio
+async def test_hue_response_with_target(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test HueResponse wraps component in div with target ID."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return HueResponse(
+            component=html.span("Error message"),
+            target="error-container",
+            status_code=422,
+        )
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    html_result, status_code = await wrapped(view_instance, request)
+
+    # Should be wrapped in div with target ID
+    assert 'id="error-container"' in html_result
+    assert "Error message" in html_result
+    assert status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_hue_response_without_target(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test HueResponse without target returns component directly."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return HueResponse(
+            component=html.span("Success"),
+            status_code=200,
+        )
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    html_result, status_code = await wrapped(view_instance, request)
+
+    # Should not be wrapped in extra div
+    assert "<span" in html_result
+    assert "Success" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_hue_response_default_status_code(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test HueResponse uses 200 as default status code."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return HueResponse(component=html.div("Content"))
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    _, status_code = await wrapped(view_instance, request)
+
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_hue_response_401_unauthorized(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test HueResponse for authentication failure."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return HueResponse(
+            component=html.div("Invalid credentials"),
+            target="login-form",
+            status_code=401,
+        )
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert 'id="login-form"' in html_result
+    assert "Invalid credentials" in html_result
+    assert status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_hue_response_in_route_decorator(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test HueResponse works with route decorators."""
+    view_instance = Mock()
+
+    @router.fragment_post("submit/")
+    async def submit_form(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return HueResponse(
+            component=html.div("Validation failed"),
+            target="form-errors",
+            status_code=422,
+        )
+
+    route = router.routes[0]
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    html_result, status_code = await route.view_func(view_instance, request)
+
+    assert 'id="form-errors"' in html_result
+    assert "Validation failed" in html_result
+    assert status_code == 422
