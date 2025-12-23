@@ -11,11 +11,13 @@ def _get_base_props_fields() -> set[str]:
     return frozenset(f.name for f in fields(BaseProps))
 
 
-def class_component(cls: type[BaseComponent]) -> type[BaseComponent]:
+def class_component(
+    cls: type[BaseComponent], *, kw_only: bool = False
+) -> type[BaseComponent]:
     """
     A decorator that converts a class into a class component.
     """
-    return dataclass(slots=True, frozen=True, kw_only=False)(cls)
+    return dataclass(slots=True, frozen=True, kw_only=kw_only)(cls)
 
 
 def function_component(

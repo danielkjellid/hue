@@ -59,7 +59,7 @@ type Autocomplete = Literal[
 ]
 
 
-@class_component
+@class_component(kw_only=True)
 class _BaseInput(BaseComponent):
     name: Annotated[str, Doc("The name of the input field. Also used as id.")]
 
@@ -211,19 +211,19 @@ class _BaseInput(BaseComponent):
         )
 
 
-@class_component
+@class_component(kw_only=True)
 class EmailInput(_BaseInput):
     type: Literal["email"] = field(default="email", init=False)
     autocomplete: Literal["email"] = field(default="email", init=False)
 
 
-@class_component
+@class_component(kw_only=True)
 class TextInput(_BaseInput):
     type: Literal["text"] = field(default="text", init=False)
     autocomplete: Literal["off"] = field(default="off", init=False)
 
 
-@class_component
+@class_component(kw_only=True)
 class NumberInput(_BaseInput):
     type: Literal["number"] = field(default="number", init=False)
 
@@ -234,7 +234,7 @@ class NumberInput(_BaseInput):
     )
 
 
-@class_component
+@class_component(kw_only=True)
 class PasswordInput(_BaseInput):
     type: Literal["password"] = field(default="password", init=False)
     autocomplete: Literal["current-password"] = field(
