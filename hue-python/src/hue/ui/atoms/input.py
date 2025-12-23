@@ -1,10 +1,11 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Annotated, Any, Literal
 
 from htmy import html
 from typing_extensions import Doc
 
 from hue.context import HueContext
+from hue.decorators import class_component
 from hue.types.core import BaseComponent
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
@@ -58,7 +59,7 @@ type Autocomplete = Literal[
 ]
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component
 class _BaseInput(BaseComponent):
     name: Annotated[str, Doc("The name of the input field. Also used as id.")]
 
@@ -210,19 +211,19 @@ class _BaseInput(BaseComponent):
         )
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component
 class EmailInput(_BaseInput):
     type: Literal["email"] = field(default="email", init=False)
     autocomplete: Literal["email"] = field(default="email", init=False)
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component
 class TextInput(_BaseInput):
     type: Literal["text"] = field(default="text", init=False)
     autocomplete: Literal["off"] = field(default="off", init=False)
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component
 class NumberInput(_BaseInput):
     type: Literal["number"] = field(default="number", init=False)
 
@@ -233,7 +234,7 @@ class NumberInput(_BaseInput):
     )
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component
 class PasswordInput(_BaseInput):
     type: Literal["password"] = field(default="password", init=False)
     autocomplete: Literal["current-password"] = field(

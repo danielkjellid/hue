@@ -6,6 +6,7 @@ from htmy import html
 from typing_extensions import Doc
 
 from hue.context import HueContext
+from hue.decorators import class_component
 from hue.types.core import BaseComponent, ComponentType
 from hue.ui.atoms.icon import create_icon_base
 from hue.ui.atoms.stack import Stack
@@ -31,7 +32,7 @@ type CalloutVariant = Literal[
 ]
 
 
-@dataclass(slots=True, frozen=True, kw_only=False)
+@class_component
 class Callout(BaseComponent):
     children: ComponentType | tuple[ComponentType, ...] = field(default_factory=tuple)
 
@@ -124,4 +125,5 @@ class Callout(BaseComponent):
                     ["border-wg-red", "bg-wg-red-50", "text-wg-red-700"],
                 ),
             ),
+            **self.base_props,
         )

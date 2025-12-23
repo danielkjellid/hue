@@ -1,10 +1,11 @@
-from dataclasses import KW_ONLY, dataclass, field
+from dataclasses import KW_ONLY, field
 from typing import Any, Literal
 
 from htmy import html
 from typing_extensions import Annotated, Doc
 
 from hue.context import HueContext
+from hue.decorators import class_component
 from hue.types.core import BaseComponent, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.utils import classnames
@@ -26,7 +27,7 @@ type ButtonSize = Literal["xs-icon", "sm", "md", "lg"]
 type ButtonShape = Literal["rounded", "pill"]
 
 
-@dataclass(slots=True, kw_only=False, frozen=True)
+@class_component
 class Button(BaseComponent):
     """
     A class representing an html button element.

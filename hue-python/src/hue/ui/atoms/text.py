@@ -1,8 +1,10 @@
 from typing import Literal, Type, cast
 
 from htmy import html
+from typing_extensions import Unpack
 
-from hue.types.core import ComponentType
+from hue.decorators import function_component
+from hue.types.core import BasePropsKwargs, ComponentType
 from hue.utils import classnames
 
 __all__ = ["Label", "Text"]
@@ -31,6 +33,7 @@ type TextVariant = Literal[
 type TextAlign = Literal["text-left", "text-center", "text-right"]
 
 
+@function_component
 def Text[T: TextTag](
     text: str,
     *,
@@ -40,18 +43,22 @@ def Text[T: TextTag](
     variant: TextVariant = "body",
     role: str | None = None,
     align: TextAlign = "text-left",
+    **base_props: Unpack[BasePropsKwargs],
 ) -> T:
     """
     The text component is a component provides a common interface for displaying text,
     keeping the text structured.
     """
 
+    class_ = base_props.pop("class_", None)
+
     classes = classnames(
         {
             "text-surface-500": muted and not destructive,
             "text-destructive": destructive,
             "text-surface-900": not muted and not destructive,
-        }
+        },
+        class_,
     )
 
     return BaseText(
@@ -61,9 +68,11 @@ def Text[T: TextTag](
         variant=variant,
         role=role,
         align=align,
+        **base_props,
     )
 
 
+@function_component
 def Label(
     text: str,
     *,
@@ -71,10 +80,14 @@ def Label(
     required: bool = True,
     disabled: bool = False,
     hidden_label: bool = False,
+    **base_props: Unpack[BasePropsKwargs],
 ) -> html.label:
     """
     The label component is a component that adds a label to a form field.
     """
+
+    class_ = base_props.pop("class_", None)
+
     content: list[html.span] = [html.span(text)]
 
     if required:
@@ -87,6 +100,7 @@ def Label(
             "sr-only": hidden_label,
         },
         "inline-flex items-center gap-1 text-surface-900",
+        class_,
     )
 
     return BaseText(
@@ -96,9 +110,11 @@ def Label(
         variant="subtitle-2",
         html_for=html_for,
         align="text-left",
+        **base_props,
     )
 
 
+@function_component
 def BaseText[T: TextTag](
     *children: ComponentType,
     classes: str | None = None,
@@ -107,6 +123,7 @@ def BaseText[T: TextTag](
     role: str | None = None,
     html_for: str | None = None,
     align: TextAlign = "text-left",
+    **base_props: Unpack[BasePropsKwargs],
 ) -> T:
     """
     The base text component is a component that provides a common interface for
@@ -140,5 +157,6 @@ def BaseText[T: TextTag](
             class_=all_classes,
             role=role,
             for_=html_for,
+            **base_props,
         ),
     )
