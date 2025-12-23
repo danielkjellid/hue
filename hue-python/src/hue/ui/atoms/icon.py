@@ -7,6 +7,7 @@ from htmy import Tag, html
 from typing_extensions import Any, Doc
 
 from hue.context import HueContext
+from hue.decorators import class_component
 from hue.types.core import BaseComponent, Undefined
 
 
@@ -18,7 +19,7 @@ class circle(Tag):
     __slots__ = ()
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
+@class_component(kw_only=True)
 class Icon(BaseComponent):
     """
     Base icon component that requires icons_dir to be specified.
