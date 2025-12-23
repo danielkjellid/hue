@@ -1,14 +1,14 @@
 import inspect
-from http import HTTPStatus
+import json
 from typing import TYPE_CHECKING, Awaitable, Protocol
 
 from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern, path
 from django.views import View
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError
+from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.pages import BasePage
-from hue.router import HueResponse
+from hue.router import RawResponse
 
 from hue_django.router import Router
 
@@ -82,13 +82,19 @@ class _BaseView(View, metaclass=_BaseViewMeta):
                 if not matching_route:
                     return HttpResponse("Method not allowed", status=405)
                 # Call the async handler with the matching route
-                # Catch AssertionError from AJAX validation and return 400
+                # Catch validation errors and return appropriate responses
                 try:
                     return await view_instance._handle_route(
                         request, matching_route, **kwargs
                     )
                 except AJAXRequiredError:
-                    return HttpResponse("Bad Request", status=400)
+                    return HttpResponse("Bad Requestssssssssssssss", status=400)
+                except BodyValidationError as e:
+                    return HttpResponse(
+                        json.dumps({"errors": e.errors}),
+                        status=400,
+                        content_type="application/json",
+                    )
 
             # Use the first route's function name for the URL pattern name
             view_func_name = path_routes[0].name
@@ -111,24 +117,38 @@ class _BaseView(View, metaclass=_BaseViewMeta):
 
         The router wraps view functions to automatically render Components to HTML,
         so we just call the wrapped handler and return the tuple (html, status_code).
+
+        If the handler returns a RawResponse (e.g., redirect), it's passed through
+        directly.
         """
         # Extract only path parameters for the handler
         handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
 
-        # Call the wrapped handler (which returns (html_string, status_code))
-        # Catch AJAXRequiredError from AJAX validation
-        try:
-            view_func_result = route.view_func(self, request, **handler_kwargs)
+        # Call the wrapped handler (which returns (html_string, status_code) or
+        # RawResponse)
+        # Catch validation errors and return appropriate responses
+        # try:
+        view_func_result = route.view_func(self, request, **handler_kwargs)
 
-            # Await if it's a coroutine (wrapped handler is async)
-            while inspect.iscoroutine(view_func_result):
-                view_func_result = await view_func_result
+        # Await if it's a coroutine (wrapped handler is async)
+        while inspect.iscoroutine(view_func_result):
+            view_func_result = await view_func_result
 
-            # Handler returns tuple of (html_string, status_code)
-            html, status_code = view_func_result
-            return HttpResponse(html, status=status_code)
-        except AJAXRequiredError:
-            return HttpResponse("Bad Request", status=400)
+        # Check if it's a raw response passthrough (e.g., redirect)
+        if isinstance(view_func_result, RawResponse):
+            return view_func_result.response
+
+        # Handler returns tuple of (html_string, status_code)
+        html, status_code = view_func_result
+        return HttpResponse(html, status=status_code)
+        # except AJAXRequiredError:
+        #     return HttpResponse("Bad Request", status=400)
+        # except BodyValidationError as e:
+        #     return HttpResponse(
+        #         json.dumps({"errors": e.errors}),
+        #         status=400,
+        #         content_type="application/json",
+        #     )
 
 
 class HueFragmentsView(_BaseView):
@@ -138,7 +158,24 @@ class HueFragmentsView(_BaseView):
     This view is meant as a collective view for fragments with similar attributes.
     It must have a router defined, and only handles decorated routes (fragments).
 
+    Request bodies are automatically parsed when a `body` parameter with a type
+    annotation is present. Supports both Pydantic models and dataclasses.
+
     Example:
+        from dataclasses import dataclass
+        from pydantic import BaseModel
+
+        # Using a dataclass
+        @dataclass
+        class CreateComment:
+            content: str
+            parent_id: int | None = None
+
+        # Or using Pydantic
+        class CreateComment(BaseModel):
+            content: str
+            parent_id: int | None = None
+
         class CommentsFragments(HueFragmentsView):
             router = Router[HttpRequest]()
 
@@ -150,17 +187,13 @@ class HueFragmentsView(_BaseView):
 
             @router.fragment_post("comments/")
             async def create_comment(
-                self, request: HttpRequest, context: HueContext[HttpRequest]
+                self,
+                request: HttpRequest,
+                context: HueContext[HttpRequest],
+                body: CreateComment,  # Automatically parsed from JSON
             ) -> Component | HueResponse:
-                form = CommentForm(request.POST)
-                if not form.is_valid():
-                    # Return 422 with error fragment wrapped in target div
-                    return HueResponse(
-                        component=FormErrors(errors=form.errors),
-                        target="comment-form",
-                        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-                    )
-                return CommentCreated(comment=form.save())
+                comment = Comment.objects.create(content=body.content)
+                return CommentCreated(comment=comment)
     """
 
     @classmethod
@@ -194,7 +227,16 @@ class HueView(_BaseView):
     page load (GET "/"). It can optionally define a router for additional
     AJAX fragment routes.
 
+    Request bodies are automatically parsed when a `body` parameter with a type
+    annotation is present. Supports both Pydantic models and dataclasses.
+
     Example:
+        from pydantic import BaseModel
+
+        class LoginCredentials(BaseModel):
+            email: str
+            password: str
+
         class LoginView(HueView):
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
@@ -205,21 +247,17 @@ class HueView(_BaseView):
 
             @router.fragment_post("authenticate/")
             async def authenticate(
-                self, request: HttpRequest, context: HueContext[HttpRequest]
+                self,
+                request: HttpRequest,
+                context: HueContext[HttpRequest],
+                body: LoginCredentials,  # Automatically parsed from JSON
             ) -> Component | HueResponse:
-                form = LoginForm(request.POST)
-                if not form.is_valid():
-                    return HueResponse(
-                        component=LoginError(errors=form.errors),
-                        target="login-form",
-                        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-                    )
-                user = authenticate(**form.cleaned_data)
+                user = authenticate(body.email, body.password)
                 if not user:
                     return HueResponse(
                         component=LoginError(message="Invalid credentials"),
                         target="login-form",
-                        status_code=HTTPStatus.UNAUTHORIZED,
+                        status_code=401,
                     )
                 return LoginSuccess()
     """

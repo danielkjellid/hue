@@ -1,10 +1,12 @@
+from dataclasses import dataclass as stdlib_dataclass
 from unittest.mock import Mock
 
 import pytest
 from htmy import html
+from pydantic import BaseModel
 
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError
+from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.router import HueResponse, PathParseResult
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter
@@ -593,3 +595,324 @@ async def test_hue_response_in_route_decorator(
     assert 'id="form-errors"' in html_result
     assert "Validation failed" in html_result
     assert status_code == 422
+
+
+# Tests for body parsing
+
+
+@stdlib_dataclass
+class LoginCredentialsDataclass:
+    email: str
+    password: str
+
+
+class LoginCredentialsPydantic(BaseModel):
+    email: str
+    password: str
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_with_dataclass(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that request body is automatically parsed into a dataclass."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div(f"Email: {body.email}, Password: {body.password}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body='{"email": "test@example.com", "password": "secret123"}',
+    )
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "Email: test@example.com" in html_result
+    assert "Password: secret123" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_with_pydantic_model(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that request body is automatically parsed into a Pydantic model."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsPydantic,
+    ):
+        return html.div(f"Email: {body.email}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body='{"email": "pydantic@example.com", "password": "secret"}',
+    )
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "Email: pydantic@example.com" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_missing_field_raises_error(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that missing required fields raise BodyValidationError."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div("Should not reach here")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body='{"email": "test@example.com"}',  # Missing password
+    )
+
+    with pytest.raises(BodyValidationError) as exc_info:
+        await wrapped(view_instance, request)
+
+    assert len(exc_info.value.errors) > 0
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_invalid_json_raises_error(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that invalid JSON raises BodyValidationError."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div("Should not reach here")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body="not valid json",
+    )
+
+    with pytest.raises(BodyValidationError) as exc_info:
+        await wrapped(view_instance, request)
+
+    assert exc_info.value.errors[0]["type"] == "json_invalid"
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_wrong_type_raises_error(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that wrong field types raise BodyValidationError."""
+    view_instance = Mock()
+
+    @stdlib_dataclass
+    class UserAge:
+        age: int
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: UserAge,
+    ):
+        return html.div("Should not reach here")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body='{"age": "not a number"}',
+    )
+
+    with pytest.raises(BodyValidationError):
+        await wrapped(view_instance, request)
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_empty_body_uses_defaults(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that empty body uses default values."""
+    view_instance = Mock()
+
+    @stdlib_dataclass
+    class OptionalBody:
+        name: str = "default"
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: OptionalBody,
+    ):
+        return html.div(f"Name: {body.name}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body="",
+    )
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "Name: default" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_in_route_decorator(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test body parsing works with route decorators."""
+    view_instance = Mock()
+
+    @router.fragment_post("login/")
+    async def login(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsPydantic,
+    ):
+        return html.div(f"Logged in as {body.email}")
+
+    route = router.routes[0]
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body='{"email": "user@test.com", "password": "pass"}',
+    )
+    html_result, status_code = await route.view_func(view_instance, request)
+
+    assert "Logged in as user@test.com" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_handler_without_body_param_works(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that handlers without body parameter still work."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ):
+        return html.div("No body needed")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "No body needed" in html_result
+    assert status_code == 200
+
+
+# Tests for form data parsing
+@pytest.mark.asyncio
+async def test_body_parsing_with_form_data(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that form data is automatically parsed."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div(f"Email: {body.email}, Password: {body.password}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        content_type="application/x-www-form-urlencoded",
+        form_data={"email": "form@example.com", "password": "formpass"},
+    )
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "Email: form@example.com" in html_result
+    assert "Password: formpass" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_form_data_with_pydantic(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that form data works with Pydantic models."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsPydantic,
+    ):
+        return html.div(f"Email: {body.email}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        content_type="application/x-www-form-urlencoded",
+        form_data={"email": "pydantic@form.com", "password": "secret"},
+    )
+    html_result, status_code = await wrapped(view_instance, request)
+
+    assert "Email: pydantic@form.com" in html_result
+    assert status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_parsing_form_data_missing_field(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """Test that missing fields in form data raise BodyValidationError."""
+    view_instance = Mock()
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div("Should not reach here")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        content_type="application/x-www-form-urlencoded",
+        form_data={"email": "test@example.com"},  # Missing password
+    )
+
+    with pytest.raises(BodyValidationError):
+        await wrapped(view_instance, request)
