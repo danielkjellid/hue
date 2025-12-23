@@ -41,7 +41,6 @@ def Text[T: TextTag](
     destructive: bool = False,
     tag: Type[T] | None = None,
     variant: TextVariant = "body",
-    role: str | None = None,
     align: TextAlign = "text-left",
     **base_props: Unpack[BasePropsKwargs],
 ) -> T:
@@ -66,7 +65,6 @@ def Text[T: TextTag](
         classes=classes,
         tag=tag or html.p,
         variant=variant,
-        role=role,
         align=align,
         **base_props,
     )
@@ -120,7 +118,6 @@ def BaseText[T: TextTag](
     classes: str | None = None,
     tag: Type[T] | None = None,
     variant: TextVariant = "body",
-    role: str | None = None,
     html_for: str | None = None,
     align: TextAlign = "text-left",
     **base_props: Unpack[BasePropsKwargs],
@@ -155,7 +152,6 @@ def BaseText[T: TextTag](
         html_tag(
             *children,
             class_=all_classes,
-            role=role,
             for_=html_for,
             **base_props,
         ),

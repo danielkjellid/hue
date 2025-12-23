@@ -2,6 +2,7 @@ from typing import Literal
 
 type AriaRole = (
     Literal[
+        "alert",
         "button",
         "checkbox",
         "dialog",
