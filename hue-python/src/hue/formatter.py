@@ -17,8 +17,8 @@ class HueFormatter(Formatter):
         )
 
     def _format_name(self, name: str) -> str:
-        # We're dealing with an alpine atribute, so it needs special handling.
-        if name.startswith(str(AlpineAjaxProps.identifier)):
+        # We're dealing with an alpine attribute, so it needs special handling.
+        if name.startswith(AlpineAjaxProps.identifier):
             return AlpineAjaxProps.to_html(name)
         else:
             return super()._format_name(name)
