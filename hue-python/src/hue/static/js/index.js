@@ -12,6 +12,7 @@ export function configureAlpine(csrfToken) {
   // Configure ajax with CSRF token
   ajax.configure({
     headers: {
+      mergeStrategy: "update",
       "X-CSRF-Token": csrfToken,
     },
   });
