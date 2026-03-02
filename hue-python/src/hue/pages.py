@@ -27,6 +27,10 @@ class BasePage:
         return {"theme": "light"}
 
     @cached_property
+    def extra_css_urls(self) -> list[str]:
+        return []
+
+    @cached_property
     def css_url(self) -> str:
         raise NotImplementedError(
             "css_url must be implemented by constructing the class through "
@@ -68,6 +72,11 @@ class BasePage:
         # This context is populated by HueContext.htmy_context()
         ctx = HueContext.from_context(context)
 
+        extra_css_links = [
+            html.link(rel="stylesheet", href=url, type="text/css")
+            for url in self.extra_css_urls
+        ]
+
         return HueFormatter().in_context(
             html.DOCTYPE.html,
             html.html(
@@ -84,6 +93,7 @@ class BasePage:
                         href=self.css_url,
                         type="text/css",
                     ),
+                    *extra_css_links,
                 ),
                 html.body(
                     self.body,
@@ -101,8 +111,10 @@ def create_page_base(
     css_url: str,
     js_url: str,
     html_title_factory: Callable[[str], str],
+    extra_css_urls: list[str] | None = None,
 ) -> type[BasePage]:
     html_title_factory_func = html_title_factory
+    _extra_css_urls = extra_css_urls or []
 
     class Page(BasePage):
         @cached_property
@@ -112,6 +124,10 @@ def create_page_base(
         @cached_property
         def js_url(self) -> str:
             return js_url
+
+        @cached_property
+        def extra_css_urls(self) -> list[str]:
+            return _extra_css_urls
 
         def html_title_factory(self) -> Callable[[str], str]:
             return html_title_factory_func

@@ -18,13 +18,13 @@ if not settings.configured:
         STATICFILES_STORAGE="django.contrib.staticfiles.storage.StaticFilesStorage",
         ROOT_URLCONF="tests.conftest",
         MIDDLEWARE=[
+            "hue_django.middleware.HueAssetsMiddleware",
             "django.middleware.security.SecurityMiddleware",
             "django.contrib.sessions.middleware.SessionMiddleware",
             "django.middleware.common.CommonMiddleware",
             "django.middleware.csrf.CsrfViewMiddleware",
         ],
         USE_TZ=True,
-        HUE_CSS_STATIC_PATH="hue/styles/tailwind.css",
         HUE_HTML_TITLE_FACTORY=lambda title: f"{title} - Hue",
         ALLOWED_HOSTS=["*"],
     )
