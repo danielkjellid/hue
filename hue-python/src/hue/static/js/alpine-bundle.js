@@ -3818,6 +3818,7 @@ window.Alpine = module_default;
 module_default.plugin(module_default2);
 function configureAlpine(csrfToken) {
   module_default2.configure({
+    mergeStrategy: "update",
     headers: {
       "X-CSRF-Token": csrfToken
     }
