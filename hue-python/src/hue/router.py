@@ -277,7 +277,7 @@ class Router[T_Request]:
 
         # Validate and convert to the target type using Pydantic
         try:
-            adapter = TypeAdapter(body_type)
+            adapter = TypeAdapter(body_type)  # type: ignore
             return adapter.validate_python(data)
         except ValidationError as e:
             raise BodyValidationError(errors=e.errors()) from e

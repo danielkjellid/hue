@@ -1,3 +1,8 @@
+from typing import Any
+
+from pydantic_core import ErrorDetails
+
+
 class AJAXRequiredError(Exception):
     """Exception raised when an AJAX request is required but not provided."""
 
@@ -16,7 +21,7 @@ class BodyValidationError(Exception):
     Contains structured error information from Pydantic validation.
     """
 
-    def __init__(self, errors: list[dict]) -> None:
+    def __init__(self, errors: list[dict[str, Any]] | list[ErrorDetails]) -> None:
         self.errors = errors
         self.message = "Request body validation failed"
         super().__init__(self.message)
