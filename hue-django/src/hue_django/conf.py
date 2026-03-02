@@ -5,14 +5,17 @@ from django.conf import settings as django_settings
 
 class Settings:
     @property
-    def HUE_CSS_STATIC_PATH(self) -> str:
+    def HUE_EXTRA_CSS_URLS(self) -> list[str]:
         """
-        Make the path to the CSS file configurable. Default to the prebuilt css file.
+        List of additional CSS URLs to include in <head> after Hue's base CSS.
+
+        Users build and serve their own CSS however they like, then add the URL
+        here. Hue includes it in the page after its own CSS.
         """
         return getattr(
             django_settings,
-            "HUE_CSS_STATIC_PATH",
-            "hue/styles/tailwind.css",
+            "HUE_EXTRA_CSS_URLS",
+            [],
         )
 
     @property
