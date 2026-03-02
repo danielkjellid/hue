@@ -1,10 +1,13 @@
 import re
+from typing import Any
 
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
 from hue.context import HueContextArgs
-from hue.router import PathParseResult
+from hue.router import HueResponse, PathParseResult
 from hue.router import Router as HueRouter
+
+__all__ = ["HueResponse", "Router"]
 
 
 class Router[T_Request: HttpRequest](HueRouter[T_Request]):
@@ -65,3 +68,12 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         is_ajax_req = request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
         is_alpine_ajax_req = request.META.get("HTTP_X_ALPINE_REQUEST") == "true"
         return is_ajax_req or is_alpine_ajax_req
+
+    def _get_request_body(self, request: T_Request) -> str:
+        return request.body.decode("utf-8")
+
+    def _get_request_content_type(self, request: T_Request) -> str:
+        return request.content_type
+
+    def _get_form_data(self, request: T_Request) -> dict[str, Any]:
+        return request.POST.dict()

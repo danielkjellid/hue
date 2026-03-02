@@ -9,18 +9,18 @@ Alpine.plugin(ajax);
 
 // Export a function that configures Alpine with CSRF token
 export function configureAlpine(csrfToken) {
-  // Configure ajax with CSRF token
-  ajax.configure({
-    headers: {
-      mergeStrategy: "update",
-      "X-CSRF-Token": csrfToken,
-    },
-  });
+	// Configure ajax with CSRF token
+	ajax.configure({
+		mergeStrategy: "update",
+		headers: {
+			"X-CSRF-Token": csrfToken,
+		},
+	});
 
-  // Start Alpine
-  Alpine.start();
+	// Start Alpine
+	Alpine.start();
 
-  return Alpine;
+	return Alpine;
 }
 
 // Also export Alpine and ajax for direct access if needed

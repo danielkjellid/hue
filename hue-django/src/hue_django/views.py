@@ -5,8 +5,9 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern, path
 from django.views import View
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError
+from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.pages import BasePage
+from hue.router import RawResponse
 
 from hue_django.router import Router
 
@@ -122,9 +123,13 @@ class _BaseView(View, metaclass=_BaseViewMeta):
             while inspect.iscoroutine(view_func_result):
                 view_func_result = await view_func_result
 
+            if isinstance(view_func_result, RawResponse):
+                return view_func_result.response
+
             # Handler now returns HTML string (thanks to router wrapping)
-            return HttpResponse(view_func_result)
-        except AJAXRequiredError:
+            html_str, status_code = view_func_result
+            return HttpResponse(html_str, status=status_code)
+        except (AJAXRequiredError, BodyValidationError):
             return HttpResponse("Bad Request", status=400)
 
 
