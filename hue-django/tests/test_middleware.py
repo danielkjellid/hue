@@ -1,6 +1,7 @@
 import hashlib
 
 import pytest
+from django.http import HttpResponse
 from django.test import RequestFactory
 
 from hue_django.middleware import HUE_ASSETS_PREFIX, HueAssetsMiddleware, _cache
@@ -19,8 +20,6 @@ def middleware():
     """Create a middleware instance with a simple passthrough get_response."""
 
     def get_response(request):
-        from django.http import HttpResponse
-
         return HttpResponse("fallthrough", status=404)
 
     return HueAssetsMiddleware(get_response)
@@ -78,9 +77,7 @@ class TestMiddlewareCaching:
         etag = response["ETag"]
 
         # Second request with If-None-Match
-        request = rf.get(
-            f"{HUE_ASSETS_PREFIX}styles.css", HTTP_IF_NONE_MATCH=etag
-        )
+        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css", HTTP_IF_NONE_MATCH=etag)
         response = middleware(request)
 
         assert response.status_code == 304
