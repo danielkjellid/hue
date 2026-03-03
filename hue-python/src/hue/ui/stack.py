@@ -9,7 +9,7 @@ from hue.context import HueContext
 from hue.spacing import SPACE_BETWEEN, Size
 from hue.types.core import Component
 from hue.types.css import AlignItems, JustifyContent
-from hue.ui.v2.base import ChainableComponent
+from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 

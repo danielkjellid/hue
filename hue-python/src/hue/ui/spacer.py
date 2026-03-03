@@ -5,7 +5,7 @@ from htmy import html
 from hue.context import HueContext
 from hue.spacing import MARGIN, Size
 from hue.types.core import Component
-from hue.ui.v2.base import ChainableComponent
+from hue.ui.base import ChainableComponent
 
 
 class Spacer(ChainableComponent):

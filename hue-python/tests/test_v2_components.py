@@ -2,7 +2,7 @@ import pytest
 
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
-from hue.ui.v2 import (
+from hue.ui import (
     Button,
     EmailInput,
     Label,

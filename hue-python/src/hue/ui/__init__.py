@@ -1,14 +1,21 @@
-from hue.ui.atoms.button import Button
-from hue.ui.atoms.icon import Icon, create_icon_base
-from hue.ui.atoms.input import EmailInput, NumberInput, PasswordInput, TextInput
-from hue.ui.atoms.spacer import Spacer
-from hue.ui.atoms.stack import Stack
-from hue.ui.atoms.text import Label, Text
-from hue.ui.molecules.callout import Callout
+from hue.ui.base import ChainableComponent
+from hue.ui.button import Button
+from hue.ui.callout import Callout
+from hue.ui.icon import Icon, create_icon_base
+from hue.ui.input import (
+    EmailInput,
+    NumberInput,
+    PasswordInput,
+    TextInput,
+)
+from hue.ui.spacer import Spacer
+from hue.ui.stack import Stack
+from hue.ui.text import Label, Text
 
 __all__ = [
     "Button",
     "Callout",
+    "ChainableComponent",
     "EmailInput",
     "Icon",
     "Label",
@@ -16,7 +23,7 @@ __all__ = [
     "PasswordInput",
     "Spacer",
     "Stack",
-    "Text",
     "TextInput",
+    "Text",
     "create_icon_base",
 ]

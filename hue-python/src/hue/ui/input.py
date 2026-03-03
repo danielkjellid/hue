@@ -10,7 +10,7 @@ from hue.types.core import Component
 from hue.ui.atoms.input import Autocomplete, _get_base_input_classes
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
-from hue.ui.v2.base import _ALPINE_PREFIXES, ChainableComponent
+from hue.ui.base import _ALPINE_PREFIXES, ChainableComponent
 from hue.utils import render_if
 
 

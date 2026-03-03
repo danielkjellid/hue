@@ -10,11 +10,11 @@ from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.atoms.icon import create_icon_base
 from hue.ui.atoms.stack import Stack
-from hue.ui.v2.base import ChainableComponent
+from hue.ui.base import ChainableComponent
 from hue.utils import classes_if, classnames, render_if
 
 # Re-use the same icon setup as the v1 Callout
-_icons_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "icons")
+_icons_dir = os.path.join(os.path.dirname(__file__), "..", "static", "icons")
 _CalloutIcon = create_icon_base(icons_dir=os.path.abspath(_icons_dir))
 
 type CalloutVariant = Literal[

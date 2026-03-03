@@ -1,8 +1,11 @@
 from typing import TypedDict, Unpack
 
-from htmy import Context
+from htmy import Context, Formatter
 
+from hue.formatter import HueFormatter
 from hue.types.core import Component, ComponentType
+
+_hue_formatter = HueFormatter()
 
 
 class HueContextArgs[T_Request](TypedDict):
@@ -19,7 +22,7 @@ class HueContext[T_Request]:
         self.csrf_token = kwargs["csrf_token"]
 
     def htmy_context(self) -> Context:
-        return {HueContext: self}
+        return {HueContext: self, Formatter: _hue_formatter}
 
     def htmy(self, context: Context) -> Component:
         return self._children

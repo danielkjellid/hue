@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
-from hue.ui.v2.base import ChainableComponent
+from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type TextTag = (

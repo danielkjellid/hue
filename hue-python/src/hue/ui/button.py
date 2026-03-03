@@ -14,7 +14,7 @@ from hue.ui.atoms.button import (
     ButtonVariant,
     _get_base_button_classes,
 )
-from hue.ui.v2.base import ChainableComponent
+from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 
