@@ -8,7 +8,8 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui._internal import Stack, create_icon_base
+from hue.ui.icon import create_icon_base
+from hue.ui.stack import Stack
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if, classnames, render_if
 
@@ -50,16 +51,14 @@ class Callout(ChainableComponent):
         variant: CalloutVariant = self._get_prop("variant", "gray")
         title_text: str | None = self._get_prop("title")
 
-        from dataclasses import dataclass, field
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class _InfoIcon(_CalloutIcon):  # type: ignore
-            name: Literal["circle-info"] = field(default="circle-info", init=False)
-
         return html.div(
-            Stack(
-                _InfoIcon(
-                    class_=classnames(
+            Stack()
+            .direction("horizontal")
+            .spacing("sm")
+            .align_items("items-start")
+            .content(
+                _CalloutIcon("circle-info").class_(
+                    classnames(
                         "size-4 flex-shrink-0 items-start mt-1",
                         classes_if(variant == "gray", ["text-surface-400"]),
                         classes_if(variant == "primary", ["text-primary"]),
@@ -69,7 +68,10 @@ class Callout(ChainableComponent):
                         classes_if(variant == "warning", ["text-wg-yellow"]),
                     )
                 ),
-                Stack(
+                Stack()
+                .direction("vertical")
+                .spacing("xs")
+                .content(
                     render_if(
                         title_text,
                         lambda t: html.p(
@@ -100,12 +102,7 @@ class Callout(ChainableComponent):
                         ),
                     ),
                     html.p(*self._children, class_="max-w-prose"),
-                    direction="vertical",
-                    spacing="xs",
                 ),
-                direction="horizontal",
-                spacing="sm",
-                align_items="items-start",
             ),
             class_=classnames(
                 "antialiased flex text-sm leading-6 bg-surface dark:bg-surface",

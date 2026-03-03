@@ -7,7 +7,8 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui._internal import Label, Stack, Text
+from hue.ui.stack import Stack
+from hue.ui.text import Label, Text
 from hue.ui.base import _ALPINE_PREFIXES, ChainableComponent
 from hue.utils import classes_if_else, classnames, render_if
 
@@ -246,43 +247,44 @@ class _BaseInput(ChainableComponent):
             class_=self._get_prop("class_"),
         )
 
-        return Stack(
-            Label(
-                label_text,
-                required=required,
-                disabled=disabled,
-                hidden_label=hidden_label,
-                html_for=self._name,
-            ),
-            html.div(
-                html.input_(
-                    type=self._input_type,
-                    name=self._name,
-                    id=self._name,
-                    class_=classes,
-                    placeholder=placeholder,
-                    autocomplete=autocomplete_val,
-                    aria_label=label_text,
-                    aria_required=required,
-                    aria_invalid=aria_invalid,
-                    aria_disabled=disabled,
-                    aria_errormessage=error_text_val,
-                    aria_describedby=self._get_aria_describedby(),
-                    **self._get_extra_input_attrs(),
-                    **self._get_alpine_attrs(),
+        return (
+            Stack()
+            .direction("vertical")
+            .spacing("sm")
+            .content(
+                Label(label_text)
+                .required(required)
+                .disabled(disabled)
+                .hidden_label(hidden_label)
+                .html_for(self._name),
+                html.div(
+                    html.input_(
+                        type=self._input_type,
+                        name=self._name,
+                        id=self._name,
+                        class_=classes,
+                        placeholder=placeholder,
+                        autocomplete=autocomplete_val,
+                        aria_label=label_text,
+                        aria_required=required,
+                        aria_invalid=aria_invalid,
+                        aria_disabled=disabled,
+                        aria_errormessage=error_text_val,
+                        aria_describedby=self._get_aria_describedby(),
+                        **self._get_extra_input_attrs(),
+                        **self._get_alpine_attrs(),
+                    ),
+                    class_="relative flex items-center w-full",
                 ),
-                class_="relative flex items-center w-full",
-            ),
-            render_if(
-                help_text_val,
-                lambda ht: Text(ht, variant="body", muted=True, tag=html.span),
-            ),
-            render_if(
-                error_text_val,
-                lambda et: Text(et, variant="body", destructive=True, role="alert"),
-            ),
-            direction="vertical",
-            spacing="sm",
+                render_if(
+                    help_text_val,
+                    lambda ht: Text(ht).variant("body").muted().tag(html.span),
+                ),
+                render_if(
+                    error_text_val,
+                    lambda et: Text(et).variant("body").destructive().role("alert"),
+                ),
+            )
         )
 
 
