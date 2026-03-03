@@ -8,8 +8,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui.atoms.icon import create_icon_base
-from hue.ui.atoms.stack import Stack
+from hue.ui._internal import Stack, create_icon_base
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if, classnames, render_if
 

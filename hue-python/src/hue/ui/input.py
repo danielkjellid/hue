@@ -7,11 +7,116 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui.atoms.input import Autocomplete, _get_base_input_classes
-from hue.ui.atoms.stack import Stack
-from hue.ui.atoms.text import Label, Text
+from hue.ui._internal import Label, Stack, Text
 from hue.ui.base import _ALPINE_PREFIXES, ChainableComponent
-from hue.utils import render_if
+from hue.utils import classes_if_else, classnames, render_if
+
+type Autocomplete = Literal[
+    "off",
+    "on",
+    "name",
+    "email",
+    "username",
+    "new-password",
+    "current-password",
+    "one-time-code",
+    "organization",
+    "street-address",
+    "address-line1",
+    "address-line2",
+    "address-line3",
+    "address-level1",
+    "address-level2",
+    "address-level3",
+    "address-level4",
+    "country",
+    "country-name",
+    "postal-code",
+    "cc-name",
+    "cc-number",
+    "cc-exp",
+    "cc-exp-month",
+    "cc-exp-year",
+    "cc-csc",
+    "cc-type",
+    "transaction-currency",
+    "transaction-amount",
+    "language",
+    "bday",
+    "bday-day",
+    "bday-month",
+    "bday-year",
+    "sex",
+    "tel",
+    "tel-country-code",
+    "tel-national",
+    "tel-area-code",
+    "tel-local",
+    "tel-extension",
+    "impp",
+    "url",
+    "photo",
+]
+
+
+def _get_base_input_classes(
+    disabled: bool,
+    aria_invalid: bool,
+    class_: str | None = None,
+) -> str:
+    """
+    Get the base input classes.
+    """
+    return classnames(
+        [
+            "flex",
+            "grow",
+            "rounded-lg",
+            "border",
+            "px-4",
+            "py-2",
+            "text-sm",
+            "leading-6",
+            "shadow-xs",
+            "transition-colors",
+            "duration-100",
+            "placeholder:text-surface-500",
+            "outline-primary",
+            "focus:outline",
+            "focus:outline-2",
+            "focus:-outline-offset-1",
+            "w-full",
+        ],
+        classes_if_else(
+            disabled,
+            [
+                "cursor-not-allowed",
+                "bg-surface-50",
+                "text-surface-300",
+                "placeholder:text-surface-300",
+                "dark:bg-white/5",
+                "dark:text-surface-200",
+                "dark:placeholder:text-surface-200",
+            ],
+            [
+                "bg-background",
+                "text-surface-900",
+                "hover:border-surface-300",
+                "dark:hover-border-surface-200",
+            ],
+        ),
+        classes_if_else(
+            aria_invalid,
+            [
+                "border-destructive",
+                "outline-destructive",
+                "hover:border-destructive",
+                "dark:hover:border-destructive",
+            ],
+            ["border-surface-200", "dark:border-surface-100"],
+        ),
+        class_,
+    )
 
 
 class _BaseInput(ChainableComponent):
