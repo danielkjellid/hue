@@ -1,14 +1,8 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, TypedDict
+from dataclasses import dataclass
+from typing import Any, ClassVar, Literal, Protocol
 
 from htmy import Component as HTMYComponent
 from htmy import ComponentType as HTMYComponentType
-
-from hue.types.html import AriaAtomic, AriaLive, AriaRole
-
-if TYPE_CHECKING:
-    from hue.context import HueContext
 
 
 class Undefined(Protocol):
@@ -94,6 +88,14 @@ class AlpineAjaxProps:
             "x_data": "x-data",
             "x_init": "x-init",
             "x_bind": "x-bind",
+            "x_model": "x-model",
+            "x_text": "x-text",
+            "x_html": "x-html",
+            "x_ref": "x-ref",
+            "x_effect": "x-effect",
+            "x_cloak": "x-cloak",
+            "x_ignore": "x-ignore",
+            "x_id": "x-id",
             "x_on__click": "x-on:click",
             "x_on__click__outside": "x-on:click.outside",
             "x_transition__enter": "x-transition:enter",
@@ -149,106 +151,3 @@ class AlpineAjaxProps:
                 return f"{base}:{prop}"
 
         raise KeyError(f"Unknown Alpine/AJAX property: {name}")
-
-
-@dataclass(slots=True, frozen=True, kw_only=True)
-class BaseProps(AlpineAjaxProps):
-    # Aria props
-    aria_label: str | None = None
-    aria_hidden: Literal["true", "false"] | None = None
-    aria_expanded: str | None = None
-    aria_controls: str | None = None
-    aria_live: AriaLive = None
-    aria_atomic: AriaAtomic = None
-    aria_describedby: str | None = None
-    role: AriaRole = None
-
-
-@dataclass(slots=True, frozen=True, kw_only=True)
-class BaseComponent(ABC, BaseProps):
-    id: str | None = None
-    class_: str | None = None
-
-    @abstractmethod
-    def htmy(self, context: "HueContext", **kwargs: Any) -> Component: ...
-
-    @property
-    def base_props(self) -> dict[str, Any]:
-        """
-        Get the base props of the component. Note: The `class_` field is not included as
-        its often handled on a component basis.
-        """
-        return {
-            field.name: getattr(self, field.name)
-            for field in fields(BaseComponent)
-            if hasattr(self, field.name) and not field.name == "class_"
-        }
-
-    @staticmethod
-    def ensure_iterable_children(
-        value: ComponentType | tuple[ComponentType, ...],
-    ) -> tuple[ComponentType, ...]:
-        """
-        Ensure that the value is converted to an iterable
-        """
-
-        return (value,) if not isinstance(value, tuple) else value
-
-
-class BasePropsKwargs(TypedDict, total=False):
-    """
-    A dictionary of kwargs that can be passed to the base props of a function
-    component. This should be identical to the base props dataclass.
-
-    The to_html method is not included here, as we use the dataclass' identifier
-    and to_html method in the formatter.
-    """
-
-    id: str | None
-    class_: str | None
-    aria_label: str | None
-    aria_hidden: Literal["true", "false"] | None
-    aria_expanded: str | None
-    aria_controls: str | None
-    aria_live: AriaLive | None
-    aria_atomic: AriaAtomic | None
-    aria_describedby: str | None
-    role: AriaRole | None
-    x_show: str | None
-    x_data: dict[str, Any] | None
-    x_init: str | None
-    x_bind: str | None
-    x_on__click: str | None
-    x_on__click__outside: str | None
-    x_transition__enter: str | None
-    x_transition__enter_start: str | None
-    x_transition__enter_end: str | None
-    x_transition__leave: str | None
-    x_transition__leave_start: str | None
-    x_transition__leave_end: str | None
-    x_target: str | None
-    x_target__422: str | None
-    x_target__4xx: str | None
-    x_target__back: str | None
-    x_target__away: str | None
-    x_target__error: str | None
-    x_target__top: str | None
-    x_target__none: str | None
-    x_target__dynamic: str | None
-    x_target__replace: str | None
-    x_target__push: str | None
-    formnoajax: bool | None
-    x_headers: dict[str, str] | None
-    x_merge: Literal["before", "replace", "update", "prepend", "append", "after"] | None
-    x_autofocus: bool | None
-    x_sync: bool | None
-    ajax__before: str | None
-    ajax__send: str | None
-    ajax__redirect: str | None
-    ajax__success: str | None
-    ajax__error: str | None
-    ajax__sent: str | None
-    ajax__missing: str | None
-    ajax__merge: str | None
-    ajax__merged: str | None
-    ajax__after: str | None

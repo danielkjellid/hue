@@ -1,13 +1,14 @@
-from dataclasses import KW_ONLY, field
-from typing import Any, Literal
+from __future__ import annotations
+
+from typing import Literal
 
 from htmy import html
-from typing_extensions import Annotated, Doc
+from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.decorators import class_component
-from hue.types.core import BaseComponent, ComponentType
+from hue.types.core import Component
 from hue.types.html import AriaHasPopup
+from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type ButtonVariant = Literal[
@@ -25,77 +26,6 @@ type ButtonVariant = Literal[
 ]
 type ButtonSize = Literal["xs-icon", "sm", "md", "lg"]
 type ButtonShape = Literal["rounded", "pill"]
-
-
-@class_component
-class Button(BaseComponent):
-    """
-    A class representing an html button element.
-    """
-
-    children: ComponentType | tuple[ComponentType, ...] = field(default_factory=tuple)
-
-    _: KW_ONLY
-    variant: Annotated[
-        ButtonVariant,
-        Doc("Determines the variant (color) of the button."),
-    ] = "primary"
-
-    size: Annotated[
-        ButtonSize,
-        Doc("Determines the size of the button."),
-    ] = "md"
-
-    shape: Annotated[
-        ButtonShape,
-        Doc("""
-            The shape of the button.
-            - `rounded`: Gives rounded corners.
-            - `pill`: Gives full border radius, but adapts to the button content.
-            """),
-    ] = "rounded"
-
-    fluid: Annotated[
-        bool,
-        Doc("Determines if the button should take up the full width of its container."),
-    ] = True
-
-    type: Annotated[
-        Literal["button", "submit", "reset"],
-        Doc("Determines the type of the button, defaults to `button`."),
-    ] = "button"
-
-    disabled: Annotated[
-        bool | None, Doc("Determines if the button should be disabled.")
-    ] = None
-
-    aria_haspopup: Annotated[
-        AriaHasPopup,
-        Doc("Determines if the button has a aria-haspopup attribute."),
-    ] = None
-
-    def htmy(self, context: HueContext, **kwargs: Any) -> html.button:
-        classes = classnames(
-            _get_base_button_classes(
-                fluid=self.fluid,
-                shape=self.shape,
-                variant=self.variant,
-                size=self.size,
-            ),
-            self.class_,
-        )
-
-        children = self.ensure_iterable_children(self.children)
-
-        return html.button(
-            *children,
-            class_=classes,
-            tabindex="0",
-            type=self.type,
-            disabled=self.disabled,
-            aria_haspopup=self.aria_haspopup,
-            **self.base_props,
-        )
 
 
 def _get_base_button_classes(
@@ -237,3 +167,75 @@ def _get_base_button_classes(
     )
 
     return classes
+
+
+class Button(ChainableComponent):
+    """
+    A SwiftUI-style chainable button component.
+
+    Example::
+
+        Button()
+            .variant("primary")
+            .size("md")
+            .disabled(True)
+            .content(Text("Click me"))
+    """
+
+    def variant(self, value: ButtonVariant) -> Self:
+        self._props["variant"] = value
+        return self
+
+    def size(self, value: ButtonSize) -> Self:
+        self._props["size"] = value
+        return self
+
+    def shape(self, value: ButtonShape) -> Self:
+        self._props["shape"] = value
+        return self
+
+    def fluid(self, value: bool = True) -> Self:
+        self._props["fluid"] = value
+        return self
+
+    def type(self, value: Literal["button", "submit", "reset"]) -> Self:
+        self._props["type"] = value
+        return self
+
+    def disabled(self, value: bool = True) -> Self:
+        self._props["disabled"] = value
+        return self
+
+    def aria_haspopup(self, value: AriaHasPopup) -> Self:
+        self._props["aria_haspopup"] = value
+        return self
+
+    # ------------------------------------------------------------------
+    # Rendering
+    # ------------------------------------------------------------------
+
+    def _render(self, context: HueContext) -> Component:
+        variant: ButtonVariant = self._get_prop("variant", "primary")
+        size: ButtonSize = self._get_prop("size", "md")
+        shape: ButtonShape = self._get_prop("shape", "rounded")
+        fluid: bool = self._get_prop("fluid", True)
+
+        classes = classnames(
+            _get_base_button_classes(
+                fluid=fluid,
+                shape=shape,
+                variant=variant,
+                size=size,
+            ),
+            self._get_prop("class_"),
+        )
+
+        return html.button(
+            *self._children,
+            class_=classes,
+            tabindex="0",
+            type=self._get_prop("type", "button"),
+            disabled=self._get_prop("disabled"),
+            aria_haspopup=self._get_prop("aria_haspopup"),
+            **self._get_base_html_attrs(),
+        )
