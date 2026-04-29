@@ -8,6 +8,7 @@ from typing_extensions import Any
 from hue.context import HueContext
 from hue.formatter import HueFormatter
 from hue.types.core import Component, ComponentType
+from hue import html as hue_html
 
 
 class BasePage:
@@ -95,12 +96,11 @@ class BasePage:
                     ),
                     *extra_css_links,
                 ),
-                html.body(
-                    self.body,
-                    x_data=self.inject_x_data(),
-                    x_bind__data_theme="theme",
-                    class_="min-h-screen bg-background relative",
-                ),
+                hue_html.body()
+                .class_("min-h-screen bg-background relative")
+                .x_data(self.inject_x_data())
+                .x_bind("data-theme", "theme")
+                .content(self.body),
                 self.configure_alpine(ctx),
             ),
         )

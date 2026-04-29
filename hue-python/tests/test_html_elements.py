@@ -190,11 +190,7 @@ class TestSpecializedRendering:
     @pytest.mark.asyncio
     async def test_anchor_typed_methods(self):
         result = await render_tree(
-            html.a()
-            .href("/about")
-            .target("_blank")
-            .rel("noopener")
-            .content("About"),
+            html.a().href("/about").target("_blank").rel("noopener").content("About"),
             context_args=_context_args(),
         )
         assert 'href="/about"' in result
@@ -215,10 +211,7 @@ class TestSpecializedRendering:
     @pytest.mark.asyncio
     async def test_button_typed_methods(self):
         result = await render_tree(
-            html.button()
-            .type("submit")
-            .disabled()
-            .content("Send"),
+            html.button().type("submit").disabled().content("Send"),
             context_args=_context_args(),
         )
         assert 'type="submit"' in result
@@ -228,10 +221,7 @@ class TestSpecializedRendering:
     @pytest.mark.asyncio
     async def test_textarea_typed_methods(self):
         result = await render_tree(
-            html.textarea()
-            .name("bio")
-            .rows(4)
-            .placeholder("Tell us about yourself"),
+            html.textarea().name("bio").rows(4).placeholder("Tell us about yourself"),
             context_args=_context_args(),
         )
         assert 'name="bio"' in result
@@ -273,11 +263,7 @@ class TestElementWithV2Components:
                 .spacing("sm")
                 .content(
                     Text("Sign in").variant("title-3"),
-
-                    Button()
-                    .variant("primary")
-                    .type("submit")
-                    .content("Submit"),
+                    Button().variant("primary").type("submit").content("Submit"),
                 ),
             ),
             context_args=_context_args(),
@@ -371,10 +357,7 @@ class TestAlpineCoreDirectives:
     async def test_alpine_on_v2_component(self):
         """Core Alpine directives work on v2 components too."""
         result = await render_tree(
-            Button()
-            .variant("primary")
-            .x_on("click", "handleClick()")
-            .content("Click"),
+            Button().variant("primary").x_on("click", "handleClick()").content("Click"),
             context_args=_context_args(),
         )
         assert '@click="handleClick()"' in result
@@ -402,10 +385,7 @@ class TestAlpineAjaxRequest:
     @pytest.mark.asyncio
     async def test_form_x_target_away(self):
         result = await render_tree(
-            html.form()
-            .x_target("login")
-            .x_target_away("_top")
-            .content("form body"),
+            html.form().x_target("login").x_target_away("_top").content("form body"),
             context_args=_context_args(),
         )
         assert 'x-target="login"' in result
@@ -486,10 +466,7 @@ class TestFormNoAjax:
     @pytest.mark.asyncio
     async def test_button_formnoajax(self):
         result = await render_tree(
-            html.button()
-            .type("submit")
-            .formnoajax()
-            .content("Full submit"),
+            html.button().type("submit").formnoajax().content("Full submit"),
             context_args=_context_args(),
         )
         assert "formnoajax" in result

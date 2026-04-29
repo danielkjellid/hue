@@ -176,9 +176,7 @@ class AnchorElement(_AlpineAjaxRequestMixin, Element):
     def href(self, value: str) -> Self:
         return self.attr("href", value)
 
-    def target(
-        self, value: Literal["_self", "_blank", "_parent", "_top"]
-    ) -> Self:
+    def target(self, value: Literal["_self", "_blank", "_parent", "_top"]) -> Self:
         return self.attr("target", value)
 
     def rel(self, value: str) -> Self:
