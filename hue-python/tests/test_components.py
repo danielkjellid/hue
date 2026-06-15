@@ -1,4 +1,5 @@
 import pytest
+from htmy import html as htmy_html
 
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
@@ -10,10 +11,9 @@ from hue.ui import (
     PasswordInput,
     Spacer,
     Stack,
-    TextInput,
     Text,
+    TextInput,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -198,8 +198,6 @@ class TestText:
 
     @pytest.mark.asyncio
     async def test_render_with_tag(self):
-        from htmy import html as htmy_html
-
         result = await render_tree(
             Text("Heading").tag(htmy_html.h1).variant("title-3"),
             context_args=_context_args(),
@@ -254,7 +252,14 @@ class TestLabel:
         )
         assert "<label" in html
         assert "Email" in html
-        # Required by default → asterisk
+        assert "*" not in html
+
+    @pytest.mark.asyncio
+    async def test_render_required(self):
+        html = await render_tree(
+            Label("Email").required(),
+            context_args=_context_args(),
+        )
         assert "*" in html
 
     @pytest.mark.asyncio

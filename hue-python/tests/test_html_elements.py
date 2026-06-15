@@ -14,7 +14,7 @@ from hue.html.element import (
     TextareaElement,
 )
 from hue.renderer import render_tree
-from hue.ui import Button, Stack, Text
+from hue.ui import Button, Stack, Text, TextInput
 
 
 class _MockRequest:
@@ -448,8 +448,6 @@ class TestAlpineModel:
     @pytest.mark.asyncio
     async def test_input_v2_x_model(self):
         """x_model works on v2 input components."""
-        from hue.ui import TextInput
-
         result = await render_tree(
             TextInput().name("email").label("Email").x_model("form.email"),
             context_args=_context_args(),

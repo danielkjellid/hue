@@ -4,7 +4,6 @@ import os
 from xml.dom import minidom
 
 from htmy import Tag, html
-from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component

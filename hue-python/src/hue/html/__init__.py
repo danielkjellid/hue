@@ -11,7 +11,7 @@ module via ``__getattr__``.  Calling the factory returns a chainable
     html.div()
         .class_("container")
         .content(
-            html.p("Hello world"),
+            html.p().content("Hello world"),
         )
 
     html.form()
@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     def select() -> SelectElement: ...
     def textarea() -> TextareaElement: ...
     def label() -> LabelElement: ...
+
 
 __all__ = ["Element"]
 

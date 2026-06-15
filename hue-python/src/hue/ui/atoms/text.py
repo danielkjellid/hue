@@ -148,7 +148,7 @@ class Label(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
-        required: bool = self._get_prop("required", True)
+        required: bool = self._get_prop("required", False)
         disabled: bool = self._get_prop("disabled", False)
         hidden_label: bool = self._get_prop("hidden_label", False)
 

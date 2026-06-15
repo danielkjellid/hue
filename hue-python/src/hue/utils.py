@@ -1,6 +1,6 @@
 from typing import Callable, TypeGuard
 
-from hue.types.core import ComponentType, Undefined
+from hue.types.core import UNDEFINED, ComponentType
 
 
 def _is_not_none[T: object](value: T | None) -> TypeGuard[T]:
@@ -10,8 +10,8 @@ def _is_not_none[T: object](value: T | None) -> TypeGuard[T]:
 def render_if[T: object](
     value: T | None,
     component_factory: Callable[[T], ComponentType],
-    fallback: ComponentType | Undefined = Undefined,
-) -> ComponentType | Undefined:
+    fallback: ComponentType = UNDEFINED,
+) -> ComponentType:
     """
     Render a component if the condition is true, if not render fallback.
     """

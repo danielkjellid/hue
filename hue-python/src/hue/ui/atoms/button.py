@@ -207,7 +207,7 @@ class Button(ChainableComponent):
         return self
 
     def aria_haspopup(self, value: AriaHasPopup) -> Self:
-        self._props["aria_haspopup"] = value
+        self._attrs["aria_haspopup"] = value
         return self
 
     # ------------------------------------------------------------------
@@ -236,6 +236,5 @@ class Button(ChainableComponent):
             tabindex="0",
             type=self._get_prop("type", "button"),
             disabled=self._get_prop("disabled"),
-            aria_haspopup=self._get_prop("aria_haspopup"),
             **self._get_base_html_attrs(),
         )

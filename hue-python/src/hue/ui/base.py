@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
+from htmy import Context
 from typing_extensions import Self
 
 from hue.context import HueContext
@@ -33,6 +34,7 @@ class ChainableComponent(ABC):
 
     def __init__(self) -> None:
         self._props: dict[str, Any] = {}
+        self._attrs: dict[str, Any] = {}
         self._children: tuple[ComponentType, ...] = ()
 
     # ------------------------------------------------------------------
@@ -55,39 +57,39 @@ class ChainableComponent(ABC):
         return self
 
     def id(self, value: str) -> Self:
-        self._props["id"] = value
+        self._attrs["id"] = value
         return self
 
     def aria_label(self, value: str) -> Self:
-        self._props["aria_label"] = value
+        self._attrs["aria_label"] = value
         return self
 
     def aria_hidden(self, value: Literal["true", "false"]) -> Self:
-        self._props["aria_hidden"] = value
+        self._attrs["aria_hidden"] = value
         return self
 
     def aria_expanded(self, value: str) -> Self:
-        self._props["aria_expanded"] = value
+        self._attrs["aria_expanded"] = value
         return self
 
     def aria_controls(self, value: str) -> Self:
-        self._props["aria_controls"] = value
+        self._attrs["aria_controls"] = value
         return self
 
     def aria_live(self, value: AriaLive) -> Self:
-        self._props["aria_live"] = value
+        self._attrs["aria_live"] = value
         return self
 
     def aria_atomic(self, value: AriaAtomic) -> Self:
-        self._props["aria_atomic"] = value
+        self._attrs["aria_atomic"] = value
         return self
 
     def aria_describedby(self, value: str) -> Self:
-        self._props["aria_describedby"] = value
+        self._attrs["aria_describedby"] = value
         return self
 
     def role(self, value: AriaRole) -> Self:
-        self._props["role"] = value
+        self._attrs["role"] = value
         return self
 
     # ------------------------------------------------------------------
@@ -96,62 +98,62 @@ class ChainableComponent(ABC):
 
     def x_data(self, value: dict[str, Any] | str) -> Self:
         """Declare an Alpine component scope."""
-        self._props["x-data"] = value
+        self._attrs["x-data"] = value
         return self
 
     def x_init(self, value: str) -> Self:
         """Run an expression when the component initialises."""
-        self._props["x-init"] = value
+        self._attrs["x-init"] = value
         return self
 
     def x_show(self, value: str) -> Self:
         """Toggle element visibility."""
-        self._props["x-show"] = value
+        self._attrs["x-show"] = value
         return self
 
     def x_text(self, value: str) -> Self:
         """Set the element's text content."""
-        self._props["x-text"] = value
+        self._attrs["x-text"] = value
         return self
 
     def x_html(self, value: str) -> Self:
         """Set the element's inner HTML."""
-        self._props["x-html"] = value
+        self._attrs["x-html"] = value
         return self
 
     def x_ref(self, value: str) -> Self:
         """Register an element reference."""
-        self._props["x-ref"] = value
+        self._attrs["x-ref"] = value
         return self
 
     def x_effect(self, value: str) -> Self:
         """Run an expression reactively when dependencies change."""
-        self._props["x-effect"] = value
+        self._attrs["x-effect"] = value
         return self
 
     def x_cloak(self) -> Self:
         """Hide the element until Alpine initialises."""
-        self._props["x-cloak"] = True
+        self._attrs["x-cloak"] = True
         return self
 
     def x_ignore(self) -> Self:
         """Prevent Alpine from initialising this element tree."""
-        self._props["x-ignore"] = True
+        self._attrs["x-ignore"] = True
         return self
 
     def x_id(self, value: list[str]) -> Self:
         """Scope ``$id()`` calls to the given names."""
-        self._props["x-id"] = value
+        self._attrs["x-id"] = value
         return self
 
     def x_on(self, event: str, expression: str) -> Self:
         """Listen for a browser event (``@<event>``)."""
-        self._props[f"@{event}"] = expression
+        self._attrs[f"@{event}"] = expression
         return self
 
     def x_bind(self, attr: str, expression: str) -> Self:
         """Dynamically bind an HTML attribute (``:attr``)."""
-        self._props[f":{attr}"] = expression
+        self._attrs[f":{attr}"] = expression
         return self
 
     # ------------------------------------------------------------------
@@ -159,27 +161,27 @@ class ChainableComponent(ABC):
     # ------------------------------------------------------------------
 
     def x_transition_enter(self, value: str) -> Self:
-        self._props["x-transition:enter"] = value
+        self._attrs["x-transition:enter"] = value
         return self
 
     def x_transition_enter_start(self, value: str) -> Self:
-        self._props["x-transition:enter.start"] = value
+        self._attrs["x-transition:enter.start"] = value
         return self
 
     def x_transition_enter_end(self, value: str) -> Self:
-        self._props["x-transition:enter.end"] = value
+        self._attrs["x-transition:enter.end"] = value
         return self
 
     def x_transition_leave(self, value: str) -> Self:
-        self._props["x-transition:leave"] = value
+        self._attrs["x-transition:leave"] = value
         return self
 
     def x_transition_leave_start(self, value: str) -> Self:
-        self._props["x-transition:leave.start"] = value
+        self._attrs["x-transition:leave.start"] = value
         return self
 
     def x_transition_leave_end(self, value: str) -> Self:
-        self._props["x-transition:leave.end"] = value
+        self._attrs["x-transition:leave.end"] = value
         return self
 
     # ------------------------------------------------------------------
@@ -189,17 +191,15 @@ class ChainableComponent(ABC):
 
     def x_merge(
         self,
-        value: Literal[
-            "before", "replace", "update", "prepend", "append", "after"
-        ],
+        value: Literal["before", "replace", "update", "prepend", "append", "after"],
     ) -> Self:
         """Set the merge strategy for incoming AJAX content."""
-        self._props["x-merge"] = value
+        self._attrs["x-merge"] = value
         return self
 
     def x_autofocus(self, value: bool = True) -> Self:
         """Focus this element after an AJAX update."""
-        self._props["x-autofocus"] = value
+        self._attrs["x-autofocus"] = value
         return self
 
     # ------------------------------------------------------------------
@@ -208,43 +208,43 @@ class ChainableComponent(ABC):
     # ------------------------------------------------------------------
 
     def ajax_before(self, value: str) -> Self:
-        self._props["@ajax:before"] = value
+        self._attrs["@ajax:before"] = value
         return self
 
     def ajax_send(self, value: str) -> Self:
-        self._props["@ajax:send"] = value
+        self._attrs["@ajax:send"] = value
         return self
 
     def ajax_redirect(self, value: str) -> Self:
-        self._props["@ajax:redirect"] = value
+        self._attrs["@ajax:redirect"] = value
         return self
 
     def ajax_success(self, value: str) -> Self:
-        self._props["@ajax:success"] = value
+        self._attrs["@ajax:success"] = value
         return self
 
     def ajax_error(self, value: str) -> Self:
-        self._props["@ajax:error"] = value
+        self._attrs["@ajax:error"] = value
         return self
 
     def ajax_sent(self, value: str) -> Self:
-        self._props["@ajax:sent"] = value
+        self._attrs["@ajax:sent"] = value
         return self
 
     def ajax_missing(self, value: str) -> Self:
-        self._props["@ajax:missing"] = value
+        self._attrs["@ajax:missing"] = value
         return self
 
     def ajax_merge(self, value: str) -> Self:
-        self._props["@ajax:merge"] = value
+        self._attrs["@ajax:merge"] = value
         return self
 
     def ajax_merged(self, value: str) -> Self:
-        self._props["@ajax:merged"] = value
+        self._attrs["@ajax:merged"] = value
         return self
 
     def ajax_after(self, value: str) -> Self:
-        self._props["@ajax:after"] = value
+        self._attrs["@ajax:after"] = value
         return self
 
     # ------------------------------------------------------------------
@@ -260,33 +260,15 @@ class ChainableComponent(ABC):
         Collect id, ARIA, and Alpine attributes that have been set,
         suitable for splatting into an ``html.*`` call.
         """
-        _STATIC_KEYS = (
-            "id",
-            "aria_label",
-            "aria_hidden",
-            "aria_expanded",
-            "aria_controls",
-            "aria_live",
-            "aria_atomic",
-            "aria_describedby",
-            "role",
-            "formnoajax",
-        )
-        attrs: dict[str, Any] = {}
-        for k, v in self._props.items():
-            if v is None:
-                continue
-            if k in _STATIC_KEYS or k.startswith(_ALPINE_PREFIXES):
-                attrs[k] = v
-        return attrs
+        return {k: v for k, v in self._attrs.items() if v is not None}
 
     # ------------------------------------------------------------------
     # htmy integration
     # ------------------------------------------------------------------
 
-    def htmy(self, context: HueContext, **kwargs: Any) -> Component:
+    def htmy(self, context: Context, /) -> Component:
         """Entry point called by the htmy renderer."""
-        return self._render(context)
+        return self._render(HueContext.from_context(context))
 
     @abstractmethod
     def _render(self, context: HueContext) -> Component:

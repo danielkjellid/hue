@@ -2,13 +2,12 @@ import json
 from functools import cached_property
 from typing import Callable
 
-from htmy import Context, html
+from htmy import Context, Formatter, html
 from typing_extensions import Any
 
-from hue.context import HueContext
-from hue.formatter import HueFormatter
-from hue.types.core import Component, ComponentType
 from hue import html as hue_html
+from hue.context import HueContext
+from hue.types.core import Component, ComponentType
 
 
 class BasePage:
@@ -78,7 +77,7 @@ class BasePage:
             for url in self.extra_css_urls
         ]
 
-        return HueFormatter().in_context(
+        return Formatter().in_context(
             html.DOCTYPE.html,
             html.html(
                 html.head(

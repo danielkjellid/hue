@@ -140,7 +140,7 @@ class _BaseInput(ChainableComponent):
 
     def x_model(self, value: str) -> Self:
         """Two-way bind this input to Alpine data."""
-        self._props["x-model"] = value
+        self._attrs["x-model"] = value
         return self
 
     def name(self, value: str) -> Self:
@@ -220,7 +220,7 @@ class _BaseInput(ChainableComponent):
         """Collect Alpine attributes (x_*, ajax__*) for the input element."""
         return {
             k: v
-            for k, v in self._props.items()
+            for k, v in self._attrs.items()
             if v is not None and k.startswith(_ALPINE_PREFIXES)
         }
 
@@ -233,7 +233,7 @@ class _BaseInput(ChainableComponent):
 
         label_text: str = self._get_prop("label", self._name)
         disabled: bool = self._get_prop("disabled", False)
-        required: bool = self._get_prop("required", True)
+        required: bool = self._get_prop("required", False)
         hidden_label: bool = self._get_prop("hidden_label", False)
         placeholder = self._get_prop("placeholder")
         autocomplete_val: Autocomplete = self._get_prop("autocomplete", "off")
@@ -343,11 +343,11 @@ class NumberInput(_BaseInput):
 
     _input_type: str = "number"
 
-    def min(self, value: int) -> Self:  # noqa: A003
+    def min(self, value: int) -> Self:
         self._props["min"] = value
         return self
 
-    def max(self, value: int) -> Self:  # noqa: A003
+    def max(self, value: int) -> Self:
         self._props["max"] = value
         return self
 

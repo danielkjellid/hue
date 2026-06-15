@@ -2,10 +2,9 @@ from typing import TypedDict, Unpack
 
 from htmy import Context, Formatter
 
-from hue.formatter import HueFormatter
 from hue.types.core import Component, ComponentType
 
-_hue_formatter = HueFormatter()
+_hue_formatter = Formatter()
 
 
 class HueContextArgs[T_Request](TypedDict):

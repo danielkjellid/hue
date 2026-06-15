@@ -25,14 +25,13 @@ class Element(ChainableComponent):
         html.div()
             .class_("container")
             .content(
-                html.span("Hello"),
+                html.span().content("Hello"),
             )
     """
 
     def __init__(self, tag_class: type[Tag] | type[TagWithProps]) -> None:
         super().__init__()
         self._tag_class = tag_class
-        self._attrs: dict[str, Any] = {}
 
     def attr(self, key: str, value: Any) -> Self:
         """Set an arbitrary HTML attribute."""
@@ -44,12 +43,8 @@ class Element(ChainableComponent):
     # ------------------------------------------------------------------
 
     def _render(self, context: HueContext) -> Component:
-        all_attrs: dict[str, Any] = {**self._attrs}
+        all_attrs: dict[str, Any] = self._get_base_html_attrs()
 
-        # Merge base html attrs (id, aria-*, Alpine)
-        all_attrs.update(self._get_base_html_attrs())
-
-        # Add class if set
         class_ = self._get_prop("class_")
         if class_:
             all_attrs["class_"] = class_
@@ -73,73 +68,73 @@ class _AlpineAjaxRequestMixin:
     the request is configured.
     """
 
-    _props: dict[str, Any]  # provided by ChainableComponent
+    _attrs: dict[str, Any]  # provided by ChainableComponent
 
     def x_target(self, value: str) -> Self:
         """Target element(s) to update with the AJAX response."""
-        self._props["x-target"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target"] = value
+        return self
 
     def x_target_422(self, value: str) -> Self:
-        self._props["x-target.422"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.422"] = value
+        return self
 
     def x_target_4xx(self, value: str) -> Self:
-        self._props["x-target.4xx"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.4xx"] = value
+        return self
 
     def x_target_back(self, value: str) -> Self:
-        self._props["x-target.back"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.back"] = value
+        return self
 
     def x_target_away(self, value: str) -> Self:
-        self._props["x-target.away"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.away"] = value
+        return self
 
     def x_target_error(self, value: str) -> Self:
-        self._props["x-target.error"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.error"] = value
+        return self
 
     def x_target_top(self, value: str) -> Self:
-        self._props["x-target.top"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.top"] = value
+        return self
 
     def x_target_none(self) -> Self:
-        self._props["x-target.none"] = True
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.none"] = True
+        return self
 
     def x_target_dynamic(self, value: str) -> Self:
-        self._props["x-target:dynamic"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target:dynamic"] = value
+        return self
 
     def x_target_replace(self, value: str) -> Self:
-        self._props["x-target.replace"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.replace"] = value
+        return self
 
     def x_target_push(self, value: str) -> Self:
-        self._props["x-target.push"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-target.push"] = value
+        return self
 
     def x_headers(self, value: dict[str, str]) -> Self:
         """Add extra headers to the AJAX request."""
-        self._props["x-headers"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-headers"] = value
+        return self
 
     def x_sync(self, value: bool = True) -> Self:
-        self._props["x-sync"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-sync"] = value
+        return self
 
 
 class _AlpineModelMixin:
     """``x-model`` for form controls (``<input>``, ``<select>``,
     ``<textarea>``)."""
 
-    _props: dict[str, Any]
+    _attrs: dict[str, Any]
 
     def x_model(self, value: str) -> Self:
         """Two-way bind this control to Alpine data."""
-        self._props["x-model"] = value
-        return self  # type: ignore[return-value]
+        self._attrs["x-model"] = value
+        return self
 
 
 # ------------------------------------------------------------------
@@ -205,7 +200,7 @@ class ImgElement(Element):
 class ButtonElement(Element):
     """Chainable ``<button>`` with typed methods for common button attributes."""
 
-    def type(self, value: Literal["button", "submit", "reset"]) -> Self:  # noqa: A003
+    def type(self, value: Literal["button", "submit", "reset"]) -> Self:
         return self.attr("type", value)
 
     def disabled(self, value: bool = True) -> Self:
@@ -219,7 +214,7 @@ class ButtonElement(Element):
 
     def formnoajax(self, value: bool = True) -> Self:
         """Disable AJAX for this submit button."""
-        self._props["formnoajax"] = value
+        self._attrs["formnoajax"] = value
         return self
 
 
