@@ -14,7 +14,7 @@ from hue.ui.base import ChainableComponent
 from hue.utils import classes_if, classnames, render_if
 
 # Re-use the same icon setup as the v1 Callout
-_icons_dir = os.path.join(os.path.dirname(__file__), "..", "static", "icons")
+_icons_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "icons")
 _CalloutIcon = create_icon_base(icons_dir=os.path.abspath(_icons_dir))
 
 type CalloutVariant = Literal[
