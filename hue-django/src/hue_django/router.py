@@ -1,10 +1,12 @@
+import asyncio
 import re
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
-from hue.context import HueContextArgs
-from hue.router import HueResponse, PathParseResult
+from hue.context import HueContext, HueContextArgs
+from hue.router import HueResponse, PathParseResult, ViewFunc
 from hue.router import Router as HueRouter
 
 __all__ = ["HueResponse", "Router"]
@@ -77,3 +79,28 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
 
     def _get_form_data(self, request: T_Request) -> dict[str, Any]:
         return request.POST.dict()
+
+    async def _call_view_func(
+        self,
+        view_func: ViewFunc,
+        view_instance: object,
+        request: T_Request,
+        context: HueContext[T_Request],
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Django-specific view function caller.
+
+        Wraps sync view functions with sync_to_async for proper ASGI compatibility.
+        The router dispatches every handler from an async context, so calling sync
+        code (ORM, auth, etc.) directly raises SynchronousOnlyOperation -> 500. That
+        500 has no AJAX target, so Alpine AJAX falls back to a native form resubmit,
+        which the server rejects with 400 (AJAX required). Running sync handlers in a
+        thread avoids that duplicate-request cascade.
+        """
+        if asyncio.iscoroutinefunction(view_func):
+            # Async function: call directly
+            return await view_func(view_instance, request, context, **kwargs)
+
+        # Sync function: wrap with sync_to_async so DB/auth access works.
+        return await sync_to_async(view_func)(view_instance, request, context, **kwargs)

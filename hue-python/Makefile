@@ -40,8 +40,12 @@ check-css: .venv ; $(info $(M) checking if css would change) @
 # JavaScript #
 ##############
 
+node_modules: package.json package-lock.json ; $(info $(M) installing js dependencies) @
+	$Q $(NPM) install
+	@touch node_modules
+
 .PHONY: build-js
-build-js: package.json ; $(info $(M) building js bundle) @
+build-js: node_modules package.json ; $(info $(M) building js bundle) @
 	$Q $(NPM) run build
 
 .PHONY: copy-js

@@ -1,14 +1,15 @@
-from dataclasses import field
-from typing import Annotated, Any, Literal
+from __future__ import annotations
+
+from typing import Any, Literal
 
 from htmy import html
-from typing_extensions import Doc
+from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.decorators import class_component
-from hue.types.core import BaseComponent
+from hue.types.core import Component
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
+from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_if
 
 type Autocomplete = Literal[
@@ -57,189 +58,6 @@ type Autocomplete = Literal[
     "url",
     "photo",
 ]
-
-
-@class_component(kw_only=True)
-class _BaseInput(BaseComponent):
-    name: Annotated[str, Doc("The name of the input field. Also used as id.")]
-
-    label: Annotated[str, Doc("The label of the input field.")]
-
-    type: Annotated[
-        Literal["text", "number", "email", "password"],
-        Doc("The type of the input field."),
-    ]
-
-    min_length: Annotated[
-        int | None,
-        Doc("The minimum length of the input field."),
-    ] = None
-
-    max_length: Annotated[
-        int | None,
-        Doc("The maximum length of the input field."),
-    ] = None
-
-    disabled: Annotated[
-        bool,
-        Doc("Whether the input field is disabled."),
-    ] = False
-
-    required: Annotated[
-        bool, Doc("Whether the input field should be treated as required.")
-    ] = True
-
-    hidden_label: Annotated[
-        bool,
-        Doc("Whether the label should be available for screen readers only."),
-    ] = False
-
-    autocomplete: Annotated[
-        Autocomplete,
-        Doc("The html autocomplete attribute of the input field."),
-    ] = "off"
-
-    placeholder: Annotated[
-        str | None,
-        Doc("The placeholder text of the input field."),
-    ] = None
-
-    help_text: Annotated[
-        str | None,
-        Doc("The help text positioned bellow the input field."),
-    ] = None
-
-    error_text: Annotated[
-        str | None,
-        Doc("The error text positioned bellow the input field."),
-    ] = None
-
-    @property
-    def aria_invalid(self) -> bool:
-        return self.error_text is not None
-
-    @property
-    def error_text_id(self) -> str:
-        return f"{self.name}-error"
-
-    @property
-    def description_id(self) -> str:
-        return f"{self.name}-description"
-
-    @property
-    def _aria_describedby(self) -> str | None:
-        description_ids = [
-            self.description_id if self.help_text else None,
-            self.error_text_id if self.error_text else None,
-        ]
-        return (
-            " ".join([val for val in description_ids if val is not None])
-            if description_ids
-            else self.aria_describedby
-        )
-
-    def htmy(self, context: HueContext, **kwargs: Any) -> html.div:
-        classes = (
-            _get_base_input_classes(
-                disabled=self.disabled,
-                aria_invalid=self.aria_invalid,
-                class_=self.class_,
-            ),
-        )
-
-        # Some attributes are only relevant for certain input types.
-        input_attrs = {}
-        if isinstance(self, NumberInput):
-            input_attrs = {
-                "min": self.min,
-                "max": self.max,
-                "step": self.step,
-            }
-        else:
-            input_attrs = {
-                "min_length": self.min_length,
-                "max_length": self.max_length,
-            }
-
-        return Stack(
-            Label(
-                self.label,
-                required=self.required,
-                disabled=self.disabled,
-                hidden_label=self.hidden_label,
-                html_for=self.name,
-            ),
-            html.div(
-                html.input_(
-                    type=self.type,
-                    name=self.name,
-                    id=self.name,
-                    class_=classes,
-                    placeholder=self.placeholder,
-                    autocomplete=self.autocomplete,
-                    # Aria attributes
-                    aria_label=self.label,
-                    aria_required=self.required,
-                    aria_invalid=self.aria_invalid,
-                    aria_disabled=self.disabled,
-                    aria_errormessage=self.error_text,
-                    aria_describedby=self._aria_describedby,
-                    **input_attrs,
-                ),
-                class_="relative flex items-center w-full",
-            ),
-            render_if(
-                self.help_text,
-                lambda help_text: Text(
-                    help_text,
-                    variant="body",
-                    muted=True,
-                    tag=html.span,
-                ),
-            ),
-            render_if(
-                self.error_text,
-                lambda error_text: Text(
-                    error_text,
-                    variant="body",
-                    destructive=True,
-                    role="alert",
-                ),
-            ),
-            direction="vertical",
-            spacing="sm",
-        )
-
-
-@class_component(kw_only=True)
-class EmailInput(_BaseInput):
-    type: Literal["email"] = field(default="email", init=False)
-    autocomplete: Literal["email"] = field(default="email", init=False)
-
-
-@class_component(kw_only=True)
-class TextInput(_BaseInput):
-    type: Literal["text"] = field(default="text", init=False)
-    autocomplete: Literal["off"] = field(default="off", init=False)
-
-
-@class_component(kw_only=True)
-class NumberInput(_BaseInput):
-    type: Literal["number"] = field(default="number", init=False)
-
-    min: Annotated[int | None, Doc("The minimum value of the number field.")] = None
-    max: Annotated[int | None, Doc("The maximum value of the number field.")] = None
-    step: Annotated[float | str | None, Doc("The step value of the number field.")] = (
-        None
-    )
-
-
-@class_component(kw_only=True)
-class PasswordInput(_BaseInput):
-    type: Literal["password"] = field(default="password", init=False)
-    autocomplete: Literal["current-password"] = field(
-        default="current-password", init=False
-    )
 
 
 def _get_base_input_classes(
@@ -300,3 +118,247 @@ def _get_base_input_classes(
         ),
         class_,
     )
+
+
+class _BaseInput(ChainableComponent):
+    """
+    Base class for chainable input components.
+
+    Not intended to be used directly — use one of the concrete subclasses
+    (``TextInput``, ``EmailInput``, ``NumberInput``, ``PasswordInput``).
+    """
+
+    _input_type: str = "text"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._name: str | None = None
+
+    # ------------------------------------------------------------------
+    # Alpine — x-model (form control specific)
+    # ------------------------------------------------------------------
+
+    def x_model(self, value: str) -> Self:
+        """Two-way bind this input to Alpine data."""
+        self._attrs["x-model"] = value
+        return self
+
+    def name(self, value: str) -> Self:
+        self._name = value
+        return self
+
+    def label(self, value: str) -> Self:
+        self._props["label"] = value
+        return self
+
+    def placeholder(self, value: str) -> Self:
+        self._props["placeholder"] = value
+        return self
+
+    def disabled(self, value: bool = True) -> Self:
+        self._props["disabled"] = value
+        return self
+
+    def required(self, value: bool = True) -> Self:
+        self._props["required"] = value
+        return self
+
+    def hidden_label(self, value: bool = True) -> Self:
+        self._props["hidden_label"] = value
+        return self
+
+    def autocomplete(self, value: Autocomplete) -> Self:
+        self._props["autocomplete"] = value
+        return self
+
+    def help_text(self, value: str) -> Self:
+        self._props["help_text"] = value
+        return self
+
+    def error_text(self, value: str) -> Self:
+        self._props["error_text"] = value
+        return self
+
+    def min_length(self, value: int) -> Self:
+        self._props["min_length"] = value
+        return self
+
+    def max_length(self, value: int) -> Self:
+        self._props["max_length"] = value
+        return self
+
+    # ------------------------------------------------------------------
+    # Computed helpers
+    # ------------------------------------------------------------------
+
+    def _get_aria_invalid(self) -> bool:
+        return self._get_prop("error_text") is not None
+
+    def _get_aria_describedby(self) -> str | None:
+        help_text = self._get_prop("help_text")
+        error_text = self._get_prop("error_text")
+
+        ids = [
+            f"{self._name}-description" if help_text else None,
+            f"{self._name}-error" if error_text else None,
+        ]
+        filtered = [v for v in ids if v is not None]
+        return " ".join(filtered) if filtered else None
+
+    # ------------------------------------------------------------------
+    # Rendering
+    # ------------------------------------------------------------------
+
+    def _get_extra_input_attrs(self) -> dict:
+        """Override in subclasses that need extra attrs (e.g. NumberInput)."""
+        return {
+            "min_length": self._get_prop("min_length"),
+            "max_length": self._get_prop("max_length"),
+        }
+
+    def _render(self, context: HueContext) -> Component:
+        if self._name is None:
+            raise ValueError(
+                f"{type(self).__name__} requires a name — "
+                f"pass it to the constructor or call .name()."
+            )
+
+        label_text: str = self._get_prop("label", self._name)
+        disabled: bool = self._get_prop("disabled", False)
+        required: bool = self._get_prop("required", False)
+        hidden_label: bool = self._get_prop("hidden_label", False)
+        placeholder = self._get_prop("placeholder")
+        autocomplete_val: Autocomplete = self._get_prop("autocomplete", "off")
+        help_text_val = self._get_prop("help_text")
+        error_text_val = self._get_prop("error_text")
+        aria_invalid = self._get_aria_invalid()
+
+        classes = _get_base_input_classes(
+            disabled=disabled,
+            aria_invalid=aria_invalid,
+            class_=self._get_prop("class_"),
+        )
+
+        input_id: str = self._attrs.get("id", self._name)
+
+        input_attrs: dict[str, Any] = {
+            "type": self._input_type,
+            "name": self._name,
+            "id": input_id,
+            "class_": classes,
+            "placeholder": placeholder,
+            "autocomplete": autocomplete_val,
+            "aria_label": label_text,
+            "aria_required": required,
+            "aria_invalid": aria_invalid,
+            "aria_disabled": disabled,
+            "aria_errormessage": error_text_val,
+            "aria_describedby": self._get_aria_describedby(),
+            **self._get_extra_input_attrs(),
+        }
+        input_attrs = {k: v for k, v in input_attrs.items() if v is not None}
+
+        for key, value in self._get_base_html_attrs().items():
+            if key == "id":
+                continue
+            input_attrs.setdefault(key, value)
+
+        return (
+            Stack()
+            .direction("vertical")
+            .spacing("sm")
+            .content(
+                Label(label_text)
+                .required(required)
+                .disabled(disabled)
+                .hidden_label(hidden_label)
+                .html_for(input_id),
+                html.div(
+                    html.input_(**input_attrs),
+                    class_="relative flex items-center w-full",
+                ),
+                render_if(
+                    help_text_val,
+                    lambda ht: Text(ht).variant("body").muted().tag(html.span),
+                ),
+                render_if(
+                    error_text_val,
+                    lambda et: Text(et).variant("body").destructive().role("alert"),
+                ),
+            )
+        )
+
+
+class TextInput(_BaseInput):
+    """
+    Chainable text input.
+
+    Example::
+
+        TextInput("username").label("Username").placeholder("Enter username")
+    """
+
+    _input_type: str = "text"
+
+
+class EmailInput(_BaseInput):
+    """
+    Chainable email input.
+
+    Example::
+
+        EmailInput("email").label("Email").placeholder("you@example.com")
+    """
+
+    _input_type: str = "email"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._props["autocomplete"] = "email"
+
+
+class PasswordInput(_BaseInput):
+    """
+    Chainable password input.
+
+    Example::
+
+        PasswordInput("password").label("Password").placeholder("••••••••")
+    """
+
+    _input_type: str = "password"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._props["autocomplete"] = "current-password"
+
+
+class NumberInput(_BaseInput):
+    """
+    Chainable number input.
+
+    Example::
+
+        NumberInput("quantity").label("Quantity").min(1).max(100).step(1)
+    """
+
+    _input_type: str = "number"
+
+    def min(self, value: int) -> Self:
+        self._props["min"] = value
+        return self
+
+    def max(self, value: int) -> Self:
+        self._props["max"] = value
+        return self
+
+    def step(self, value: float | str) -> Self:
+        self._props["step"] = value
+        return self
+
+    def _get_extra_input_attrs(self) -> dict:
+        return {
+            "min": self._get_prop("min"),
+            "max": self._get_prop("max"),
+            "step": self._get_prop("step"),
+        }

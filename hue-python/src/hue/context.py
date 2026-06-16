@@ -1,8 +1,11 @@
 from typing import TypedDict, Unpack
 
-from htmy import Context
+from htmy import Context, Formatter
 
+from hue.exceptions import MissingHueContextError
 from hue.types.core import Component, ComponentType
+
+_hue_formatter = Formatter()
 
 
 class HueContextArgs[T_Request](TypedDict):
@@ -19,15 +22,15 @@ class HueContext[T_Request]:
         self.csrf_token = kwargs["csrf_token"]
 
     def htmy_context(self) -> Context:
-        return {HueContext: self}
+        return {HueContext: self, Formatter: _hue_formatter}
 
     def htmy(self, context: Context) -> Component:
         return self._children
 
     @classmethod
     def from_context(cls, context: Context) -> "HueContext":
-        hue_context = context[cls]
+        hue_context = context.get(cls)
         if isinstance(hue_context, HueContext):
             return hue_context
 
-        raise TypeError("Invalid hue context.")
+        raise MissingHueContextError

@@ -1,15 +1,40 @@
+from __future__ import annotations
+
 from htmy import html
+from typing_extensions import Self
 
+from hue.context import HueContext
 from hue.spacing import MARGIN, Size
+from hue.types.core import Component
+from hue.ui.base import ChainableComponent
 
 
-def Spacer(spacing: Size = "sm") -> html.div:
+class Spacer(ChainableComponent):
     """
-    The spacer component is a component that provides a common interface for
-    creating spacing between elements.
+    Fixed empty space between elements.
 
-    Note: This component will take up space in the DOM as its a div element, which
-    can cause layout issues if used in a flex container with defined spacing between.
+    Renders an empty ``<div>`` whose bottom margin creates a gap of the chosen
+    ``.spacing()`` size — a way to separate elements without adding margins to
+    them directly.
+
+    Note: because it is a real ``<div>``, the spacer takes up space in the DOM
+    whether or not it is visible. Inside a flex container that already defines
+    spacing between its children this can cause layout issues.
+
+    Example::
+
+        Stack().content(
+            Text("Above"),
+            Spacer().spacing("lg"),
+            Text("Below"),
+        )
     """
-    _top, _right, bottom, _left = MARGIN[spacing]
-    return html.div(class_=bottom)
+
+    def spacing(self, value: Size) -> Self:
+        self._props["spacing"] = value
+        return self
+
+    def _render(self, context: HueContext) -> Component:
+        spacing: Size = self._get_prop("spacing", "sm")
+        _top, _right, bottom, _left = MARGIN[spacing]
+        return html.div(class_=bottom, **self._get_base_html_attrs())

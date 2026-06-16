@@ -1,40 +1,88 @@
-from typing import Literal, Unpack
+from __future__ import annotations
+
+from typing import Literal
 
 from htmy import html
+from typing_extensions import Self
 
-from hue.decorators import function_component
+from hue.context import HueContext
 from hue.spacing import SPACE_BETWEEN, Size
-from hue.types.core import BasePropsKwargs, ComponentType
+from hue.types.core import Component
 from hue.types.css import AlignItems, JustifyContent
+from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 
-@function_component
-def Stack(
-    *children: ComponentType,
-    direction: Literal["horizontal", "vertical"] = "vertical",
-    spacing: Size = "sm",
-    justify_content: JustifyContent = "justify-start",
-    align_items: AlignItems = "items-start",
-    position: Literal["relative", "absolute", "fixed", "sticky"] = "relative",
-    **base_props: Unpack[BasePropsKwargs],
-) -> html.div:
+class Stack(ChainableComponent):
     """
-    The stack component is a flex container that can be used to layout its children in a
-    row or column. It provides additional (even) spacing between its children.
-    """
-    spacing_x, spacing_y = SPACE_BETWEEN[spacing]
-    classes = classnames(
-        "flex",
-        "w-full",
-        justify_content,
-        align_items,
-        position,
-        {
-            "flex-col": direction == "vertical",
-            "flex-row": direction == "horizontal",
-        },
-        spacing_y if direction == "vertical" else spacing_x,
-    )
+    A flex container that lays its children out in a row or column.
 
-    return html.div(*children, class_=classes, **base_props)
+    Renders a flex ``<div>`` that arranges its content vertically or
+    horizontally (``.direction()``) with consistent spacing between items
+    (``.spacing()``). ``.justify_content()`` and ``.align_items()`` control
+    alignment along each axis, and ``.position()`` sets the CSS position.
+
+    Example::
+
+        Stack()
+            .direction("horizontal")
+            .spacing("md")
+            .align_items("items-center")
+            .content(
+                Text("Hello").variant("title-3"),
+                Text("World").variant("body"),
+            )
+    """
+
+    def direction(self, value: Literal["horizontal", "vertical"]) -> Self:
+        self._props["direction"] = value
+        return self
+
+    def spacing(self, value: Size) -> Self:
+        self._props["spacing"] = value
+        return self
+
+    def justify_content(self, value: JustifyContent) -> Self:
+        self._props["justify_content"] = value
+        return self
+
+    def align_items(self, value: AlignItems) -> Self:
+        self._props["align_items"] = value
+        return self
+
+    def position(
+        self, value: Literal["relative", "absolute", "fixed", "sticky"]
+    ) -> Self:
+        self._props["position"] = value
+        return self
+
+    def _render(self, context: HueContext) -> Component:
+        direction: Literal["horizontal", "vertical"] = self._get_prop(
+            "direction", "vertical"
+        )
+        spacing_size: Size = self._get_prop("spacing", "sm")
+        justify: JustifyContent = self._get_prop("justify_content", "justify-start")
+        align: AlignItems = self._get_prop("align_items", "items-start")
+        pos = self._get_prop("position", "relative")
+
+        spacing_x, spacing_y = SPACE_BETWEEN[spacing_size]
+
+        classes = classnames(
+            "flex",
+            "w-full",
+            justify,
+            align,
+            pos,
+            {
+                "flex-col": direction == "vertical",
+                "flex-row": direction == "horizontal",
+            },
+            spacing_y if direction == "vertical" else spacing_x,
+            self._get_prop("class_"),
+        )
+
+        return html.div(
+            *self._children,
+            class_=classes,
+            **self._get_base_html_attrs(),
+        )

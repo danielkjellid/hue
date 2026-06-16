@@ -1,14 +1,13 @@
+from __future__ import annotations
+
 import os
-from dataclasses import dataclass
-from typing import Annotated
 from xml.dom import minidom
 
 from htmy import Tag, html
-from typing_extensions import Any, Doc
 
 from hue.context import HueContext
-from hue.decorators import class_component
-from hue.types.core import BaseComponent, Undefined
+from hue.types.core import Component
+from hue.ui.base import ChainableComponent
 
 
 class path(Tag):
@@ -17,83 +16,6 @@ class path(Tag):
 
 class circle(Tag):
     __slots__ = ()
-
-
-@class_component(kw_only=True)
-class Icon(BaseComponent):
-    """
-    Base icon component that requires icons_dir to be specified.
-
-    For convenience, use create_icon_base() to create a BaseIcon class
-    with icons_dir pre-configured, then subclass it:
-
-    Example:
-        BaseIcon = create_icon_base(icons_dir="/path/to/icons")
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class CalendarIcon(BaseIcon):
-            name: str = field(default="calendar", init=False)
-
-        # Usage:
-        CalendarIcon(class_="w-5 h-5")
-    """
-
-    name: Annotated[str, Doc("The file name of the icon.")]
-
-    @property
-    def icons_dir(self) -> str:
-        raise NotImplementedError("Icons dir must be specified")
-
-    def htmy(self, context: HueContext, **kwargs: Any) -> html.svg | Undefined:
-        if not self.name:
-            return Undefined
-
-        return _render_icon(
-            icon_path=f"{os.path.join(self.icons_dir, self.name)}.svg",
-            class_=self.class_,
-        )
-
-
-def create_icon_base(icons_dir: str) -> type[Icon]:
-    """
-    Factory function to create a BaseIcon class with icons_dir pre-configured.
-
-    This allows you to create icon classes with minimal boilerplate:
-
-    Example:
-        BaseIcon = create_icon_base(icons_dir="/path/to/icons")
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class CalendarIcon(BaseIcon):
-            name: str = field(default="calendar", init=False)
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class UserIcon(BaseIcon):
-            name: str = field(default="user", init=False)
-
-    For multiple icon sets (e.g., outline vs filled):
-        OutlineIcon = create_icon_base(icons_dir="/path/to/outline")
-        FilledIcon = create_icon_base(icons_dir="/path/to/filled")
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class CalendarOutline(OutlineIcon):
-            name: str = field(default="calendar", init=False)
-
-        @dataclass(slots=True, frozen=True, kw_only=True)
-        class CalendarFilled(FilledIcon):
-            name: str = field(default="calendar", init=False)
-
-    Note: Subclasses must include the @dataclass decorator with the same
-    arguments (slots=True, frozen=True, kw_only=True) for field overrides to work.
-    """
-
-    @dataclass(slots=True, frozen=True, kw_only=True)
-    class BaseIcon(Icon):
-        @property
-        def icons_dir(self) -> str:
-            return icons_dir
-
-    return BaseIcon
 
 
 def _render_icon(*, icon_path: str, class_: str | None = None) -> html.svg:
@@ -110,28 +32,28 @@ def _render_icon(*, icon_path: str, class_: str | None = None) -> html.svg:
 
             paths = [
                 {
-                    "d": path.getAttribute("d"),
-                    "stroke": path.getAttribute("stroke"),
-                    "stroke-linecap": path.getAttribute("stroke-linecap"),
-                    "stroke-linejoin": path.getAttribute("stroke-linejoin"),
-                    "stroke-width": path.getAttribute("stroke-width"),
-                    "fill": path.getAttribute("fill"),
+                    "d": p.getAttribute("d"),
+                    "stroke": p.getAttribute("stroke"),
+                    "stroke-linecap": p.getAttribute("stroke-linecap"),
+                    "stroke-linejoin": p.getAttribute("stroke-linejoin"),
+                    "stroke-width": p.getAttribute("stroke-width"),
+                    "fill": p.getAttribute("fill"),
                 }
-                for path in icon_doc.getElementsByTagName("path")
+                for p in icon_doc.getElementsByTagName("path")
             ]
 
             circles = [
                 {
-                    "cx": circle.getAttribute("cx"),
-                    "cy": circle.getAttribute("cy"),
-                    "r": circle.getAttribute("r"),
-                    "fill": circle.getAttribute("fill"),
-                    "stroke": circle.getAttribute("stroke"),
-                    "stroke-linecap": circle.getAttribute("stroke-linecap"),
-                    "stroke-linejoin": circle.getAttribute("stroke-linejoin"),
-                    "stroke-width": circle.getAttribute("stroke-width"),
+                    "cx": c.getAttribute("cx"),
+                    "cy": c.getAttribute("cy"),
+                    "r": c.getAttribute("r"),
+                    "fill": c.getAttribute("fill"),
+                    "stroke": c.getAttribute("stroke"),
+                    "stroke-linecap": c.getAttribute("stroke-linecap"),
+                    "stroke-linejoin": c.getAttribute("stroke-linejoin"),
+                    "stroke-width": c.getAttribute("stroke-width"),
                 }
-                for circle in icon_doc.getElementsByTagName("circle")
+                for c in icon_doc.getElementsByTagName("circle")
             ]
     except FileNotFoundError as e:
         raise RuntimeError(f"Icon at {icon_path} not found") from e
@@ -196,3 +118,67 @@ def _render_icon(*, icon_path: str, class_: str | None = None) -> html.svg:
         viewBox=view_box,
         **svg_attrs,
     )
+
+
+class Icon(ChainableComponent):
+    """
+    An inline SVG icon loaded from a configured icon directory.
+
+    Reads the named ``.svg`` file from the icon set and inlines it into the
+    page so it can be styled with CSS (e.g. ``.class_("size-4 text-primary")``).
+
+    Not instantiated directly — use :func:`create_icon_base` to bind an
+    ``icons_dir``, then call the returned class with an icon name.
+
+    Example::
+
+        Icon = create_icon_base(icons_dir="/path/to/icons")
+        Icon("calendar").class_("size-4")
+    """
+
+    def __init__(self, name: str = "") -> None:
+        super().__init__()
+        self._name = name
+
+    @property
+    def icons_dir(self) -> str:
+        raise NotImplementedError("Use create_icon_base() to set icons_dir")
+
+    def _render(self, context: HueContext) -> Component:
+        if not self._name:
+            return ""
+
+        return _render_icon(
+            icon_path=f"{os.path.join(self.icons_dir, self._name)}.svg",
+            class_=self._get_prop("class_"),
+        )
+
+
+def create_icon_base(icons_dir: str) -> type[Icon]:
+    """
+    Factory that returns an Icon subclass with ``icons_dir`` pre-configured.
+
+    Example::
+
+        BaseIcon = create_icon_base(icons_dir="/path/to/icons")
+
+        # Usage — no subclassing needed:
+        BaseIcon("calendar").class_("size-4")
+        BaseIcon("user").class_("size-6")
+
+    For multiple icon sets::
+
+        OutlineIcon = create_icon_base(icons_dir="/path/to/outline")
+        FilledIcon  = create_icon_base(icons_dir="/path/to/filled")
+    """
+
+    class _ConfiguredIcon(Icon):
+        @property
+        def icons_dir(self) -> str:
+            return icons_dir
+
+    # Give it a nicer repr
+    _ConfiguredIcon.__qualname__ = "Icon"
+    _ConfiguredIcon.__name__ = "Icon"
+
+    return _ConfiguredIcon
