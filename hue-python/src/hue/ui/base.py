@@ -11,11 +11,6 @@ from hue.types.core import Component, ComponentType
 from hue.types.html import AriaAtomic, AriaLive, AriaRole
 from hue.utils import classnames
 
-# Prop key prefixes forwarded as HTML attributes. Alpine props are stored
-# using their final HTML names (e.g. "x-data", "@click", ":class") so
-# they bypass the formatter entirely.
-_ALPINE_PREFIXES = ("x-", "@", ":")
-
 
 class ChainableComponent(ABC):
     """

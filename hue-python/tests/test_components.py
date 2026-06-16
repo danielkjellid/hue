@@ -1,7 +1,9 @@
 import pytest
+from htmy import Renderer
 from htmy import html as htmy_html
 
 from hue.context import HueContextArgs
+from hue.exceptions import MissingHueContextError
 from hue.renderer import render_tree
 from hue.ui import (
     Button,
@@ -77,6 +79,11 @@ class TestChainableComponent:
     def test_content_sets_children(self):
         btn = Button().content("a", "b")
         assert btn._children == ("a", "b")
+
+    @pytest.mark.asyncio
+    async def test_render_without_hue_context_raises(self):
+        with pytest.raises(MissingHueContextError):
+            await Renderer().render(Button().content("Hi"))
 
 
 # ---------------------------------------------------------------------------
@@ -407,6 +414,40 @@ class TestTextInput:
             context_args=_context_args(),
         )
         assert "cursor-not-allowed" in html
+
+    @pytest.mark.asyncio
+    async def test_id_links_input_and_label(self):
+        html = await render_tree(
+            TextInput().name("email").label("Email"),
+            context_args=_context_args(),
+        )
+        assert 'id="email"' in html
+        assert 'for="email"' in html
+
+    @pytest.mark.asyncio
+    async def test_explicit_id_links_input_and_label(self):
+        html = await render_tree(
+            TextInput().name("email").label("Email").id("custom-id"),
+            context_args=_context_args(),
+        )
+        assert 'id="custom-id"' in html
+        assert 'for="custom-id"' in html
+        assert 'id="email"' not in html
+
+    @pytest.mark.asyncio
+    async def test_forwards_base_attrs_to_input(self):
+        html = await render_tree(
+            TextInput()
+            .name("email")
+            .label("Email")
+            .role("searchbox")
+            .aria_describedby("hint")
+            .x_model("form.email"),
+            context_args=_context_args(),
+        )
+        assert 'role="searchbox"' in html
+        assert "hint" in html
+        assert "x-model" in html
 
 
 class TestEmailInput:

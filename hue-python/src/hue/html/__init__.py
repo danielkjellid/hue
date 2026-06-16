@@ -11,13 +11,22 @@ module via ``__getattr__``.  Calling the factory returns a chainable
     html.div()
         .class_("container")
         .content(
-            html.p().content("Hello world"),
+            html.p("Hello world"),
         )
 
     html.form()
         .method("POST")
         .action("/login/")
         .content(...)
+
+Positional arguments are children (like ``htmy.html``), so the simple case
+reads naturally and is equivalent to calling ``.content()``::
+
+    html.span("Hello")
+    html.a("Click me").href("/about").target("_blank")
+
+Void elements (``input``, ``br``, ``img``, ...) cannot have children and raise
+if any are passed.
 
 For raw htmy tags (non-chainable) import ``htmy.html`` directly.
 """
@@ -44,16 +53,17 @@ if TYPE_CHECKING:
         SelectElement,
         TextareaElement,
     )
+    from hue.types.core import ComponentType
 
     # Typed factories so editors/type-checkers resolve the correct subclass.
-    def form() -> FormElement: ...
-    def a() -> AnchorElement: ...
-    def img() -> ImgElement: ...
-    def button() -> ButtonElement: ...
-    def input_() -> InputElement: ...
-    def select() -> SelectElement: ...
-    def textarea() -> TextareaElement: ...
-    def label() -> LabelElement: ...
+    def form(*children: ComponentType) -> FormElement: ...
+    def a(*children: ComponentType) -> AnchorElement: ...
+    def img(*children: ComponentType) -> ImgElement: ...
+    def button(*children: ComponentType) -> ButtonElement: ...
+    def input_(*children: ComponentType) -> InputElement: ...
+    def select(*children: ComponentType) -> SelectElement: ...
+    def textarea(*children: ComponentType) -> TextareaElement: ...
+    def label(*children: ComponentType) -> LabelElement: ...
 
 
 __all__ = ["Element"]
@@ -77,9 +87,17 @@ def __getattr__(name: str) -> Callable[..., Element]:
 
     # Use a specialized Element subclass when available
     element_class = SPECIALIZED_ELEMENTS.get(name, Element)
+    is_void = not issubclass(tag_class, Tag)
 
-    def _factory() -> Element:
-        return element_class(tag_class)
+    def _factory(*children: Any) -> Element:
+        if children and is_void:
+            raise TypeError(
+                f"<{name.rstrip('_')}> is a void element and cannot have children."
+            )
+        element = element_class(tag_class)
+        if children:
+            element.content(*children)
+        return element
 
     _factory.__name__ = name
     _factory.__qualname__ = f"html.{name}"

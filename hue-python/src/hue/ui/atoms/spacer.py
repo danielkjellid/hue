@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from htmy import html
+from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.spacing import MARGIN, Size
@@ -23,11 +24,11 @@ class Spacer(ChainableComponent):
         super().__init__()
         self._props["spacing"] = spacing
 
-    def spacing(self, value: Size) -> "Spacer":
+    def spacing(self, value: Size) -> Self:
         self._props["spacing"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
         spacing: Size = self._get_prop("spacing", "sm")
         _top, _right, bottom, _left = MARGIN[spacing]
-        return html.div(class_=bottom)
+        return html.div(class_=bottom, **self._get_base_html_attrs())

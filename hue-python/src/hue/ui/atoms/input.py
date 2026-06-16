@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from htmy import html
 from typing_extensions import Self
@@ -9,7 +9,7 @@ from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
-from hue.ui.base import _ALPINE_PREFIXES, ChainableComponent
+from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_if
 
 type Autocomplete = Literal[
@@ -216,14 +216,6 @@ class _BaseInput(ChainableComponent):
             "max_length": self._get_prop("max_length"),
         }
 
-    def _get_alpine_attrs(self) -> dict:
-        """Collect Alpine attributes (x_*, ajax__*) for the input element."""
-        return {
-            k: v
-            for k, v in self._attrs.items()
-            if v is not None and k.startswith(_ALPINE_PREFIXES)
-        }
-
     def _render(self, context: HueContext) -> Component:
         if self._name is None:
             raise ValueError(
@@ -247,6 +239,30 @@ class _BaseInput(ChainableComponent):
             class_=self._get_prop("class_"),
         )
 
+        input_id: str = self._attrs.get("id", self._name)
+
+        input_attrs: dict[str, Any] = {
+            "type": self._input_type,
+            "name": self._name,
+            "id": input_id,
+            "class_": classes,
+            "placeholder": placeholder,
+            "autocomplete": autocomplete_val,
+            "aria_label": label_text,
+            "aria_required": required,
+            "aria_invalid": aria_invalid,
+            "aria_disabled": disabled,
+            "aria_errormessage": error_text_val,
+            "aria_describedby": self._get_aria_describedby(),
+            **self._get_extra_input_attrs(),
+        }
+        input_attrs = {k: v for k, v in input_attrs.items() if v is not None}
+
+        for key, value in self._get_base_html_attrs().items():
+            if key == "id":
+                continue
+            input_attrs.setdefault(key, value)
+
         return (
             Stack()
             .direction("vertical")
@@ -256,24 +272,9 @@ class _BaseInput(ChainableComponent):
                 .required(required)
                 .disabled(disabled)
                 .hidden_label(hidden_label)
-                .html_for(self._name),
+                .html_for(input_id),
                 html.div(
-                    html.input_(
-                        type=self._input_type,
-                        name=self._name,
-                        id=self._name,
-                        class_=classes,
-                        placeholder=placeholder,
-                        autocomplete=autocomplete_val,
-                        aria_label=label_text,
-                        aria_required=required,
-                        aria_invalid=aria_invalid,
-                        aria_disabled=disabled,
-                        aria_errormessage=error_text_val,
-                        aria_describedby=self._get_aria_describedby(),
-                        **self._get_extra_input_attrs(),
-                        **self._get_alpine_attrs(),
-                    ),
+                    html.input_(**input_attrs),
                     class_="relative flex items-center w-full",
                 ),
                 render_if(

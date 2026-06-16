@@ -52,6 +52,20 @@ class TestElement:
         el = html.div()
         assert el.attr("data-x", "1") is el
 
+    def test_positional_children_set_content(self):
+        el = html.div("a", "b")
+        assert el._children == ("a", "b")
+
+    def test_positional_equivalent_to_content(self):
+        assert html.span("Hello")._children == html.span().content("Hello")._children
+
+    def test_void_element_rejects_children(self):
+        with pytest.raises(TypeError):
+            html.input_("nope")
+
+    def test_void_element_without_children_ok(self):
+        assert isinstance(html.input_(), Element)
+
 
 # ---------------------------------------------------------------------------
 # Specialized element types

@@ -25,7 +25,7 @@ class Element(ChainableComponent):
         html.div()
             .class_("container")
             .content(
-                html.span().content("Hello"),
+                html.span("Hello"),
             )
     """
 

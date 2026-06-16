@@ -2,6 +2,7 @@ from typing import TypedDict, Unpack
 
 from htmy import Context, Formatter
 
+from hue.exceptions import MissingHueContextError
 from hue.types.core import Component, ComponentType
 
 _hue_formatter = Formatter()
@@ -28,8 +29,8 @@ class HueContext[T_Request]:
 
     @classmethod
     def from_context(cls, context: Context) -> "HueContext":
-        hue_context = context[cls]
+        hue_context = context.get(cls)
         if isinstance(hue_context, HueContext):
             return hue_context
 
-        raise TypeError("Invalid hue context.")
+        raise MissingHueContextError
