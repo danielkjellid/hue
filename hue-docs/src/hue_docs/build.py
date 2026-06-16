@@ -1,0 +1,162 @@
+"""Build the static documentation site into ``dist/``.
+
+Pipeline: discover components -> render every page (prose + one per component)
+with hue's own renderer -> copy the Alpine bundle -> run the Tailwind CLI to
+produce the stylesheet. The result is plain HTML/CSS/JS with no runtime deps.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from collections import defaultdict
+from pathlib import Path
+
+from hue.assets import js_bundle_path
+
+from hue_docs import content
+from hue_docs.categories import category_for, ordered_categories
+from hue_docs.discovery import ComponentDoc, discover
+from hue_docs.layout.highlight import highlight_css
+from hue_docs.layout.page import build_page
+from hue_docs.layout.playground import playground as build_playground
+from hue_docs.layout.showcase import component_main
+from hue_docs.models import NavGroup, NavItem, ProsePage
+from hue_docs.registry import ComponentExample, auto_showcases, load_examples
+from hue_docs.render import render_html_sync
+
+_HERE = Path(__file__).resolve()
+_PACKAGE_DIR = _HERE.parent
+_PROJECT_DIR = _HERE.parents[2]
+DIST = _PROJECT_DIR / "dist"
+INPUT_CSS = _PACKAGE_DIR / "styles" / "docs.input.css"
+
+# Sidebar group order; "Components" is always appended last.
+_GROUP_ORDER = ["Get started", "Guides"]
+
+
+def _component_href(doc: ComponentDoc) -> str:
+    return f"/components/{doc.slug}/"
+
+
+def build_nav(prose_pages: list[ProsePage], docs: list[ComponentDoc]) -> list[NavGroup]:
+    by_group: dict[str, list[ProsePage]] = defaultdict(list)
+    for page in prose_pages:
+        by_group[page.group].append(page)
+
+    nav: list[NavGroup] = []
+    for group_name in _GROUP_ORDER:
+        pages = sorted(by_group.get(group_name, []), key=lambda p: p.order)
+        if pages:
+            nav.append(
+                NavGroup(
+                    group_name,
+                    [NavItem(p.nav_label, p.href) for p in pages],
+                )
+            )
+
+    names = [doc.name for doc in docs]
+    for category in ordered_categories(names):
+        items = [
+            NavItem(doc.name, _component_href(doc))
+            for doc in docs
+            if category_for(doc.name) == category
+        ]
+        nav.append(NavGroup(category, items))
+    return nav
+
+
+def _write(href: str, html: str) -> None:
+    """Write an HTML string to the dist path for a root-relative *href*."""
+    relative = "index.html" if href == "/" else f"{href.strip('/')}/index.html"
+    target = DIST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(html, encoding="utf-8")
+    print(f"  wrote {relative}")
+
+
+def _render_pages(
+    prose_pages: list[ProsePage],
+    docs: list[ComponentDoc],
+    examples: dict[str, ComponentExample],
+    nav: list[NavGroup],
+) -> None:
+    for page in prose_pages:
+        html = render_html_sync(
+            build_page(
+                title=page.title,
+                nav=nav,
+                active_href=page.href,
+                main=page.build(),
+            )
+        )
+        _write(page.href, html)
+
+    for doc in docs:
+        example = examples.get(doc.name)
+        showcases = example.showcases if example else auto_showcases(doc)
+        playground = (
+            build_playground(doc, example.playground)
+            if example and example.playground
+            else None
+        )
+        href = _component_href(doc)
+        html = render_html_sync(
+            build_page(
+                title=doc.name,
+                nav=nav,
+                active_href=href,
+                main=component_main(doc, showcases, playground),
+            )
+        )
+        _write(href, html)
+
+
+def _copy_assets() -> None:
+    js_target = DIST / "js" / "alpine-bundle.js"
+    js_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(js_bundle_path(), js_target)
+    print("  copied js/alpine-bundle.js")
+
+    highlight_target = DIST / "styles" / "highlight.css"
+    highlight_target.parent.mkdir(parents=True, exist_ok=True)
+    highlight_target.write_text(highlight_css(), encoding="utf-8")
+    print("  wrote styles/highlight.css")
+
+
+def _build_css() -> None:
+    tailwind = shutil.which("tailwindcss")
+    if tailwind is None:
+        raise RuntimeError(
+            "The `tailwindcss` CLI was not found on PATH. It is provided by "
+            "pytailwindcss — run this via `make build` or `uv run python -m "
+            "hue_docs`."
+        )
+    output = DIST / "styles" / "tailwind.css"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [tailwind, "-i", str(INPUT_CSS), "-o", str(output), "--minify"],
+        check=True,
+    )
+    print("  built styles/tailwind.css")
+
+
+def main() -> None:
+    if DIST.exists():
+        shutil.rmtree(DIST)
+    DIST.mkdir(parents=True)
+
+    docs = discover()
+    examples = load_examples()
+    prose_pages = content.PAGES
+    nav = build_nav(prose_pages, docs)
+
+    print(f"Rendering {len(prose_pages)} prose pages and {len(docs)} components...")
+    _render_pages(prose_pages, docs, examples, nav)
+    _copy_assets()
+    _build_css()
+    print(f"Done. Site written to {DIST}")
+
+
+if __name__ == "__main__":
+    main()
