@@ -103,6 +103,4 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
             return await view_func(view_instance, request, context, **kwargs)
 
         # Sync function: wrap with sync_to_async so DB/auth access works.
-        return await sync_to_async(view_func)(
-            view_instance, request, context, **kwargs
-        )
+        return await sync_to_async(view_func)(view_instance, request, context, **kwargs)
