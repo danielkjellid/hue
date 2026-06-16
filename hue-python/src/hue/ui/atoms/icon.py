@@ -122,15 +122,18 @@ def _render_icon(*, icon_path: str, class_: str | None = None) -> html.svg:
 
 class Icon(ChainableComponent):
     """
-    A SwiftUI-style chainable icon component.
+    An inline SVG icon loaded from a configured icon directory.
 
-    Not intended to be used directly — use :func:`create_icon_base` to
-    create a base class with ``icons_dir`` pre-configured.
+    Reads the named ``.svg`` file from the icon set and inlines it into the
+    page so it can be styled with CSS (e.g. ``.class_("size-4 text-primary")``).
+
+    Not instantiated directly — use :func:`create_icon_base` to bind an
+    ``icons_dir``, then call the returned class with an icon name.
 
     Example::
 
-        MyIcon = create_icon_base(icons_dir="/path/to/icons")
-        MyIcon("calendar").class_("size-4")
+        Icon = create_icon_base(icons_dir="/path/to/icons")
+        Icon("calendar").class_("size-4")
     """
 
     def __init__(self, name: str = "") -> None:

@@ -369,7 +369,7 @@ class TestSpacer:
     @pytest.mark.asyncio
     async def test_render_with_spacing(self):
         html = await render_tree(
-            Spacer("lg"),
+            Spacer().spacing("lg"),
             context_args=_context_args(),
         )
         assert "mb-8" in html  # lg bottom margin

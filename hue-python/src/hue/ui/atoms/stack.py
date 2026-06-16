@@ -15,7 +15,12 @@ from hue.utils import classnames
 
 class Stack(ChainableComponent):
     """
-    A SwiftUI-style chainable flex-container component.
+    A flex container that lays its children out in a row or column.
+
+    Renders a flex ``<div>`` that arranges its content vertically or
+    horizontally (``.direction()``) with consistent spacing between items
+    (``.spacing()``). ``.justify_content()`` and ``.align_items()`` control
+    alignment along each axis, and ``.position()`` sets the CSS position.
 
     Example::
 

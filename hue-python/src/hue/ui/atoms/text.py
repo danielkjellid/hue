@@ -36,15 +36,19 @@ type TextAlign = Literal["text-left", "text-center", "text-right"]
 
 class Text(ChainableComponent):
     """
-    A SwiftUI-style chainable text component.
+    A run of text rendered with a typographic style.
+
+    Renders the given text inside a configurable tag (``.tag()`` — defaults to
+    ``<p>``; also span, h1-h6, label) using one of the design system's type
+    ``.variant()`` scales (title, subtitle, body). ``.align()`` controls
+    alignment, and ``.muted()`` / ``.destructive()`` set the colour.
 
     Example::
 
-        Text("Hello world")
+        Text("Section title")
             .variant("title-3")
-            .tag(html.h1)
+            .tag(html.h2)
             .align("text-center")
-            .muted()
     """
 
     def __init__(self, text: str = "") -> None:
@@ -117,14 +121,18 @@ class Text(ChainableComponent):
 
 class Label(ChainableComponent):
     """
-    A SwiftUI-style chainable label component.
+    A ``<label>`` for a form control.
+
+    Renders the label text, optionally followed by a required-field asterisk
+    (``.required()``). Use ``.html_for()`` to link it to a control's ``id``,
+    ``.disabled()`` to style it as disabled, and ``.hidden_label()`` to keep it
+    visually hidden but still available to screen readers.
 
     Example::
 
         Label("Email")
             .html_for("email-input")
             .required()
-            .hidden_label()
     """
 
     def __init__(self, text: str = "") -> None:

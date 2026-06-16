@@ -11,18 +11,24 @@ from hue.ui.base import ChainableComponent
 
 class Spacer(ChainableComponent):
     """
-    A SwiftUI-style chainable spacer component.
+    Fixed empty space between elements.
+
+    Renders an empty ``<div>`` whose bottom margin creates a gap of the chosen
+    ``.spacing()`` size — a way to separate elements without adding margins to
+    them directly.
+
+    Note: because it is a real ``<div>``, the spacer takes up space in the DOM
+    whether or not it is visible. Inside a flex container that already defines
+    spacing between its children this can cause layout issues.
 
     Example::
 
-        Spacer("lg")
-        # or
-        Spacer().spacing("lg")
+        Stack().content(
+            Text("Above"),
+            Spacer().spacing("lg"),
+            Text("Below"),
+        )
     """
-
-    def __init__(self, spacing: Size = "sm") -> None:
-        super().__init__()
-        self._props["spacing"] = spacing
 
     def spacing(self, value: Size) -> Self:
         self._props["spacing"] = value

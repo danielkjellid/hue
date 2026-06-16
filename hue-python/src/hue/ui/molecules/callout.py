@@ -29,7 +29,11 @@ type CalloutVariant = Literal[
 
 class Callout(ChainableComponent):
     """
-    A SwiftUI-style chainable callout component.
+    A boxed, coloured message that draws attention to a piece of content.
+
+    Renders an icon, an optional ``.title()``, and its body content inside a
+    bordered box whose colour is set by ``.variant()`` (gray, primary, info,
+    success, warning, error). Use it for inline notices, hints, and errors.
 
     Example::
 

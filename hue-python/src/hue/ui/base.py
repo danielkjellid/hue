@@ -14,10 +14,15 @@ from hue.utils import classnames
 
 class ChainableComponent(ABC):
     """
-    A base class for SwiftUI-style chainable components.
+    Base class for hue's chainable components.
 
-    Props are set via chainable modifier methods that return ``self``,
-    and children are provided through the ``.content()`` method.
+    A subclass builds an HTML subtree declaratively: styling and attributes
+    are set through modifier methods that each return ``self`` (so calls
+    chain), children are passed positionally or via ``.content()``, and the
+    concrete markup is produced by the subclass's ``_render`` method.
+
+    This base provides the modifiers shared by every component — ``.class_()``,
+    ``.id()``, the ARIA helpers, and the Alpine.js / Alpine AJAX directives.
 
     Example::
 

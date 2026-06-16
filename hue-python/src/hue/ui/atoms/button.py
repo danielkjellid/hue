@@ -171,15 +171,20 @@ def _get_base_button_classes(
 
 class Button(ChainableComponent):
     """
-    A SwiftUI-style chainable button component.
+    A clickable ``<button>`` styled with the design system.
+
+    The appearance is driven by ``.variant()`` (primary, secondary, the
+    destructive variants, outline, transparent, ...), ``.size()``, and
+    ``.shape()`` (rounded or pill). Use ``.fluid()`` to fill the available
+    width, ``.type()`` to set the button type, and ``.disabled()`` to disable
+    it. Children become the button's content.
 
     Example::
 
         Button()
             .variant("primary")
             .size("md")
-            .disabled(True)
-            .content(Text("Click me"))
+            .content(Text("Save"))
     """
 
     def variant(self, value: ButtonVariant) -> Self:
