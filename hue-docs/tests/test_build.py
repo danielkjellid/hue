@@ -7,7 +7,7 @@ from hue_docs.discovery import discover
 from hue_docs.layout.page import build_page
 from hue_docs.layout.playground import playground as build_playground
 from hue_docs.layout.showcase import component_main
-from hue_docs.registry import auto_showcases, load_examples
+from hue_docs.registry import auto_showcases, example_code, example_instance
 from hue_docs.render import render_html_sync
 
 
@@ -46,40 +46,45 @@ def test_prose_pages_render_to_a_document(page):
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
 def test_every_component_page_renders(doc):
-    examples = load_examples()
-    example = examples.get(doc.name)
-    showcases = example.showcases if example else auto_showcases(doc)
-
     nav = build_nav(content.PAGES, discover())
     html = render_html_sync(
         build_page(
             title=doc.name,
             nav=nav,
             active_href=f"/components/{doc.slug}/",
-            main=component_main(doc, showcases),
+            main=component_main(doc, auto_showcases(doc), build_playground(doc)),
         )
     )
 
     assert html.startswith("<!DOCTYPE html>")
     assert doc.name in html
-    # Every showcased variant must have rendered without falling back to error.
+    # Nothing on the page should have fallen back to a render error.
     assert "Could not render:" not in html
 
 
-def test_playgrounds_render_without_error():
-    docs = {doc.name: doc for doc in discover()}
-    for name, example in load_examples().items():
-        if example.playground is None:
-            continue
-        component = build_playground(docs[name], example.playground)
-        assert component is not None, f"{name} playground produced no controls"
-        html = render_html_sync(component)
-        assert "Could not render:" not in html, f"{name} playground had a render error"
+@pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
+def test_every_component_exposes_a_renderable_example(doc):
+    # The whole auto-discovery story depends on each component providing a
+    # representative, renderable example() instance.
+    html = render_html_sync(example_instance(doc))
+    assert html, f"{doc.name}.example() rendered empty"
+    # And its source is recoverable as a usage snippet starting with the name.
+    code = example_code(doc)
+    assert code is None or code.startswith(f"{doc.name}(")
 
 
-def test_every_example_variant_builds_and_renders():
-    for name, example in load_examples().items():
-        for showcase in example.showcases:
+@pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
+def test_every_component_playground_renders(doc):
+    component = build_playground(doc)
+    if component is None:  # components with no enum/bool axes (e.g. Icon)
+        return
+    html = render_html_sync(component)
+    assert "Could not render:" not in html, f"{doc.name} playground had a render error"
+
+
+def test_every_showcase_variant_builds_and_renders():
+    for doc in discover():
+        for showcase in auto_showcases(doc):
             for variant in showcase.variants:
                 html = render_html_sync(variant.build())
-                assert html, f"{name}/{showcase.title}/{variant.label} rendered empty"
+                assert html, f"{doc.name}/{showcase.title}/{variant.label} was empty"

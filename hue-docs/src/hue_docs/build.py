@@ -22,7 +22,7 @@ from hue_docs.layout.page import build_page
 from hue_docs.layout.playground import playground as build_playground
 from hue_docs.layout.showcase import component_main
 from hue_docs.models import NavGroup, NavItem, ProsePage
-from hue_docs.registry import ComponentExample, auto_showcases, load_examples
+from hue_docs.registry import auto_showcases
 from hue_docs.render import render_html_sync
 
 _HERE = Path(__file__).resolve()
@@ -93,7 +93,6 @@ def _write(href: str, html: str) -> None:
 def _render_pages(
     prose_pages: list[ProsePage],
     docs: list[ComponentDoc],
-    examples: dict[str, ComponentExample],
     nav: list[NavGroup],
 ) -> None:
     for page in prose_pages:
@@ -108,13 +107,8 @@ def _render_pages(
         _write(page.href, html)
 
     for doc in docs:
-        example = examples.get(doc.name)
-        showcases = example.showcases if example else auto_showcases(doc)
-        playground = (
-            build_playground(doc, example.playground)
-            if example and example.playground
-            else None
-        )
+        showcases = auto_showcases(doc)
+        playground = build_playground(doc)
         href = _component_href(doc)
         html = render_html_sync(
             build_page(
@@ -164,12 +158,11 @@ def main() -> None:
     DIST.mkdir(parents=True)
 
     docs = discover()
-    examples = load_examples()
     prose_pages = content.PAGES
     nav = build_nav(prose_pages, docs)
 
     print(f"Rendering {len(prose_pages)} prose pages and {len(docs)} components...")
-    _render_pages(prose_pages, docs, examples, nav)
+    _render_pages(prose_pages, docs, nav)
     _copy_assets()
     _build_css()
     print(f"Done. Site written to {DIST}")

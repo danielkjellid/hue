@@ -138,6 +138,11 @@ class _BaseInput(ChainableComponent):
     # Alpine — x-model (form control specific)
     # ------------------------------------------------------------------
 
+    @classmethod
+    def example(cls) -> Self:
+        """A representative instance, used by the docs site for previews."""
+        return cls().name("example").label("Example").placeholder("Type here")
+
     def x_model(self, value: str) -> Self:
         """Two-way bind this input to Alpine data."""
         self._attrs["x-model"] = value

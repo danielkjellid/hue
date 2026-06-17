@@ -1,27 +1,46 @@
-"""Showcase model + optional per-component examples.
+"""Turn a discovered component into showcase data — fully automatically.
 
-A component's docs page is a list of :class:`Showcase` blocks, each holding a
-set of :class:`Variant` cards (a rendered component + the code that produced it).
+Everything here is derived from the component itself:
 
-Examples are *optional*: drop a module in ``hue_docs/examples/`` exporting either
-``EXAMPLE`` (one :class:`ComponentExample`) or ``EXAMPLES`` (a ``{class_name:
-ComponentExample}`` mapping). Components without an example fall back to
-:func:`auto_showcases`, which builds a grid straight from the discovered axes.
+* the preview content comes from the component's ``example()`` classmethod
+  (falling back to a bare ``Cls()``),
+* the variant grids come from its introspected ``Literal`` axes, and
+* the usage snippet comes from the source of ``example()``.
+
+There are no per-component files to maintain — a new component is documented the
+moment it exists.
 """
 
 from __future__ import annotations
 
-import importlib
-import pkgutil
-from dataclasses import dataclass, field
+import ast
+import inspect
+import textwrap
+from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 from hue.types.core import ComponentType
 
-from hue_docs import examples as _examples_pkg
-from hue_docs.discovery import ComponentDoc
+from hue_docs.discovery import Axis, ComponentDoc
 
 Layout = Literal["row", "grid", "stack"]
+
+# Enum axes with more values than this are passthrough-ish attributes (e.g. an
+# input's ``autocomplete``) rather than primary visual variants: trim their grid
+# and sink them to the bottom of the playground so the useful props win.
+_BIG_ENUM_THRESHOLD = 12
+
+# Props worth keeping first when the playground has to be capped.
+_AUTO_PROP_PRIORITY = (
+    "variant",
+    "size",
+    "shape",
+    "direction",
+    "spacing",
+    "align",
+    "justify_content",
+    "align_items",
+)
 
 
 @dataclass(frozen=True)
@@ -41,28 +60,6 @@ class Showcase:
     layout: Layout = "grid"
 
 
-@dataclass(frozen=True)
-class PlaygroundSpec:
-    """Declares an interactive playground for a component.
-
-    ``build`` returns a fresh base instance (with its content set). ``props``
-    lists the modifier methods to expose as controls — empty means "every
-    discovered enum/bool axis". The option lists and defaults for each prop are
-    resolved from discovery at build time, so this stays terse.
-    """
-
-    build: Callable[[], ComponentType]
-    ctor_code: str
-    content_code: str = ""
-    props: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class ComponentExample:
-    showcases: list[Showcase] = field(default_factory=list)
-    playground: PlaygroundSpec | None = None
-
-
 def _format_call(method: str, value: Any) -> str:
     if isinstance(value, bool):
         return f".{method}()" if value else ""
@@ -71,81 +68,83 @@ def _format_call(method: str, value: Any) -> str:
     return f".{method}({value!r})"
 
 
-def axis_grid(
-    title: str,
-    *,
-    ctor_code: str,
-    build: Callable[[], Any],
-    method: str,
-    values: list[Any],
-    content_code: str = "",
-    description: str | None = None,
-    layout: Layout = "grid",
-) -> Showcase:
-    """Build a :class:`Showcase` that varies a single modifier across *values*.
+def example_instance(doc: ComponentDoc) -> ComponentType:
+    """A fresh representative instance: ``Cls.example()`` if defined, else ``Cls()``."""
+    factory = getattr(doc.cls, "example", None)
+    if callable(factory):
+        return factory()
+    return doc.cls()
 
-    ``build`` returns a fresh base instance; the modifier is then applied to it.
-    The displayed code is ``{ctor_code}{call}{content_code}`` so it reads in the
-    conventional modifier-before-content order.
+
+def example_code(doc: ComponentDoc) -> str | None:
+    """The body of ``example()`` as a one-line snippet, e.g. ``Button().content("…")``.
+
+    Returns ``None`` when there is no ``example()`` or it isn't a simple
+    ``return cls()...`` chain we can render as the canonical usage.
     """
-    variants: list[Variant] = []
-    for value in values:
+    factory = getattr(doc.cls, "example", None)
+    if factory is None:
+        return None
+    try:
+        source = textwrap.dedent(inspect.getsource(factory))
+        tree = ast.parse(source)
+    except (OSError, TypeError, SyntaxError):
+        return None
 
-        def make(value: Any = value) -> ComponentType:
-            instance = build()
-            getattr(instance, method)(value)
-            return instance
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Return) and node.value is not None:
+            expr = ast.unparse(node.value)
+            if "cls(" not in expr:
+                return None
+            return expr.replace("cls(", f"{doc.name}(")
+    return None
 
-        label = "default" if value is False else str(value)
-        code = f"{ctor_code}{_format_call(method, value)}{content_code}"
-        variants.append(Variant(label=label, build=make, code=code))
 
-    return Showcase(
-        title=title,
-        variants=variants,
-        description=description,
-        layout=layout,
-    )
+def playground_axes(doc: ComponentDoc) -> list[Axis]:
+    """Discovered axes ordered so the most useful survive the playground's cap."""
+
+    def rank(axis: Axis) -> tuple[bool, bool, int, str]:
+        big = axis.kind == "enum" and len(axis.values) > _BIG_ENUM_THRESHOLD
+        try:
+            named = _AUTO_PROP_PRIORITY.index(axis.method)
+        except ValueError:
+            named = len(_AUTO_PROP_PRIORITY)
+        # Small named enums, then other small enums, then bools, then big enums.
+        return (big, axis.kind == "bool", named, axis.method)
+
+    return sorted(doc.axes, key=rank)
 
 
 def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
-    """Fallback showcases for a component that has no example module."""
+    """One grid per enum axis (bool toggles are covered by the playground)."""
     showcases: list[Showcase] = []
     for axis in doc.axes:
-        values = axis.values if axis.kind == "enum" else [False, True]
+        if axis.kind != "enum":
+            continue
+
+        values = list(axis.values)
+        description: str | None = None
+        if len(values) > _BIG_ENUM_THRESHOLD:
+            description = f"Showing {_BIG_ENUM_THRESHOLD} of {len(values)} values."
+            values = values[:_BIG_ENUM_THRESHOLD]
 
         variants: list[Variant] = []
         for value in values:
 
             def make(value: Any = value, method: str = axis.method) -> ComponentType:
-                instance = doc.cls()
+                instance = example_instance(doc)
                 getattr(instance, method)(value)
                 return instance
 
-            label = "default" if value is False else str(value)
             code = f"{doc.name}(){_format_call(axis.method, value)}"
-            variants.append(Variant(label=label, build=make, code=code))
+            variants.append(Variant(label=str(value), build=make, code=code))
 
         showcases.append(
             Showcase(
                 title=axis.method.replace("_", " ").title(),
                 variants=variants,
+                description=description,
                 layout="stack",
             )
         )
     return showcases
-
-
-def load_examples() -> dict[str, ComponentExample]:
-    """Import every module under ``hue_docs.examples`` and collect its examples."""
-    found: dict[str, ComponentExample] = {}
-    for module_info in pkgutil.iter_modules(_examples_pkg.__path__):
-        module = importlib.import_module(f"{_examples_pkg.__name__}.{module_info.name}")
-        mapping: dict[str, ComponentExample] | None = getattr(module, "EXAMPLES", None)
-        if mapping:
-            found.update(mapping)
-        single: ComponentExample | None = getattr(module, "EXAMPLE", None)
-        component: type | None = getattr(module, "COMPONENT", None)
-        if single is not None and component is not None:
-            found[component.__name__] = single
-    return found

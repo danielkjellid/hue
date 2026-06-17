@@ -14,23 +14,30 @@ discover components  ->  render pages (hue's own render_tree + BasePage)  ->  di
    introspect Literal/bool modifiers                                   builds dist/styles/tailwind.css
 ```
 
-- **Auto-discovery** — every `ChainableComponent` exported from `hue.ui` is
-  found automatically and gets a page. New components appear in the sidebar
-  without editing any navigation. Their `Literal`/`bool` modifiers (e.g.
-  `variant`, `size`, `shape`) are introspected into a variant grid.
-- **Interactive playground** — components with a `PlaygroundSpec` get a live
-  preview plus a props table whose selects/checkboxes drive it. The site is
-  static, so every combination is pre-rendered and Alpine `x-show`s the
+- **Fully auto-discovered** — every `ChainableComponent` exported from `hue.ui`
+  is found automatically and gets a page; new components appear in the sidebar
+  with **no per-component files to write**. Each page is derived from the
+  component itself:
+  - the preview content comes from the component's `example()` classmethod
+    (defined on the component in `hue-python`),
+  - the variant grids come from its introspected `Literal` axes,
+  - the usage snippet comes from the source of `example()`, and
+  - the docstring becomes the page intro.
+- **Interactive playground** — a live preview plus a props table whose
+  selects/checkboxes drive it, built from the introspected enum/bool axes. The
+  site is static, so every combination is pre-rendered and Alpine `x-show`s the
   selected one (capped per component — see `layout/playground.py`).
-- **Optional rich examples** — drop a module in `src/hue_docs/examples/` to
-  hand-author nicer showcases (and a playground) for a component. Without one,
-  the auto grid is used as a fallback.
 - **Sidebar subsections** — components are clustered into categories (Layout,
   Typography, Actions, Inputs, …) defined in `src/hue_docs/categories.py`.
 - **Syntax highlighting** — code blocks are highlighted at build time with
   Pygments (no client-side highlighter), themed for light and dark.
 - **Prose in Python** — the intro/install/usage/framework pages live in
   `src/hue_docs/content/`, written with hue's own components.
+
+To document a new component well, give it an `example()` classmethod in
+`hue-python` returning a representative instance — that's the one hook the docs
+read. Without it, the component still appears, using a bare `Cls()` (and the
+playground is skipped if that can't render).
 
 The site is static, so live Alpine-AJAX demos can't hit a backend — those are
 shown as code. Everything client-side (theme toggle, inputs, nav) works through

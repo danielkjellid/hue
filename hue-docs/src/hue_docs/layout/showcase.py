@@ -8,7 +8,7 @@ from hue.types.core import ComponentType
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.layout.code import code_block
-from hue_docs.registry import Showcase, Variant
+from hue_docs.registry import Showcase, Variant, example_code
 from hue_docs.render import render_html_sync
 
 _CONTAINER = {
@@ -66,14 +66,17 @@ def _showcase_block(showcase: Showcase) -> ComponentType:
 
 
 def _header(doc: ComponentDoc) -> ComponentType:
-    paragraphs = [
+    children: list[ComponentType] = [
+        html.h1(doc.name).class_("text-3xl font-bold text-surface-900"),
+    ]
+    children.extend(
         html.p(text).class_("max-w-prose leading-7 text-surface-600")
         for text in doc.paragraphs
-    ]
-    return html.div(
-        html.h1(doc.name).class_("text-3xl font-bold text-surface-900"),
-        *paragraphs,
-    ).class_("space-y-3")
+    )
+    usage = example_code(doc)
+    if usage:
+        children.append(code_block(usage))
+    return html.div(*children).class_("space-y-3")
 
 
 def component_main(

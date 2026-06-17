@@ -187,6 +187,11 @@ class Button(ChainableComponent):
             .content(Text("Save"))
     """
 
+    @classmethod
+    def example(cls) -> Self:
+        """A representative instance, used by the docs site for previews."""
+        return cls().fluid(False).content("Button")
+
     def variant(self, value: ButtonVariant) -> Self:
         self._props["variant"] = value
         return self

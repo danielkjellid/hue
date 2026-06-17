@@ -1,10 +1,10 @@
 """An interactive component playground driven entirely by the bundled Alpine.
 
-Because the site is static, we pre-render every combination of the chosen
+Because the site is static, we pre-render every combination of the component's
 enum/bool props server-side and let Alpine ``x-show`` reveal the one matching
 the current control selection. A props table below the preview drives that
-selection (``x-model``). No backend, no extra JS — just the Alpine that hue
-already ships.
+selection (``x-model``). Everything is derived from the discovered component —
+the preview base is its ``example()`` instance.
 """
 
 from __future__ import annotations
@@ -18,12 +18,12 @@ from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
 from hue_docs.layout.code import code_block
-from hue_docs.registry import PlaygroundSpec, _format_call
+from hue_docs.registry import _format_call, example_instance, playground_axes
 from hue_docs.render import render_html_sync
 
 # Upper bound on pre-rendered combinations per component — every combination is
-# emitted as hidden HTML, so this caps page weight. Authors list the most
-# important props first; trailing ones are dropped if the product exceeds this.
+# emitted as hidden HTML, so this caps page weight. Lowest-priority props (see
+# playground_axes) are dropped first when the product exceeds this.
 _MAX_COMBINATIONS = 64
 
 
@@ -31,10 +31,8 @@ def _axis_values(axis: Axis) -> tuple[Any, ...]:
     return tuple(axis.values) if axis.kind == "enum" else (False, True)
 
 
-def _resolve_controls(doc: ComponentDoc, spec: PlaygroundSpec) -> list[Axis]:
-    axis_by_method = {axis.method: axis for axis in doc.axes}
-    methods = spec.props or tuple(axis.method for axis in doc.axes)
-    controls = [axis_by_method[m] for m in methods if m in axis_by_method]
+def _resolve_controls(doc: ComponentDoc) -> list[Axis]:
+    controls = playground_axes(doc)
 
     def combinations(axes: list[Axis]) -> int:
         total = 1
@@ -75,16 +73,16 @@ def _preview(component: ComponentType) -> ComponentType:
 
 
 def _combination_block(
+    doc: ComponentDoc,
     controls: list[Axis],
     combo: tuple[Any, ...],
-    spec: PlaygroundSpec,
 ) -> ComponentType:
     condition = " && ".join(
         f"sel.{axis.method} === {_js_literal(value)}"
         for axis, value in zip(controls, combo, strict=True)
     )
 
-    instance = spec.build()
+    instance = example_instance(doc)
     for axis, value in zip(controls, combo, strict=True):
         getattr(instance, axis.method)(value)
 
@@ -92,7 +90,7 @@ def _combination_block(
         _format_call(axis.method, value)
         for axis, value in zip(controls, combo, strict=True)
     )
-    code = f"{spec.ctor_code}{calls}{spec.content_code}"
+    code = f"{doc.name}(){calls}"
 
     return (
         html.div(
@@ -149,9 +147,16 @@ def _controls_table(controls: list[Axis]) -> ComponentType:
     ).class_("w-full overflow-hidden rounded-lg border border-surface-200 text-sm")
 
 
-def playground(doc: ComponentDoc, spec: PlaygroundSpec) -> ComponentType | None:
-    controls = _resolve_controls(doc, spec)
+def playground(doc: ComponentDoc) -> ComponentType | None:
+    controls = _resolve_controls(doc)
     if not controls:
+        return None
+
+    # Probe the example base: skip the playground if it can't render (e.g. a
+    # component that requires constructor args and defines no example()).
+    try:
+        render_html_sync(example_instance(doc))
+    except Exception:
         return None
 
     init = ", ".join(
@@ -166,7 +171,7 @@ def playground(doc: ComponentDoc, spec: PlaygroundSpec) -> ComponentType | None:
             "text-sm text-surface-600"
         ),
         html.div(
-            html.div(*[_combination_block(controls, combo, spec) for combo in combos]),
+            html.div(*[_combination_block(doc, controls, combo) for combo in combos]),
             _controls_table(controls),
         )
         .class_("space-y-3")
