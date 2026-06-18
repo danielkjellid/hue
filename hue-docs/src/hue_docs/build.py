@@ -24,6 +24,7 @@ from hue_docs.layout.showcase import component_main
 from hue_docs.models import NavGroup, NavItem, ProsePage
 from hue_docs.registry import auto_showcases
 from hue_docs.render import render_html_sync
+from hue_docs.showcase import curated_showcases
 from hue_docs.site import url
 
 _HERE = Path(__file__).resolve()
@@ -107,7 +108,9 @@ def _render_pages(
         _write(page.href, html)
 
     for doc in docs:
-        showcases = auto_showcases(doc)
+        # Curated examples first (for compositional components the auto-grid
+        # can't represent), then the auto-generated per-axis grids.
+        showcases = curated_showcases(doc) + auto_showcases(doc)
         playground = build_playground(doc)
         href = _component_href(doc)
         html = render_html_sync(

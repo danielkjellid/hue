@@ -7,12 +7,21 @@ from hue.exceptions import MissingHueContextError
 from hue.renderer import render_tree
 from hue.ui import (
     Button,
+    Column,
+    DataTable,
     EmailInput,
     Label,
     NumberInput,
     PasswordInput,
     Spacer,
     Stack,
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
     Text,
     TextInput,
 )
@@ -512,3 +521,198 @@ class TestComposition:
         assert "<button" in html
         assert "Sign in" in html
         assert "flex-row" in html  # horizontal stack
+
+
+# ---------------------------------------------------------------------------
+# Table primitive tests
+# ---------------------------------------------------------------------------
+
+
+class TestTable:
+    """Tests for the compositional Table primitives."""
+
+    @pytest.mark.asyncio
+    async def test_render_full_table(self):
+        html = await render_tree(
+            Table().content(
+                TableHeader().content(
+                    TableRow().content(
+                        TableHead().content("Name"),
+                        TableHead().content("Email"),
+                    ),
+                ),
+                TableBody().content(
+                    TableRow().content(
+                        TableCell().content("Ada"),
+                        TableCell().content("ada@example.com"),
+                    ),
+                ),
+            ),
+            context_args=_context_args(),
+        )
+        # Wrapped in a horizontally scrollable container.
+        assert "overflow-x-auto" in html
+        assert "<table" in html
+        assert "<thead" in html
+        assert "<tbody" in html
+        assert "<tr" in html
+        assert "<td" in html
+        assert "Ada" in html
+        assert "ada@example.com" in html
+
+    @pytest.mark.asyncio
+    async def test_table_head_default_scope_is_col(self):
+        html = await render_tree(
+            TableHead().content("Name"),
+            context_args=_context_args(),
+        )
+        assert "<th" in html
+        assert 'scope="col"' in html
+
+    @pytest.mark.asyncio
+    async def test_table_head_scope_override(self):
+        html = await render_tree(
+            TableHead().scope("row").content("Total"),
+            context_args=_context_args(),
+        )
+        assert 'scope="row"' in html
+
+    @pytest.mark.asyncio
+    async def test_cell_colspan_and_align(self):
+        html = await render_tree(
+            TableCell().colspan(3).align("center").content("Spanning"),
+            context_args=_context_args(),
+        )
+        assert 'colspan="3"' in html
+        assert "text-center" in html
+
+    @pytest.mark.asyncio
+    async def test_caption_renders(self):
+        html = await render_tree(
+            TableCaption().content("A list of users."),
+            context_args=_context_args(),
+        )
+        assert "<caption" in html
+        assert "A list of users." in html
+
+    @pytest.mark.asyncio
+    async def test_chainable_base_modifiers_apply_to_table(self):
+        html = await render_tree(
+            Table().id("users").class_("custom-class").aria_label("Users"),
+            context_args=_context_args(),
+        )
+        assert 'id="users"' in html
+        assert "custom-class" in html
+        assert 'aria-label="Users"' in html
+
+
+# ---------------------------------------------------------------------------
+# DataTable tests
+# ---------------------------------------------------------------------------
+
+
+class TestDataTable:
+    """Tests for the data-driven DataTable component."""
+
+    @pytest.mark.asyncio
+    async def test_renders_header_and_rows(self):
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column("Name", accessor="name"),
+                    Column("Email", accessor="email"),
+                ]
+            )
+            .data(
+                [
+                    {"name": "Ada", "email": "ada@example.com"},
+                    {"name": "Alan", "email": "alan@example.com"},
+                ]
+            ),
+            context_args=_context_args(),
+        )
+        assert "<table" in html
+        assert "Name" in html
+        assert "Email" in html
+        assert "Ada" in html
+        assert "alan@example.com" in html
+        # Two header cells + four body cells (trailing space avoids matching
+        # <thead>).
+        assert html.count("<th ") == 2
+        assert html.count("<td ") == 4
+
+    @pytest.mark.asyncio
+    async def test_dotted_accessor_resolves_nested(self):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("City", accessor="address.city")])
+            .data([{"address": {"city": "London"}}]),
+            context_args=_context_args(),
+        )
+        assert "London" in html
+
+    @pytest.mark.asyncio
+    async def test_callable_accessor(self):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("Full", accessor=lambda r: f"{r['first']} {r['last']}")])
+            .data([{"first": "Ada", "last": "Lovelace"}]),
+            context_args=_context_args(),
+        )
+        assert "Ada Lovelace" in html
+
+    @pytest.mark.asyncio
+    async def test_custom_cell_render_function(self):
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column(
+                        "Name", accessor="name", cell=lambda r: Text(r["name"].upper())
+                    )
+                ]
+            )
+            .data([{"name": "ada"}]),
+            context_args=_context_args(),
+        )
+        assert "ADA" in html
+
+    @pytest.mark.asyncio
+    async def test_empty_data_shows_empty_state(self):
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [Column("Name", accessor="name"), Column("Email", accessor="email")]
+            )
+            .data([]),
+            context_args=_context_args(),
+        )
+        assert "No results." in html
+        assert 'role="status"' in html
+        assert 'colspan="2"' in html
+
+    @pytest.mark.asyncio
+    async def test_caption_renders(self):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("Name", accessor="name")])
+            .data([{"name": "Ada"}])
+            .caption("Registered users"),
+            context_args=_context_args(),
+        )
+        assert "<caption" in html
+        assert "Registered users" in html
+
+    @pytest.mark.asyncio
+    async def test_id_and_class_apply_to_table(self):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("Name", accessor="name")])
+            .data([{"name": "Ada"}])
+            .id("users-table")
+            .class_("custom-class"),
+            context_args=_context_args(),
+        )
+        assert 'id="users-table"' in html
+        assert "custom-class" in html

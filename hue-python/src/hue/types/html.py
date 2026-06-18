@@ -19,6 +19,7 @@ type AriaRole = (
         "separator",
         "slider",
         "spinbutton",
+        "status",
         "switch",
         "tab",
         "tabpanel",
