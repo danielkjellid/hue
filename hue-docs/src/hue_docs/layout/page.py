@@ -8,12 +8,13 @@ from hue.types.core import ComponentType
 
 from hue_docs.layout.sidebar import sidebar
 from hue_docs.models import NavGroup
+from hue_docs.site import url
 
 _Page = create_page_base(
-    css_url="/styles/tailwind.css",
-    js_url="/js/alpine-bundle.js",
+    css_url=url("/styles/tailwind.css"),
+    js_url=url("/js/alpine-bundle.js"),
     html_title_factory=lambda title: f"{title} · Hue",
-    extra_css_urls=["/styles/highlight.css"],
+    extra_css_urls=[url("/styles/highlight.css")],
 )
 
 
@@ -45,11 +46,11 @@ def _menu_button() -> ComponentType:
 def _topbar() -> ComponentType:
     return html.header(
         html.div(
-            html.a("Hue").href("/").class_("text-lg font-bold text-surface-900"),
+            html.a("Hue").href(url("/")).class_("text-lg font-bold text-surface-900"),
             html.div(_theme_toggle(), _menu_button()).class_("flex items-center gap-2"),
         ).class_(
             "mx-auto flex h-14 w-full max-w-7xl items-center justify-between "
-            "px-6 lg:px-10"
+            "px-6 lg:pr-10 lg:pl-6.5"
         ),
     ).class_(
         "sticky top-0 z-20 border-b border-surface-200 bg-background/80 backdrop-blur"

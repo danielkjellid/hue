@@ -6,6 +6,7 @@ from hue import html
 from hue.types.core import ComponentType
 
 from hue_docs.layout.code import code_block
+from hue_docs.site import url
 
 
 def page(*children: ComponentType) -> ComponentType:
@@ -39,7 +40,7 @@ def code(source: str, *, language: str = "python") -> ComponentType:
 def link(text: str, href: str) -> ComponentType:
     return (
         html.a(text)
-        .href(href)
+        .href(url(href))
         .class_("font-medium text-primary underline underline-offset-2")
     )
 

@@ -2,7 +2,7 @@ import pytest
 
 from hue_docs import content
 from hue_docs.build import build_nav
-from hue_docs.categories import CATEGORY_ORDER, DEFAULT_CATEGORY
+from hue_docs.categories import CATEGORY_ORDER, DEFAULT_CATEGORY, category_for
 from hue_docs.discovery import discover
 from hue_docs.layout.page import build_page
 from hue_docs.layout.playground import playground as build_playground
@@ -25,6 +25,14 @@ def test_nav_includes_prose_groups_and_component_categories():
         len(group.items) for group in nav if group.title in category_titles
     )
     assert component_items == len(docs)
+
+
+def test_component_category_comes_from_the_component():
+    docs = {doc.name: doc for doc in discover()}
+    # Categories are declared on the component class, not a docs-side map.
+    assert category_for(docs["Button"]) == "Actions"
+    assert category_for(docs["TextInput"]) == "Inputs"
+    assert category_for(docs["Stack"]) == "Layout"
 
 
 @pytest.mark.parametrize("page", content.PAGES, ids=lambda p: p.slug or "home")

@@ -24,6 +24,7 @@ from hue_docs.layout.showcase import component_main
 from hue_docs.models import NavGroup, NavItem, ProsePage
 from hue_docs.registry import auto_showcases
 from hue_docs.render import render_html_sync
+from hue_docs.site import url
 
 _HERE = Path(__file__).resolve()
 _PACKAGE_DIR = _HERE.parent
@@ -31,7 +32,7 @@ _PROJECT_DIR = _HERE.parents[2]
 DIST = _PROJECT_DIR / "dist"
 INPUT_CSS = _PACKAGE_DIR / "styles" / "docs.input.css"
 
-# Sidebar group order; "Components" is always appended last.
+# Prose nav groups, in order; component category sections follow them.
 _GROUP_ORDER = ["Get started", "Guides"]
 
 _GENERATED_NOTICE = (
@@ -59,16 +60,15 @@ def build_nav(prose_pages: list[ProsePage], docs: list[ComponentDoc]) -> list[Na
             nav.append(
                 NavGroup(
                     group_name,
-                    [NavItem(p.nav_label, p.href) for p in pages],
+                    [NavItem(p.nav_label, url(p.href)) for p in pages],
                 )
             )
 
-    names = [doc.name for doc in docs]
-    for category in ordered_categories(names):
+    for category in ordered_categories(docs):
         items = [
-            NavItem(doc.name, _component_href(doc))
+            NavItem(doc.name, url(_component_href(doc)))
             for doc in docs
-            if category_for(doc.name) == category
+            if category_for(doc) == category
         ]
         nav.append(NavGroup(category, items))
     return nav
@@ -100,7 +100,7 @@ def _render_pages(
             build_page(
                 title=page.title,
                 nav=nav,
-                active_href=page.href,
+                active_href=url(page.href),
                 main=page.build(),
             )
         )
@@ -114,7 +114,7 @@ def _render_pages(
             build_page(
                 title=doc.name,
                 nav=nav,
-                active_href=href,
+                active_href=url(href),
                 main=component_main(doc, showcases, playground),
             )
         )

@@ -61,11 +61,15 @@ Tailwind CLI to produce `dist/styles/tailwind.css`.
 `dist/` is plain static output. Deploy it with any static host:
 
 - **GitHub Pages** — the `.github/workflows/docs.yml` workflow builds and
-  publishes `dist/` on push to `main`.
+  publishes `dist/` on push to `main`. It works for project sites too: the
+  workflow reads the serving subpath from `configure-pages` and passes it as
+  `HUE_DOCS_BASE_URL` so links/assets resolve correctly.
 - **Vercel / Cloudflare Pages / Netlify** — set the build command to
   `cd hue-docs && uv run python -m hue_docs` (or `make -C hue-docs build`) and
   the output directory to `hue-docs/dist`.
 
-Assets are referenced with root-relative URLs (`/styles/...`, `/js/...`), so the
-site expects to be served from a domain root (the default on Vercel/Pages with a
-custom domain).
+Internal URLs are root-relative (`/styles/...`, `/js/...`) by default, which is
+correct for a domain root. When the site is served from a **subpath** (e.g. a
+GitHub Pages project site at `…/<repo>/`), set `HUE_DOCS_BASE_URL=/<repo>` at
+build time and every emitted URL is prefixed accordingly — the `dist/` file
+layout stays flat regardless.
