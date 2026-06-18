@@ -24,10 +24,6 @@ from hue.ui.molecules.table import (
     TableRow,
 )
 
-# The table subcomponents are exported for composition but intentionally have no
-# ``example()`` — the docs site only documents components that define one (see
-# ``hue_docs.discovery``), so a lone ``<tr>``/``<td>`` won't get a standalone
-# page while ``Table`` / ``DataTable`` do.
 __all__ = [
     "Button",
     "Callout",

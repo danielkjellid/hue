@@ -24,7 +24,7 @@ from hue_docs.layout.showcase import component_main
 from hue_docs.models import NavGroup, NavItem, ProsePage
 from hue_docs.registry import auto_showcases
 from hue_docs.render import render_html_sync
-from hue_docs.showcases import curated_showcases
+from hue_docs.showcase import curated_showcases
 from hue_docs.site import url
 
 _HERE = Path(__file__).resolve()
