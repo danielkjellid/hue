@@ -139,13 +139,21 @@ def _build_doc(name: str, cls: type[ChainableComponent]) -> ComponentDoc:
 
 
 def discover() -> list[ComponentDoc]:
-    """Return a doc model for every component exported from ``hue.ui``."""
+    """Return a doc model for every documentable component exported from ``hue.ui``.
+
+    A component is documented only if it provides an ``example()`` classmethod —
+    that is the showcase entrypoint (its preview and usage snippet). Components
+    without one (e.g. table subcomponents like ``TableRow`` that only make sense
+    nested) are exported for composition but skipped here.
+    """
     docs: list[ComponentDoc] = []
     for name in ui.__all__:
         obj = getattr(ui, name)
         if not (inspect.isclass(obj) and issubclass(obj, ChainableComponent)):
             continue
         if obj is ChainableComponent or inspect.isabstract(obj):
+            continue
+        if not callable(getattr(obj, "example", None)):
             continue
         docs.append(_build_doc(name, obj))
 
