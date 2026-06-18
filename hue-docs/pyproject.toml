@@ -1,0 +1,69 @@
+[project]
+name = "hue-docs"
+version = "0.1.0"
+description = "Documentation site generator for the hue component library"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "hue>=0.1.0",
+    # Pin to the htmy version hue-python is built against; newer htmy (0.9+)
+    # removed APIs that hue imports (e.g. htmy.core.Tag).
+    "htmy==0.8.2",
+    "pytailwindcss>=0.3.0",
+    # Build-time syntax highlighting for code blocks (no runtime JS).
+    "pygments>=2.17",
+]
+
+[tool.uv]
+# hue-docs is a build tool we run, not a library others install. Tell uv to only
+# install the dependencies and never try to build/install hue_docs itself.
+package = false
+
+[tool.uv.sources]
+
+hue = { path = "../hue-python", editable = true }
+
+[dependency-groups]
+dev = [
+    "deptry>=0.24.0",
+    "mypy>=1.18.2",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.14.4",
+]
+
+[tool.ruff]
+extend = "../ruff.toml"
+
+#########
+# Mypy  #
+#########
+
+[[tool.mypy.overrides]]
+# Pygments ships no type stubs.
+module = ["pygments.*"]
+ignore_missing_imports = true
+
+##########
+# Deptry #
+##########
+
+[tool.deptry]
+known_first_party = ["hue_docs"]
+extend_exclude = ["tests", "test_.*\\.py"]
+
+[tool.deptry.per_rule_ignores]
+# pytailwindcss ships the `tailwindcss` CLI we invoke via subprocess in build.py;
+# it is never imported, so deptry would otherwise flag it as unused.
+DEP002 = ["pytailwindcss"]
+
+##########
+# Pytest #
+##########
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+[tool.basedpyright]
+include = ["src"]

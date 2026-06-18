@@ -43,6 +43,13 @@ class Callout(ChainableComponent):
             .content("Something went wrong.")
     """
 
+    category = "Feedback"
+
+    @classmethod
+    def example(cls) -> Self:
+        """A representative instance, used by the docs site for previews."""
+        return cls().title("Heads up").content("This is a callout message.")
+
     def variant(self, value: CalloutVariant) -> Self:
         self._props["variant"] = value
         return self

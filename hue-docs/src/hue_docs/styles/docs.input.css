@@ -1,0 +1,22 @@
+/*
+ * Tailwind entry point for the docs site.
+ *
+ * We import hue's own Tailwind input so we inherit its @theme tokens, the
+ * `dark` custom variant, and the `@import "tailwindcss"` it pulls in. Then we
+ * declare explicit @source roots so Tailwind scans:
+ *   - hue's component source (the utility classes baked into each component)
+ *   - this docs package's source (sidebar, cards, prose, code-block classes)
+ * Class names live as string literals in those .py files, so scanning the
+ * source is enough — we don't need to scan the generated (gitignored) HTML.
+ */
+
+@import "../../../../hue-python/src/hue/static/styles/tailwind.input.css";
+
+@source "../../../../hue-python/src/hue";
+@source "../";
+
+/* Keep Alpine-controlled elements (playground previews) hidden until Alpine
+ * initialises, so only the selected combination is ever shown. */
+[x-cloak] {
+  display: none !important;
+}

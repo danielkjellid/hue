@@ -140,6 +140,16 @@ class Icon(ChainableComponent):
         super().__init__()
         self._name = name
 
+    category = "Media"
+
+    @classmethod
+    def example(cls) -> "Icon":
+        """A representative instance, used by the docs site for previews."""
+        icons_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "static", "icons")
+        )
+        return create_icon_base(icons_dir=icons_dir)("circle-info").class_("size-6")
+
     @property
     def icons_dir(self) -> str:
         raise NotImplementedError("Use create_icon_base() to set icons_dir")

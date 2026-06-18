@@ -1,0 +1,54 @@
+name: docs
+
+# Builds the hue-docs static site and deploys it to GitHub Pages.
+#
+# `configure-pages` runs *before* the build and reports the path the site will
+# be served from (e.g. "/hue" for a project site, "" for a user/org or custom
+# domain). We pass that to the build as HUE_DOCS_BASE_URL so the emitted asset
+# and link URLs are correct on any deploy target. To deploy to Vercel /
+# Cloudflare / Netlify instead, point them at `hue-docs/dist` and leave
+# HUE_DOCS_BASE_URL unset (they serve from the root).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        id: pages
+      - uses: astral-sh/setup-uv@v5
+      - name: Build the docs site
+        working-directory: hue-docs
+        env:
+          HUE_DOCS_BASE_URL: ${{ steps.pages.outputs.base_path }}
+        run: |
+          uv venv --python 3.13
+          uv sync
+          PYTHONPATH=src uv run python -m hue_docs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: hue-docs/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

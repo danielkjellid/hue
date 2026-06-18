@@ -34,6 +34,25 @@ class Stack(ChainableComponent):
             )
     """
 
+    category = "Layout"
+
+    @classmethod
+    def example(cls) -> Self:
+        """A representative instance, used by the docs site for previews."""
+        box = (
+            "flex h-10 w-10 items-center justify-center rounded-md "
+            "bg-primary text-sm text-white"
+        )
+        return (
+            cls()
+            .direction("horizontal")
+            .content(
+                html.div("1", class_=box),
+                html.div("2", class_=box),
+                html.div("3", class_=box),
+            )
+        )
+
     def direction(self, value: Literal["horizontal", "vertical"]) -> Self:
         self._props["direction"] = value
         return self
