@@ -1,4 +1,5 @@
 from hue.ui.atoms.button import Button
+from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import (
     Icon,
     IconResolver,
@@ -33,6 +34,7 @@ __all__ = [
     "Button",
     "Callout",
     "ChainableComponent",
+    "Checkbox",
     "Column",
     "DataTable",
     "EmailInput",

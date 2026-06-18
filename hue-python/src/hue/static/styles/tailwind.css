@@ -297,6 +297,9 @@
   .sticky {
     position: sticky;
   }
+  .inset-0 {
+    inset: 0;
+  }
   .container {
     width: 100%;
     @media (width >= 40rem) {
@@ -315,8 +318,14 @@
       max-width: 96rem;
     }
   }
+  .m-auto {
+    margin: auto;
+  }
   .mx-auto {
     margin-inline: auto;
+  }
+  .mt-0\.5 {
+    margin-top: calc(var(--spacing) * 0.5);
   }
   .mt-1 {
     margin-top: var(--spacing);
@@ -399,9 +408,17 @@
   .table {
     display: table;
   }
+  .size-3\.5 {
+    width: calc(var(--spacing) * 3.5);
+    height: calc(var(--spacing) * 3.5);
+  }
   .size-4 {
     width: calc(var(--spacing) * 4);
     height: calc(var(--spacing) * 4);
+  }
+  .size-5 {
+    width: calc(var(--spacing) * 5);
+    height: calc(var(--spacing) * 5);
   }
   .size-6 {
     width: calc(var(--spacing) * 6);
@@ -426,6 +443,9 @@
     max-width: 65ch;
   }
   .flex-shrink-0 {
+    flex-shrink: 0;
+  }
+  .shrink-0 {
     flex-shrink: 0;
   }
   .grow {
@@ -487,6 +507,9 @@
   }
   .gap-1 {
     gap: var(--spacing);
+  }
+  .gap-2 {
+    gap: calc(var(--spacing) * 2);
   }
   .space-y-1 {
     :where(& > :not(:last-child)) {
@@ -594,6 +617,9 @@
   .border-surface-200 {
     border-color: var(--color-surface-200);
   }
+  .border-surface-300 {
+    border-color: var(--color-surface-300);
+  }
   .border-wg-blue {
     border-color: var(--color-wg-blue);
   }
@@ -626,6 +652,9 @@
   }
   .bg-surface-50 {
     background-color: var(--color-surface-50);
+  }
+  .bg-surface-100 {
+    background-color: var(--color-surface-100);
   }
   .bg-surface-200 {
     background-color: var(--color-surface-200);
@@ -777,6 +806,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  .opacity-50 {
+    opacity: 50%;
+  }
   .shadow {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -826,6 +858,80 @@
   .select-none {
     -webkit-user-select: none;
     user-select: none;
+  }
+  .peer-checked\:border-primary {
+    &:is(:where(.peer):checked ~ *) {
+      border-color: var(--color-primary);
+    }
+  }
+  .peer-checked\:border-surface-300 {
+    &:is(:where(.peer):checked ~ *) {
+      border-color: var(--color-surface-300);
+    }
+  }
+  .peer-checked\:bg-primary {
+    &:is(:where(.peer):checked ~ *) {
+      background-color: var(--color-primary);
+    }
+  }
+  .peer-checked\:bg-surface-300 {
+    &:is(:where(.peer):checked ~ *) {
+      background-color: var(--color-surface-300);
+    }
+  }
+  .peer-indeterminate\:block {
+    &:is(:where(.peer):indeterminate ~ *) {
+      display: block;
+    }
+  }
+  .peer-indeterminate\:border-primary {
+    &:is(:where(.peer):indeterminate ~ *) {
+      border-color: var(--color-primary);
+    }
+  }
+  .peer-indeterminate\:border-surface-300 {
+    &:is(:where(.peer):indeterminate ~ *) {
+      border-color: var(--color-surface-300);
+    }
+  }
+  .peer-indeterminate\:bg-primary {
+    &:is(:where(.peer):indeterminate ~ *) {
+      background-color: var(--color-primary);
+    }
+  }
+  .peer-indeterminate\:bg-surface-300 {
+    &:is(:where(.peer):indeterminate ~ *) {
+      background-color: var(--color-surface-300);
+    }
+  }
+  .peer-hover\:border-surface-400 {
+    &:is(:where(.peer):hover ~ *) {
+      @media (hover: hover) {
+        border-color: var(--color-surface-400);
+      }
+    }
+  }
+  .peer-focus-visible\:outline {
+    &:is(:where(.peer):focus-visible ~ *) {
+      outline-style: var(--tw-outline-style);
+      outline-width: 1px;
+    }
+  }
+  .peer-focus-visible\:outline-2 {
+    &:is(:where(.peer):focus-visible ~ *) {
+      outline-style: var(--tw-outline-style);
+      outline-width: 2px;
+    }
+  }
+  .peer-focus-visible\:outline-offset-2 {
+    &:is(:where(.peer):focus-visible ~ *) {
+      outline-offset: 2px;
+    }
+  }
+  .peer-\[\:checked\:not\(\:indeterminate\)\]\:block {
+    &:is(:where(.peer):is(:checked:not(:indeterminate)) ~ *) {
+      display: block;
+    }
   }
   .placeholder\:text-surface-300 {
     &::placeholder {
