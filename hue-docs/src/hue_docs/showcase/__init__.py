@@ -22,9 +22,10 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import textwrap
-from typing import Any
+from typing import Any, Callable
 
 from hue import ui
+from hue.types.core import ComponentType
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.registry import Showcase, Variant
@@ -33,14 +34,19 @@ from hue_docs.registry import Showcase, Variant
 _NS: dict[str, Any] = {name: getattr(ui, name) for name in ui.__all__}
 
 
+def _builder(code: str) -> Callable[[], ComponentType]:
+    """A zero-arg factory that evaluates *code* against the component names."""
+
+    def build() -> ComponentType:
+        return eval(code, dict(_NS))
+
+    return build
+
+
 def variant(label: str, source: str) -> Variant:
     """A variant whose preview and code come from one source expression."""
     code = textwrap.dedent(source).strip()
-    return Variant(
-        label=label,
-        build=lambda code=code: eval(code, dict(_NS)),
-        code=code,
-    )
+    return Variant(label=label, build=_builder(code), code=code)
 
 
 def curated_showcases(doc: ComponentDoc) -> list[Showcase]:
