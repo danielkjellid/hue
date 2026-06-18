@@ -43,6 +43,8 @@ class Callout(ChainableComponent):
             .content("Something went wrong.")
     """
 
+    category = "Feedback"
+
     @classmethod
     def example(cls) -> Self:
         """A representative instance, used by the docs site for previews."""

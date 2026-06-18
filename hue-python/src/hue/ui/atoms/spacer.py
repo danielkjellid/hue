@@ -30,6 +30,8 @@ class Spacer(ChainableComponent):
         )
     """
 
+    category = "Layout"
+
     @classmethod
     def example(cls) -> Self:
         """A representative instance, used by the docs site for previews."""

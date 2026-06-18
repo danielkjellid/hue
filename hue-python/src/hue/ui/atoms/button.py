@@ -187,6 +187,8 @@ class Button(ChainableComponent):
             .content(Text("Save"))
     """
 
+    category = "Actions"
+
     @classmethod
     def example(cls) -> Self:
         """A representative instance, used by the docs site for previews."""

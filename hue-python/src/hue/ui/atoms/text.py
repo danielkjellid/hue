@@ -55,6 +55,8 @@ class Text(ChainableComponent):
         super().__init__()
         self._text = text
 
+    category = "Typography"
+
     @classmethod
     def example(cls) -> Self:
         """A representative instance, used by the docs site for previews."""
@@ -143,6 +145,8 @@ class Label(ChainableComponent):
     def __init__(self, text: str = "") -> None:
         super().__init__()
         self._text = text
+
+    category = "Typography"
 
     @classmethod
     def example(cls) -> Self:

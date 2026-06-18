@@ -138,6 +138,8 @@ class _BaseInput(ChainableComponent):
     # Alpine — x-model (form control specific)
     # ------------------------------------------------------------------
 
+    category = "Inputs"
+
     @classmethod
     def example(cls) -> Self:
         """A representative instance, used by the docs site for previews."""

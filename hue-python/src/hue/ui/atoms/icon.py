@@ -140,6 +140,8 @@ class Icon(ChainableComponent):
         super().__init__()
         self._name = name
 
+    category = "Media"
+
     @classmethod
     def example(cls) -> "Icon":
         """A representative instance, used by the docs site for previews."""

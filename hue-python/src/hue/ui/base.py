@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from htmy import Context
 from typing_extensions import Self
@@ -31,6 +31,10 @@ class ChainableComponent(ABC):
             .size("lg")
             .content(Text("Click me"))
     """
+
+    #: Documentation category — the sidebar section a component is grouped under
+    #: on the docs site. Override per component; the docs decide section order.
+    category: ClassVar[str] = "Components"
 
     def __init__(self) -> None:
         self._props: dict[str, Any] = {}
