@@ -57,6 +57,16 @@ class MockRouter(Router[MockRequest]):
         return request.form_data
 
 
+class _ComponentRequest:
+    """Bare request stand-in for rendering components in tests."""
+
+
+@pytest.fixture
+def context_args() -> HueContextArgs[_ComponentRequest]:
+    """Minimal render context shared by every component test."""
+    return HueContextArgs(request=_ComponentRequest(), csrf_token="tok")
+
+
 @pytest.fixture
 def router() -> MockRouter:
     return MockRouter()
