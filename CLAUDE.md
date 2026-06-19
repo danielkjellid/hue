@@ -145,7 +145,13 @@ Every component must satisfy these — review against them before finishing:
   conventional).
 - **No over-complicated Tailwind.** Keep class lists readable; lean on `classnames` /
   `classes_if`; don't hand-roll deep conditional class soup.
-- **Comments:** informative and simple — explain *why*, not *what*. Don't over-document.
+- **Comments & docstrings:** informative and simple — explain *why*, not *what*. Don't
+  over-document. Write docstrings as **plain prose**: no reStructuredText markup (no
+  ``` ``backticks`` ```, no `:func:`/`:class:`/`:data:` roles, no `::` literal blocks) — refer
+  to code in plain words (`size-4`, `aria-hidden`, `create_icon_base`). State the *why* and any
+  one nuance worth keeping; drop exhaustive lists, restated signatures, and repeated examples.
+  At most one short example, and only when it earns its place. Always start a docstring on a
+  new line after the opening `"""` (summary on the second line), including one-line docstrings.
 - Priority order: **correctness → performance → readability/reusability.**
 
 ### Building from a React reference

@@ -10,6 +10,7 @@ from hue.ui import (
     Callout,
     EmailInput,
     Icon,
+    IconResolver,
     Label,
     NumberInput,
     PasswordInput,
@@ -18,6 +19,7 @@ from hue.ui import (
     Text,
     TextInput,
     create_icon_base,
+    directory_resolver,
 )
 
 
@@ -44,6 +46,7 @@ __all__ = [
     "CsrfTokenInput",
     "EmailInput",
     "Icon",
+    "IconResolver",
     "Label",
     "NumberInput",
     "PasswordInput",
@@ -52,4 +55,5 @@ __all__ = [
     "Text",
     "TextInput",
     "create_icon_base",
+    "directory_resolver",
 ]

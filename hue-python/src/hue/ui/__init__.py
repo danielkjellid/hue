@@ -1,5 +1,10 @@
 from hue.ui.atoms.button import Button
-from hue.ui.atoms.icon import Icon, create_icon_base
+from hue.ui.atoms.icon import (
+    Icon,
+    IconResolver,
+    create_icon_base,
+    directory_resolver,
+)
 from hue.ui.atoms.input import (
     EmailInput,
     NumberInput,
@@ -32,6 +37,7 @@ __all__ = [
     "DataTable",
     "EmailInput",
     "Icon",
+    "IconResolver",
     "Label",
     "NumberInput",
     "PasswordInput",
@@ -48,4 +54,5 @@ __all__ = [
     "Text",
     "TextInput",
     "create_icon_base",
+    "directory_resolver",
 ]
