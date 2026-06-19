@@ -2,6 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import create_icon_base
+from hue.ui.atoms.icon import _format_attr_name
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 # A minimal icon set used by the tests — exercises elements (rect, line, g)
@@ -108,3 +109,45 @@ class TestIcon:
     def test_create_icon_base_requires_a_source(self):
         with pytest.raises(ValueError, match="icons_dir or a resolver"):
             create_icon_base()
+
+    @pytest.mark.asyncio
+    async def test_alpine_attrs_survive_on_rendered_svg(self, context_args):
+        # End-to-end check that base-mixin Alpine attrs reach the <svg> intact:
+        # they must not be rewritten the way aria_* keys are (see the contract
+        # test below for why).
+        html = await render_tree(
+            _icon_base()("box").x_data("{ open: false }").x_on("click", "open = true"),
+            context_args=context_args,
+        )
+        assert_attr(html, "svg", "x-data", "{ open: false }")
+        assert_attr(html, "svg", "@click", "open = true")
+
+
+class TestAttrNameContract:
+    """
+    Pin the htmy attribute-name formatting that _svg_attrs depends on.
+
+    _svg_attrs merges the component's attrs with the SVG file's and runs its
+    dedup + decorative-default check in htmy's *formatted* key namespace, via
+    _format_attr_name (which is htmy's own Formatter.format_name). If an htmy
+    upgrade changed that formatting, the breakage would be silent — so assert the
+    two behaviours we rely on here, where it fails loudly instead.
+    """
+
+    def test_aria_underscores_become_hyphens(self):
+        # Load-bearing: the decorative-default check keys off "aria-label"/"role",
+        # but the mixins store these as aria_label/aria_hidden.
+        assert _format_attr_name("aria_label") == "aria-label"
+        assert _format_attr_name("aria_hidden") == "aria-hidden"
+
+    def test_alpine_and_ajax_attrs_pass_through(self):
+        # Alpine/AJAX keys carry no underscores, so they must survive verbatim.
+        alpine = (
+            "x-data",
+            "@click",
+            ":src",
+            "x-transition:enter.start",
+            "@ajax:before",
+        )
+        for name in alpine:
+            assert _format_attr_name(name) == name
