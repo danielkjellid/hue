@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 node_modules/
+
+# Claude Code — machine-local settings (committed config lives in settings.json)
+.claude/settings.local.json
