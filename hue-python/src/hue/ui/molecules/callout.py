@@ -9,6 +9,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.atoms.icon import create_icon_base
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.stack import Stack
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if, classnames, render_if
@@ -144,4 +145,18 @@ class Callout(ChainableComponent):
                 ),
             ),
             **self._get_base_html_attrs(),
+        )
+
+    def _skeleton_impl(self) -> Component:
+        # The bordered box, an icon dot, and a couple of body lines.
+        return html.div(
+            Stack()
+            .direction("horizontal")
+            .spacing("sm")
+            .align_items("items-start")
+            .content(
+                Skeleton().shape("circle").height("size-4"),
+                Skeleton().shape("line").lines(2),
+            ),
+            class_="w-full rounded-lg border border-surface-200 px-2 py-3",
         )

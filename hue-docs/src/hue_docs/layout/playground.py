@@ -10,10 +10,11 @@ the preview base is its ``example()`` instance.
 from __future__ import annotations
 
 import itertools
-from typing import Any
+from typing import Any, cast
 
 from htmy import SafeStr
 from hue import html
+from hue.skeletonize import to_skeleton
 from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
@@ -65,11 +66,25 @@ def _default(axis: Axis) -> Any:
     return axis.values[0]
 
 
-def _preview(component: ComponentType) -> ComponentType:
+def _render_safe(*components: ComponentType) -> ComponentType:
     try:
-        return SafeStr(render_html_sync(component))
+        return SafeStr(render_html_sync(*components))
     except Exception as exc:  # defensive, mirrors the static showcase
         return html.p(f"Could not render: {exc}").class_("text-sm text-destructive")
+
+
+def _frame(content: ComponentType, label: str) -> ComponentType:
+    """A bordered preview box with a small corner label."""
+    return html.div(
+        html.span(label).class_(
+            "absolute left-2 top-2 rounded bg-surface px-1.5 py-0.5 "
+            "text-[10px] uppercase tracking-wide text-surface-400"
+        ),
+        content,
+    ).class_(
+        "relative flex min-h-28 flex-wrap items-center justify-center gap-3 "
+        "rounded-lg border border-surface-200 bg-background px-6 pb-6 pt-8"
+    )
 
 
 def _combination_block(
@@ -92,12 +107,15 @@ def _combination_block(
     )
     code = f"{doc.name}(){calls}"
 
+    # The skeleton sits in the same x-show block, so it tracks the live preview's
+    # selection for free. (We'll tab these eventually; stacked for now.) It's a
+    # direct frame child like the live preview, so the frame centres both alike.
+    skeleton = cast("ComponentType", to_skeleton(instance))
+
     return (
         html.div(
-            html.div(_preview(instance)).class_(
-                "flex min-h-28 flex-wrap items-center justify-center gap-3 "
-                "rounded-lg border border-surface-200 bg-background px-6 py-8"
-            ),
+            _frame(_render_safe(instance), "Preview"),
+            _frame(_render_safe(skeleton), "Skeleton"),
             code_block(code),
         )
         .class_("space-y-2")

@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
@@ -32,6 +33,16 @@ type TextVariant = Literal[
 ]
 
 type TextAlign = Literal["text-left", "text-center", "text-right"]
+
+# Skeleton line heights matched to each type scale.
+_SKELETON_HEIGHTS: dict[TextVariant, str] = {
+    "title-1": "h-12",
+    "title-2": "h-8",
+    "title-3": "h-7",
+    "subtitle-1": "h-5",
+    "subtitle-2": "h-4",
+    "body": "h-4",
+}
 
 
 class Text(ChainableComponent):
@@ -125,6 +136,13 @@ class Text(ChainableComponent):
             ),
         )
 
+    def _skeleton_impl(self) -> Component:
+        variant: TextVariant = self._get_prop("variant", "body")
+        # Width tracks the text length so a heading reads wider than a label.
+        length = len(self._text)
+        width = "w-24" if length <= 10 else "w-48" if length <= 30 else "w-full"
+        return Skeleton().shape("line").height(_SKELETON_HEIGHTS[variant]).width(width)
+
 
 class Label(ChainableComponent):
     """
@@ -200,3 +218,6 @@ class Label(ChainableComponent):
             for_=self._get_prop("html_for"),
             **self._get_base_html_attrs(),
         )
+
+    def _skeleton_impl(self) -> Component:
+        return Skeleton().shape("line").width("w-20").height("h-4")

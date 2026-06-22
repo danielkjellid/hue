@@ -8,6 +8,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.types.html import AriaHasPopup
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
@@ -26,6 +27,13 @@ type ButtonVariant = Literal[
 ]
 type ButtonSize = Literal["xs-icon", "sm", "md", "lg"]
 type ButtonShape = Literal["rounded", "pill"]
+
+_SKELETON_HEIGHTS: dict[ButtonSize, str] = {
+    "xs-icon": "h-8",
+    "sm": "h-8",
+    "md": "h-9",
+    "lg": "h-11",
+}
 
 
 def _get_base_button_classes(
@@ -249,4 +257,16 @@ class Button(ChainableComponent):
             type=self._get_prop("type", "button"),
             disabled=self._get_prop("disabled"),
             **self._get_base_html_attrs(),
+        )
+
+    def _skeleton_impl(self) -> Component:
+        size: ButtonSize = self._get_prop("size", "md")
+        shape: ButtonShape = self._get_prop("shape", "rounded")
+        fluid: bool = self._get_prop("fluid", True)
+        return (
+            Skeleton()
+            .shape("rect")
+            .width("w-full" if fluid else "w-24")
+            .height(_SKELETON_HEIGHTS[size])
+            .rounded("rounded-full" if shape == "pill" else "rounded-lg")
         )

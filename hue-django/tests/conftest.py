@@ -14,6 +14,12 @@ if not settings.configured:
             "django.contrib.staticfiles",
             "hue_django",
         ],
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
         STATIC_URL="/static/",
         STATICFILES_STORAGE="django.contrib.staticfiles.storage.StaticFilesStorage",
         ROOT_URLCONF="tests.conftest",

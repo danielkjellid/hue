@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.text import Text
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_if
@@ -271,4 +272,12 @@ class Checkbox(ChainableComponent):
                 "flex items-start gap-2",
                 "opacity-50" if disabled else None,
             ),
+        )
+
+    def _skeleton_impl(self) -> Component:
+        # The box plus a short label line, laid out like the real checkbox row.
+        return html.div(
+            Skeleton().shape("rect").width("w-5").height("h-5").rounded("rounded-md"),
+            Skeleton().shape("line").width("w-32").height("h-4"),
+            class_="flex items-center gap-2",
         )
