@@ -45,3 +45,7 @@ class Spacer(ChainableComponent):
         spacing: Size = self._get_prop("spacing", "sm")
         _top, _right, bottom, _left = MARGIN[spacing]
         return html.div(class_=bottom, **self._get_base_html_attrs())
+
+    def _skeleton_impl(self) -> Component:
+        # A spacer is blank space, not content — keep the gap, draw no placeholder.
+        return self

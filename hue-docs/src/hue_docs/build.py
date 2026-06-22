@@ -22,7 +22,7 @@ from hue_docs.layout.page import build_page
 from hue_docs.layout.playground import playground as build_playground
 from hue_docs.layout.showcase import component_main
 from hue_docs.models import NavGroup, NavItem, ProsePage
-from hue_docs.registry import auto_showcases
+from hue_docs.registry import auto_showcases, skeleton_showcase
 from hue_docs.render import render_html_sync
 from hue_docs.showcase import curated_showcases
 from hue_docs.site import url
@@ -110,8 +110,12 @@ def _render_pages(
     for doc in docs:
         # Curated examples first (for compositional components the auto-grid
         # can't represent), then the auto-generated per-axis grids.
-        showcases = curated_showcases(doc) + auto_showcases(doc)
         playground = build_playground(doc)
+        showcases = curated_showcases(doc) + auto_showcases(doc)
+        # The playground shows a live, selection-tracking skeleton; only fall
+        # back to a standalone skeleton showcase when there's no playground.
+        if playground is None:
+            showcases = [*showcases, skeleton_showcase(doc)]
         href = _component_href(doc)
         html = render_html_sync(
             build_page(

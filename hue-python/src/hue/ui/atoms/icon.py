@@ -9,6 +9,7 @@ from htmy import Formatter, Properties, PropertyValue, SafeStr, html
 
 from hue.context import HueContext
 from hue.types.core import Component
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
@@ -197,6 +198,10 @@ class Icon(ChainableComponent):
             class_=cast("str | None", self._get_prop("class_")),
         )
         return html.svg(SafeStr(inner), **attrs)
+
+    @override
+    def _skeleton_impl(self) -> Component:
+        return Skeleton().shape("rect").width("w-5").height("h-5").rounded("rounded-md")
 
 
 def create_icon_base(

@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
 from hue.ui.base import ChainableComponent
@@ -292,6 +293,20 @@ class _BaseInput(ChainableComponent):
                     error_text_val,
                     lambda et: Text(et).variant("body").destructive().role("alert"),
                 ),
+            )
+        )
+
+    def _skeleton_impl(self) -> Component:
+        field = Skeleton().shape("rect").height("h-10").rounded("rounded-lg")
+        if self._get_prop("hidden_label", False):
+            return Stack().direction("vertical").spacing("sm").content(field)
+        return (
+            Stack()
+            .direction("vertical")
+            .spacing("sm")
+            .content(
+                Skeleton().shape("line").width("w-24").height("h-4"),
+                field,
             )
         )
 

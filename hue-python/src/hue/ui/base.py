@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any, ClassVar, Literal
 
 from htmy import Context
@@ -40,6 +41,7 @@ class ChainableComponent(ABC):
         self._props: dict[str, Any] = {}
         self._attrs: dict[str, Any] = {}
         self._children: tuple[ComponentType, ...] = ()
+        self._skeleton_override: Component | Callable[[], Component] | None = None
 
     # ------------------------------------------------------------------
     # Children
@@ -278,3 +280,49 @@ class ChainableComponent(ABC):
     def _render(self, context: HueContext) -> Component:
         """Subclasses produce the concrete markup here."""
         ...
+
+    # ------------------------------------------------------------------
+    # Skeleton
+    # ------------------------------------------------------------------
+
+    def skeleton_as(self, value: Component | Callable[[], Component]) -> Self:
+        """
+        Override the loading placeholder for this instance.
+
+        The escape hatch for content the per-class default can't predict — a
+        comment body that should load as three lines, a list whose length is
+        unknown. Pass a component, or a zero-arg factory to defer building it.
+        Honored by to_skeleton ahead of any class default or container recursion.
+
+            Text(comment.body).skeleton_as(Skeleton().lines(3))
+        """
+        self._skeleton_override = value
+        return self
+
+    def skeleton(self) -> Component:
+        """
+        Return this component's loading placeholder.
+
+        Resolves an instance override set via skeleton_as first; otherwise
+        delegates to _skeleton_impl. Components customise the placeholder by
+        overriding _skeleton_impl, not this method, so the override always wins.
+        """
+        if self._skeleton_override is not None:
+            override = self._skeleton_override
+            return override() if callable(override) else override
+        return self._skeleton_impl()
+
+    def _skeleton_impl(self) -> Component:
+        """
+        The per-class default placeholder shape.
+
+        The base default is a single line, which is why the skeleton mapper
+        (to_skeleton) recurses through layout containers rather than trusting
+        this fallback. Override it on a leaf component to give an accurate
+        placeholder — a rect for a button, a circle for an avatar, and so on.
+        """
+        # Local import: the Skeleton atom subclasses this base, so a top-level
+        # import here would be circular.
+        from hue.ui.atoms.skeleton import Skeleton  # noqa: PLC0415
+
+        return Skeleton()

@@ -17,8 +17,9 @@ import ast
 import inspect
 import textwrap
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, cast
 
+from hue.skeletonize import to_skeleton
 from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
@@ -113,6 +114,29 @@ def playground_axes(doc: ComponentDoc) -> list[Axis]:
         return (big, axis.kind == "bool", named, axis.method)
 
     return sorted(doc.axes, key=rank)
+
+
+def skeleton_showcase(doc: ComponentDoc) -> Showcase:
+    """A preview of the component's loading skeleton, via ``to_skeleton``.
+
+    Shows the recursive mapper at work: leaf components contribute their own
+    placeholder shape and containers keep their layout, so the skeleton tracks
+    the real example rather than a generic blob.
+    """
+
+    def build() -> ComponentType:
+        # Returned as a direct preview child so the showcase frame centres it,
+        # matching how the live examples render.
+        return cast("ComponentType", to_skeleton(example_instance(doc)))
+
+    usage = example_code(doc)
+    code = f"to_skeleton({usage})" if usage else f"to_skeleton({doc.name}().example())"
+    return Showcase(
+        title="Skeleton",
+        variants=[Variant(label="loading", build=build, code=code)],
+        description="The loading placeholder hue renders for this component.",
+        layout="stack",
+    )
 
 
 def auto_showcases(doc: ComponentDoc) -> list[Showcase]:

@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 
 
@@ -195,6 +196,9 @@ class ImgElement(Element):
 
     def loading(self, value: Literal["lazy", "eager"]) -> Self:
         return self.attr("loading", value)
+
+    def _skeleton_impl(self) -> Component:
+        return Skeleton().shape("rect")
 
 
 class ButtonElement(Element):

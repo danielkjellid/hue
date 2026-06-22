@@ -8,9 +8,13 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.text import Text
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
+
+# Rows shown in a DataTable skeleton when the real row count isn't known yet.
+_SKELETON_ROWS = 5
 
 type CellAlign = Literal["left", "center", "right"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
@@ -412,6 +416,36 @@ class DataTable(ChainableComponent):
                 for row in self._data
             ]
         )
+
+    def _skeleton_impl(self) -> Component:
+        # Build a real table shell from the known columns with placeholder cells.
+        # Row count is a guess: the actual data isn't loaded when the skeleton
+        # shows, so fall back to a fixed number of rows.
+        columns = self._columns or [Column("", accessor="")]
+        rows = len(self._data) or _SKELETON_ROWS
+
+        head = TableHeader().content(
+            TableRow().content(
+                *[
+                    TableHead()
+                    .align(column.align)
+                    .content(Skeleton().shape("line").width("w-20"))
+                    for column in columns
+                ]
+            )
+        )
+        body = TableBody().content(
+            *[
+                TableRow().content(
+                    *[
+                        TableCell().align(column.align).content(Skeleton())
+                        for column in columns
+                    ]
+                )
+                for _ in range(rows)
+            ]
+        )
+        return Table().content(head, body)
 
     def _render(self, context: HueContext) -> Component:
         caption = self._get_prop("caption")
