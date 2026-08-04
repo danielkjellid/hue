@@ -13,7 +13,8 @@ from hue.ui.atoms.text import Text
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
-# Rows shown in a DataTable skeleton when the real row count isn't known yet.
+# Rows shown in a DataTable skeleton. Always a guess: knowing the real count
+# would mean having loaded the data the skeleton is standing in for.
 _SKELETON_ROWS = 5
 
 type CellAlign = Literal["left", "center", "right"]
@@ -419,10 +420,12 @@ class DataTable(ChainableComponent):
 
     def _skeleton_impl(self) -> Component:
         # Build a real table shell from the known columns with placeholder cells.
-        # Row count is a guess: the actual data isn't loaded when the skeleton
-        # shows, so fall back to a fixed number of rows.
+        # The row count is deliberately fixed rather than read from self._data:
+        # _data is often a lazy queryset, and len() on one evaluates it in full —
+        # the very I/O the skeleton exists to defer. Callers who know the count
+        # cheaply can say so with skeleton_as.
         columns = self._columns or [Column("", accessor="")]
-        rows = len(self._data) or _SKELETON_ROWS
+        rows = _SKELETON_ROWS
 
         head = TableHeader().content(
             TableRow().content(

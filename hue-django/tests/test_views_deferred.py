@@ -58,7 +58,7 @@ def test_index_renders_skeleton_and_defer_wiring(urlpatterns_: list[URLPattern])
     assert "<!DOCTYPE html>" in body
     assert f'id="{TARGET}"' in body
     assert "animate-pulse" in body
-    assert f"$ajax('{CONTENT_URL}'" in body
+    assert "$ajax(" in body and CONTENT_URL in body
     assert "Real dashboard content" not in body
 
 

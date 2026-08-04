@@ -117,7 +117,8 @@ def playground_axes(doc: ComponentDoc) -> list[Axis]:
 
 
 def skeleton_showcase(doc: ComponentDoc) -> Showcase:
-    """A preview of the component's loading skeleton, via ``to_skeleton``.
+    """
+    A preview of the component's loading skeleton, via to_skeleton.
 
     Shows the recursive mapper at work: leaf components contribute their own
     placeholder shape and containers keep their layout, so the skeleton tracks

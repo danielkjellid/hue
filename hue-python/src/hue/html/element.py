@@ -11,6 +11,11 @@ from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 
 
+def _field_skeleton() -> Skeleton:
+    """The placeholder shared by the form-control elements (input, select, textarea)."""
+    return Skeleton().shape("rect").height("h-10").rounded("rounded-lg")
+
+
 class Element(ChainableComponent):
     """
     A chainable wrapper around any htmy ``Tag``.
@@ -178,6 +183,12 @@ class AnchorElement(_AlpineAjaxRequestMixin, Element):
     def rel(self, value: str) -> Self:
         return self.attr("rel", value)
 
+    def _skeleton_impl(self) -> Component:
+        # Interactive elements must not survive skeletonisation as containers:
+        # the clone would keep the live href and stay focusable, so a user could
+        # tab to (and follow) a placeholder link. A line stands in for the text.
+        return Skeleton().shape("line").width("w-24")
+
 
 class ImgElement(Element):
     """Chainable ``<img>`` with typed methods for common image attributes."""
@@ -221,6 +232,13 @@ class ButtonElement(Element):
         self._attrs["formnoajax"] = value
         return self
 
+    def _skeleton_impl(self) -> Component:
+        # A rect rather than a recursed <button>, which would stay focusable and
+        # activatable while the real content is still loading.
+        return (
+            Skeleton().shape("rect").width("w-24").height("h-9").rounded("rounded-lg")
+        )
+
 
 class InputElement(_AlpineModelMixin, Element):
     """Chainable ``<input>`` with typed methods for common input attributes."""
@@ -243,6 +261,9 @@ class InputElement(_AlpineModelMixin, Element):
     def value(self, value: str) -> Self:
         return self.attr("value", value)
 
+    def _skeleton_impl(self) -> Component:
+        return _field_skeleton()
+
 
 class SelectElement(_AlpineModelMixin, Element):
     """Chainable ``<select>`` with typed methods for common select attributes."""
@@ -258,6 +279,11 @@ class SelectElement(_AlpineModelMixin, Element):
 
     def required(self, value: bool = True) -> Self:
         return self.attr("required", value)
+
+    def _skeleton_impl(self) -> Component:
+        # Without this the <option> children would make a select look like a
+        # container, leaving a focusable placeholder dropdown behind.
+        return _field_skeleton()
 
 
 class TextareaElement(_AlpineModelMixin, Element):
@@ -280,6 +306,9 @@ class TextareaElement(_AlpineModelMixin, Element):
 
     def required(self, value: bool = True) -> Self:
         return self.attr("required", value)
+
+    def _skeleton_impl(self) -> Component:
+        return _field_skeleton().height("h-24")
 
 
 class LabelElement(Element):

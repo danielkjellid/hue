@@ -31,9 +31,16 @@ def _build() -> ComponentType:
         ),
         pr.code(
             "from hue.ui import Skeleton\n\n"
-            'Skeleton().shape("circle").height("size-8")\n'
-            'Skeleton().shape("rect").height("h-40")\n'
+            'Skeleton().shape("circle").height("size-10")\n'
+            'Skeleton().shape("rect").height("h-24")\n'
             "Skeleton().lines(3)"
+        ),
+        pr.p(
+            "One caveat on those overrides: hue ships a prebuilt stylesheet, so "
+            "only the utilities hue itself uses are guaranteed to have CSS "
+            "behind them. Reaching for a class outside that set means running "
+            "your own Tailwind build over hue's source stylesheet, otherwise the "
+            "shape renders unstyled."
         ),
         pr.p(pr.link("See the Skeleton component page", "/components/skeleton/")),
         pr.h2("Mapping a tree with to_skeleton"),
@@ -88,6 +95,13 @@ def _build() -> ComponentType:
         pr.code(
             "from hue_django.skeletonize import defer\n"
             "from hue.router import HueResponse\n\n"
+            "# One layout function, used for both the skeleton and the real thing.\n"
+            "# It must render without data so the skeleton can be built from it.\n"
+            "def dashboard_content(data=None):\n"
+            "    return Stack().content(\n"
+            '        Text("Revenue").variant("title-2"),\n'
+            "        DataTable().columns(COLUMNS).data(data or []),\n"
+            "    )\n\n"
             "class DashboardView(HueView):\n"
             "    router = Router[HttpRequest]()\n\n"
             "    async def index(self, request, context):\n"

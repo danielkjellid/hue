@@ -54,3 +54,34 @@ class TestSkeleton:
         assert_selector(html, "div.flex.flex-col.gap-2 > div", count=3)
         # The last line is tapered to read as the end of a paragraph.
         assert "w-3/4" in html
+
+    @pytest.mark.asyncio
+    async def test_multiple_lines_honour_class_and_width(self, context_args):
+        """
+        The stacking branch respects the shared modifiers too.
+
+        It builds its own wrapper class list, so .class_() and .width() have to
+        be threaded through explicitly — they were previously dropped here while
+        the single-shape branch honoured them.
+        """
+        html = await render_tree(
+            Skeleton().lines(2).width("w-32").class_("mt-4"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.flex.flex-col.mt-4.w-32")
+        # width sizes the paragraph block; the bars fill it.
+        assert_selector(html, "div.flex.flex-col > div.w-full", count=1)
+
+    @pytest.mark.asyncio
+    async def test_single_line_honours_class(self, context_args):
+        html = await render_tree(Skeleton().class_("mt-4"), context_args=context_args)
+        assert_selector(html, "div.animate-pulse.mt-4")
+
+    @pytest.mark.asyncio
+    async def test_unknown_shape_falls_back_to_a_line(self, context_args):
+        """Shape is a typed Literal, but an untyped caller gets a shape, not a crash."""
+        html = await render_tree(
+            Skeleton().shape("blob"),  # type: ignore[arg-type]
+            context_args=context_args,
+        )
+        assert "h-4" in html and "rounded-md" in html

@@ -29,18 +29,21 @@ class Skeleton(ChainableComponent):
     """
     A pulsing placeholder shape shown in place of content that hasn't loaded.
 
-    Pick a ``.shape()`` — a text ``line``, a ``circle`` (avatars), or a
-    ``rect`` (images, cards) — and optionally override its ``.width()``,
-    ``.height()``, or corner ``.rounded()`` with Tailwind utility classes.
-    ``.lines()`` renders a stacked paragraph of text lines, the last one short.
+    Pick a shape — a text line, a circle for avatars, or a rect for images and
+    cards — and optionally override its width, height, or corner rounding with
+    Tailwind utility classes. Calling lines() renders a stacked paragraph of
+    text lines with the last one shortened, so it reads as prose.
+
+        Skeleton().shape("line").lines(3)
 
     The shape is decorative and always marked aria-hidden; the surrounding
     loading region (see the defer helper) is what announces busy state to
     assistive tech.
 
-    Example::
-
-        Skeleton().shape("line").lines(3)
+    One nuance on the dimension overrides: hue ships a prebuilt stylesheet, so
+    only utilities hue itself uses are guaranteed to have CSS behind them. A
+    class outside that set needs the app's own Tailwind build (see the Django
+    CSS guide) or it renders unstyled.
     """
 
     category = "Feedback"
@@ -55,7 +58,7 @@ class Skeleton(ChainableComponent):
         return self
 
     def width(self, value: str) -> Self:
-        """Tailwind width class, e.g. w-32 or w-1/2."""
+        """Tailwind width class, e.g. w-32 or w-3/4."""
         self._props["width"] = value
         return self
 
@@ -91,20 +94,33 @@ class Skeleton(ChainableComponent):
         # A paragraph of lines: stack them and taper the last to read as text.
         if lines > 1:
             line_height = height or "h-4"
+            # width sizes the paragraph block; the bars fill it, except the last.
             bars = [
                 html.div(
                     class_=classnames(
                         _PULSE,
                         rounded or "rounded-md",
                         line_height,
-                        "w-3/4" if is_last else (width or "w-full"),
+                        "w-3/4" if is_last else "w-full",
                     )
                 )
                 for is_last in (i == lines - 1 for i in range(lines))
             ]
-            return html.div(*bars, class_="flex flex-col gap-2 w-full", **attrs)
+            return html.div(
+                *bars,
+                class_=classnames(
+                    "flex flex-col gap-2",
+                    width or "w-full",
+                    self._get_prop("class_"),
+                ),
+                **attrs,
+            )
 
-        default_height, default_width, default_rounded = _SHAPE_DEFAULTS[shape]
+        # .get rather than [shape]: shape is a typed Literal, but an untyped
+        # call site shouldn't get a KeyError instead of a placeholder.
+        default_height, default_width, default_rounded = _SHAPE_DEFAULTS.get(
+            shape, _SHAPE_DEFAULTS["line"]
+        )
         classes = classnames(
             _PULSE,
             rounded if rounded is not None else default_rounded,

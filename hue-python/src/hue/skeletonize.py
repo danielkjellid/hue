@@ -17,6 +17,7 @@ generated static skeleton would.
 from __future__ import annotations
 
 import copy
+import json
 from typing import cast
 
 from htmy import html
@@ -111,18 +112,33 @@ def defer(
     target, so the handler at url should return its content wrapped in a
     matching element (e.g. HueResponse(component, target=target)).
 
-    The region is a polite status with aria-busy set while loading and cleared
-    once the content merges; the skeleton itself is decorative (aria-hidden).
+    The region is a polite status announcing "Loading…" with aria-busy set until
+    the content merges. Only that text is exposed: the skeleton sits behind
+    aria-hidden and inert, so a composite placeholder (a table shell, say) is
+    neither announced as empty content nor reachable by keyboard mid-load.
+
+    The x-merge="update" is load-bearing. Alpine AJAX defaults to replacing the
+    target outright, which would swap out this element — destroying the live
+    region before it can announce, and detaching the node that clears aria-busy.
+    Updating its children instead keeps the region across the merge.
     """
+    # json.dumps, not f-string interpolation: these land inside a JS expression
+    # in an HTML attribute, and htmy escapes " but not ', so a bare quote in a
+    # url would let the value break out of the string literal.
+    ajax_args = ", ".join(
+        f"{key}: {json.dumps(value)}"
+        for key, value in (("method", method), ("target", target))
+    )
     return html.div(
         html.span("Loading…", class_="sr-only"),
-        cast("ComponentType", skeleton),
+        html.div(cast("ComponentType", skeleton), aria_hidden="true", inert=""),
         id=target,
         role="status",
         aria_live="polite",
         aria_busy="true",
         **{
-            "x-init": f"$ajax('{url}', {{ method: '{method}', target: '{target}' }})",
+            "x-merge": "update",
+            "x-init": f"$ajax({json.dumps(url)}, {{ {ajax_args} }})",
             "@ajax:after": "$el.setAttribute('aria-busy', 'false')",
         },
     )

@@ -16,7 +16,7 @@ from htmy import html
 from hue.context import HueContext, HueContextArgs
 from hue.renderer import render_tree
 from hue.types.core import Component
-from hue.ui import Skeleton
+from hue.ui import Column, DataTable, Skeleton
 from hue.ui.base import ChainableComponent
 
 from hue_django.skeletonize import SkeletonQueryError, defer, forbid_db_queries
@@ -28,8 +28,12 @@ class _QueryBackedList(ChainableComponent):
     def _render(self, context: HueContext[HttpRequest]) -> Component:
         return html.div()
 
-    def skeleton(self) -> Component:
-        # Stands in for `len(self._queryset)` issuing a COUNT during skeletonising.
+    def _skeleton_impl(self) -> Component:
+        # Stands in for len(queryset) evaluating a lazy queryset while the
+        # skeleton is built. Overriding _skeleton_impl rather than skeleton() is
+        # deliberate: it is the documented extension point, and the only one
+        # to_skeleton recognises when deciding a component defines its own
+        # placeholder instead of being a transparent container.
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         return Skeleton().lines(3)
@@ -60,8 +64,40 @@ def test_defer_allows_data_free_layout():
     region = defer(layout=lambda: html.div(html.p("REALDATA")), url="/c/", target="t")
     rendered = asyncio.run(_render(region))
     assert "animate-pulse" in rendered
-    assert "$ajax('/c/'" in rendered
+    assert "$ajax(" in rendered and "/c/" in rendered
     assert "REALDATA" not in rendered
+
+
+def test_datatable_backed_by_a_queryset_is_allowed():
+    """
+    The common shape — a table over a lazy queryset — must skeletonise cleanly.
+
+    DataTable's skeleton previously sized itself from len(self._data), which
+    evaluates a queryset in full: it tripped this guard under DEBUG and silently
+    loaded the whole table in production.
+    """
+
+    class _LazyQuerySet:
+        """Stands in for a QuerySet: any measurement or iteration hits the DB."""
+
+        def _query(self) -> None:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+
+        def __len__(self) -> int:
+            self._query()
+            return 3
+
+        def __iter__(self):
+            self._query()
+            return iter(())
+
+    def layout():
+        columns = [Column("Name", accessor="name")]
+        return DataTable().columns(columns).data(_LazyQuerySet())
+
+    rendered = asyncio.run(_render(defer(layout=layout, url="/c/", target="t")))
+    assert "animate-pulse" in rendered
 
 
 @override_settings(DEBUG=False)
