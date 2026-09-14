@@ -39,18 +39,6 @@ _STATUS_CLASSES: dict[AvatarStatus, str] = {
 }
 
 
-def _css_url(src: str) -> str:
-    """
-    A URL safe to drop inside a CSS url() in an inline style.
-
-    Quoted and escaped, so a stray quote or newline cannot end the declaration
-    early and start one of its own.
-    """
-    escaped = src.replace("\\", "\\\\").replace('"', '\\"')
-    escaped = escaped.replace("\n", "").replace("\r", "")
-    return f'"{escaped}"'
-
-
 def _initials(name: str) -> str:
     """
     Two letters from a name: first and last for a full name, else the first two.
@@ -89,12 +77,10 @@ class Avatar(ChainableComponent):
 
     def src(self, value: str) -> Self:
         """
-        A picture, drawn as the background of the avatar.
+        A picture of this person, hosted wherever the caller likes.
 
-        A background rather than an img element because the wrapper already
-        carries the name, so the picture is decorative either way - and a URL
-        that fails to load leaves an empty circle rather than a broken-image
-        icon in the middle of a face.
+        It renders with an empty alt because the wrapper already carries the
+        name, so the picture is decorative as far as a screen reader goes.
         """
         self._props["src"] = value
         return self
@@ -132,7 +118,14 @@ class Avatar(ChainableComponent):
         if src is not None:
             # The picture is the face; initials underneath would only show
             # through wherever it does not quite cover.
-            body = ()
+            body = (
+                html.img(
+                    src=src,
+                    alt="",
+                    loading="lazy",
+                    class_="size-full object-cover",
+                ),
+            )
         elif name:
             body = (_initials(name),)
         else:
@@ -157,10 +150,8 @@ class Avatar(ChainableComponent):
                     "bg-surface-active text-fg-muted",
                     "font-ui font-semibold leading-none",
                     _TEXT_CLASSES[size],
-                    "bg-cover bg-center" if src is not None else "",
                     radius,
                 ),
-                style=None if src is None else f"background-image:url({_css_url(src)})",
             ),
             render_if(
                 status,

@@ -21,7 +21,7 @@ class TestAvatar:
         html = await render_tree(Avatar().name("Madonna"), context_args=context_args)
         assert "MA" in html
 
-    # src(): drawn as a background, replacing the initials
+    # src(): both branches
     @pytest.mark.asyncio
     async def test_a_picture_replaces_the_initials(self, context_args):
         # The picture is the face; initials underneath would only show through
@@ -30,34 +30,19 @@ class TestAvatar:
             Avatar().name("Grace Hopper").src("/grace.jpg"),
             context_args=context_args,
         )
-        assert_no_selector(html, "img")
         assert "GH" not in html
-        assert "/grace.jpg" in html
-        assert_selector(html, "span.bg-cover")
-        # The name still reaches assistive tech from the wrapper.
+        assert_attr(html, "img", "src", "/grace.jpg")
+        # Empty alt, because the wrapper already carries the name - otherwise
+        # the same person is announced twice.
+        assert_attr(html, "img", "alt", "")
         assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper")
 
     @pytest.mark.asyncio
-    async def test_no_background_without_a_picture(self, context_args):
+    async def test_no_picture_without_a_src(self, context_args):
         html = await render_tree(
             Avatar().name("Grace Hopper"), context_args=context_args
         )
-        assert_no_selector(html, "span[style]")
-        assert_no_selector(html, "span.bg-cover")
-
-    @pytest.mark.asyncio
-    async def test_a_url_cannot_break_out_of_the_style(self, context_args):
-        html = await render_tree(
-            Avatar().name("X").src('a.jpg");background:red;--x:"'),
-            context_args=context_args,
-        )
-        style = select(html, "span[style]")[0]["style"]
-        # The quotes that would have closed url() early are escaped, so the
-        # whole thing stays one declaration with the payload inside the URL.
-        assert style.count("background-image") == 1
-        assert style.startswith('background-image:url("')
-        assert style.endswith('")')
-        assert '\\"' in style
+        assert_no_selector(html, "img")
 
     # status(): both branches. The dot is visual only, so it folds into the
     # avatar's own label rather than being a second thing to announce.
