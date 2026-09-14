@@ -19,7 +19,7 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   deploy:
@@ -53,6 +53,7 @@ jobs:
         run: make build
 
       - name: Ship it
+        id: ship
         working-directory: hue-docs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -94,4 +95,42 @@ jobs:
           # version is pinned here the same way base.mk pins the Tailwind CLI,
           # and the arguments keep their quoting instead of being handed to
           # something else to split. A commit subject contains spaces.
-          npx --yes wrangler@4.131.2 "$@" --tag "$tag" --message "$message"
+          output=$(npx --yes wrangler@4.131.2 "$@" \
+            --tag "$tag" --message "$message" 2>&1 | tee /dev/stderr)
+
+          # Prefer the alias URL, which stays put across pushes, over the
+          # per-version one.
+          url=$(printf '%s' "$output" | grep -oE 'https://[^[:space:]]+workers\.dev' \
+                | tail -1)
+          {
+            echo "url=$url"
+            echo "pr=$pr"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Leave the preview link on the pull request
+        if: steps.ship.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.ship.outputs.pr }}
+          URL: ${{ steps.ship.outputs.url }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # A hidden marker so each push edits the same comment instead of
+          # adding another one to a long-lived branch.
+          marker='<!-- hue-docs-preview -->'
+          body=$(printf '%s\n### Docs preview\n\n%s\n\nBuilt from `%s` on `%s`.' \
+            "$marker" "$URL" "${GITHUB_SHA:0:7}" "$BRANCH")
+
+          repo='${{ github.repository }}'
+          existing=$(gh api "repos/$repo/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.body | contains(\"$marker\"))][0].id // empty")
+
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$repo/issues/comments/$existing" \
+              -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$repo/issues/$PR/comments" \
+              -f body="$body" >/dev/null
+          fi
