@@ -20,6 +20,7 @@ from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.callout import Callout
+from hue.ui.molecules.item import Item
 from hue.ui.molecules.table import (
     Column,
     DataTable,
@@ -45,6 +46,7 @@ __all__ = [
     "EmailInput",
     "Icon",
     "IconResolver",
+    "Item",
     "Kbd",
     "Label",
     "NumberInput",
