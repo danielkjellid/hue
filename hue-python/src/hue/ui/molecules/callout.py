@@ -128,7 +128,7 @@ class Callout(ChainableComponent):
                 ),
             ),
             class_=classnames(
-                "antialiased flex text-sm leading-6 bg-surface dark:bg-surface",
+                "antialiased flex text-sm leading-6 bg-surface-50 dark:bg-surface-50",
                 "dark:text-surface-500 items-start w-full rounded-lg px-2 py-3 border",
                 style.box_classes,
                 self._get_prop("class_"),

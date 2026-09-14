@@ -11,9 +11,9 @@ from hue_docs.models import NavGroup
 def _nav_link(label: str, href: str, *, active: bool) -> ComponentType:
     base = "block rounded-md px-3 py-1.5 text-sm transition-colors"
     if active:
-        style = "bg-surface text-surface-900 font-medium"
+        style = "bg-surface-50 text-surface-900 font-medium"
     else:
-        style = "text-surface-600 hover:bg-surface hover:text-surface-900"
+        style = "text-surface-600 hover:bg-surface-50 hover:text-surface-900"
     return html.a(label).href(href).class_(f"{base} {style}")
 
 

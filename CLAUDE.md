@@ -86,6 +86,38 @@ canonical templates. The shape:
 - `render_if(value, factory, fallback=UNDEFINED)` — render `factory(value)` when `value` is
   not `None`, else `fallback` (renders nothing by default). Use for optional children.
 
+### Design tokens (`hue-python/src/hue/static/styles/tailwind.input.css`)
+
+Two layers. The `--hue-*` ramps are the raw palette. They are plain custom properties, not
+`@theme` entries, so they generate **no utilities** — there is no `bg-gray-500` to reach for,
+and a component that wants a colour has to name a semantic alias. A class list should read in
+those terms:
+
+| Use | Classes |
+| --- | --- |
+| Surfaces | `bg-canvas`, `bg-canvas-subtle`, `bg-surface`, `bg-surface-raised`, `bg-surface-hover`, `bg-surface-active`, `bg-surface-sunken`, `bg-scrim` |
+| Text | `text-fg`, `text-fg-strong`, `text-fg-muted`, `text-fg-subtle`, `text-fg-disabled` |
+| Borders | `border-border`, `border-border-strong`, `border-border-input`, `border-border-hover` |
+| Accent | `bg-accent`, `hover:bg-accent-hover`, `text-accent-fg`, `bg-accent-subtle`, `border-accent-border`, `text-accent-text` |
+| Status | `success`, `warning`, `danger`, `info`, each with `-fg` `-subtle` `-border` `-vivid` |
+| Shape | `rounded-md` controls, `rounded-lg` containers, `rounded-xl` overlays, `rounded-full` avatars/switches |
+| Height | `h-control-xs\|sm\|md\|lg` (28/32/36/44px, bumped on coarse pointers) |
+| Elevation | `shadow-field`, `shadow-ring`, `shadow-raised`, `shadow-overlay` |
+
+Because the aliases flip in the `[data-theme="dark"]` block, a correctly-tokened component
+needs **no `dark:` variants** — reach for one only where dark genuinely differs in structure.
+`text-base` is 14px (the UI default, not 16) and the body weight is 500, not 400.
+`--color-accent-vivid` is decorative only in light mode; it fails contrast on white.
+
+A `LEGACY` block at the bottom of that file holds the pre-design-system names
+(`primary`, `surface-*`, `secondary-*`, `destructive-*`, `background`, and the handful of
+`wg-*` ramp names Callout still uses) at their original values, so unmigrated components keep
+working. **Never reference those from new code** — the block shrinks as components migrate
+and is deleted with the last of them.
+
+To restyle Hue, redefine a `--hue-*` ramp step and everything built on it moves with it, in
+both themes; to change one role only, redefine that alias.
+
 ## Docs auto-discovery (don't break it)
 
 `hue-docs` introspects `hue.ui.__all__`, keeps `ChainableComponent` subclasses, derives
@@ -143,9 +175,11 @@ Every component must satisfy these — review against them before finishing:
   (`focus-visible:outline…`, see `Button`); associate labels with inputs; use live regions /
   `aria-hidden` appropriately. When unsure, pick the most accessible established pattern
   (cross-check WAI-ARIA Authoring Practices) and say so.
-- **Backwards compatible.** Additive changes only to existing components — don't rename/drop
-  modifier methods, change defaults, or alter rendered structure in ways that break current
-  usage. Flag any unavoidable break explicitly.
+- **Get the API right, don't preserve mistakes.** Hue is pre-1.0 with no external
+  consumers, so renaming a modifier, dropping a variant, or changing a default is fine when
+  the new shape is clearly better — just do it in one place, update every call site and
+  test, and say so in the PR. No deprecation aliases: two names for one thing is exactly the
+  confusion a consumer framework can't afford.
 - **Declarative & simple API.** Usage should read as `Component().variant(…).content(…)`.
   Keep the public surface small and obvious.
 - **DRY, but earn the abstraction.** Reuse existing components and utils. A new util must be
