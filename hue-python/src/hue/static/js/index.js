@@ -1,3 +1,5 @@
+import anchor from "@alpinejs/anchor";
+import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { registerThemeStore } from "./theme.js";
@@ -5,8 +7,13 @@ import { registerThemeStore } from "./theme.js";
 // Make Alpine available globally
 window.Alpine = Alpine;
 
-// Register the ajax plugin
 Alpine.plugin(ajax);
+// x-trap for modal overlays (dialog, drawer, command palette): it traps focus,
+// restores it to the trigger on close, and adds inert/noscroll for the rest of
+// the page. x-anchor positions the non-modal panels (popover, menu, listbox,
+// tooltip) and keeps them inside the viewport.
+Alpine.plugin(focus);
+Alpine.plugin(anchor);
 
 /**
  * Wire up the page-level Alpine configuration and start Alpine.

@@ -11,6 +11,21 @@ from hue.types.core import Component, ComponentType
 from hue.types.html import AriaAtomic, AriaLive, AriaRole
 from hue.utils import classnames
 
+type AlpinePlacement = Literal[
+    "top",
+    "top-start",
+    "top-end",
+    "right",
+    "right-start",
+    "right-end",
+    "bottom",
+    "bottom-start",
+    "bottom-end",
+    "left",
+    "left-start",
+    "left-end",
+]
+
 
 class ChainableComponent(ABC):
     """
@@ -209,6 +224,69 @@ class ChainableComponent(ABC):
 
     def x_transition_leave_end(self, value: str) -> Self:
         self._attrs["x-transition:leave.end"] = value
+        return self
+
+    # ------------------------------------------------------------------
+    # Alpine plugins (focus, anchor)
+    # ------------------------------------------------------------------
+
+    def x_trap(
+        self,
+        expression: str,
+        *,
+        inert: bool = False,
+        noscroll: bool = False,
+        noreturn: bool = False,
+    ) -> Self:
+        """
+        Trap focus inside this element while the expression is truthy.
+
+        On open it moves focus inside, on close it returns focus to whatever was
+        focused before. Trapping is the correct behaviour for a modal rather
+        than a WCAG keyboard trap, because the trap releases on Escape and on
+        close - so whatever sets the expression must also clear it there.
+
+        inert hides the rest of the page from assistive tech, noscroll locks
+        background scrolling, and noreturn leaves focus where it is on close
+        (for when the trigger is gone by then).
+
+            Dialog().x_trap("open", inert=True, noscroll=True)
+        """
+        modifiers = "".join(
+            f".{name}"
+            for name, enabled in (
+                ("inert", inert),
+                ("noscroll", noscroll),
+                ("noreturn", noreturn),
+            )
+            if enabled
+        )
+        self._attrs[f"x-trap{modifiers}"] = expression
+        return self
+
+    def x_anchor(
+        self,
+        expression: str,
+        placement: AlpinePlacement | None = None,
+        *,
+        offset: int | None = None,
+    ) -> Self:
+        """
+        Position this element against another, given as a reference expression.
+
+        Use it for panels that float next to their trigger - popovers, menus,
+        listboxes, tooltips. The placement is a preference, not a promise: the
+        plugin flips and shifts the panel to keep it in the viewport, which is
+        what stops a menu near the edge from forcing a horizontal scrollbar.
+
+            Popover().x_anchor("$refs.trigger", "bottom-start", offset=6)
+        """
+        key = "x-anchor"
+        if placement is not None:
+            key += f".{placement}"
+        if offset is not None:
+            key += f".offset.{offset}"
+        self._attrs[key] = expression
         return self
 
     # ------------------------------------------------------------------
