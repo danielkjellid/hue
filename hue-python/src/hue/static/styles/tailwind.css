@@ -437,6 +437,9 @@
   .inline {
     display: inline;
   }
+  .inline-block {
+    display: inline-block;
+  }
   .inline-flex {
     display: inline-flex;
   }
@@ -446,6 +449,10 @@
   .size-1\.5 {
     width: calc(var(--spacing) * 1.5);
     height: calc(var(--spacing) * 1.5);
+  }
+  .size-3 {
+    width: calc(var(--spacing) * 3);
+    height: calc(var(--spacing) * 3);
   }
   .size-3\.5 {
     width: calc(var(--spacing) * 3.5);
@@ -462,6 +469,10 @@
   .size-6 {
     width: calc(var(--spacing) * 6);
     height: calc(var(--spacing) * 6);
+  }
+  .size-8 {
+    width: calc(var(--spacing) * 8);
+    height: calc(var(--spacing) * 8);
   }
   .size-10 {
     width: calc(var(--spacing) * 10);
@@ -602,6 +613,9 @@
   .gap-2 {
     gap: calc(var(--spacing) * 2);
   }
+  .gap-2\.5 {
+    gap: calc(var(--spacing) * 2.5);
+  }
   .gap-\[3px\] {
     gap: 3px;
   }
@@ -684,6 +698,14 @@
     border-style: var(--tw-border-style);
     border-width: 2px;
   }
+  .border-\[1\.5px\] {
+    border-style: var(--tw-border-style);
+    border-width: 1.5px;
+  }
+  .border-\[3px\] {
+    border-style: var(--tw-border-style);
+    border-width: 3px;
+  }
   .border-t {
     border-top-style: var(--tw-border-style);
     border-top-width: 1px;
@@ -710,6 +732,12 @@
   }
   .border-current {
     border-color: currentcolor;
+  }
+  .border-current\/22 {
+    border-color: currentcolor;
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, currentcolor 22%, transparent);
+    }
   }
   .border-danger-border {
     border-color: var(--color-danger-border);
@@ -752,6 +780,9 @@
   }
   .border-wg-yellow {
     border-color: var(--color-wg-yellow);
+  }
+  .border-t-current {
+    border-top-color: currentcolor;
   }
   .border-t-transparent {
     border-top-color: transparent;
@@ -930,6 +961,9 @@
   }
   .whitespace-nowrap {
     white-space: nowrap;
+  }
+  .text-accent {
+    color: var(--color-accent);
   }
   .text-accent-fg {
     color: var(--color-accent-fg);
