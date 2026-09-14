@@ -17,11 +17,18 @@ concurrency:
   group: docs-deploy-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # git log -1 needs the commit's author and subject.
+          fetch-depth: 1
 
       # Same action as every CI job, so the venv cache is shared with them
       # rather than being a second one keyed differently.
@@ -45,30 +52,46 @@ jobs:
         working-directory: hue-docs
         run: make build
 
-      - name: Work out what to ship
-        id: target
+      - name: Ship it
+        working-directory: hue-docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "command=deploy" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          subject=$(git log -1 --pretty=%s)
+          author=$(git log -1 --pretty=%an)
+
+          # A push event carries no pull request, so look one up for the branch.
+          # Uploading from CI means Cloudflare only knows what we hand it, and a
+          # version list of bare hashes is no help when several are in flight.
+          pr=$(gh pr list --head "$BRANCH" --state open \
+                 --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          label="${pr:+PR #$pr}"
+          label="${label:-$BRANCH}"
+
+          # Cloudflare caps both, so trim rather than have them rejected.
+          message=$(printf '%s: %s (%s)' "$label" "$subject" "$author" | cut -c1-100)
+          tag=$(printf '%s@%s' "$BRANCH" "${GITHUB_SHA:0:7}" | cut -c1-100)
+
+          if [ "$REF" = "refs/heads/main" ]; then
+            set -- deploy
           else
             # A preview alias takes lowercase alphanumerics and hyphens only,
             # so ds/button-group becomes ds-button-group.
-            alias=$(printf '%s' "${{ github.ref_name }}" \
+            alias=$(printf '%s' "$BRANCH" \
               | tr '[:upper:]' '[:lower:]' \
               | sed 's/[^a-z0-9-]/-/g' \
               | cut -c1-40)
-            echo "command=versions upload --preview-alias $alias" >> "$GITHUB_OUTPUT"
+            set -- versions upload --preview-alias "$alias"
           fi
 
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: hue-docs
-          # The action installs wrangler 3 by default, which has no
-          # --preview-alias, so every branch would land on an unguessable
-          # per-version URL. Pinned rather than floating for the same reason
-          # base.mk pins the Tailwind CLI: the deploy should not change
-          # underneath us.
-          wranglerVersion: "4.131.2"
-          command: ${{ steps.target.outputs.command }}
+          # Run wrangler directly rather than through wrangler-action: the
+          # version is pinned here the same way base.mk pins the Tailwind CLI,
+          # and the arguments keep their quoting instead of being handed to
+          # something else to split. A commit subject contains spaces.
+          npx --yes wrangler@4.131.2 "$@" --tag "$tag" --message "$message"
