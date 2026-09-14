@@ -14,6 +14,7 @@ from hue.ui.atoms.input import (
     TextInput,
 )
 from hue.ui.atoms.kbd import Kbd
+from hue.ui.atoms.progress import Progress, ProgressRing
 from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
@@ -49,6 +50,8 @@ __all__ = [
     "Label",
     "NumberInput",
     "PasswordInput",
+    "Progress",
+    "ProgressRing",
     "Spacer",
     "Spinner",
     "Stack",
