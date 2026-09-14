@@ -31,6 +31,18 @@ _STATUS_CLASSES: dict[AvatarStatus, str] = {
 }
 
 
+def _css_url(src: str) -> str:
+    """
+    A URL safe to drop inside a CSS url() in an inline style.
+
+    Quoted and escaped, so a stray quote or newline cannot end the declaration
+    early and start one of its own.
+    """
+    escaped = src.replace("\\", "\\\\").replace('"', '\\"')
+    escaped = escaped.replace("\n", "").replace("\r", "")
+    return f'"{escaped}"'
+
+
 def _initials(name: str) -> str:
     """
     Two letters from a name: first and last for a full name, else the first two.
@@ -68,12 +80,26 @@ class Avatar(ChainableComponent):
         return self
 
     def src(self, value: str) -> Self:
+        """
+        A picture, drawn as the background of the avatar.
+
+        A background rather than an img element because the wrapper already
+        carries the name, so the picture is decorative either way - and when the
+        URL is broken this falls back to the initials underneath instead of a
+        broken-image icon in the middle of a face.
+        """
         self._props["src"] = value
         return self
 
     def size(self, value: AvatarSize) -> Self:
         self._props["size"] = value
         return self
+
+    def _size_default(self, value: AvatarSize) -> None:
+        """
+        Called by a group, which sizes its members unless they say otherwise.
+        """
+        self._props.setdefault("size", value)
 
     def shape(self, value: AvatarShape) -> Self:
         self._props["shape"] = value
@@ -83,31 +109,55 @@ class Avatar(ChainableComponent):
         self._props["status"] = value
         return self
 
+    def subtle(self, value: bool = True) -> Self:
+        """
+        Quieten the fill, for an avatar standing in for something other than a
+        person - the count at the end of a group, say.
+        """
+        self._props["subtle"] = value
+        return self
+
     def _render(self, context: HueContext) -> Component:
         size: AvatarSize = self._get_prop("size", "md")
         shape: AvatarShape = self._get_prop("shape", "circle")
         name: str | None = self._get_prop("name")
         src: str | None = self._get_prop("src")
         status: AvatarStatus | None = self._get_prop("status")
+        subtle: bool = self._get_prop("subtle", False)
 
         label = name
         if label is not None and status is not None:
             label = f"{label}, {status}"
 
+        # The initials stay in the DOM behind a picture, so a URL that fails to
+        # load leaves a name rather than an empty circle.
         body: tuple[ComponentType, ...]
-        if src is not None:
-            # The wrapper is already labelled, so the image is decorative -
-            # repeating the name in alt would announce it twice.
-            body = (html.img(src=src, alt="", class_="size-full object-cover"),)
-        elif name:
+        if name:
             body = (_initials(name),)
         else:
-            # No picture and no name: whatever the caller put inside, such as an
-            # icon or an overflow count.
+            # No name: whatever the caller put inside, such as an icon or the
+            # count at the end of a group.
             body = self._children
 
+        radius = "rounded-md" if shape == "square" else "rounded-full"
+
         return html.span(
-            *body,
+            # The picture is clipped to the shape here rather than on the root,
+            # so the status dot below can sit over the edge without being
+            # trimmed to a wedge by the same overflow rule.
+            html.span(
+                *body,
+                class_=classnames(
+                    "flex size-full items-center justify-center overflow-hidden",
+                    "bg-surface-sunken text-fg-subtle"
+                    if subtle
+                    else "bg-surface-active text-fg-muted",
+                    "font-ui font-semibold leading-none",
+                    "bg-cover bg-center" if src is not None else "",
+                    radius,
+                ),
+                style=None if src is None else f"background-image:url({_css_url(src)})",
+            ),
             render_if(
                 status,
                 lambda value: html.span(
@@ -119,11 +169,9 @@ class Avatar(ChainableComponent):
                 ),
             ),
             class_=classnames(
-                "relative inline-flex items-center justify-center shrink-0",
-                "overflow-hidden select-none bg-surface-active text-fg-muted",
-                "font-ui font-semibold leading-none",
+                "relative inline-flex shrink-0 select-none",
                 _SIZE_CLASSES[size],
-                "rounded-md" if shape == "square" else "rounded-full",
+                radius,
                 self._get_prop("class_"),
             ),
             **{
@@ -187,32 +235,28 @@ class AvatarGroup(ChainableComponent):
         more: int | None = self._get_prop("more")
 
         # Each child sits in a hidden wrapper rather than being modified, so an
-        # Avatar cannot end up announced twice however it was constructed.
-        members = [
-            html.span(
-                child,
-                class_="ring-2 ring-canvas rounded-full -ms-2.5 first:ms-0",
-                aria_hidden="true",
-            )
-            for child in self._children
-        ]
-
-        if more is not None:
-            # Built here rather than as an Avatar: the chip is not a person, and
-            # layering its quieter colours over an Avatar's own would leave two
-            # background utilities on one element, resolved by stylesheet order
-            # rather than by intent. It shares only the size.
+        # Avatar cannot end up announced twice however it was constructed. The
+        # size does reach them, so the group and the count it ends with cannot
+        # disagree about how big a face is.
+        members = []
+        for child in self._children:
+            if isinstance(child, Avatar):
+                child._size_default(size)
             members.append(
                 html.span(
-                    html.span(
-                        f"+{more}",
-                        class_=classnames(
-                            "inline-flex items-center justify-center shrink-0",
-                            "rounded-full bg-surface-sunken text-fg-subtle",
-                            "font-ui font-semibold leading-none select-none",
-                            _SIZE_CLASSES[size],
-                        ),
-                    ),
+                    child,
+                    class_="ring-2 ring-canvas rounded-full -ms-2.5 first:ms-0",
+                    aria_hidden="true",
+                )
+            )
+
+        if more is not None:
+            # An Avatar rather than a lookalike, so the count sits on exactly
+            # the same baseline as the faces beside it. A hand-built span drifted
+            # from the real thing the moment Avatar's markup changed.
+            members.append(
+                html.span(
+                    Avatar().size(size).subtle().content(f"+{more}"),
                     class_="ring-2 ring-canvas rounded-full -ms-2.5 first:ms-0",
                     aria_hidden="true",
                 )

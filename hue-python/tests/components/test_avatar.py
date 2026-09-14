@@ -21,26 +21,41 @@ class TestAvatar:
         html = await render_tree(Avatar().name("Madonna"), context_args=context_args)
         assert "MA" in html
 
-    # src(): both branches
+    # src(): drawn as a background, with the initials left underneath
     @pytest.mark.asyncio
-    async def test_image_is_decorative_because_the_wrapper_is_labelled(
-        self, context_args
-    ):
+    async def test_a_picture_keeps_the_initials_behind_it(self, context_args):
+        # A URL that fails to load then leaves a name rather than an empty
+        # circle, which an img element cannot do.
         html = await render_tree(
             Avatar().name("Grace Hopper").src("/grace.jpg"),
             context_args=context_args,
         )
-        assert_attr(html, "img", "alt", "")
-        assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper")
-        assert "GH" not in html
+        assert_no_selector(html, "img")
+        assert "GH" in html
+        assert "/grace.jpg" in html
+        assert_selector(html, "span.bg-cover")
 
     @pytest.mark.asyncio
-    async def test_initials_when_there_is_no_image(self, context_args):
+    async def test_no_background_without_a_picture(self, context_args):
         html = await render_tree(
             Avatar().name("Grace Hopper"), context_args=context_args
         )
-        assert_no_selector(html, "img")
-        assert "GH" in html
+        assert_no_selector(html, "span[style]")
+        assert_no_selector(html, "span.bg-cover")
+
+    @pytest.mark.asyncio
+    async def test_a_url_cannot_break_out_of_the_style(self, context_args):
+        html = await render_tree(
+            Avatar().name("X").src('a.jpg");background:red;--x:"'),
+            context_args=context_args,
+        )
+        style = select(html, "span[style]")[0]["style"]
+        # The quotes that would have closed url() early are escaped, so the
+        # whole thing stays one declaration with the payload inside the URL.
+        assert style.count("background-image") == 1
+        assert style.startswith('background-image:url("')
+        assert style.endswith('")')
+        assert '\\"' in style
 
     # status(): both branches. The dot is visual only, so it folds into the
     # avatar's own label rather than being a second thing to announce.
@@ -118,6 +133,31 @@ class TestAvatarGroup:
         )
         assert "+3" in html
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
+
+    @pytest.mark.asyncio
+    async def test_size_reaches_the_members(self, context_args):
+        # Otherwise the group and the count it ends with disagree about how big
+        # a face is, which is what made the largest size look broken.
+        html = await render_tree(
+            AvatarGroup()
+            .label("Ada and 3 others")
+            .size("xl")
+            .more(3)
+            .content(Avatar().name("Ada Lovelace")),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.size-16", count=2)
+
+    @pytest.mark.asyncio
+    async def test_a_member_keeps_a_size_it_asked_for(self, context_args):
+        html = await render_tree(
+            AvatarGroup()
+            .label("Ada")
+            .size("xl")
+            .content(Avatar().name("Ada Lovelace").size("sm")),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.size-7")
 
     @pytest.mark.asyncio
     async def test_no_overflow_chip_by_default(self, context_args):

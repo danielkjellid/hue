@@ -22,6 +22,10 @@ SHOWCASES: list[Showcase] = [
         ),
         variants=[
             variant("Initials", 'Avatar().name("Ada Lovelace")'),
+            variant(
+                "With a picture",
+                'Avatar().name("Ada Lovelace").src("https://i.pravatar.cc/128?img=5")',
+            ),
             variant("Online", 'Avatar().name("Grace Hopper").status("online")'),
             variant("Busy", 'Avatar().name("Alan Turing").size("lg").status("busy")'),
             variant(
@@ -36,7 +40,8 @@ SHOWCASES: list[Showcase] = [
         description=(
             "A group is one image with one summary label. Six separately "
             "announced sets of initials is noise, so members are hidden from "
-            "assistive tech and the group speaks for them."
+            "assistive tech and the group speaks for them. The group's size "
+            "reaches its members, so only one call sets it."
         ),
         variants=[
             variant(
@@ -62,8 +67,8 @@ SHOWCASES: list[Showcase] = [
                     .label("Ada Lovelace and Grace Hopper")
                     .size("sm")
                     .content(
-                        Avatar().name("Ada Lovelace").size("sm"),
-                        Avatar().name("Grace Hopper").size("sm"),
+                        Avatar().name("Ada Lovelace"),
+                        Avatar().name("Grace Hopper"),
                     )
                 )
                 """,
