@@ -81,9 +81,14 @@ Tailwind CLI to produce `dist/styles/tailwind.css`.
   CLI is cached separately, because pytailwindcss drops an 80MB binary into
   site-packages the first time it runs and those jobs never invoke it.
 
+  Each upload carries the pull request number, commit subject and author as its
+  version message, and the workflow leaves the preview link on the pull request,
+  editing the same comment on every push rather than adding another.
+
   Deploying needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
   repository secrets, and the Workers Builds Git integration turned off so the
-  two do not both build.
+  two do not both build. Leaving its build command empty instead does not work:
+  `dist/` is gitignored, so there is nothing in the clone to deploy.
 
 Internal URLs are root-relative (`/styles/...`, `/js/...`) by default, which is
 correct for a domain root. When the site is served from a **subpath** (e.g. a
