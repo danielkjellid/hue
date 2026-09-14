@@ -14,6 +14,7 @@ from hue.ui.atoms.input import (
     TextInput,
 )
 from hue.ui.atoms.kbd import Kbd
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
@@ -49,6 +50,7 @@ __all__ = [
     "Label",
     "NumberInput",
     "PasswordInput",
+    "Skeleton",
     "Spacer",
     "Spinner",
     "Stack",

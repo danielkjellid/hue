@@ -16,3 +16,9 @@ node_modules/
 # Built by `make build-css` in hue-python. Generated, so not committed - see
 # hue-python/README or CLAUDE.md.
 hue-python/src/hue/static/styles/tailwind.css
+
+# The design guide is version-controlled as the zip beside it; the extracted
+# folder is a local working copy.
+Hue-Component-Library-Design-System/
+
+.DS_Store
