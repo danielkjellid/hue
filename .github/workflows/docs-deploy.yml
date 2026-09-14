@@ -1,0 +1,136 @@
+name: docs deploy
+
+# Builds hue-docs and ships it to Cloudflare: production for main, a preview
+# version for every other branch.
+#
+# The build runs here rather than in Cloudflare Workers Builds because that
+# image ships no Python and installs one with asdf, which compiles it from
+# source - 228 seconds, against 3 for the dependencies it then installs. It also
+# reports "No dependencies detected to cache" for a uv project, so there is
+# nothing to warm up either. Here the same setup action the rest of CI uses
+# restores a virtualenv those jobs have usually already cached.
+
+on:
+  push:
+
+concurrency:
+  group: docs-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git log -1 needs the commit's author and subject.
+          fetch-depth: 1
+
+      # Same action as every CI job, so the venv cache is shared with them
+      # rather than being a second one keyed differently.
+      - uses: danielkjellid/github-actions/.github/actions/setup-python-uv@main
+        with:
+          working-directory: hue-docs
+
+      - name: Restore the Tailwind CLI
+        uses: actions/cache@v4
+        with:
+          # pytailwindcss fetches an 80MB standalone binary into site-packages
+          # the first time it runs. The shared venv cache is usually populated
+          # by a lint or test job, which never invoke Tailwind, so without this
+          # every deploy would download it again. Restored after that action so
+          # it survives a `uv sync` on a venv cache miss. base.mk pins the
+          # version, so a bump invalidates the key.
+          path: hue-docs/.venv/lib/python*/site-packages/pytailwindcss/bin
+          key: tailwind-cli-${{ runner.os }}-${{ hashFiles('base.mk') }}
+
+      - name: Build the site
+        working-directory: hue-docs
+        run: make build
+
+      - name: Ship it
+        id: ship
+        working-directory: hue-docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          subject=$(git log -1 --pretty=%s)
+          author=$(git log -1 --pretty=%an)
+
+          # A push event carries no pull request, so look one up for the branch.
+          # Uploading from CI means Cloudflare only knows what we hand it, and a
+          # version list of bare hashes is no help when several are in flight.
+          pr=$(gh pr list --head "$BRANCH" --state open \
+                 --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          label="${pr:+PR #$pr}"
+          label="${label:-$BRANCH}"
+
+          # Cloudflare caps both, so trim rather than have them rejected.
+          message=$(printf '%s: %s (%s)' "$label" "$subject" "$author" | cut -c1-100)
+          tag=$(printf '%s@%s' "$BRANCH" "${GITHUB_SHA:0:7}" | cut -c1-100)
+
+          if [ "$REF" = "refs/heads/main" ]; then
+            set -- deploy
+          else
+            # A preview alias takes lowercase alphanumerics and hyphens only,
+            # so ds/button-group becomes ds-button-group.
+            alias=$(printf '%s' "$BRANCH" \
+              | tr '[:upper:]' '[:lower:]' \
+              | sed 's/[^a-z0-9-]/-/g' \
+              | cut -c1-40)
+            set -- versions upload --preview-alias "$alias"
+          fi
+
+          # Run wrangler directly rather than through wrangler-action: the
+          # version is pinned here the same way base.mk pins the Tailwind CLI,
+          # and the arguments keep their quoting instead of being handed to
+          # something else to split. A commit subject contains spaces.
+          output=$(npx --yes wrangler@4.131.2 "$@" \
+            --tag "$tag" --message "$message" 2>&1 | tee /dev/stderr)
+
+          # Prefer the alias URL, which stays put across pushes, over the
+          # per-version one.
+          url=$(printf '%s' "$output" | grep -oE 'https://[^[:space:]]+workers\.dev' \
+                | tail -1)
+          {
+            echo "url=$url"
+            echo "pr=$pr"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Leave the preview link on the pull request
+        if: steps.ship.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.ship.outputs.pr }}
+          URL: ${{ steps.ship.outputs.url }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # A hidden marker so each push edits the same comment instead of
+          # adding another one to a long-lived branch.
+          marker='<!-- hue-docs-preview -->'
+          body=$(printf '%s\n### Docs preview\n\n%s\n\nBuilt from `%s` on `%s`.' \
+            "$marker" "$URL" "${GITHUB_SHA:0:7}" "$BRANCH")
+
+          repo='${{ github.repository }}'
+          existing=$(gh api "repos/$repo/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.body | contains(\"$marker\"))][0].id // empty")
+
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$repo/issues/comments/$existing" \
+              -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$repo/issues/$PR/comments" \
+              -f body="$body" >/dev/null
+          fi
