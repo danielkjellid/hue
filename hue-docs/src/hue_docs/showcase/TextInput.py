@@ -2,8 +2,9 @@
 Curated showcases for the text inputs.
 
 The auto-grid toggles one input's axes at a time. What it cannot show is the
-supporting copy around a control, or the two layouts it can sit in - both of
-which come from the Field the input builds for itself.
+supporting copy around a control, the two layouts it can sit in - both of which
+come from the Field the input builds for itself - or anything attached to the
+control, which hands its frame over to a group.
 """
 
 from __future__ import annotations
@@ -74,6 +75,64 @@ SHOWCASES: list[Showcase] = [
                     .hint("Used in every share link.")
                     .value("northwind")
                     .layout("horizontal")
+                )
+                """,
+            ),
+        ],
+    ),
+    Showcase(
+        title="With something attached",
+        layout="stack",
+        description=(
+            "prefix(), suffix(), leading_icon() and action() wrap the input in "
+            "a group. The border, the fill and the focus halo move up to that "
+            "group, because a square segment inside a rounded box pokes past "
+            "the corner and reads as a broken border."
+        ),
+        variants=[
+            variant(
+                "Prefix",
+                """
+                (
+                    TextInput("url")
+                    .label("Workspace URL")
+                    .prefix("hue.app/")
+                    .value("northwind")
+                    .hint("Used in every share link.")
+                )
+                """,
+            ),
+            variant(
+                "Suffix",
+                """
+                (
+                    NumberInput("rate")
+                    .label("API rate limit")
+                    .suffix("req/min")
+                    .value("600")
+                )
+                """,
+            ),
+            variant(
+                "Leading icon",
+                """
+                (
+                    TextInput("q")
+                    .label("Search invoices")
+                    .hidden_label()
+                    .leading_icon(HueIcon("search"))
+                    .placeholder("Search invoices")
+                )
+                """,
+            ),
+            variant(
+                "Revealable password",
+                """
+                (
+                    PasswordInput("password")
+                    .label("Password")
+                    .revealable()
+                    .value("hunter2")
                 )
                 """,
             ),

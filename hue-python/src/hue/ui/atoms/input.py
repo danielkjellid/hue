@@ -1,13 +1,22 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, override
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component
-from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
+from hue.types.core import Component, ComponentType
+from hue.ui._styles import (
+    CONTROL_SIZES,
+    FIELD_SHELL,
+    GROUP_ADDON,
+    GROUP_SHELL,
+    GROUPED_CONTROL,
+    ControlSize,
+)
+from hue.ui.atoms.button import Button
+from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FormControl
 from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
@@ -89,6 +98,35 @@ class _BaseInput(FormControl):
         self._props["size"] = value
         return self
 
+    def prefix(self, value: str) -> Self:
+        """
+        A word attached to the front of the input, such as a URL stem.
+        """
+        self._props["prefix"] = value
+        return self
+
+    def suffix(self, value: str) -> Self:
+        """
+        A word attached to the end of the input, such as a unit.
+        """
+        self._props["suffix"] = value
+        return self
+
+    def leading_icon(self, value: ComponentType) -> Self:
+        """
+        An icon inside the input, before the text. Decorative: the label is
+        still what names the control.
+        """
+        self._props["leading_icon"] = value
+        return self
+
+    def action(self, value: ComponentType) -> Self:
+        """
+        A control attached to the end of the input, such as a Copy button.
+        """
+        self._props["action"] = value
+        return self
+
     def readonly(self, value: bool = True) -> Self:
         """
         Show the value but refuse edits. Unlike a disabled input it stays
@@ -140,6 +178,56 @@ class _BaseInput(FormControl):
         """
         return ""
 
+    _GROUP_PROPS = ("prefix", "suffix", "leading_icon", "action")
+
+    def _is_grouped(self) -> bool:
+        return any(self._get_prop(prop) is not None for prop in self._GROUP_PROPS)
+
+    def _control(
+        self, input_attrs: dict[str, object], size: ControlSize
+    ) -> ComponentType:
+        """
+        The input, inside a group when anything is attached to it.
+        """
+        control = html.input_(**input_attrs)
+        if not self._is_grouped():
+            return control
+
+        icon: ComponentType | None = self._get_prop("leading_icon")
+        prefix: str | None = self._get_prop("prefix")
+        suffix: str | None = self._get_prop("suffix")
+        action: ComponentType | None = self._get_prop("action")
+
+        segments: list[ComponentType] = []
+        if prefix is not None:
+            segments.append(
+                html.span(
+                    prefix,
+                    class_=f"{GROUP_ADDON} rounded-s-[7px] border-e border-border",
+                )
+            )
+        if icon is not None:
+            segments.append(
+                html.span(
+                    icon,
+                    aria_hidden="true",
+                    class_="flex flex-none items-center ps-[11px] text-fg-subtle "
+                    "[&_svg]:size-4",
+                )
+            )
+        segments.append(control)
+        if suffix is not None:
+            segments.append(
+                html.span(
+                    suffix,
+                    class_=f"{GROUP_ADDON} rounded-e-[7px] border-s border-border",
+                )
+            )
+        if action is not None:
+            segments.append(html.span(action, class_="flex items-center pe-1"))
+
+        return html.div(*segments, class_=GROUP_SHELL)
+
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
         size: ControlSize = self._get_prop("size", "md")
@@ -158,7 +246,7 @@ class _BaseInput(FormControl):
             name=name,
             id=input_id,
             class_=classnames(
-                FIELD_SHELL,
+                GROUPED_CONTROL if self._is_grouped() else FIELD_SHELL,
                 CONTROL_SIZES[size],
                 self._get_extra_classes(),
                 self._get_prop("class_"),
@@ -174,7 +262,7 @@ class _BaseInput(FormControl):
             **self._get_extra_input_attrs(),
         )
 
-        return self._field(html.input_(**input_attrs))
+        return self._field(self._control(input_attrs, size))
 
 
 class TextInput(_BaseInput):
@@ -205,7 +293,7 @@ class PasswordInput(_BaseInput):
     """
     A password input, with autocomplete preset to current-password.
 
-        PasswordInput("password").label("Password")
+        PasswordInput("password").label("Password").revealable()
     """
 
     _input_type = "password"
@@ -213,6 +301,40 @@ class PasswordInput(_BaseInput):
     def __init__(self, name: str | None = None) -> None:
         super().__init__(name)
         self._props["autocomplete"] = "current-password"
+
+    def revealable(self, value: bool = True) -> Self:
+        """
+        Attach a toggle that shows the password.
+
+        The toggle keeps one name - "Show password" - and reports its state
+        through aria-pressed, rather than renaming itself to "Hide password".
+        A control whose label changes under you is announced as a different
+        control each time it is pressed.
+        """
+        self._props["revealable"] = value
+        return self
+
+    @override
+    def _render(self, context: HueContext) -> Component:
+        if self._get_prop("revealable", False):
+            # The input's own type has to give way to the binding, so the
+            # toggle has something to change.
+            self.x_data({"shown": False}).x_bind("type", "shown ? 'text' : 'password'")
+            self._props.setdefault(
+                "action",
+                Button()
+                .variant("ghost")
+                .size("sm")
+                .icon_only("Show password")
+                .aria_pressed("false")
+                .x_on("click", "shown = !shown")
+                .x_bind("aria-pressed", "shown")
+                .content(
+                    HueIcon("eye").x_show("!shown"),
+                    HueIcon("eye-off").x_show("shown").x_cloak(),
+                ),
+            )
+        return super()._render(context)
 
 
 class NumberInput(_BaseInput):
