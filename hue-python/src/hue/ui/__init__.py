@@ -1,3 +1,4 @@
+from hue.ui.atoms.badge import Badge
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import (
@@ -33,6 +34,7 @@ from hue.ui.molecules.table import (
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 
 __all__ = [
+    "Badge",
     "Button",
     "Callout",
     "ChainableComponent",
