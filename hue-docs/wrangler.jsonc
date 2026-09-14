@@ -1,0 +1,19 @@
+{
+  // Serves the built docs as a static-asset Worker. There is no `main`: the
+  // Worker has no code, it only hands out the files in ./dist.
+  //
+  // Cloudflare Workers Builds runs `make build` here, then `wrangler deploy`
+  // for main and `wrangler versions upload` for every other branch, which is
+  // what produces a preview URL per pull request.
+  "$schema": "https://developers.cloudflare.com/schemas/wrangler.json",
+  "name": "hue-docs",
+  "compatibility_date": "2026-09-14",
+  "assets": {
+    "directory": "./dist",
+    // Every page is a folder holding an index.html, so /components/button/
+    // has to resolve to /components/button/index.html rather than 404.
+    // The build writes no 404.html, so not_found_handling stays at its
+    // default rather than pointing at a file that is not there.
+    "html_handling": "auto-trailing-slash"
+  }
+}
