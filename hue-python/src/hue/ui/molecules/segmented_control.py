@@ -69,13 +69,22 @@ class SegmentedOption(ChainableComponent):
         self._props["label"] = label
         return self
 
-    def _configure(self, *, size: SegmentedSize, selected: bool | None) -> None:
+    def _configure(
+        self, *, size: SegmentedSize, selected: bool | None, interactive: bool
+    ) -> None:
         """
         Called by the control, which owns size and selection.
         """
         self._props["size"] = size
         if selected is not None:
             self._props["selected"] = selected
+
+        # Skipped when the caller already drives this option themselves, so the
+        # control never fights a binding of their own.
+        if interactive and ":aria-pressed" not in self._attrs:
+            value = self._get_prop("value")
+            self.x_on("click", f"selected = {value!r}")
+            self.x_bind("aria-pressed", f"selected === {value!r}")
 
     def _render(self, context: HueContext) -> Component:
         size: SegmentedSize = self._get_prop("size", "md")
@@ -171,8 +180,20 @@ class SegmentedControl(ChainableComponent):
                     selected=None
                     if selected is None
                     else child._get_prop("value") == selected,
+                    # With no value of its own the control has no state to keep,
+                    # so selection belongs to whoever set it up that way.
+                    interactive=selected is not None,
                 )
             options.append(child)
+
+        attrs = {
+            "role": "group",
+            "aria_label": label,
+            # The server-rendered aria-pressed above is what paints first, so
+            # the right option is already on before Alpine takes over.
+            **({"x-data": f"{{ selected: {selected!r} }}"} if selected else {}),
+            **self._get_base_html_attrs(),
+        }
 
         return html.div(
             *options,
@@ -181,9 +202,5 @@ class SegmentedControl(ChainableComponent):
                 "border border-border bg-surface-sunken",
                 self._get_prop("class_"),
             ),
-            **{
-                "role": "group",
-                "aria_label": label,
-                **self._get_base_html_attrs(),
-            },
+            **attrs,
         )

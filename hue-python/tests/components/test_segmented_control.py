@@ -45,6 +45,8 @@ class TestSegmentedControl:
         # on is only known client-side. A static value would fight it.
         html = await render_tree(_control().label("Range"), context_args=context_args)
         assert_no_selector(html, "button[aria-pressed]")
+        assert_no_selector(html, "div[x-data]")
+        assert_no_selector(html, "button[\\@click]")
 
     # size(): the control owns it, since the options are its own
     @pytest.mark.asyncio
