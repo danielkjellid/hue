@@ -1,8 +1,8 @@
 """
 Curated showcases for the ButtonGroup molecule.
 
-The auto-grid can toggle the variant but has no buttons to put inside, and the
-buttons are what makes the two variants read as different things.
+The group has no axes, so the auto-grid has nothing to vary - and nothing to
+put inside it, which is the whole component.
 """
 
 from __future__ import annotations
@@ -14,15 +14,15 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "An attached group is buttons that happen to sit together, each "
-            "doing its own thing. A segmented group is a choice where exactly "
-            "one option is on - a radio group in a button costume - so it needs "
-            "a label and an aria-pressed on each option. Do not reach for "
-            "aria-selected there; that belongs to tabs and listbox options."
+            "Buttons that happen to sit together, each still doing its own "
+            "thing. Only the geometry is shared, so every button keeps the "
+            "variant it was given and they should all be given the same one. "
+            "ghost and link are rejected: the group is made of its buttons' "
+            "borders, and those variants have none."
         ),
         variants=[
             variant(
-                "Attached",
+                "A split button",
                 """
                 (
                     ButtonGroup().content(
@@ -37,16 +37,18 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
-                "Segmented",
+                "Three actions",
                 """
                 (
                     ButtonGroup()
-                    .variant("segmented")
-                    .label("Date range")
+                    .label("Row actions")
                     .content(
-                        Button().variant("ghost").size("sm").content("Day"),
-                        Button().variant("ghost").size("sm").content("Week"),
-                        Button().variant("ghost").size("sm").content("Month"),
+                        Button().variant("outline").size("sm").content("Edit"),
+                        Button().variant("outline").size("sm").content("Duplicate"),
+                        Button()
+                        .variant("danger-outline")
+                        .size("sm")
+                        .content("Delete"),
                     )
                 )
                 """,

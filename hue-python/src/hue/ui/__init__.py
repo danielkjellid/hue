@@ -21,6 +21,7 @@ from hue.ui.atoms.text import Label, Text
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.button_group import ButtonGroup
 from hue.ui.molecules.callout import Callout
+from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.ui.molecules.table import (
     Column,
     DataTable,
@@ -51,6 +52,8 @@ __all__ = [
     "Label",
     "NumberInput",
     "PasswordInput",
+    "SegmentedControl",
+    "SegmentedOption",
     "Spacer",
     "Spinner",
     "Stack",

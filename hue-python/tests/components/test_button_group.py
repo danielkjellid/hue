@@ -9,63 +9,61 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 def _group(**kwargs):
     return ButtonGroup(**kwargs).content(
-        Button().variant("outline").content("Day"),
-        Button().variant("outline").content("Week"),
+        Button().variant("outline").content("Export"),
+        Button().variant("outline").content("Schedule"),
     )
 
 
 class TestButtonGroup:
-    # variant(): two different things wearing the same clothes
     @pytest.mark.asyncio
-    async def test_attached_by_default(self, context_args):
-        # Buttons glued together: one seam, not two borders.
+    async def test_joins_the_buttons_into_one_edge(self, context_args):
+        # Each button is pulled onto its neighbour so the seam between them is
+        # one line rather than two borders.
         html = await render_tree(_group(), context_args=context_args)
         assert_selector(html, "div.inline-flex")
         assert "[&>*+*]:-ms-px" in unescape(html)
         assert "[&>*:first-child]:rounded-s-md" in unescape(html)
 
     @pytest.mark.asyncio
-    async def test_attached_has_no_track(self, context_args):
+    async def test_a_focused_button_lifts_above_its_neighbours(self, context_args):
+        # Otherwise the button overlapping it clips half the focus ring.
         html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, "div.bg-surface-sunken")
+        assert "[&>*:focus-visible]:z-10" in unescape(html)
 
     @pytest.mark.asyncio
-    async def test_segmented_is_a_track(self, context_args):
+    async def test_children_keep_their_own_variant(self, context_args):
+        html = await render_tree(_group(), context_args=context_args)
+        assert_selector(html, "button.border-border-input", count=2)
+
+    # A group is made of its buttons' borders, so a variant without a box has
+    # nothing to join and would render as loose text.
+    @pytest.mark.parametrize("variant", ["ghost", "link"])
+    @pytest.mark.asyncio
+    async def test_rejects_buttons_with_no_box(self, variant, context_args):
+        with pytest.raises(ValueError, match="cannot join"):
+            await render_tree(
+                ButtonGroup().content(Button().variant(variant).content("Day")),
+                context_args=context_args,
+            )
+
+    @pytest.mark.parametrize(
+        "variant", ["primary", "secondary", "outline", "danger", "danger-outline"]
+    )
+    @pytest.mark.asyncio
+    async def test_accepts_buttons_with_a_box(self, variant, context_args):
         html = await render_tree(
-            _group().variant("segmented"), context_args=context_args
+            ButtonGroup().content(Button().variant(variant).content("Day")),
+            context_args=context_args,
         )
-        assert_selector(html, "div.bg-surface-sunken.border-border")
-        # The selected option lifts out of the track.
-        assert "[&>[aria-pressed=true]]:shadow-segment" in unescape(html)
-
-    @pytest.mark.asyncio
-    async def test_segmented_does_not_collapse_borders(self, context_args):
-        html = await render_tree(
-            _group().variant("segmented"), context_args=context_args
-        )
-        assert "[&>*+*]:-ms-px" not in unescape(html)
-
-    # size(): only segmented owns its children's height
-    @pytest.mark.asyncio
-    async def test_segmented_sizes_its_children(self, context_args):
-        html = await render_tree(
-            _group().variant("segmented").size("lg"), context_args=context_args
-        )
-        assert "[&>*]:h-9" in unescape(html)
-
-    @pytest.mark.asyncio
-    async def test_attached_leaves_child_heights_alone(self, context_args):
-        html = await render_tree(_group().size("lg"), context_args=context_args)
-        assert "[&>*]:h-9" not in unescape(html)
+        assert_selector(html, "button")
 
     # label(): both branches
     @pytest.mark.asyncio
     async def test_label_makes_it_a_named_group(self, context_args):
         html = await render_tree(
-            _group().variant("segmented").label("Date range"),
-            context_args=context_args,
+            _group().label("Export options"), context_args=context_args
         )
-        assert_attr(html, 'div[role="group"]', "aria-label", "Date range")
+        assert_attr(html, 'div[role="group"]', "aria-label", "Export options")
 
     @pytest.mark.asyncio
     async def test_without_a_label_it_is_not_a_group(self, context_args):
