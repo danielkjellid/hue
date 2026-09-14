@@ -12,6 +12,7 @@ from hue.ui.atoms.input import (
     PasswordInput,
     TextInput,
 )
+from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
@@ -41,6 +42,7 @@ __all__ = [
     "EmailInput",
     "Icon",
     "IconResolver",
+    "Kbd",
     "Label",
     "NumberInput",
     "PasswordInput",

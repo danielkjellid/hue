@@ -476,6 +476,9 @@
     width: calc(var(--spacing) * 10);
     height: calc(var(--spacing) * 10);
   }
+  .h-5 {
+    height: calc(var(--spacing) * 5);
+  }
   .h-6\.5 {
     height: calc(var(--spacing) * 6.5);
   }
@@ -499,6 +502,9 @@
   }
   .max-w-prose {
     max-width: 65ch;
+  }
+  .min-w-5 {
+    min-width: calc(var(--spacing) * 5);
   }
   .shrink-0 {
     flex-shrink: 0;
@@ -577,6 +583,9 @@
   }
   .gap-2 {
     gap: calc(var(--spacing) * 2);
+  }
+  .gap-\[3px\] {
+    gap: 3px;
   }
   :where(.space-y-1 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
@@ -658,8 +667,15 @@
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
   }
+  .border-b-2 {
+    border-bottom-style: var(--tw-border-style);
+    border-bottom-width: 2px;
+  }
   .border-border {
     border-color: var(--color-border);
+  }
+  .border-border-strong {
+    border-color: var(--color-border-strong);
   }
   .border-destructive {
     border-color: var(--color-destructive);
@@ -702,6 +718,9 @@
   }
   .bg-secondary {
     background-color: var(--color-secondary);
+  }
+  .bg-surface {
+    background-color: var(--color-surface);
   }
   .bg-surface-50 {
     background-color: var(--color-surface-50);
@@ -751,6 +770,9 @@
   .px-4 {
     padding-inline: calc(var(--spacing) * 4);
   }
+  .px-\[5px\] {
+    padding-inline: 5px;
+  }
   .py-2 {
     padding-block: calc(var(--spacing) * 2);
   }
@@ -769,12 +791,19 @@
   .align-middle {
     vertical-align: middle;
   }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
   .font-ui {
     font-family: var(--font-ui);
   }
   .text-2xl {
     font-size: var(--text-2xl);
     line-height: var(--tw-leading, var(--text-2xl--line-height));
+  }
+  .text-2xs {
+    font-size: var(--text-2xs);
+    line-height: var(--tw-leading, var(--text-2xs--line-height));
   }
   .text-3xl {
     font-size: var(--text-3xl);
@@ -796,6 +825,10 @@
     --tw-leading: calc(var(--spacing) * 6);
     line-height: calc(var(--spacing) * 6);
   }
+  .leading-none {
+    --tw-leading: 1;
+    line-height: 1;
+  }
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);
     font-weight: var(--font-weight-bold);
@@ -816,6 +849,9 @@
   }
   .text-destructive-700 {
     color: var(--color-destructive-700);
+  }
+  .text-fg-muted {
+    color: var(--color-fg-muted);
   }
   .text-fg-subtle {
     color: var(--color-fg-subtle);
