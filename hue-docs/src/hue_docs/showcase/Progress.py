@@ -1,8 +1,8 @@
 """
 Curated showcases for the Progress atom.
 
-The auto-grid covers the variants and sizes. These show the two shapes it takes
-that the grid cannot build: the labelled row, and the indeterminate bar.
+The auto-grid covers the variants, sizes and the indeterminate toggle. These
+show the shapes it cannot build, where the value and the label carry the point.
 """
 
 from __future__ import annotations
@@ -14,16 +14,15 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "Leave value() unset for work whose length is unknown and the bar "
-            "animates instead, with no position announced - aria-valuenow of 0 "
+            "indeterminate() is for work whose length is unknown: the bar "
+            "sweeps and announces no position, because an aria-valuenow of 0 "
             'would say "0 percent", which reads as stalled rather than '
-            "unknown. Past ten seconds a determinate bar needs a way out next "
-            "to it; progress with no exit is just a nicer spinner."
+            "unknown."
         ),
         variants=[
             variant("Labelled", 'Progress().value(64).label("Uploading archive.zip")'),
             variant("Bare", "Progress().value(32)"),
-            variant("Indeterminate", 'Progress().label("Exporting")'),
+            variant("Indeterminate", 'Progress().indeterminate().label("Exporting")'),
             variant("Nearly full", 'Progress().value(92).variant("warning")'),
         ],
     ),

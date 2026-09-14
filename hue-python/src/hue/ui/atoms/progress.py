@@ -46,8 +46,9 @@ class Progress(ChainableComponent):
     """
     How far along something is, as a horizontal bar.
 
-    Leave value() unset for an indeterminate bar, which omits aria-valuenow
-    rather than reporting zero. label() shows above the bar and names it.
+    indeterminate() is for work whose length is unknown: the bar sweeps and
+    omits aria-valuenow rather than reporting zero. label() shows above the bar
+    and names it.
 
         Progress().value(64).label("Uploading archive.zip")
     """
@@ -60,9 +61,19 @@ class Progress(ChainableComponent):
 
     def value(self, value: float) -> Self:
         """
-        Percent complete. Left unset, the bar is indeterminate.
+        Percent complete.
         """
         self._props["value"] = value
+        return self
+
+    def indeterminate(self, value: bool = True) -> Self:
+        """
+        Sweep the bar instead of filling it, for work whose length is unknown.
+
+        Wins over value(), so a bar can be handed a stale percentage and still
+        say it no longer knows one.
+        """
+        self._props["indeterminate"] = value
         return self
 
     def variant(self, value: ProgressVariant) -> Self:
@@ -85,7 +96,8 @@ class Progress(ChainableComponent):
         size: ProgressSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
         raw: float | None = self._get_prop("value")
-        value = None if raw is None else _clamp(raw)
+        indeterminate: bool = self._get_prop("indeterminate", False)
+        value = None if indeterminate or raw is None else _clamp(raw)
 
         fill = html.div(
             class_=classnames(

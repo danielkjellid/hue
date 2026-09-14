@@ -14,11 +14,29 @@ class TestProgress:
         assert_attr(html, '[role="progressbar"]', "aria-valuemax", "100")
         assert "width:64%" in html
 
-    # value(): determinate and indeterminate differ in more than styling
+    # indeterminate(): it differs from a value in more than styling
     @pytest.mark.asyncio
     async def test_indeterminate_omits_the_position(self, context_args):
         # aria-valuenow="0" would announce "0 percent", which reads as stalled
         # rather than unknown.
+        html = await render_tree(Progress().indeterminate(), context_args=context_args)
+        assert_no_selector(html, "[aria-valuenow]")
+        assert_selector(html, "div.animate-progress")
+
+    @pytest.mark.asyncio
+    async def test_indeterminate_wins_over_a_stale_value(self, context_args):
+        # So a bar handed a percentage it no longer trusts can say so without
+        # having to unset it first.
+        html = await render_tree(
+            Progress().value(64).indeterminate(), context_args=context_args
+        )
+        assert_no_selector(html, "[aria-valuenow]")
+        assert_selector(html, "div.animate-progress")
+
+    @pytest.mark.asyncio
+    async def test_a_bar_with_no_value_is_indeterminate(self, context_args):
+        # Nothing to report is the same as not knowing, as it is for a native
+        # progress element with no value attribute.
         html = await render_tree(Progress(), context_args=context_args)
         assert_no_selector(html, "[aria-valuenow]")
         assert_selector(html, "div.animate-progress")
@@ -55,7 +73,7 @@ class TestProgress:
     @pytest.mark.asyncio
     async def test_indeterminate_label_shows_no_percentage(self, context_args):
         html = await render_tree(
-            Progress().label("Exporting"), context_args=context_args
+            Progress().indeterminate().label("Exporting"), context_args=context_args
         )
         assert "Exporting" in html
         assert_no_selector(html, "span.tabular-nums")
