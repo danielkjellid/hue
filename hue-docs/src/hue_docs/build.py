@@ -129,6 +129,10 @@ def _copy_assets() -> None:
     shutil.copyfile(js_bundle_path(), js_target)
     print("  copied js/alpine-bundle.js")
 
+    assets = _PACKAGE_DIR / "assets"
+    shutil.copytree(assets, DIST / "assets", dirs_exist_ok=True)
+    print(f"  copied assets/ ({len(list(assets.iterdir()))} file(s))")
+
     highlight_target = DIST / "styles" / "highlight.css"
     highlight_target.parent.mkdir(parents=True, exist_ok=True)
     highlight_target.write_text(_CSS_BANNER + highlight_css(), encoding="utf-8")
