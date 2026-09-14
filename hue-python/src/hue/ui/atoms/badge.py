@@ -42,13 +42,8 @@ class Badge(ChainableComponent):
     """
     A small status label.
 
-    Colour never carries the meaning on its own - every badge has a text label,
-    and dot() adds a coloured dot that repeats what the label already says. At
-    12px that pairing reads faster than a fully tinted pill, which is why it is
-    the usual choice in a table.
-
-    If a badge is coloured because the colour looks nice, it should be neutral:
-    a table where every row is tinted has taught the reader to ignore colour.
+    variant() sets the tone, dot() prefixes a dot that inherits the label's
+    colour, and numeric() lines figures up on a shared width.
 
         Badge().variant("success").dot().content("Active")
     """

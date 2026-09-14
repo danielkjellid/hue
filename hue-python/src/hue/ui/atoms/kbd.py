@@ -51,10 +51,10 @@ class Kbd(ChainableComponent):
     """
     Keyboard keys, rendered as real kbd elements.
 
-    Pass keys by name: the modifiers become their glyphs and carry a spoken
-    name, so a screen reader announces "Command" rather than the glyph's Unicode
-    name. "mod" resolves to the command key on Apple platforms and control
-    everywhere else, which can only be decided in the browser.
+    Modifier names become their glyphs and carry a spoken name alongside, so a
+    screen reader announces "Command" rather than the glyph's Unicode name.
+    "mod" is the command key on Apple platforms and control everywhere else,
+    which only the browser can decide.
 
         Kbd("mod", "K")
     """
