@@ -64,9 +64,36 @@ Tailwind CLI to produce `dist/styles/tailwind.css`.
   publishes `dist/` on push to `main`. It works for project sites too: the
   workflow reads the serving subpath from `configure-pages` and passes it as
   `HUE_DOCS_BASE_URL` so links/assets resolve correctly.
-- **Vercel / Cloudflare Pages / Netlify** — set the build command to
-  `cd hue-docs && uv run python -m hue_docs` (or `make -C hue-docs build`) and
-  the output directory to `hue-docs/dist`.
+- **Cloudflare Workers** — this is what gives a preview URL per pull request,
+  which is the reason to run one alongside Pages. `wrangler.jsonc` here declares
+  the site as a static-asset Worker (no code, just `dist/`), so connecting the
+  repo in Workers Builds needs only:
+
+  | Setting | Value |
+  | --- | --- |
+  | Build command | `curl -LsSf https://astral.sh/uv/install.sh \| sh && export PATH="$HOME/.local/bin:$PATH" && make build` |
+  | Deploy command | `npx wrangler deploy` |
+  | Non-production branch deploy command | `npx wrangler versions upload` |
+  | Path | `hue-docs` |
+
+  Two things that are easy to get wrong. `Path` is `hue-docs`, the directory
+  holding `wrangler.jsonc`, and **not** `hue-docs/dist` — build and deploy both
+  run from it, which is also why the build command does not `cd` anywhere. And
+  the whole repository is still cloned, which matters because hue-docs installs
+  `hue` from `../hue-python` as an editable path dependency.
+
+  The build image ships no `uv`, hence installing it first; `uv` then fetches
+  Python 3.13 itself, so the image's own Python version does not matter, and
+  `make build` pins the Tailwind CLI. Leave `HUE_DOCS_BASE_URL` unset — every
+  deployment is served from its own root.
+
+  `versions upload` publishes a version without promoting it to production, so
+  a pull request gets a preview URL while `main` keeps serving the live site.
+
+  A **Cloudflare Pages** project reaches the same place with no file in the
+  repo (build command as above but with `cd hue-docs &&`, output directory
+  `hue-docs/dist`, root directory left at the repository root). Cloudflare now
+  steers new projects to Workers, so that is what this is set up for.
 
 Internal URLs are root-relative (`/styles/...`, `/js/...`) by default, which is
 correct for a domain root. When the site is served from a **subpath** (e.g. a
