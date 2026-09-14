@@ -65,4 +65,10 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: hue-docs
+          # The action installs wrangler 3 by default, which has no
+          # --preview-alias, so every branch would land on an unguessable
+          # per-version URL. Pinned rather than floating for the same reason
+          # base.mk pins the Tailwind CLI: the deploy should not change
+          # underneath us.
+          wranglerVersion: "4.131.2"
           command: ${{ steps.target.outputs.command }}
