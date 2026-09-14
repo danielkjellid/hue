@@ -27,7 +27,7 @@ def _card(variant: Variant, layout: str) -> ComponentType:
     return html.div(
         html.div(
             html.span(variant.label).class_(
-                "absolute left-2 top-2 rounded bg-surface px-1.5 py-0.5 "
+                "absolute left-2 top-2 rounded bg-surface-50 px-1.5 py-0.5 "
                 "text-[10px] uppercase tracking-wide text-surface-400"
             ),
             preview(variant.build()),

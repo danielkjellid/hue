@@ -39,20 +39,20 @@ _VARIANT_CLASSES: dict[ButtonVariant, str] = {
         "dark:hover:bg-secondary-800 dark:disabled:text-wg-white-500"
     ),
     "tertiary": (
-        "bg-surface text-surface-900 outline-surface hover:bg-surface-100 "
+        "bg-surface-50 text-surface-900 outline-surface-50 hover:bg-surface-100 "
         "disabled:text-surface-300"
     ),
     "quaternary": (
-        "bg-surface-200 text-surface-900 outline-surface hover:bg-surface-300 "
+        "bg-surface-200 text-surface-900 outline-surface-50 hover:bg-surface-300 "
         "disabled:text-surface-300"
     ),
     "outline": (
-        "border border-surface-200 shadow-xs dark:shadow-none hover:bg-surface "
+        "border border-surface-200 shadow-xs dark:shadow-none hover:bg-surface-50 "
         "disabled:border-surface-50 dark:border-surface-100 text-surface-900 "
         "outline-primary disabled:text-surface-300"
     ),
     "transparent": (
-        "bg-transparent hover:bg-surface text-surface-900 outline-primary "
+        "bg-transparent hover:bg-surface-50 text-surface-900 outline-primary "
         "disabled:text-surface-300"
     ),
     "primary-destructive": (
@@ -72,13 +72,13 @@ _VARIANT_CLASSES: dict[ButtonVariant, str] = {
     ),
     "outline-destructive": (
         "border-destructive hover:bg-destructive-50 disabled:border-destructive-100 "
-        "dark:border-destructive dark:hover:bg-surface "
+        "dark:border-destructive dark:hover:bg-surface-50 "
         "dark:disabled:border-destructive-900 text-destructive-700 outline "
         "outline-destructive disabled:text-destructive-300 "
         "dark:text-destructive-500 dark:disabled:text-destructive/50"
     ),
     "transparent-destructive": (
-        "hover:bg-destructive-50 dark:hover:bg-surface text-destructive-700 "
+        "hover:bg-destructive-50 dark:hover:bg-surface-50 text-destructive-700 "
         "outline-destructive disabled:text-destructive-300 "
         "dark:text-destructive-500 dark:disabled:text-destructive/50"
     ),

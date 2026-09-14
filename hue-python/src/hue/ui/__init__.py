@@ -29,6 +29,7 @@ from hue.ui.molecules.table import (
     TableHeader,
     TableRow,
 )
+from hue.ui.molecules.theme_switcher import ThemeSwitcher
 
 __all__ = [
     "Button",
@@ -55,6 +56,7 @@ __all__ = [
     "TableRow",
     "Text",
     "TextInput",
+    "ThemeSwitcher",
     "create_icon_base",
     "directory_resolver",
 ]
