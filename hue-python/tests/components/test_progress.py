@@ -120,6 +120,23 @@ class TestProgressRing:
         assert 'stroke-dashoffset="0.00"' in full
         assert 'stroke-dashoffset="131.95"' in empty
 
+    # show_value(): both branches
+    @pytest.mark.asyncio
+    async def test_the_figure_is_printed_in_the_middle(self, context_args):
+        html = await render_tree(
+            ProgressRing().value(28).show_value(), context_args=context_args
+        )
+        assert "28%" in html
+        # The svg already announces it, so the printed figure is decorative.
+        assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
+
+    @pytest.mark.asyncio
+    async def test_no_figure_by_default(self, context_args):
+        # A ring already sitting beside its own number would say it twice.
+        html = await render_tree(ProgressRing().value(28), context_args=context_args)
+        assert "28%" not in html
+        assert_no_selector(html, 'span[aria-hidden="true"]')
+
     @pytest.mark.asyncio
     async def test_variant_colours_the_arc_with_a_literal_class(self, context_args):
         html = await render_tree(
