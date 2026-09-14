@@ -14,10 +14,17 @@ from hue.utils import classnames
 type EmptyVariant = Literal["neutral", "danger"]
 type HeadingLevel = Literal["h1", "h2", "h3", "h4", "h5", "h6"]
 
-# Only the icon chip changes tone; the layout is the same either way.
+# The tone carries on the icon chip and the title; the layout is the same
+# either way. The title matters because an empty state need not have an icon,
+# and a variant that renders identically to the default is not a variant.
 _ICON_CLASSES: dict[EmptyVariant, str] = {
     "neutral": "bg-surface-sunken border-border text-fg-subtle",
     "danger": "bg-danger-subtle border-danger-border text-danger-text",
+}
+
+_TITLE_CLASSES: dict[EmptyVariant, str] = {
+    "neutral": "text-fg",
+    "danger": "text-danger-text",
 }
 
 _HEADING_TAGS: dict[HeadingLevel, Callable[..., ComponentType]] = {
@@ -35,8 +42,8 @@ class Empty(ChainableComponent):
     What to show where content would have been.
 
     icon(), title(), description() and actions() are all optional. variant()
-    tints the icon, compact() tightens the padding, and heading() promotes the
-    title to a real heading for an empty state that stands in for a page.
+    sets the tone, compact() tightens the padding, and title() takes a heading
+    level for an empty state that stands in for a page.
 
         Empty().title("No invoices yet").actions(Button().content("Create"))
     """
@@ -66,19 +73,16 @@ class Empty(ChainableComponent):
         self._props["icon"] = value
         return self
 
-    def title(self, value: str) -> Self:
+    def title(self, value: str, *, heading: HeadingLevel | None = None) -> Self:
+        """
+        The line that says what is missing.
+
+        Pass heading to render it as a real heading rather than bold text,
+        which is worth doing whenever the empty state stands in for a whole
+        page or section and belongs in the document outline.
+        """
         self._props["title"] = value
-        return self
-
-    def heading(self, value: HeadingLevel) -> Self:
-        """
-        Promote the title to a real heading.
-
-        Worth doing whenever the empty state stands in for a whole page or
-        section, so it appears in the document outline rather than being plain
-        bold text.
-        """
-        self._props["heading"] = value
+        self._props["heading"] = heading
         return self
 
     def description(self, value: str) -> Self:
@@ -113,7 +117,9 @@ class Empty(ChainableComponent):
             )
 
         if title is not None:
-            title_classes = "font-ui text-md font-bold text-fg"
+            title_classes = classnames(
+                "font-ui text-md font-bold", _TITLE_CLASSES[variant]
+            )
             children.append(
                 html.div(title, class_=title_classes)
                 if heading is None

@@ -52,24 +52,36 @@ class TestEmpty:
         )
         assert_no_selector(html, "div.font-bold")
 
-    # variant(): only the icon chip changes tone
+    # variant(): the tone carries on the icon chip and the title
     @pytest.mark.asyncio
     async def test_neutral_by_default(self, context_args):
         html = await render_tree(
             Empty().icon("!").title("Nothing"), context_args=context_args
         )
         assert_selector(html, "div.bg-surface-sunken")
+        assert_selector(html, "div.text-fg")
 
     @pytest.mark.asyncio
-    async def test_danger_tints_the_icon(self, context_args):
+    async def test_danger_tints_the_icon_and_the_title(self, context_args):
         html = await render_tree(
             Empty().variant("danger").icon("!").title("Could not load"),
             context_args=context_args,
         )
         assert_selector(html, "div.bg-danger-subtle")
         assert_no_selector(html, "div.bg-surface-sunken")
+        # The title too, because an empty state need not have an icon and the
+        # variant has to show somewhere.
+        assert_selector(html, "div.text-danger-text")
 
-    # heading(): both branches
+    @pytest.mark.asyncio
+    async def test_the_variant_shows_without_an_icon(self, context_args):
+        html = await render_tree(
+            Empty().variant("danger").title("Could not load"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.text-danger-text")
+
+    # title(heading=...): both branches
     @pytest.mark.asyncio
     async def test_title_is_not_a_heading_by_default(self, context_args):
         # Inside a table cell a heading would land wrongly in the outline.
@@ -79,7 +91,8 @@ class TestEmpty:
     @pytest.mark.asyncio
     async def test_title_can_be_promoted_to_a_heading(self, context_args):
         html = await render_tree(
-            Empty().title("Nothing here yet").heading("h2"), context_args=context_args
+            Empty().title("Nothing here yet", heading="h2"),
+            context_args=context_args,
         )
         assert_selector(html, "h2")
 
