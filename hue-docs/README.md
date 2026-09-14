@@ -64,36 +64,26 @@ Tailwind CLI to produce `dist/styles/tailwind.css`.
   publishes `dist/` on push to `main`. It works for project sites too: the
   workflow reads the serving subpath from `configure-pages` and passes it as
   `HUE_DOCS_BASE_URL` so links/assets resolve correctly.
-- **Cloudflare Workers** — this is what gives a preview URL per pull request,
-  which is the reason to run one alongside Pages. `wrangler.jsonc` here declares
-  the site as a static-asset Worker (no code, just `dist/`), so connecting the
-  repo in Workers Builds needs only:
+- **Cloudflare Workers** — this is what gives a preview URL per pull request.
+  `.github/workflows/docs-deploy.yml` builds the site and ships it: production
+  for `main`, a preview version aliased to the branch for everything else, so
+  `ds/button` lands at `ds-button-<worker>.<subdomain>.workers.dev`.
+  `wrangler.jsonc` here declares it as a static-asset Worker - no code, just
+  `dist/`.
 
-  | Setting | Value |
-  | --- | --- |
-  | Build command | `curl -LsSf https://astral.sh/uv/install.sh \| sh && export PATH="$HOME/.local/bin:$PATH" && make build` |
-  | Deploy command | `npx wrangler deploy` |
-  | Non-production branch deploy command | `npx wrangler versions upload` |
-  | Path | `hue-docs` |
+  It builds on **every branch**, so any push gets a preview, and the build runs
+  in CI rather than in Workers Builds. That image ships no Python and installs
+  one with asdf, which compiles it from source: **228 seconds**, against 3 for
+  the dependencies it then installs. It also reports "No dependencies detected
+  to cache" for a uv project, so there is nothing to warm up either. The
+  workflow instead uses the same setup action as the rest of CI, which restores
+  a virtualenv the lint and test jobs have usually already cached. The Tailwind
+  CLI is cached separately, because pytailwindcss drops an 80MB binary into
+  site-packages the first time it runs and those jobs never invoke it.
 
-  Two things that are easy to get wrong. `Path` is `hue-docs`, the directory
-  holding `wrangler.jsonc`, and **not** `hue-docs/dist` — build and deploy both
-  run from it, which is also why the build command does not `cd` anywhere. And
-  the whole repository is still cloned, which matters because hue-docs installs
-  `hue` from `../hue-python` as an editable path dependency.
-
-  The build image ships no `uv`, hence installing it first; `uv` then fetches
-  Python 3.13 itself, so the image's own Python version does not matter, and
-  `make build` pins the Tailwind CLI. Leave `HUE_DOCS_BASE_URL` unset — every
-  deployment is served from its own root.
-
-  `versions upload` publishes a version without promoting it to production, so
-  a pull request gets a preview URL while `main` keeps serving the live site.
-
-  A **Cloudflare Pages** project reaches the same place with no file in the
-  repo (build command as above but with `cd hue-docs &&`, output directory
-  `hue-docs/dist`, root directory left at the repository root). Cloudflare now
-  steers new projects to Workers, so that is what this is set up for.
+  Deploying needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
+  repository secrets, and the Workers Builds Git integration turned off so the
+  two do not both build.
 
 Internal URLs are root-relative (`/styles/...`, `/js/...`) by default, which is
 correct for a domain root. When the site is served from a **subpath** (e.g. a

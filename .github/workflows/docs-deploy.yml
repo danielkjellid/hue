@@ -1,0 +1,68 @@
+name: docs deploy
+
+# Builds hue-docs and ships it to Cloudflare: production for main, a preview
+# version for every other branch.
+#
+# The build runs here rather than in Cloudflare Workers Builds because that
+# image ships no Python and installs one with asdf, which compiles it from
+# source - 228 seconds, against 3 for the dependencies it then installs. It also
+# reports "No dependencies detected to cache" for a uv project, so there is
+# nothing to warm up either. Here the same setup action the rest of CI uses
+# restores a virtualenv those jobs have usually already cached.
+
+on:
+  push:
+
+concurrency:
+  group: docs-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same action as every CI job, so the venv cache is shared with them
+      # rather than being a second one keyed differently.
+      - uses: danielkjellid/github-actions/.github/actions/setup-python-uv@main
+        with:
+          working-directory: hue-docs
+
+      - name: Restore the Tailwind CLI
+        uses: actions/cache@v4
+        with:
+          # pytailwindcss fetches an 80MB standalone binary into site-packages
+          # the first time it runs. The shared venv cache is usually populated
+          # by a lint or test job, which never invoke Tailwind, so without this
+          # every deploy would download it again. Restored after that action so
+          # it survives a `uv sync` on a venv cache miss. base.mk pins the
+          # version, so a bump invalidates the key.
+          path: hue-docs/.venv/lib/python*/site-packages/pytailwindcss/bin
+          key: tailwind-cli-${{ runner.os }}-${{ hashFiles('base.mk') }}
+
+      - name: Build the site
+        working-directory: hue-docs
+        run: make build
+
+      - name: Work out what to ship
+        id: target
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "command=deploy" >> "$GITHUB_OUTPUT"
+          else
+            # A preview alias takes lowercase alphanumerics and hyphens only,
+            # so ds/button-group becomes ds-button-group.
+            alias=$(printf '%s' "${{ github.ref_name }}" \
+              | tr '[:upper:]' '[:lower:]' \
+              | sed 's/[^a-z0-9-]/-/g' \
+              | cut -c1-40)
+            echo "command=versions upload --preview-alias $alias" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: hue-docs
+          command: ${{ steps.target.outputs.command }}
