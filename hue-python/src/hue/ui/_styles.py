@@ -24,13 +24,14 @@ FOCUS_RING = (
 
 type ControlSize = Literal["sm", "md", "lg"]
 
-#: Height, inline padding and type size for the box-shaped controls - inputs,
+#: Height, inline padding, type size and the flat leading that keeps a
+#: one-line control one line. For the box-shaped controls - inputs,
 #: native selects, the select trigger. The heights come from the control-*
 #: spacing tokens, which grow on coarse pointers so a touch target stays one.
 CONTROL_SIZES: dict[ControlSize, str] = {
-    "sm": "h-control-sm px-[9px] text-sm",
-    "md": "h-control-md px-[11px] text-base",
-    "lg": "h-control-lg px-[14px] text-md",
+    "sm": "h-control-sm px-[9px] text-sm leading-none",
+    "md": "h-control-md px-[11px] text-base leading-none",
+    "lg": "h-control-lg px-[14px] text-md leading-none",
 }
 
 #: Everything a field-shaped control looks like across all of its states.
@@ -40,7 +41,7 @@ CONTROL_SIZES: dict[ControlSize, str] = {
 #: offset ring on a button would jump the layout of a form row.
 FIELD_SHELL = (
     "w-full min-w-0 rounded-md border border-border-input bg-surface text-fg "
-    "font-body leading-none shadow-field placeholder:text-fg-subtle "
+    "font-body shadow-field placeholder:text-fg-subtle "
     "transition-[border-color,box-shadow] duration-150 "
     "enabled:hover:border-border-hover "
     "focus:outline-none focus:border-accent focus:ring-3 focus:ring-accent-subtle "

@@ -21,6 +21,7 @@ from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
+from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.button_group import ButtonGroup
 from hue.ui.molecules.callout import Callout
@@ -93,6 +94,7 @@ __all__ = [
     "TableRow",
     "Text",
     "TextInput",
+    "Textarea",
     "ThemeSwitcher",
     "create_icon_base",
     "directory_resolver",

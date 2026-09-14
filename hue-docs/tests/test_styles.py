@@ -51,10 +51,31 @@ def _classes_in_source(code: str | None) -> set[str]:
 
 
 def _classes(html: str) -> set[str]:
+    # The lookbehind keeps Alpine's :class and x-bind:class out of this: their
+    # contents are an expression, not a class list, and "count > 280" is not a
+    # missing utility. The quoted class names inside them are picked up by
+    # _bound_classes instead.
+    literal = {
+        token
+        for attr in re.findall(r'(?<![\w:-])class="([^"]*)"', html)
+        for token in html_lib.unescape(attr).split()
+    }
+    return literal | _bound_classes(html)
+
+
+def _bound_classes(html: str) -> set[str]:
+    """
+    Class names that only ever appear inside an Alpine class binding.
+
+    Worth checking because Tailwind has to have found them in the source to
+    emit them at all, and a class that exists only inside an expression is the
+    easiest one for it to miss.
+    """
     return {
         token
-        for attr in re.findall(r'class="([^"]*)"', html)
-        for token in html_lib.unescape(attr).split()
+        for attr in re.findall(r'(?::|x-bind:)class="([^"]*)"', html)
+        for quoted in re.findall(r"'([^']*)'", html_lib.unescape(attr))
+        for token in quoted.split()
     }
 
 
