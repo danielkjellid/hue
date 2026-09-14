@@ -36,7 +36,7 @@ uv run pytest tests          # hue-python and hue-django (no make target)
 make test                    # hue-docs only
 
 # Docs (from hue-docs/)
-PYTHONPATH=src uv run python -m hue_docs   # build → writes dist/   (also: make build)
+make build                                 # build → writes dist/ (pins the Tailwind version)
 make serve                                 # http.server on http://localhost:8000
 
 # Assets (from hue-python/)
