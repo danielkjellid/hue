@@ -18,6 +18,15 @@ class TestSkeleton:
         html = await render_tree(Skeleton(), context_args=context_args)
         assert_selector(html, "div.animate-shimmer")
 
+    @pytest.mark.asyncio
+    async def test_is_visible_against_the_canvas(self, context_args):
+        # The guide's sunken-to-active pair is gray-50 sweeping to gray-100, a
+        # 3% difference against white - invisible on the surface a skeleton
+        # most often sits on.
+        html = await render_tree(Skeleton(), context_args=context_args)
+        assert_selector(html, "div.from-surface-active")
+        assert_no_selector(html, "div.from-surface-sunken")
+
     # shape(): default vs an explicit shape, each carrying its own box
     @pytest.mark.asyncio
     async def test_default_shape_is_a_line(self, context_args):
@@ -51,6 +60,9 @@ class TestSkeleton:
             Skeleton().shape("text").lines(3), context_args=context_args
         )
         assert_selector(html, "div.flex.flex-col > div", count=3)
+        # The bars are percentage-width, which resolves to nothing against a
+        # wrapper sized by its own content, so the stack collapsed in a flex row.
+        assert_selector(html, "div.w-full.flex-col")
         assert_selector(html, "div > div.w-\\[62\\%\\]", count=1)
 
     @pytest.mark.asyncio

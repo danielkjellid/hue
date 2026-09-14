@@ -34,8 +34,13 @@ _SHAPE_WIDTHS: dict[SkeletonShape, str] = {
     "card": "w-full",
 }
 
+# One step darker than the guide's sunken-on-active pair, which resolves to
+# gray-50 sweeping to gray-100 and is a 3% difference against a white canvas -
+# invisible on exactly the surface a skeleton most often sits on. These read on
+# the canvas and on a card, and the same two tokens flip to a lighter pair than
+# the surface in dark mode.
 _SHIMMER = (
-    "bg-linear-to-r from-surface-sunken via-surface-active to-surface-sunken "
+    "bg-linear-to-r from-surface-active via-border-strong to-surface-active "
     "bg-[length:200%_100%] animate-shimmer"
 )
 
@@ -93,7 +98,12 @@ class Skeleton(ChainableComponent):
                     self._bar(shape, last_of_many=index == lines - 1)
                     for index in range(lines)
                 ),
-                class_=classnames("flex flex-col gap-2", self._get_prop("class_")),
+                # w-full because the bars inside are too: a percentage width
+                # resolves to nothing against a wrapper that is itself sized by
+                # its content, so in any flex row the whole stack collapsed.
+                class_=classnames(
+                    "flex w-full flex-col gap-2", self._get_prop("class_")
+                ),
                 **attrs,
             )
 
