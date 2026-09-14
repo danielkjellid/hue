@@ -1,7 +1,7 @@
 import json
 from collections.abc import Callable
 from functools import cached_property
-from typing import Any
+from typing import Any, ClassVar
 
 from htmy import Context, SafeStr, html
 
@@ -13,11 +13,16 @@ from hue.types.core import Component, ComponentType
 class BasePage:
     """
     The HTML document shell around a page body: head, stylesheet and script
-    links, and the Alpine bootstrap that carries the CSRF token.
+    links, the blocking theme script, and the Alpine bootstrap that carries the
+    CSRF token.
 
     Do not subclass directly; create_page_base binds the asset URLs and returns a
     ready-to-use Page class.
     """
+
+    #: Where the visitor's light/dark/system choice is remembered. Give it an
+    #: app-specific value when one origin serves several apps that theme apart.
+    theme_storage_key: ClassVar[str] = "hue-theme"
 
     def __init__(
         self,
@@ -32,7 +37,7 @@ class BasePage:
 
     @cached_property
     def base_x_data(self) -> dict[str, Any]:
-        return {"theme": "light"}
+        return {}
 
     @cached_property
     def extra_css_urls(self) -> list[str]:
@@ -58,15 +63,50 @@ class BasePage:
             "create_page_base()"
         )
 
+    def theme_script(self) -> html.script:
+        """
+        Resolve and apply the colour theme before the first paint.
+
+        This has to be a blocking script in the head: doing it on
+        DOMContentLoaded gives every dark-mode visitor a white flash on every
+        navigation. It reads the choice, resolves "system" against the OS, and
+        writes only the resolved light/dark onto <html>, which is what the CSS
+        matches. The store in theme.js takes over once Alpine boots.
+        """
+        key = json.dumps(self.theme_storage_key)
+        dark_query = "'(prefers-color-scheme: dark)'"
+        script_content = f"""
+        (function () {{
+          var choice = 'system';
+          try {{
+            choice = localStorage.getItem({key}) || 'system';
+          }} catch (e) {{
+            // Only the *remembered* choice depends on storage. Keep the OS
+            // check outside the catch so a visitor with site data blocked
+            // still lands on their system theme rather than on light.
+          }}
+          var dark = window.matchMedia({dark_query}).matches;
+          var resolved = choice === 'system' ? (dark ? 'dark' : 'light') : choice;
+          document.documentElement.setAttribute('data-theme', resolved);
+        }})();
+        """
+        return html.script(SafeStr(script_content))
+
     def configure_alpine(self, context: HueContext) -> html.script:
-        # The token is emitted as a JSON string literal so any character in it
-        # stays a valid JS string, and the script body is marked safe so htmy
-        # does not HTML-escape the JavaScript.
+        # Server-side values are emitted as JSON literals so any character in
+        # them stays a valid JS string, and the script body is marked safe so
+        # htmy does not HTML-escape the JavaScript.
+        options = json.dumps(
+            {
+                "csrfToken": context.csrf_token,
+                "themeStorageKey": self.theme_storage_key,
+            }
+        )
         script_content = f"""
         import {{ configureAlpine }} from '{self.js_url}';
 
         document.addEventListener('DOMContentLoaded', function() {{
-          configureAlpine({json.dumps(context.csrf_token)});
+          configureAlpine({options});
         }});
         """
         return html.script(SafeStr(script_content), type="module")
@@ -92,14 +132,14 @@ class BasePage:
                     html.title(self.html_title_factory()(self.title)),
                     html.meta.charset(),
                     html.meta.viewport(),
+                    self.theme_script(),
                     html.script(src=self.js_url, type="module"),
                     html.link(rel="stylesheet", href=self.css_url, type="text/css"),
                     *extra_css_links,
                 ),
                 hue_html.body()
-                .class_("min-h-screen bg-background relative")
+                .class_("min-h-screen bg-canvas relative")
                 .x_data(self.inject_x_data())
-                .x_bind("data-theme", "theme")
                 .content(self.body, self.configure_alpine(ctx)),
             ),
         )
@@ -111,14 +151,18 @@ def create_page_base(
     js_url: str,
     html_title_factory: Callable[[str], str],
     extra_css_urls: list[str] | None = None,
+    theme_storage_key: str = BasePage.theme_storage_key,
 ) -> type[BasePage]:
     """
     Bind the asset URLs and title formatter for an app and return its Page class.
     """
     html_title_factory_func = html_title_factory
     _extra_css_urls = extra_css_urls or []
+    _theme_storage_key = theme_storage_key
 
     class Page(BasePage):
+        theme_storage_key = _theme_storage_key
+
         @cached_property
         def css_url(self) -> str:
             return css_url

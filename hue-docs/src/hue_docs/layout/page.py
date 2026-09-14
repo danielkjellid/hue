@@ -5,6 +5,7 @@ from __future__ import annotations
 from hue import html
 from hue.pages import BasePage, create_page_base
 from hue.types.core import ComponentType
+from hue.ui import ThemeSwitcher
 
 from hue_docs.layout.sidebar import sidebar
 from hue_docs.models import NavGroup
@@ -16,19 +17,6 @@ _Page = create_page_base(
     html_title_factory=lambda title: f"{title} · Hue",
     extra_css_urls=[url("/styles/highlight.css")],
 )
-
-
-def _theme_toggle() -> ComponentType:
-    return (
-        html.button()
-        .class_(
-            "rounded-md border border-surface-200 px-2.5 py-1.5 text-sm "
-            "text-surface-600 transition-colors hover:text-surface-900"
-        )
-        .aria_label("Toggle colour theme")
-        .x_on("click", "theme = theme === 'dark' ? 'light' : 'dark'")
-        .x_text("theme === 'dark' ? 'Light' : 'Dark'")
-    )
 
 
 def _menu_button() -> ComponentType:
@@ -49,7 +37,7 @@ def _topbar() -> ComponentType:
     return html.header(
         html.div(
             html.a("Hue").href(url("/")).class_("text-lg font-bold text-surface-900"),
-            html.div(_theme_toggle(), _menu_button()).class_("flex items-center gap-2"),
+            html.div(ThemeSwitcher(), _menu_button()).class_("flex items-center gap-2"),
         ).class_(
             "mx-auto flex h-14 w-full max-w-7xl items-center justify-between "
             "px-6 lg:pr-10 lg:pl-6.5"

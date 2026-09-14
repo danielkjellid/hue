@@ -1,5 +1,6 @@
-import Alpine from "alpinejs";
 import ajax from "@imacrayon/alpine-ajax";
+import Alpine from "alpinejs";
+import { registerThemeStore } from "./theme.js";
 
 // Make Alpine available globally
 window.Alpine = Alpine;
@@ -7,9 +8,13 @@ window.Alpine = Alpine;
 // Register the ajax plugin
 Alpine.plugin(ajax);
 
-// Export a function that configures Alpine with CSRF token
-export function configureAlpine(csrfToken) {
-	// Configure ajax with CSRF token
+/**
+ * Wire up the page-level Alpine configuration and start Alpine.
+ *
+ * Called once from the inline bootstrap script BasePage renders, which is where
+ * the server-side values (CSRF token, theme storage key) come from.
+ */
+export function configureAlpine({ csrfToken, themeStorageKey }) {
 	ajax.configure({
 		mergeStrategy: "update",
 		headers: {
@@ -17,7 +22,8 @@ export function configureAlpine(csrfToken) {
 		},
 	});
 
-	// Start Alpine
+	registerThemeStore(Alpine, themeStorageKey);
+
 	Alpine.start();
 
 	return Alpine;
