@@ -26,12 +26,16 @@ from typing import Any, Callable
 
 from hue import ui
 from hue.types.core import ComponentType
+from hue.ui.atoms.icon import HueIcon
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.registry import Showcase, Variant
 
-# The names a curated snippet may reference — the public component surface.
+# The names a curated snippet may reference — the public component surface,
+# plus hue's own icon set, which the components that need a glyph use in their
+# example() too (see the Icon page).
 _NS: dict[str, Any] = {name: getattr(ui, name) for name in ui.__all__}
+_NS["HueIcon"] = HueIcon
 
 
 def builder(
