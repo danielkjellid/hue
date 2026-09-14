@@ -1,5 +1,10 @@
 UV = uv
 
+# pytailwindcss downloads "latest" by default and caches it under that name, so
+# local and CI binaries silently diverge as Tailwind releases. Pin one version
+# for every tailwindcss invocation in every package (check-css diffs the output).
+export TAILWINDCSS_VERSION ?= v4.3.3
+
 V = 0
 Q = $(if $(filter 1,$V),,@)
 M = $(shell printf "\033[34;1m▶\033[0m")

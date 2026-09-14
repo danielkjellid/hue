@@ -10,12 +10,7 @@ if not settings.configured:
     settings.configure(
         DEBUG=True,
         SECRET_KEY="test-secret-key-for-testing-only",
-        INSTALLED_APPS=[
-            "django.contrib.staticfiles",
-            "hue_django",
-        ],
-        STATIC_URL="/static/",
-        STATICFILES_STORAGE="django.contrib.staticfiles.storage.StaticFilesStorage",
+        INSTALLED_APPS=["hue_django"],
         ROOT_URLCONF="tests.conftest",
         MIDDLEWARE=[
             "hue_django.middleware.HueAssetsMiddleware",
@@ -25,7 +20,6 @@ if not settings.configured:
             "django.middleware.csrf.CsrfViewMiddleware",
         ],
         USE_TZ=True,
-        HUE_HTML_TITLE_FACTORY=lambda title: f"{title} - Hue",
         ALLOWED_HOSTS=["*"],
     )
     django.setup()
@@ -33,14 +27,9 @@ if not settings.configured:
 
 @pytest.fixture
 def urlpatterns_() -> list[URLPattern]:
-    """Fixture that returns a reference to tests.urls.urlpatterns.
-
-    This allows tests to modify the URL patterns that Django's ROOT_URLCONF
-    will use. The list is cleared before each test to ensure isolation.
     """
-
-    # Clear the list before each test for isolation
+    The urlpatterns list Django's ROOT_URLCONF uses, emptied before each test so
+    tests can register their own views in isolation.
+    """
     urlpatterns.clear()
-
-    # Return a reference to the actual list Django uses
     return urlpatterns

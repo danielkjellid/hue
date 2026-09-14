@@ -1,23 +1,31 @@
-import inspect
-from typing import TYPE_CHECKING, Awaitable, Protocol
+from collections import defaultdict
+from collections.abc import Awaitable
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Protocol
 
-from django.http import HttpRequest, HttpResponse
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseBase,
+    HttpResponseNotAllowed,
+)
 from django.urls import URLPattern, path
+from django.utils.functional import classproperty
 from django.views import View
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.pages import BasePage
-from hue.router import RawResponse
+from hue.router import RawResponse, Route
 
 from hue_django.router import Router
+
+type UrlPatterns = tuple[list[URLPattern], str]
 
 
 class IndexMethod(Protocol):
     """
-    Protocol defining the signature for the index method in HueView subclasses.
-
-    The index method can be either synchronous or asynchronous, returning
-    a BasePage instance or an Awaitable[BasePage] respectively.
+    The signature of a HueView's index method, sync or async.
     """
 
     def __call__(
@@ -27,120 +35,89 @@ class IndexMethod(Protocol):
     ) -> BasePage | Awaitable[BasePage]: ...
 
 
-class _BaseViewMeta(type):
-    """Metaclass to make urls accessible as a class attribute."""
+class _BaseView(View):
+    @classproperty
+    def app_name(cls: Any) -> str:
+        return cls.__name__.lower()
 
-    def __getattr__(cls, name: str):
-        if name == "urls":
-            return cls._get_urls()
-        if name == "app_name":
-            return cls.get_app_name()
-        raise AttributeError(f"{cls.__name__} has no attribute {name}")
+    @classproperty
+    def urls(cls: Any) -> UrlPatterns:
+        """
+        (urlpatterns, app_name), ready for Django's include(). Built once per
+        class.
+        """
+        # Cached on the class itself, not inherited, so a subclass gets its own.
+        if "_urls" not in cls.__dict__:
+            cls._urls = cls._build_urls()
+        return cls._urls
 
-
-class _BaseView(View, metaclass=_BaseViewMeta):
     @classmethod
-    def _get_urls(cls) -> tuple[list[URLPattern], str]:
+    def _build_urls(cls) -> UrlPatterns:
         raise NotImplementedError("Subclasses must implement this method")
 
     @classmethod
-    def get_app_name(cls) -> str:
-        return cls.__name__.lower()
+    def _url_patterns(cls, routes: list[Route]) -> list[URLPattern]:
+        # One Django URL pattern per path; the dispatcher picks the route by
+        # method. The pattern takes the name of the first route on that path.
+        by_path: dict[str, list[Route]] = defaultdict(list)
+        for route in routes:
+            by_path[route.path].append(route)
+
+        return [
+            path(path_str, cls._dispatcher(path_routes), name=path_routes[0].name)
+            for path_str, path_routes in by_path.items()
+        ]
 
     @classmethod
-    def _create_url_patterns_from_router(
-        cls, router: Router[HttpRequest] | None
-    ) -> list[URLPattern]:
-        if not router:
-            return []
+    def _dispatcher(cls, routes: list[Route]) -> Any:
+        by_method = {route.method: route for route in routes}
+        # HEAD falls back to GET; Django strips the body.
+        if "GET" in by_method:
+            by_method.setdefault("HEAD", by_method["GET"])
 
-        url_patterns: list[URLPattern] = []
-        routes = router.routes
+        async def view(request: HttpRequest, **kwargs: Any) -> HttpResponseBase:
+            route = by_method.get(request.method or "")
+            if route is None:
+                return HttpResponseNotAllowed(sorted(by_method))
 
-        # Group routes by path to handle multiple methods on same path
-        routes_by_path: dict[str, list] = {}
-        for route in routes:
-            if route.path not in routes_by_path:
-                routes_by_path[route.path] = []
-            routes_by_path[route.path].append(route)
+            instance = cls()
+            instance.setup(request, **kwargs)
+            return await instance._handle_route(request, route, **kwargs)
 
-        # Create one URL pattern per unique path
-        for path_str, path_routes in routes_by_path.items():
-            # Create a dispatcher that checks all routes for this path
-            async def view_func(request, routes=path_routes, **kwargs):
-                # Create view instance and set it up properly
-                view_instance = cls()
-                view_instance.setup(request, **kwargs)
-                # Find the route that matches the HTTP method
-                matching_route = None
-                for route in routes:
-                    if route.method == request.method.upper():
-                        matching_route = route
-                        break
-                # If no matching route, return 405
-                if not matching_route:
-                    return HttpResponse("Method not allowed", status=405)
-                # Call the async handler with the matching route
-                # Catch AssertionError from AJAX validation and return 400
-                try:
-                    return await view_instance._handle_route(
-                        request, matching_route, **kwargs
-                    )
-                except AJAXRequiredError:
-                    return HttpResponse("Bad Request", status=400)
-
-            # Use the first route's function name for the URL pattern name
-            view_func_name = path_routes[0].name
-
-            url_patterns.append(
-                path(
-                    path_str,
-                    view_func,
-                    name=view_func_name,
-                )
-            )
-
-        return url_patterns
+        return view
 
     async def _handle_route(
-        self, request: HttpRequest, route, **kwargs
-    ) -> HttpResponse:
-        """
-        Handle a route request.
-
-        The router wraps view functions to automatically render Components to HTML,
-        so we just call the wrapped handler and return the HTML string.
-        """
-        # Extract only path parameters for the handler
-        handler_kwargs = {k: v for k, v in kwargs.items() if k in route.path_params}
-
-        # Call the wrapped handler (which returns HTML string, not Component)
-        # Catch AJAXRequiredError from AJAX validation
+        self, request: HttpRequest, route: Route, **kwargs: Any
+    ) -> HttpResponseBase:
         try:
-            view_func_result = route.view_func(self, request, **handler_kwargs)
+            result = await route.view_func(self, request, **kwargs)
+        except AJAXRequiredError:
+            return HttpResponseBadRequest("AJAX request required")
+        except BodyValidationError as exc:
+            return self.handle_body_validation_error(request, exc)
 
-            # Await if it's a coroutine (wrapped handler is async)
-            while inspect.iscoroutine(view_func_result):
-                view_func_result = await view_func_result
+        if isinstance(result, RawResponse):
+            return result.response
 
-            if isinstance(view_func_result, RawResponse):
-                return view_func_result.response
+        html, status_code = result
+        return HttpResponse(html, status=status_code)
 
-            # Handler now returns HTML string (thanks to router wrapping)
-            html_str, status_code = view_func_result
-            return HttpResponse(html_str, status=status_code)
-        except (AJAXRequiredError, BodyValidationError):
-            return HttpResponse("Bad Request", status=400)
+    def handle_body_validation_error(
+        self, request: HttpRequest, exc: BodyValidationError
+    ) -> HttpResponseBase:
+        """
+        The response when a handler's body fails validation. Override to render
+        the errors back into the form; exc.errors holds Pydantic's details.
+        """
+        return HttpResponse(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
 
 
 class HueFragmentsView(_BaseView):
     """
-    Django-specific base view for fragment-only routes.
+    A view for fragment-only routes, with no index page.
 
-    This view is meant as a collective view for fragments with similar attributes.
-    It must have a router defined, and only handles decorated routes (fragments).
+    Groups related fragments behind one router; every route is AJAX-only.
 
-    Example:
         class CommentsFragments(HueFragmentsView):
             router = Router[HttpRequest]()
 
@@ -149,88 +126,61 @@ class HueFragmentsView(_BaseView):
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ) -> html.div:
                 return html.div("Comments list")
-
-            @router.fragment_post("comments/")
-            async def create_comment(
-                self, request: HttpRequest, context: HueContext[HttpRequest]
-            ) -> html.div:
-                return html.div("Comment created")
     """
 
     @classmethod
-    def _get_urls(cls) -> tuple[list[URLPattern], str]:
-        """
-        Generate Django URL patterns from the router.
-
-        Returns a tuple of (urlpatterns, app_name) compatible with Django's include()
-        function.
-        """
-        router = getattr(cls, "router", None)
-
-        if not router:
+    def _build_urls(cls) -> UrlPatterns:
+        router: Router[HttpRequest] | None = getattr(cls, "router", None)
+        if router is None:
             raise ValueError(
                 f"{cls.__name__} must define a 'router' attribute. "
                 "HueFragmentsView requires a router to handle fragment routes."
             )
-
-        url_patterns = cls._create_url_patterns_from_router(router)
-
-        # Return tuple compatible with Django's include()
-        # Django expects (urlpatterns, app_name)
-        return (url_patterns, cls.app_name)
+        return cls._url_patterns(router.routes), cls.app_name
 
 
 class HueView(_BaseView):
     """
-    Django-specific base view for full page views with optional fragment routes.
+    A full page view with optional fragment routes.
 
-    This view must have an `index` method (sync or async) that handles the initial
-    page load (GET "/"). It can optionally define a router for additional
-    AJAX fragment routes.
+    index (sync or async) handles the initial GET and returns a Page. Fragment
+    routes are added with the router and are AJAX-only.
 
-    Example:
         class LoginView(HueView):
+            router = Router[HttpRequest]()
+
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ) -> Page:
-                return Page(...)  # Full page on initial load
-
-            router = Router[HttpRequest]()
+                return Page(title="Login", body=...)
 
             @router.fragment_post("login/")
             async def login(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ) -> html.div:
-                return html.div("Login successful")  # Fragment
+                return html.div("Login successful")
     """
 
     if TYPE_CHECKING:
-        # Type hint for subclasses - index method must match IndexMethod protocol
         index: IndexMethod
 
     @classmethod
-    def _get_urls(cls) -> tuple[list[URLPattern], str]:
-        """
-        Generate Django URL patterns from the index method and optional router.
-        """
-        # Check for index method
-        if not hasattr(cls, "index"):
+    def _build_urls(cls) -> UrlPatterns:
+        index = getattr(cls, "index", None)
+        if index is None:
             raise ValueError(
                 f"{cls.__name__} must define an 'index' method. "
                 "HueView requires an index method to handle the initial page load."
             )
-
-        if not callable(cls.index):
+        if not callable(index):
             raise ValueError(f"{cls.__name__}.index must be a callable method.")
 
-        if (router := getattr(cls, "router", None)) is None:
-            router = Router[HttpRequest]()
+        # The index is registered on a private router so the user's router (a
+        # class attribute, shared with subclasses) is never mutated, and each
+        # subclass gets its own index.
+        index_router = Router[HttpRequest]()
+        index_router.page("/")(index)
 
-        # Register index route with the router. Uses _page decorator to
-        # mark it as a non-AJAX route.
-        router._page("/")(cls.index)
-        url_patterns = cls._create_url_patterns_from_router(router)
-
-        # Return tuple compatible with Django's include()
-        # Django expects (urlpatterns, app_name)
-        return (url_patterns, cls.app_name)
+        router: Router[HttpRequest] | None = getattr(cls, "router", None)
+        routes = index_router.routes + (router.routes if router else [])
+        return cls._url_patterns(routes), cls.app_name

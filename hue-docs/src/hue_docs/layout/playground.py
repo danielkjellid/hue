@@ -1,10 +1,11 @@
-"""An interactive component playground driven entirely by the bundled Alpine.
+"""
+An interactive component playground driven entirely by the bundled Alpine.
 
-Because the site is static, we pre-render every combination of the component's
-enum/bool props server-side and let Alpine ``x-show`` reveal the one matching
-the current control selection. A props table below the preview drives that
-selection (``x-model``). Everything is derived from the discovered component —
-the preview base is its ``example()`` instance.
+Because the site is static, every combination of the component's enum/bool
+props is pre-rendered server-side and Alpine x-show reveals the one matching the
+current control selection. A props table below the preview drives that selection
+via x-model. Everything is derived from the discovered component; the preview
+base is its example() instance.
 """
 
 from __future__ import annotations
@@ -12,14 +13,13 @@ from __future__ import annotations
 import itertools
 from typing import Any
 
-from htmy import SafeStr
 from hue import html
 from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
 from hue_docs.layout.code import code_block
-from hue_docs.registry import _format_call, example_instance, playground_axes
-from hue_docs.render import render_html_sync
+from hue_docs.registry import example_instance, format_call, playground_axes
+from hue_docs.render import preview, render_html_sync
 
 # Upper bound on pre-rendered combinations per component — every combination is
 # emitted as hidden HTML, so this caps page weight. Lowest-priority props (see
@@ -58,18 +58,9 @@ def _js_literal(value: Any) -> str:
 
 
 def _default(axis: Axis) -> Any:
-    if axis.kind == "bool":
-        return False
     if axis.default in axis.values:
         return axis.default
-    return axis.values[0]
-
-
-def _preview(component: ComponentType) -> ComponentType:
-    try:
-        return SafeStr(render_html_sync(component))
-    except Exception as exc:  # defensive, mirrors the static showcase
-        return html.p(f"Could not render: {exc}").class_("text-sm text-destructive")
+    return False if axis.kind == "bool" else axis.values[0]
 
 
 def _combination_block(
@@ -87,14 +78,13 @@ def _combination_block(
         getattr(instance, axis.method)(value)
 
     calls = "".join(
-        _format_call(axis.method, value)
-        for axis, value in zip(controls, combo, strict=True)
+        format_call(axis, value) for axis, value in zip(controls, combo, strict=True)
     )
     code = f"{doc.name}(){calls}"
 
     return (
         html.div(
-            html.div(_preview(instance)).class_(
+            html.div(preview(instance)).class_(
                 "flex min-h-28 flex-wrap items-center justify-center gap-3 "
                 "rounded-lg border border-surface-200 bg-background px-6 py-8"
             ),
@@ -106,17 +96,23 @@ def _combination_block(
     )
 
 
+def _control_id(axis: Axis) -> str:
+    return f"playground-{axis.method}"
+
+
 def _control_widget(axis: Axis) -> ComponentType:
     model = f"sel.{axis.method}"
     if axis.kind == "bool":
         return (
             html.input_()
+            .id(_control_id(axis))
             .attr("type", "checkbox")
             .x_model(model)
             .class_("h-4 w-4 rounded border-surface-300 accent-primary")
         )
     return (
         html.select(*[html.option(value).attr("value", value) for value in axis.values])
+        .id(_control_id(axis))
         .x_model(model)
         .class_(
             "rounded-md border border-surface-200 bg-background px-2 py-1 "
@@ -128,7 +124,12 @@ def _control_widget(axis: Axis) -> ComponentType:
 def _controls_table(controls: list[Axis]) -> ComponentType:
     rows = [
         html.tr(
-            html.td(html.code(axis.method.replace("_", " "))).class_(
+            html.td(
+                # The prop name labels its control, for screen readers too.
+                html.label(html.code(axis.method.replace("_", " "))).for_(
+                    _control_id(axis)
+                )
+            ).class_(
                 "border-t border-surface-200 px-3 py-2 align-middle text-surface-900"
             ),
             html.td(_control_widget(axis)).class_(
@@ -138,8 +139,12 @@ def _controls_table(controls: list[Axis]) -> ComponentType:
         for axis in controls
     ]
     header = html.tr(
-        html.th("Prop").class_("px-3 py-2 text-left font-medium text-surface-500"),
-        html.th("Value").class_("px-3 py-2 text-left font-medium text-surface-500"),
+        html.th("Prop")
+        .attr("scope", "col")
+        .class_("px-3 py-2 text-left font-medium text-surface-500"),
+        html.th("Value")
+        .attr("scope", "col")
+        .class_("px-3 py-2 text-left font-medium text-surface-500"),
     )
     return html.table(
         html.thead(header),
@@ -152,8 +157,7 @@ def playground(doc: ComponentDoc) -> ComponentType | None:
     if not controls:
         return None
 
-    # Probe the example base: skip the playground if it can't render (e.g. a
-    # component that requires constructor args and defines no example()).
+    # Skip the playground if the example base itself cannot render.
     try:
         render_html_sync(example_instance(doc))
     except Exception:

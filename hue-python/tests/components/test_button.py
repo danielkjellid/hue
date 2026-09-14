@@ -2,18 +2,10 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Button
-from tests._a11y import assert_attr, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
 class TestButton:
-    def test_defaults(self):
-        btn = Button()
-        assert btn._get_prop("variant", "primary") == "primary"
-        assert btn._get_prop("size", "md") == "md"
-        assert btn._get_prop("shape", "rounded") == "rounded"
-        assert btn._get_prop("fluid", True) is True
-        assert btn._get_prop("type", "button") == "button"
-
     @pytest.mark.asyncio
     async def test_render_basic(self, context_args):
         html = await render_tree(Button().content("Click"), context_args=context_args)
@@ -34,9 +26,8 @@ class TestButton:
             Button().content("Tab to me"), context_args=context_args
         )
         assert "focus-visible:outline" in html
-        assert_attr(html, "button", "tabindex", "0")
 
-    # disabled() conditional — both branches
+    # disabled() conditional: both branches, including an explicit False
     @pytest.mark.asyncio
     async def test_render_disabled(self, context_args):
         html = await render_tree(
@@ -50,24 +41,31 @@ class TestButton:
         assert_selector(html, "button:not([disabled])")
 
     @pytest.mark.asyncio
+    async def test_disabled_false_omits_attribute(self, context_args):
+        # Boolean attributes are true by presence; disabled="false" would still
+        # disable the button.
+        html = await render_tree(
+            Button().disabled(False).content("Yes"), context_args=context_args
+        )
+        assert_no_selector(html, "button[disabled]")
+
+    # fluid() conditional: both branches
+    @pytest.mark.asyncio
+    async def test_fluid_by_default(self, context_args):
+        html = await render_tree(Button().content("Go"), context_args=context_args)
+        assert_selector(html, "button.w-full")
+
+    @pytest.mark.asyncio
+    async def test_not_fluid(self, context_args):
+        html = await render_tree(
+            Button().fluid(False).content("Go"), context_args=context_args
+        )
+        assert_selector(html, "button.w-fit")
+        assert_no_selector(html, "button.w-full")
+
+    @pytest.mark.asyncio
     async def test_render_submit_type(self, context_args):
         html = await render_tree(
             Button().type("submit").content("Send"), context_args=context_args
         )
         assert_attr(html, "button", "type", "submit")
-
-    @pytest.mark.asyncio
-    async def test_render_aria_label(self, context_args):
-        html = await render_tree(
-            Button().aria_label("Close dialog").content("X"), context_args=context_args
-        )
-        assert_attr(html, "button", "aria-label", "Close dialog")
-
-    @pytest.mark.asyncio
-    async def test_render_with_id_and_class(self, context_args):
-        html = await render_tree(
-            Button().id("btn-1").class_("extra").content("OK"),
-            context_args=context_args,
-        )
-        assert_attr(html, "button", "id", "btn-1")
-        assert_selector(html, "button.extra")

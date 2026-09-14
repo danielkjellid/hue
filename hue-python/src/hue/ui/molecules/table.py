@@ -26,16 +26,14 @@ class Table(ChainableComponent):
     """
     An accessible data table styled with the design system.
 
-    Composed from subcomponents — ``TableHeader``, ``TableBody``,
-    ``TableFooter``, ``TableRow``, ``TableHead``, ``TableCell``, and
-    ``TableCaption`` — that mirror the native HTML table elements. The
-    ``<table>`` is wrapped in a horizontally scrollable container, and ``.id()``
-    / ``.class_()`` / the ARIA and Alpine modifiers target the table itself.
+    Composed from subcomponents — TableHeader, TableBody,
+    TableFooter, TableRow, TableHead, TableCell, and
+    TableCaption — that mirror the native HTML table elements. The
+    <table> is wrapped in a horizontally scrollable container, and .id()
+    / .class_() / the ARIA and Alpine modifiers target the table itself.
 
-    For the common case of rendering a list of records, reach for ``DataTable``,
+    For the common case of rendering a list of records, reach for DataTable,
     which builds these primitives from a column definition and your data.
-
-    Example::
 
         Table().content(
             TableHeader().content(
@@ -93,9 +91,9 @@ class Table(ChainableComponent):
 
 
 class TableHeader(ChainableComponent):
-    """The ``<thead>`` group of a ``Table``."""
+    """The <thead> group of a Table."""
 
-    category = "Data"
+    category = None
 
     def _render(self, context: HueContext) -> Component:
         classes = classnames(
@@ -110,9 +108,9 @@ class TableHeader(ChainableComponent):
 
 
 class TableBody(ChainableComponent):
-    """The ``<tbody>`` group of a ``Table``."""
+    """The <tbody> group of a Table."""
 
-    category = "Data"
+    category = None
 
     def _render(self, context: HueContext) -> Component:
         classes = classnames(
@@ -127,9 +125,9 @@ class TableBody(ChainableComponent):
 
 
 class TableFooter(ChainableComponent):
-    """The ``<tfoot>`` group of a ``Table``."""
+    """The <tfoot> group of a Table."""
 
-    category = "Data"
+    category = None
 
     def _render(self, context: HueContext) -> Component:
         classes = classnames(
@@ -145,14 +143,14 @@ class TableFooter(ChainableComponent):
 
 class TableRow(ChainableComponent):
     """
-    A ``<tr>`` row.
+    A <tr> row.
 
-    Carries the hover style and a ``data-[state=selected]`` hook: a future
-    selection feature can bind ``data-state`` (via Alpine) to highlight selected
+    Carries the hover style and a data-[state=selected] hook: a future
+    selection feature can bind data-state (via Alpine) to highlight selected
     rows without changing this markup.
     """
 
-    category = "Data"
+    category = None
 
     def _render(self, context: HueContext) -> Component:
         classes = classnames(
@@ -169,14 +167,14 @@ class TableRow(ChainableComponent):
 
 class TableHead(ChainableComponent):
     """
-    A ``<th>`` header cell.
+    A <th> header cell.
 
-    Defaults to ``scope="col"`` for accessibility; use ``.scope()`` to mark a
-    row header instead. ``.align()`` sets text alignment and ``.colspan()`` the
+    Defaults to scope="col" for accessibility; use .scope() to mark a
+    row header instead. .align() sets text alignment and .colspan() the
     column span.
     """
 
-    category = "Data"
+    category = None
 
     def scope(self, value: HeadScope) -> Self:
         self._props["scope"] = value
@@ -209,12 +207,12 @@ class TableHead(ChainableComponent):
 
 class TableCell(ChainableComponent):
     """
-    A ``<td>`` data cell.
+    A <td> data cell.
 
-    ``.align()`` sets text alignment and ``.colspan()`` the column span.
+    .align() sets text alignment and .colspan() the column span.
     """
 
-    category = "Data"
+    category = None
 
     def align(self, value: CellAlign) -> Self:
         self._props["align"] = value
@@ -241,9 +239,12 @@ class TableCell(ChainableComponent):
 
 
 class TableCaption(ChainableComponent):
-    """A ``<caption>`` rendered below the table."""
+    """
+    The table caption. Placed first in the markup as HTML requires, and displayed
+    below the table by the caption-bottom class on Table.
+    """
 
-    category = "Data"
+    category = None
 
     def _render(self, context: HueContext) -> Component:
         classes = classnames(
@@ -260,19 +261,23 @@ class TableCaption(ChainableComponent):
 @dataclass(frozen=True)
 class Column:
     """
-    A column definition for ``DataTable``.
+    A column definition for DataTable.
 
-    ``accessor`` resolves a row's value: either a key / dotted path into the
-    (possibly nested) record (e.g. ``"address.city"``), or a callable taking the
-    row and returning a value. ``cell`` optionally renders custom cell content
-    from the row instead of the resolved value. ``align`` sets the text
+    accessor resolves a row's value: either a key / dotted path into the
+    (possibly nested) record (e.g. "address.city"), or a callable taking the
+    row and returning a value. cell optionally renders custom cell content
+    from the row instead of the resolved value. align sets the text
     alignment of both the header and body cells.
     """
 
     header: str
-    accessor: str | Callable[[Mapping[str, Any]], Any]
+    accessor: str | Callable[[Mapping[str, Any]], Any] | None = None
     cell: Callable[[Mapping[str, Any]], ComponentType] | None = None
     align: CellAlign = "left"
+
+    def __post_init__(self) -> None:
+        if self.accessor is None and self.cell is None:
+            raise ValueError(f"Column {self.header!r} needs an accessor or a cell.")
 
 
 def _resolve(
@@ -285,10 +290,10 @@ def _resolve(
 
     value: Any = row
     for part in accessor.split("."):
-        if not isinstance(value, Mapping):
+        if not isinstance(value, Mapping) or part not in value:
             raise ValueError(
-                f"Cannot resolve accessor {accessor!r}: "
-                f"{part!r} is not a key of a mapping."
+                f"Cannot resolve accessor {accessor!r}: {part!r} is not a key of "
+                f"{value!r}."
             )
         value = value[part]
     return value
@@ -307,22 +312,20 @@ def _stringify(value: Any) -> str:
 
 class DataTable(ChainableComponent):
     """
-    A ``Table`` built from a column definition and a list of records.
+    A Table built from a column definition and a list of records.
 
-    Pass ``.columns()`` (a list of ``Column``) and ``.data()`` (a sequence of
-    mappings); ``DataTable`` emits the ``Table`` primitives, one body row per
-    record. A column's value comes from its ``cell`` render function when set,
-    otherwise from its ``accessor``. When ``data`` is empty an accessible
-    empty-state row is shown. ``.caption()`` adds a caption below the table.
+    Pass .columns() (a list of Column) and .data() (a sequence of
+    mappings); DataTable emits the Table primitives, one body row per
+    record. A column's value comes from its cell render function when set,
+    otherwise from its accessor. When data is empty an accessible
+    empty-state row is shown. .caption() adds a caption below the table.
 
     Note: row selection and pagination are intentionally not implemented yet.
-    The primitives already carry the hooks for them — the ``data-[state=selected]``
-    style and ``[role=checkbox]`` cell padding on ``TableRow`` / ``TableCell``
+    The primitives already carry the hooks for them — the data-[state=selected]
+    style and [role=checkbox] cell padding on TableRow / TableCell
     support a future Alpine-tracked selection column, and pagination is intended
-    to fetch pages server-side via Alpine AJAX (``x-merge`` swapping the
-    ``<tbody>``).
-
-    Example::
+    to fetch pages server-side via Alpine AJAX (x-merge swapping the
+    <tbody>).
 
         DataTable().columns(
             [
@@ -389,6 +392,8 @@ class DataTable(ChainableComponent):
         if column.cell is not None:
             content: ComponentType = column.cell(row)
         else:
+            # __post_init__ guarantees an accessor when there is no cell.
+            assert column.accessor is not None
             content = _stringify(_resolve(row, column.accessor))
         return TableCell().align(column.align).content(content)
 
@@ -399,8 +404,7 @@ class DataTable(ChainableComponent):
                     TableCell()
                     .colspan(len(self._columns))
                     .align("center")
-                    .role("status")
-                    .content(Text("No results.").muted())
+                    .content(Text("No results.").muted().role("status"))
                 )
             )
 
@@ -414,17 +418,14 @@ class DataTable(ChainableComponent):
         )
 
     def _render(self, context: HueContext) -> Component:
-        caption = self._get_prop("caption")
+        # The caption must be the first child of a table; caption-bottom on the
+        # Table handles where it is displayed.
         table = Table().content(
+            render_if(self._get_prop("caption"), lambda c: TableCaption().content(c)),
             self._render_head(),
             self._render_body(),
-            render_if(caption, lambda c: TableCaption().content(c)),
         )
-
-        class_ = self._get_prop("class_")
-        if class_:
-            table = table.class_(class_)
-        for key, value in self._attrs.items():
-            table._attrs.setdefault(key, value)
-
-        return table._render(context)
+        if class_ := self._get_prop("class_"):
+            table.class_(class_)
+        table._attrs.update(self._attrs)
+        return table

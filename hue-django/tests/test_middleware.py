@@ -1,15 +1,13 @@
-import hashlib
-
 import pytest
+from asgiref.sync import async_to_sync
 from django.http import HttpResponse
-from django.test import RequestFactory
+from django.test import AsyncRequestFactory, RequestFactory
 
-from hue_django.middleware import HUE_ASSETS_PREFIX, HueAssetsMiddleware, _cache
+from hue_django.middleware import CSS_URL, JS_URL, HueAssetsMiddleware, _cache
 
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
-    """Clear the asset cache before each test."""
     _cache.clear()
     yield
     _cache.clear()
@@ -17,8 +15,6 @@ def _clear_cache():
 
 @pytest.fixture
 def middleware():
-    """Create a middleware instance with a simple passthrough get_response."""
-
     def get_response(request):
         return HttpResponse("fallthrough", status=404)
 
@@ -32,76 +28,85 @@ def rf():
 
 class TestMiddlewareServesAssets:
     def test_serves_css(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css")
-        response = middleware(request)
+        response = middleware(rf.get(CSS_URL))
 
         assert response.status_code == 200
         assert "text/css" in response["Content-Type"]
         assert len(response.content) > 0
 
     def test_serves_js(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}js/alpine.js")
-        response = middleware(request)
+        response = middleware(rf.get(JS_URL))
 
         assert response.status_code == 200
         assert "javascript" in response["Content-Type"]
         assert len(response.content) > 0
 
-    def test_falls_through_for_unknown_asset(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}unknown.txt")
-        response = middleware(request)
+    def test_head_request(self, middleware, rf) -> None:
+        response = middleware(rf.head(CSS_URL))
+
+        assert response.status_code == 200
+        assert "ETag" in response
+
+    @pytest.mark.parametrize("path", ["/__hue__/unknown.txt", "/some/other/path/"])
+    def test_falls_through_for_other_paths(self, middleware, rf, path) -> None:
+        response = middleware(rf.get(path))
 
         assert response.status_code == 404
         assert response.content == b"fallthrough"
 
-    def test_falls_through_for_non_hue_path(self, middleware, rf) -> None:
-        request = rf.get("/some/other/path/")
-        response = middleware(request)
+    def test_falls_through_for_non_safe_methods(self, middleware, rf) -> None:
+        response = middleware(rf.post(CSS_URL))
 
         assert response.status_code == 404
         assert response.content == b"fallthrough"
+
+    def test_async_chain(self) -> None:
+        async def get_response(request):
+            return HttpResponse("fallthrough", status=404)
+
+        middleware = HueAssetsMiddleware(get_response)
+        arf = AsyncRequestFactory()
+
+        asset = async_to_sync(middleware)(arf.get(CSS_URL))
+        other = async_to_sync(middleware)(arf.get("/other/"))
+
+        assert asset.status_code == 200
+        assert other.content == b"fallthrough"
 
 
 class TestMiddlewareCaching:
-    def test_sets_etag_header(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css")
-        response = middleware(request)
+    def test_sets_quoted_etag_and_cache_control(self, middleware, rf) -> None:
+        response = middleware(rf.get(CSS_URL))
 
-        assert "ETag" in response
-        assert len(response["ETag"]) > 0
+        assert response["ETag"].startswith('"') and response["ETag"].endswith('"')
+        assert "public" in response["Cache-Control"]
 
-    def test_returns_304_on_matching_etag(self, middleware, rf) -> None:
-        # First request to get the ETag
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css")
-        response = middleware(request)
-        etag = response["ETag"]
+    @pytest.mark.parametrize(
+        "if_none_match",
+        [
+            "{etag}",
+            "W/{etag}",
+            '"other", {etag}',
+            "*",
+        ],
+    )
+    def test_returns_304_on_matching_etag(self, middleware, rf, if_none_match) -> None:
+        etag = middleware(rf.get(CSS_URL))["ETag"]
 
-        # Second request with If-None-Match
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css", HTTP_IF_NONE_MATCH=etag)
-        response = middleware(request)
+        response = middleware(
+            rf.get(CSS_URL, HTTP_IF_NONE_MATCH=if_none_match.format(etag=etag))
+        )
 
         assert response.status_code == 304
+        assert response["ETag"] == etag
 
     def test_returns_200_on_non_matching_etag(self, middleware, rf) -> None:
-        request = rf.get(
-            f"{HUE_ASSETS_PREFIX}styles.css", HTTP_IF_NONE_MATCH="wrong-etag"
-        )
-        response = middleware(request)
+        response = middleware(rf.get(CSS_URL, HTTP_IF_NONE_MATCH='"wrong-etag"'))
 
         assert response.status_code == 200
 
-    def test_sets_cache_control_header(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css")
-        response = middleware(request)
+    def test_reads_asset_once(self, middleware, rf) -> None:
+        middleware(rf.get(CSS_URL))
+        middleware(rf.get(CSS_URL))
 
-        assert "Cache-Control" in response
-        assert "public" in response["Cache-Control"]
-
-    def test_caches_content_in_memory(self, middleware, rf) -> None:
-        request = rf.get(f"{HUE_ASSETS_PREFIX}styles.css")
-        middleware(request)
-
-        assert "styles.css" in _cache
-        content, etag = _cache["styles.css"]
-        assert len(content) > 0
-        assert etag == hashlib.md5(content.encode()).hexdigest()
+        assert set(_cache) == {CSS_URL}

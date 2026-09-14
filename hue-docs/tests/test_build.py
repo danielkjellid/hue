@@ -1,14 +1,19 @@
+from pathlib import Path
+
 import pytest
 
-from hue_docs import content
+from hue_docs import content, showcase
 from hue_docs.build import build_nav
-from hue_docs.categories import CATEGORY_ORDER, DEFAULT_CATEGORY, category_for
+from hue_docs.categories import ordered_categories
 from hue_docs.discovery import discover
+from hue_docs.layout.highlight import highlight_code
 from hue_docs.layout.page import build_page
 from hue_docs.layout.playground import playground as build_playground
 from hue_docs.layout.showcase import component_main
-from hue_docs.registry import auto_showcases, example_code, example_instance
+from hue_docs.models import ProsePage
+from hue_docs.registry import auto_showcases, example_instance
 from hue_docs.render import render_html_sync
+from hue_docs.showcase import curated_showcases
 
 
 def test_nav_includes_prose_groups_and_component_categories():
@@ -20,19 +25,32 @@ def test_nav_includes_prose_groups_and_component_categories():
     # Related components are clustered into subsections, not one flat list.
     assert "Inputs" in titles
 
-    category_titles = set(CATEGORY_ORDER) | {DEFAULT_CATEGORY}
+    categories = set(ordered_categories(docs))
     component_items = sum(
-        len(group.items) for group in nav if group.title in category_titles
+        len(group.items) for group in nav if group.title in categories
     )
     assert component_items == len(docs)
+
+
+def test_nav_rejects_unknown_prose_groups():
+    page = ProsePage(
+        slug="x", title="X", nav_label="X", group="Typo", order=1, build=lambda: ""
+    )
+    with pytest.raises(ValueError, match="Typo"):
+        build_nav([page], [])
 
 
 def test_component_category_comes_from_the_component():
     docs = {doc.name: doc for doc in discover()}
     # Categories are declared on the component class, not a docs-side map.
-    assert category_for(docs["Button"]) == "Actions"
-    assert category_for(docs["TextInput"]) == "Inputs"
-    assert category_for(docs["Stack"]) == "Layout"
+    assert docs["Button"].category == "Actions"
+    assert docs["TextInput"].category == "Inputs"
+    assert docs["Stack"].category == "Layout"
+
+
+def test_unknown_code_language_is_rejected():
+    with pytest.raises(ValueError, match="Unknown code block language"):
+        highlight_code("<svg/>", "htlm")
 
 
 @pytest.mark.parametrize("page", content.PAGES, ids=lambda p: p.slug or "home")
@@ -54,19 +72,20 @@ def test_prose_pages_render_to_a_document(page):
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
 def test_every_component_page_renders(doc):
+    # Exercises the header, curated and auto showcases, and the playground.
     nav = build_nav(content.PAGES, discover())
+    showcases = curated_showcases(doc) + auto_showcases(doc)
     html = render_html_sync(
         build_page(
             title=doc.name,
             nav=nav,
-            active_href=f"/components/{doc.slug}/",
-            main=component_main(doc, auto_showcases(doc), build_playground(doc)),
+            active_href=doc.href,
+            main=component_main(doc, showcases, build_playground(doc)),
         )
     )
 
     assert html.startswith("<!DOCTYPE html>")
     assert doc.name in html
-    # Nothing on the page should have fallen back to a render error.
     assert "Could not render:" not in html
 
 
@@ -74,25 +93,14 @@ def test_every_component_page_renders(doc):
 def test_every_component_exposes_a_renderable_example(doc):
     # The whole auto-discovery story depends on each component providing a
     # representative, renderable example() instance.
-    html = render_html_sync(example_instance(doc))
-    assert html, f"{doc.name}.example() rendered empty"
-    # And its source is recoverable as a usage snippet starting with the name.
-    code = example_code(doc)
-    assert code is None or code.startswith(f"{doc.name}(")
+    assert render_html_sync(example_instance(doc)), f"{doc.name}.example() was empty"
 
 
-@pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
-def test_every_component_playground_renders(doc):
-    component = build_playground(doc)
-    if component is None:  # components with no enum/bool axes (e.g. Icon)
-        return
-    html = render_html_sync(component)
-    assert "Could not render:" not in html, f"{doc.name} playground had a render error"
-
-
-def test_every_showcase_variant_builds_and_renders():
-    for doc in discover():
-        for showcase in auto_showcases(doc):
-            for variant in showcase.variants:
-                html = render_html_sync(variant.build())
-                assert html, f"{doc.name}/{showcase.title}/{variant.label} was empty"
+def test_every_curated_showcase_module_matches_a_component():
+    names = {doc.name for doc in discover()}
+    modules = {
+        path.stem
+        for path in Path(showcase.__file__).parent.glob("*.py")
+        if path.stem != "__init__"
+    }
+    assert modules <= names, f"orphan showcase modules: {modules - names}"

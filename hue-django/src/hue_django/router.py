@@ -1,4 +1,4 @@
-import asyncio
+import inspect
 import re
 from typing import Any
 
@@ -11,21 +11,22 @@ from hue.router import Router as HueRouter
 
 __all__ = ["HueResponse", "Router"]
 
+# Django path syntax: <name> or <converter:name>.
+_PATH_PARAM_RE = re.compile(r"<(?:\w+:)?(\w+)>")
+
 
 class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     """
-    Django-specific router that extends the base Router.
+    The hue router for Django views, understanding Django's path syntax such as
+    "comments/<int:comment_id>/".
 
-    Handles Django URL pattern syntax like "comments/<int:comment_id>/".
-
-    Example:
         class MyView(HueView):
             router = Router[HttpRequest]()
 
             async def index(
                 self, request: HttpRequest, context: HueContext[HttpRequest]
             ) -> Page:
-                return Page(...)
+                return Page(title="Comments", body=...)
 
             @router.fragment_get("comments/<int:comment_id>/")
             async def comment(
@@ -38,38 +39,10 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     """
 
     def _parse_path_params(self, path: str) -> PathParseResult:
-        """
-        Parse Django URL pattern parameters from path.
-
-        Django uses syntax like <int:comment_id> or <str:username>.
-        """
-        # Find all <type:name> patterns (Django URL pattern syntax)
-        param_pattern = r"<(\w+):(\w+)>"
-        matches = re.findall(param_pattern, path)
-        param_names = [name for _, name in matches]
-
-        return PathParseResult(path=path, param_names=param_names)
+        return PathParseResult(path=path, param_names=_PATH_PARAM_RE.findall(path))
 
     def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
-        """
-        Get Django-specific context arguments.
-
-        Returns request and CSRF token for Django.
-        """
-        return HueContextArgs(
-            request=request,
-            csrf_token=get_token(request),
-        )
-
-    def _is_ajax_request(self, request: T_Request) -> bool:
-        """
-        Check if the request is an AJAX request using Django's request.META.
-
-        Django stores HTTP headers in request.META with the HTTP_ prefix.
-        """
-        is_ajax_req = request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
-        is_alpine_ajax_req = request.META.get("HTTP_X_ALPINE_REQUEST") == "true"
-        return is_ajax_req or is_alpine_ajax_req
+        return HueContextArgs(request=request, csrf_token=get_token(request))
 
     def _get_request_body(self, request: T_Request) -> str:
         return request.body.decode("utf-8")
@@ -89,18 +62,14 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         **kwargs: Any,
     ) -> Any:
         """
-        Django-specific view function caller.
+        Run sync handlers in a thread via sync_to_async.
 
-        Wraps sync view functions with sync_to_async for proper ASGI compatibility.
-        The router dispatches every handler from an async context, so calling sync
-        code (ORM, auth, etc.) directly raises SynchronousOnlyOperation -> 500. That
-        500 has no AJAX target, so Alpine AJAX falls back to a native form resubmit,
-        which the server rejects with 400 (AJAX required). Running sync handlers in a
-        thread avoids that duplicate-request cascade.
+        Handlers are dispatched from an async context, so calling sync code (ORM,
+        auth) directly raises SynchronousOnlyOperation. That 500 has no AJAX
+        target, so Alpine AJAX falls back to a native form resubmit, which the
+        server then rejects as non-AJAX. Running sync handlers in a thread avoids
+        the whole cascade.
         """
-        if asyncio.iscoroutinefunction(view_func):
-            # Async function: call directly
+        if inspect.iscoroutinefunction(view_func):
             return await view_func(view_instance, request, context, **kwargs)
-
-        # Sync function: wrap with sync_to_async so DB/auth access works.
         return await sync_to_async(view_func)(view_instance, request, context, **kwargs)

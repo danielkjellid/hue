@@ -74,7 +74,7 @@ def _build() -> ComponentType:
             "    async def index(\n"
             "        self, request: HttpRequest, context: HueContext[HttpRequest]\n"
             "    ) -> Page:\n"
-            '        return Page(body=html.div("Login page"))\n\n'
+            '        return Page(title="Login", body=html.div("Login page"))\n\n'
             '    @router.fragment_post("login/")\n'
             "    async def login(\n"
             "        self, request: HttpRequest, context: HueContext[HttpRequest]\n"

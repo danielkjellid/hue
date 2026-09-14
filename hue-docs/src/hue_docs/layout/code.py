@@ -14,7 +14,8 @@ def code_block(source: str, *, language: str = "python") -> ComponentType:
         .class_("group relative")
         .x_data("{ copied: false }")
         .content(
-            html.button()
+            html.button("Copy")
+            .aria_label("Copy code to clipboard")
             .class_(
                 "absolute right-2 top-2 rounded-md border border-surface-200 "
                 "bg-background px-2 py-1 text-xs text-surface-600 opacity-0 "

@@ -21,8 +21,6 @@ watch-css: .venv ; $(info $(M) watching css) @
 .PHONY: build-css
 build-css: .venv ; $(info $(M) building minified css) @
 	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o $(PACKAGE)/static/styles/tailwind.css
-	$Q $(UV) run tailwindcss -i $(PACKAGE)/static/styles/tailwind.input.css -o ../hue-django/src/hue_django/static/hue/styles/tailwind.css --minify
-	
 
 .PHONY: check-css
 check-css: .venv ; $(info $(M) checking if css would change) @
@@ -48,13 +46,9 @@ node_modules: package.json package-lock.json ; $(info $(M) installing js depende
 build-js: node_modules package.json ; $(info $(M) building js bundle) @
 	$Q $(NPM) run build
 
-.PHONY: copy-js
-copy-js: build-js package.json ; $(info $(M) copying js bundle to django) @
-	$Q cp $(PACKAGE)/static/js/alpine-bundle.js ../hue-django/src/hue_django/static/hue/js/alpine-bundle.js
-
 #########
 # Build #
 #########
 
 .PHONY: build
-build: build-css build-js copy-js
+build: build-css build-js

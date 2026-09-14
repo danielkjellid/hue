@@ -1,4 +1,4 @@
-"""Curated showcases for ``DataTable`` (modelled on shadcn's data table)."""
+"""Curated showcases for DataTable (modelled on shadcn's data table)."""
 
 from __future__ import annotations
 

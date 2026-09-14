@@ -39,6 +39,8 @@ def _menu_button() -> ComponentType:
             "text-surface-600 lg:hidden"
         )
         .aria_label("Toggle navigation")
+        .aria_controls("docs-sidebar")
+        .x_bind("aria-expanded", "navOpen")
         .x_on("click", "navOpen = !navOpen")
     )
 

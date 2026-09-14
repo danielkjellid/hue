@@ -35,10 +35,8 @@ jobs:
         working-directory: hue-docs
         env:
           HUE_DOCS_BASE_URL: ${{ steps.pages.outputs.base_path }}
-        run: |
-          uv venv --python 3.13
-          uv sync
-          PYTHONPATH=src uv run python -m hue_docs
+        # make build pins the Tailwind version via base.mk.
+        run: make build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: hue-docs/dist

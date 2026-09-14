@@ -12,48 +12,36 @@ from hue.types.css import AlignItems, JustifyContent
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
+type StackDirection = Literal["horizontal", "vertical"]
+type StackPosition = Literal["relative", "absolute", "fixed", "sticky"]
+
 
 class Stack(ChainableComponent):
     """
     A flex container that lays its children out in a row or column.
 
-    Renders a flex ``<div>`` that arranges its content vertically or
-    horizontally (``.direction()``) with consistent spacing between items
-    (``.spacing()``). ``.justify_content()`` and ``.align_items()`` control
-    alignment along each axis, and ``.position()`` sets the CSS position.
+    direction() picks the axis, spacing() the gap between items,
+    justify_content() and align_items() the alignment along each axis, and
+    position() the CSS position.
 
-    Example::
-
-        Stack()
-            .direction("horizontal")
-            .spacing("md")
-            .align_items("items-center")
-            .content(
-                Text("Hello").variant("title-3"),
-                Text("World").variant("body"),
-            )
+        Stack().direction("horizontal").spacing("md").align_items("items-center")
     """
 
     category = "Layout"
 
     @classmethod
     def example(cls) -> Self:
-        """A representative instance, used by the docs site for previews."""
-        box = (
-            "flex h-10 w-10 items-center justify-center rounded-md "
-            "bg-primary text-sm text-white"
-        )
         return (
             cls()
             .direction("horizontal")
             .content(
-                html.div("1", class_=box),
-                html.div("2", class_=box),
-                html.div("3", class_=box),
+                html.div("1", class_="size-10 rounded-md bg-primary p-2 text-white"),
+                html.div("2", class_="size-10 rounded-md bg-primary p-2 text-white"),
+                html.div("3", class_="size-10 rounded-md bg-primary p-2 text-white"),
             )
         )
 
-    def direction(self, value: Literal["horizontal", "vertical"]) -> Self:
+    def direction(self, value: StackDirection) -> Self:
         self._props["direction"] = value
         return self
 
@@ -69,39 +57,28 @@ class Stack(ChainableComponent):
         self._props["align_items"] = value
         return self
 
-    def position(
-        self, value: Literal["relative", "absolute", "fixed", "sticky"]
-    ) -> Self:
+    def position(self, value: StackPosition) -> Self:
         self._props["position"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
-        direction: Literal["horizontal", "vertical"] = self._get_prop(
-            "direction", "vertical"
-        )
-        spacing_size: Size = self._get_prop("spacing", "sm")
+        direction: StackDirection = self._get_prop("direction", "vertical")
+        spacing: Size = self._get_prop("spacing", "sm")
         justify: JustifyContent = self._get_prop("justify_content", "justify-start")
         align: AlignItems = self._get_prop("align_items", "items-start")
-        pos = self._get_prop("position", "relative")
+        position: StackPosition = self._get_prop("position", "relative")
 
-        spacing_x, spacing_y = SPACE_BETWEEN[spacing_size]
+        vertical = direction == "vertical"
+        spacing_x, spacing_y = SPACE_BETWEEN[spacing]
 
         classes = classnames(
-            "flex",
-            "w-full",
+            "flex w-full",
             justify,
             align,
-            pos,
-            {
-                "flex-col": direction == "vertical",
-                "flex-row": direction == "horizontal",
-            },
-            spacing_y if direction == "vertical" else spacing_x,
+            position,
+            "flex-col" if vertical else "flex-row",
+            spacing_y if vertical else spacing_x,
             self._get_prop("class_"),
         )
 
-        return html.div(
-            *self._children,
-            class_=classes,
-            **self._get_base_html_attrs(),
-        )
+        return html.div(*self._children, class_=classes, **self._get_base_html_attrs())

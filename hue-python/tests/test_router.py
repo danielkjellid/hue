@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError
-from hue.router import HueResponse, PathParseResult
+from hue.router import HueResponse, PathParseResult, RawResponse
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter
 
@@ -916,3 +916,26 @@ async def test_body_parsing_form_data_missing_field(
 
     with pytest.raises(BodyValidationError):
         await wrapped(view_instance, request)
+
+
+@pytest.mark.asyncio
+async def test_framework_response_is_passed_through(router, mock_request):
+    class FakeRedirect:
+        status_code = 302
+
+    async def view(self, request, context):
+        return FakeRedirect()
+
+    wrapped = router._wrap_view(view, require_ajax=False)
+    result = await wrapped(object(), mock_request())
+
+    assert isinstance(result, RawResponse)
+    assert isinstance(result.response, FakeRedirect)
+
+
+def test_unannotated_body_parameter_is_rejected_at_registration(router):
+    with pytest.raises(TypeError, match="must be annotated"):
+
+        @router.fragment_post("save/")
+        async def view(self, request, context, body):
+            return html.div()

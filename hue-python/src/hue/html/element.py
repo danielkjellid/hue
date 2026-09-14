@@ -6,54 +6,50 @@ from htmy.core import Tag, TagWithProps
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component
-from hue.ui.base import ChainableComponent
+from hue.types.core import Component, ComponentType
+from hue.ui.base import AlpineModelMixin, ChainableComponent
 
 
 class Element(ChainableComponent):
     """
-    A chainable wrapper around any htmy ``Tag``.
+    A chainable wrapper around any htmy Tag.
 
-    Provides the same modifier methods as other v2 components (``.class_()``,
-    ``.id()``, ARIA helpers) plus a generic ``.attr()`` for arbitrary HTML
-    attributes.
-
-    Not typically instantiated directly — use the ``hue.html`` module::
-
-        from hue import html
-
-        html.div()
-            .class_("container")
-            .content(
-                html.span("Hello"),
-            )
+    Provides the shared modifiers (class_, id, ARIA, Alpine) plus attr() for
+    arbitrary HTML attributes. Not usually instantiated directly; use the
+    factories on the hue.html module.
     """
 
     def __init__(self, tag_class: type[Tag] | type[TagWithProps]) -> None:
         super().__init__()
         self._tag_class = tag_class
 
+    @property
+    def _is_void(self) -> bool:
+        # htmy models void elements (input, br, img, ...) as TagWithProps.
+        return not issubclass(self._tag_class, Tag)
+
     def attr(self, key: str, value: Any) -> Self:
-        """Set an arbitrary HTML attribute."""
+        """
+        Set an arbitrary HTML attribute.
+        """
         self._attrs[key] = value
         return self
 
-    # ------------------------------------------------------------------
-    # Rendering
-    # ------------------------------------------------------------------
+    def content(self, *children: ComponentType) -> Self:
+        if children and self._is_void:
+            tag = self._tag_class.__name__.rstrip("_")
+            raise TypeError(f"<{tag}> is a void element and cannot have children.")
+        return super().content(*children)
 
     def _render(self, context: HueContext) -> Component:
-        all_attrs: dict[str, Any] = self._get_base_html_attrs()
+        attrs: dict[str, Any] = self._get_base_html_attrs()
 
-        class_ = self._get_prop("class_")
-        if class_:
-            all_attrs["class_"] = class_
+        if class_ := self._get_prop("class_"):
+            attrs["class_"] = class_
 
-        # TagWithProps (void elements like <input>, <br>) have no children
-        if issubclass(self._tag_class, Tag):
-            return self._tag_class(*self._children, **all_attrs)
-
-        return self._tag_class(**all_attrs)
+        if self._is_void:
+            return self._tag_class(**attrs)
+        return self._tag_class(*self._children, **attrs)
 
 
 # ------------------------------------------------------------------
@@ -63,15 +59,16 @@ class Element(ChainableComponent):
 
 class _AlpineAjaxRequestMixin:
     """
-    Alpine AJAX attributes for request-originating elements (``<form>``,
-    ``<a>``).  These control *where* an AJAX response is merged and how
-    the request is configured.
+    Alpine AJAX attributes for request-originating elements (form, a). These
+    control where an AJAX response is merged and how the request is configured.
     """
 
     _attrs: dict[str, Any]  # provided by ChainableComponent
 
     def x_target(self, value: str) -> Self:
-        """Target element(s) to update with the AJAX response."""
+        """
+        Target element(s) to update with the AJAX response.
+        """
         self._attrs["x-target"] = value
         return self
 
@@ -116,35 +113,38 @@ class _AlpineAjaxRequestMixin:
         return self
 
     def x_headers(self, value: dict[str, str]) -> Self:
-        """Add extra headers to the AJAX request."""
+        """
+        Add extra headers to the AJAX request.
+        """
         self._attrs["x-headers"] = value
         return self
 
     def x_sync(self, value: bool = True) -> Self:
-        self._attrs["x-sync"] = value
+        self._attrs["x-sync"] = value or None
         return self
 
 
-class _AlpineModelMixin:
-    """``x-model`` for form controls (``<input>``, ``<select>``,
-    ``<textarea>``)."""
+class _FormControlElement(AlpineModelMixin, Element):
+    """
+    Attributes every native form control shares (input, select, textarea).
+    """
 
-    _attrs: dict[str, Any]
+    def name(self, value: str) -> Self:
+        return self.attr("name", value)
 
-    def x_model(self, value: str) -> Self:
-        """Two-way bind this control to Alpine data."""
-        self._attrs["x-model"] = value
-        return self
+    def disabled(self, value: bool = True) -> Self:
+        return self.attr("disabled", value or None)
+
+    def required(self, value: bool = True) -> Self:
+        return self.attr("required", value or None)
 
 
 # ------------------------------------------------------------------
-# Specialized elements with typed attribute methods
+# Specialised elements with typed attribute methods
 # ------------------------------------------------------------------
 
 
 class FormElement(_AlpineAjaxRequestMixin, Element):
-    """Chainable ``<form>`` with typed methods for common form attributes."""
-
     def method(self, value: Literal["GET", "POST"]) -> Self:
         return self.attr("method", value)
 
@@ -162,12 +162,10 @@ class FormElement(_AlpineAjaxRequestMixin, Element):
         return self.attr("enctype", value)
 
     def novalidate(self, value: bool = True) -> Self:
-        return self.attr("novalidate", value)
+        return self.attr("novalidate", value or None)
 
 
 class AnchorElement(_AlpineAjaxRequestMixin, Element):
-    """Chainable ``<a>`` with typed methods for common anchor attributes."""
-
     def href(self, value: str) -> Self:
         return self.attr("href", value)
 
@@ -179,8 +177,6 @@ class AnchorElement(_AlpineAjaxRequestMixin, Element):
 
 
 class ImgElement(Element):
-    """Chainable ``<img>`` with typed methods for common image attributes."""
-
     def src(self, value: str) -> Self:
         return self.attr("src", value)
 
@@ -198,13 +194,11 @@ class ImgElement(Element):
 
 
 class ButtonElement(Element):
-    """Chainable ``<button>`` with typed methods for common button attributes."""
-
     def type(self, value: Literal["button", "submit", "reset"]) -> Self:
         return self.attr("type", value)
 
     def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value)
+        return self.attr("disabled", value or None)
 
     def name(self, value: str) -> Self:
         return self.attr("name", value)
@@ -213,55 +207,29 @@ class ButtonElement(Element):
         return self.attr("value", value)
 
     def formnoajax(self, value: bool = True) -> Self:
-        """Disable AJAX for this submit button."""
-        self._attrs["formnoajax"] = value
-        return self
+        """
+        Disable AJAX for this submit button.
+        """
+        return self.attr("formnoajax", value or None)
 
 
-class InputElement(_AlpineModelMixin, Element):
-    """Chainable ``<input>`` with typed methods for common input attributes."""
-
+class InputElement(_FormControlElement):
     def input_type(self, value: str) -> Self:
         return self.attr("type", value)
 
-    def name(self, value: str) -> Self:
-        return self.attr("name", value)
-
     def placeholder(self, value: str) -> Self:
         return self.attr("placeholder", value)
-
-    def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value)
-
-    def required(self, value: bool = True) -> Self:
-        return self.attr("required", value)
 
     def value(self, value: str) -> Self:
         return self.attr("value", value)
 
 
-class SelectElement(_AlpineModelMixin, Element):
-    """Chainable ``<select>`` with typed methods for common select attributes."""
-
-    def name(self, value: str) -> Self:
-        return self.attr("name", value)
-
+class SelectElement(_FormControlElement):
     def multiple(self, value: bool = True) -> Self:
-        return self.attr("multiple", value)
-
-    def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value)
-
-    def required(self, value: bool = True) -> Self:
-        return self.attr("required", value)
+        return self.attr("multiple", value or None)
 
 
-class TextareaElement(_AlpineModelMixin, Element):
-    """Chainable ``<textarea>`` with typed methods for common textarea attributes."""
-
-    def name(self, value: str) -> Self:
-        return self.attr("name", value)
-
+class TextareaElement(_FormControlElement):
     def rows(self, value: int) -> Self:
         return self.attr("rows", value)
 
@@ -271,21 +239,13 @@ class TextareaElement(_AlpineModelMixin, Element):
     def placeholder(self, value: str) -> Self:
         return self.attr("placeholder", value)
 
-    def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value)
-
-    def required(self, value: bool = True) -> Self:
-        return self.attr("required", value)
-
 
 class LabelElement(Element):
-    """Chainable ``<label>`` with typed methods for common label attributes."""
-
     def for_(self, value: str) -> Self:
         return self.attr("for_", value)
 
 
-# Maps htmy tag class names to specialized Element subclasses.
+# Maps htmy tag names to the specialised Element subclass.
 SPECIALIZED_ELEMENTS: dict[str, type[Element]] = {
     "form": FormElement,
     "a": AnchorElement,

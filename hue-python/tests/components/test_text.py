@@ -83,3 +83,16 @@ class TestLabel:
     async def test_visible_label_is_not_sr_only(self, context_args):
         html = await render_tree(Label("Visible"), context_args=context_args)
         assert_no_selector(html, "label.sr-only")
+
+    # disabled() conditional: both branches
+    @pytest.mark.asyncio
+    async def test_disabled_label(self, context_args):
+        html = await render_tree(Label("Email").disabled(), context_args=context_args)
+        assert_selector(html, "label.text-surface-300")
+        assert_no_selector(html, "label.text-surface-900")
+
+    @pytest.mark.asyncio
+    async def test_enabled_label(self, context_args):
+        html = await render_tree(Label("Email"), context_args=context_args)
+        assert_selector(html, "label.text-surface-900.cursor-pointer")
+        assert_no_selector(html, "label.text-surface-300")

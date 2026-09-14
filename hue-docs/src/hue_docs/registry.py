@@ -1,14 +1,9 @@
-"""Turn a discovered component into showcase data — fully automatically.
+"""
+Turn a discovered component into showcase data, fully automatically.
 
-Everything here is derived from the component itself:
-
-* the preview content comes from the component's ``example()`` classmethod
-  (falling back to a bare ``Cls()``),
-* the variant grids come from its introspected ``Literal`` axes, and
-* the usage snippet comes from the source of ``example()``.
-
-There are no per-component files to maintain — a new component is documented the
-moment it exists.
+The preview content comes from the component's example() classmethod, the
+variant grids from its introspected Literal axes, and the usage snippet from the
+source of example(). There are no per-component files to maintain.
 """
 
 from __future__ import annotations
@@ -16,8 +11,9 @@ from __future__ import annotations
 import ast
 import inspect
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from hue.types.core import ComponentType
 
@@ -25,9 +21,9 @@ from hue_docs.discovery import Axis, ComponentDoc
 
 Layout = Literal["row", "grid", "stack"]
 
-# Enum axes with more values than this are passthrough-ish attributes (e.g. an
-# input's ``autocomplete``) rather than primary visual variants: trim their grid
-# and sink them to the bottom of the playground so the useful props win.
+# Enum axes with more values than this are passthrough-ish attributes (an
+# input's autocomplete, say) rather than primary visual variants: trim their
+# grid and sink them to the bottom of the playground so the useful props win.
 _BIG_ENUM_THRESHOLD = 12
 
 # Props worth keeping first when the playground has to be capped.
@@ -45,7 +41,9 @@ _AUTO_PROP_PRIORITY = (
 
 @dataclass(frozen=True)
 class Variant:
-    """A single rendered example and the source that produced it."""
+    """
+    A single rendered example and the source that produced it.
+    """
 
     label: str
     build: Callable[[], ComponentType]
@@ -60,27 +58,32 @@ class Showcase:
     layout: Layout = "grid"
 
 
-def _format_call(method: str, value: Any) -> str:
+def format_call(axis: Axis, value: Any, *, omit_default: bool = True) -> str:
+    """
+    The modifier call that sets axis to value. By default nothing is emitted when
+    value is already the component's default, so snippets stay minimal.
+    """
+    if omit_default and value == axis.default:
+        return ""
     if isinstance(value, bool):
-        return f".{method}()" if value else ""
+        return f".{axis.method}()" if value else f".{axis.method}(False)"
     if isinstance(value, str):
-        return f'.{method}("{value}")'
-    return f".{method}({value!r})"
+        return f'.{axis.method}("{value}")'
+    return f".{axis.method}({value!r})"
 
 
 def example_instance(doc: ComponentDoc) -> ComponentType:
-    """A fresh representative instance: ``Cls.example()`` if defined, else ``Cls()``."""
-    factory = getattr(doc.cls, "example", None)
-    if callable(factory):
-        return factory()
-    return doc.cls()
+    """
+    A fresh representative instance from the component's example().
+    """
+    return doc.cls.example()  # type: ignore[attr-defined]
 
 
-def example_code(doc: ComponentDoc) -> str | None:
-    """The body of ``example()`` as a one-line snippet, e.g. ``Button().content("…")``.
-
-    Returns ``None`` when there is no ``example()`` or it isn't a simple
-    ``return cls()...`` chain we can render as the canonical usage.
+def example_body(doc: ComponentDoc) -> ast.expr | None:
+    """
+    The single returned expression of example(), or None when the body is not
+    exactly one return statement (which the test suite enforces, since anything
+    else cannot be shown as a self-contained snippet).
     """
     factory = getattr(doc.cls, "example", None)
     if factory is None:
@@ -91,17 +94,47 @@ def example_code(doc: ComponentDoc) -> str | None:
     except (OSError, TypeError, SyntaxError):
         return None
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Return) and node.value is not None:
-            expr = ast.unparse(node.value)
-            if "cls(" not in expr:
-                return None
-            return expr.replace("cls(", f"{doc.name}(")
+    function = tree.body[0]
+    if not isinstance(function, ast.FunctionDef):
+        return None
+    body = function.body
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+    ):
+        body = body[1:]  # docstring
+    if len(body) == 1 and isinstance(body[0], ast.Return) and body[0].value is not None:
+        return body[0].value
     return None
 
 
+def example_code(doc: ComponentDoc) -> str | None:
+    """
+    The body of example() as a usage snippet, e.g. Button().content("Save").
+
+    None when example() does not build the component through cls(...), such as
+    Icon, whose example binds an icon source first.
+    """
+    factory = getattr(doc.cls, "example", None)
+    expr = example_body(doc)
+    if factory is None or expr is None:
+        return None
+    source = textwrap.dedent(inspect.getsource(factory))
+    segment = ast.get_source_segment(source, expr)
+    if segment is None or "cls(" not in segment:
+        return None
+    # Chains are often wrapped in parentheses across lines; keep the chain itself.
+    code = textwrap.dedent(segment).strip()
+    if code.startswith("(") and code.endswith(")"):
+        code = textwrap.dedent(code[1:-1]).strip()
+    return code.replace("cls(", f"{doc.name}(")
+
+
 def playground_axes(doc: ComponentDoc) -> list[Axis]:
-    """Discovered axes ordered so the most useful survive the playground's cap."""
+    """
+    Discovered axes ordered so the most useful survive the playground's cap.
+    """
 
     def rank(axis: Axis) -> tuple[bool, bool, int, str]:
         big = axis.kind == "enum" and len(axis.values) > _BIG_ENUM_THRESHOLD
@@ -116,7 +149,9 @@ def playground_axes(doc: ComponentDoc) -> list[Axis]:
 
 
 def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
-    """One grid per enum axis (bool toggles are covered by the playground)."""
+    """
+    One grid per enum axis (bool toggles are covered by the playground).
+    """
     showcases: list[Showcase] = []
     for axis in doc.axes:
         if axis.kind != "enum":
@@ -136,7 +171,7 @@ def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
                 getattr(instance, method)(value)
                 return instance
 
-            code = f"{doc.name}(){_format_call(axis.method, value)}"
+            code = f"{doc.name}(){format_call(axis, value, omit_default=False)}"
             variants.append(Variant(label=str(value), build=make, code=code))
 
         showcases.append(

@@ -14,30 +14,22 @@ from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.renderer import render_tree
 from hue.types.core import Component, ComponentType
 
-# Default HTTP status code for successful responses
 DEFAULT_STATUS_CODE = HTTPStatus.OK
 
 
 @dataclass(slots=True, frozen=True)
 class HueResponse:
     """
-    A structured response for fragment handlers.
+    A fragment response with an explicit status code and merge target.
 
-    Wraps a component with a target ID and status code. The component is rendered
-    inside a div with the target ID, which is necessary for Alpine AJAX to properly
-    merge the content using innerHTML.
+    The component is rendered inside a div carrying the target id, which is what
+    Alpine AJAX needs to merge the content into the matching element on the page.
 
-    Example:
-        @router.fragment_post("login/")
-        async def login(self, request, context):
-            if not valid:
-                # Returns 422 with error fragment wrapped in <div id="login-form">
-                return HueResponse(
-                    target="login-form",
-                    component=LoginError(message="Invalid credentials"),
-                    status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-                )
-            return SuccessFragment()
+        return HueResponse(
+            target="login-form",
+            component=LoginError(message="Invalid credentials"),
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        )
     """
 
     component: ComponentType
@@ -45,7 +37,6 @@ class HueResponse:
     status_code: int = DEFAULT_STATUS_CODE
 
     def htmy(self, context: Any) -> Component:
-        """Wrap the component in a div with the target ID for Alpine AJAX merging."""
         if self.target:
             return html.div(self.component, id=self.target)
         return self.component
@@ -54,24 +45,8 @@ class HueResponse:
 @dataclass(slots=True)
 class RawResponse:
     """
-    Wrapper for passing through raw framework responses (e.g., HttpResponse, redirects).
-
-    When a view function returns something that looks like a framework response
-    (has status_code attribute), the router wraps it in RawResponse so the
-    framework-specific handler can pass it through directly.
-
-    This allows returning Django's redirect(), HttpResponse, etc. from handlers.
-
-    Example:
-        from django.shortcuts import redirect
-
-        @router.fragment_post("login/")
-        async def login(self, request, context, body: LoginForm):
-            user = await sync_to_async(authenticate)(request, **body.dict())
-            if user:
-                await sync_to_async(django_login)(request, user)
-                return redirect("/dashboard/")  # Passed through directly
-            return LoginError()
+    A framework response (an HttpResponse, a redirect) returned from a handler,
+    passed through untouched so the framework integration can return it as-is.
     """
 
     response: Any
@@ -83,44 +58,64 @@ class PathParseResult:
     param_names: list[str]
 
 
-# Type alias for view function results
-# Can be: Component, HueResponse, or any framework response (e.g., HttpResponse)
+# Handlers return a component, a HueResponse, or a framework response object,
+# optionally awaited. The framework response case makes this effectively Any.
 type ViewResult = Component | HueResponse | Any
 type AwaitableViewResult = ViewResult | Awaitable[ViewResult]
-
-# Type alias for wrapped view function results
-# Returns either (html_string, status_code) or RawResponse for passthrough
-type WrappedViewResult = tuple[str, int] | RawResponse
-
-# Type alias for wrapped view functions
-# Signature: (view_instance, request, **kwargs) -> Awaitable[WrappedViewResult]
-type WrappedViewFunc = Callable[..., Awaitable[WrappedViewResult]]
-
-# Type alias for original view functions (return Component or HueResponse)
-# Signature: (view_instance, request: T_Request, context: HueContext[T_Request],
-#             **kwargs) -> ViewResult | Awaitable[ViewResult]
 type ViewFunc = Callable[..., AwaitableViewResult]
+
+# A wrapped handler resolves to (html, status_code) or a passthrough RawResponse.
+type WrappedViewResult = tuple[str, int] | RawResponse
+type WrappedViewFunc = Callable[..., Awaitable[WrappedViewResult]]
 
 
 @dataclass
 class Route:
-    """Represents a single route with its view function and metadata."""
+    """
+    A registered route: its HTTP method, path, name and wrapped handler.
+    """
 
     method: str
     path: str
     name: str
     view_func: WrappedViewFunc
-    # List of parameter names extracted from path
-    # Framework-specific routers can populate this based on their path syntax
+    # Names of the parameters captured from the path, populated by the
+    # framework-specific path parser.
     path_params: list[str] = field(default_factory=list)
+
+
+def _resolve_body_type(view_func: ViewFunc) -> type | None:
+    """
+    The annotation of a handler's body parameter, or None when it has none.
+
+    A body parameter that cannot be resolved is an error at registration time
+    rather than a silent fallthrough that would only surface as a confusing
+    missing-argument TypeError when the route is first hit.
+    """
+    if "body" not in inspect.signature(view_func).parameters:
+        return None
+    try:
+        body_type = get_type_hints(view_func).get("body")
+    except (NameError, TypeError) as e:
+        raise TypeError(
+            f"Cannot resolve the type annotation of the 'body' parameter on "
+            f"{view_func.__qualname__}: {e}"
+        ) from e
+    if body_type is None:
+        raise TypeError(
+            f"The 'body' parameter on {view_func.__qualname__} must be annotated "
+            "with the type to parse the request body into."
+        )
+    return body_type
 
 
 class Router[T_Request]:
     """
-    Framework-agnostic base router for defining routes in HueView.
+    Framework-agnostic base router for defining routes on a view.
 
-    Fragment routes return HTML fragments (Component) and require AJAX requests.
-    Page routes return full pages and don't require AJAX.
+    Fragment routes return HTML fragments and require AJAX requests. The page
+    route returns a full page and does not. Framework integrations subclass this
+    and implement the request accessors.
     """
 
     def __init__(self) -> None:
@@ -131,40 +126,22 @@ class Router[T_Request]:
         return self._routes.copy()
 
     def _normalize_path(self, path: str) -> str:
-        """
-        Normalize the path (e.g., strip leading slashes).
-        """
-        # Default: strip leading slash
-        # Root path "/" becomes "" (empty string)
+        # The root path "/" becomes "".
         return path.lstrip("/")
 
     def _parse_path_params(self, path: str) -> PathParseResult:
-        """
-        Parse the path parameters from the path.
-        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
     def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
-        """
-        Get framework-specific context arguments (request, CSRF token, etc.).
-        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
-    async def render(
-        self,
-        component: ComponentType,
-        request: T_Request,
-    ) -> str:
+    async def render(self, component: ComponentType, request: T_Request) -> str:
         """
-        Render a Component to HTML string.
-
-        This is framework-agnostic - it uses Renderer to convert Components to HTML.
-        The renderer calls .htmy() on all components, so both fragments and full
-        pages are rendered the same way.
+        Render a component to an HTML string with this request's context.
         """
         return await render_tree(
             component, context_args=self._get_context_args(request)
@@ -172,53 +149,31 @@ class Router[T_Request]:
 
     def _is_ajax_request(self, request: T_Request) -> bool:
         """
-        Check if the request is an AJAX request.
+        True when the request carries an X-Requested-With: XMLHttpRequest or an
+        X-Alpine-Request: true header.
 
-        Framework-specific routers should override this method to handle
-        framework-specific header access.
-
-        Returns True if the request has either:
-        - X-Requested-With: XMLHttpRequest header, or
-        - X-Alpine-Request: true header
+        Assumes request.headers is a case-insensitive mapping, which holds for
+        Django, Starlette and most frameworks. Override otherwise.
         """
-        headers = getattr(request, "headers", {})
-
-        if hasattr(headers, "get"):
-            is_ajax_req = headers.get("X-Requested-With") == "XMLHttpRequest"
-            is_alpine_ajax_req = headers.get("X-Alpine-Request") == "true"
-            return is_ajax_req or is_alpine_ajax_req
-
-        return False
+        headers = getattr(request, "headers", None)
+        if headers is None:
+            return False
+        return (
+            headers.get("X-Requested-With") == "XMLHttpRequest"
+            or headers.get("X-Alpine-Request") == "true"
+        )
 
     def _get_request_body(self, request: T_Request) -> str:
-        """
-        Get the raw request body as a string.
-
-        Framework-specific routers should override this method to handle
-        framework-specific body access.
-        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
     def _get_request_content_type(self, request: T_Request) -> str:
-        """
-        Get the content type of the request.
-
-        Framework-specific routers should override this method.
-        Returns empty string if content type is not available.
-        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
 
     def _get_form_data(self, request: T_Request) -> dict[str, Any]:
-        """
-        Get form data from the request as a dictionary.
-
-        Framework-specific routers should override this method.
-        Returns empty dict if no form data is available.
-        """
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
@@ -232,38 +187,26 @@ class Router[T_Request]:
         **kwargs: Any,
     ) -> Any:
         """
-        Call the view function and return its result.
+        Call the handler and return its result, awaiting it if needed.
 
-        Framework-specific routers can override this to handle sync/async
-        execution differently. For example, Django needs to wrap sync functions
-        with sync_to_async for proper ASGI compatibility.
-
-        Default implementation calls the function directly and awaits if needed.
+        Framework integrations override this when sync handlers need special
+        treatment, for example Django's sync_to_async so ORM access works.
         """
         result = view_func(view_instance, request, context, **kwargs)
-
-        # Await if it's a coroutine
-        while inspect.iscoroutine(result):
+        if inspect.isawaitable(result):
             result = await result
-
         return result
 
-    def _parse_body(self, request: T_Request, body_type: type) -> Any:
+    def _parse_body(self, request: T_Request, adapter: TypeAdapter[Any]) -> Any:
         """
-        Parse the request body into the specified type using Pydantic.
+        Parse the request body with the given Pydantic adapter.
 
-        Supports both JSON and form-encoded data (application/x-www-form-urlencoded).
-        Uses Pydantic's TypeAdapter which supports both Pydantic models and
-        dataclasses.
-
-        Raises:
-            BodyValidationError: If the body cannot be parsed or validated.
+        JSON bodies are decoded first; anything else is treated as form data.
+        Raises BodyValidationError when decoding or validation fails.
         """
         content_type = self._get_request_content_type(request)
 
-        # Determine how to parse based on content type
         if "application/json" in content_type:
-            # Parse as JSON
             raw_body = self._get_request_body(request)
             try:
                 data = json.loads(raw_body) if raw_body else {}
@@ -272,12 +215,9 @@ class Router[T_Request]:
                     errors=[{"type": "json_invalid", "msg": str(e)}]
                 ) from e
         else:
-            # Default to form data (application/x-www-form-urlencoded or multipart)
             data = self._get_form_data(request)
 
-        # Validate and convert to the target type using Pydantic
         try:
-            adapter = TypeAdapter(body_type)  # type: ignore
             return adapter.validate_python(data)
         except ValidationError as e:
             raise BodyValidationError(errors=e.errors()) from e
@@ -286,25 +226,18 @@ class Router[T_Request]:
         self, view_func: ViewFunc, require_ajax: bool = True
     ) -> WrappedViewFunc:
         """
-        Wrap a view function to automatically render Components and pass the hue
-        context.
+        Wrap a handler so it receives a HueContext, gets its body parameter parsed
+        (when annotated), and has its component result rendered to HTML.
 
-        The wrapped view returns a tuple of (html_string, status_code).
-        View functions can return:
-        - Component (uses default 200 status)
-        - HueResponse (structured response with target, component, and status_code)
-
-        If the view function has a `body` parameter with a type annotation,
-        the request body will be automatically parsed into that type using
-        Pydantic's TypeAdapter (supports both Pydantic models and dataclasses).
+        The wrapped handler returns (html, status_code), or a RawResponse when
+        the handler returned a framework response object.
         """
-        # Check if the view function has a 'body' parameter with a type hint
-        try:
-            type_hints = get_type_hints(view_func)
-            body_type = type_hints.get("body")
-        except Exception:
-            # get_type_hints can fail with forward references, etc.
-            body_type = None
+        body_type = _resolve_body_type(view_func)
+        # Built once here: constructing a TypeAdapter per request is roughly two
+        # orders of magnitude slower than validating with an existing one.
+        body_adapter: TypeAdapter[Any] | None = (
+            TypeAdapter(body_type) if body_type is not None else None
+        )
 
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
@@ -312,77 +245,50 @@ class Router[T_Request]:
             if require_ajax and not self._is_ajax_request(request):
                 raise AJAXRequiredError()
 
-            # Parse body if the handler expects it
-            if body_type is not None:
-                parsed_body = self._parse_body(request, body_type)
-                kwargs["body"] = parsed_body
+            if body_adapter is not None:
+                kwargs["body"] = self._parse_body(request, body_adapter)
 
-            # Build context for the handler (without component yet)
-            context_args: HueContextArgs[T_Request] = self._get_context_args(request)
-            context: HueContext[T_Request] = HueContext(**context_args)
-
-            # Call the view function via hook (allows framework-specific handling)
-            view_func_result = await self._call_view_func(
+            context = HueContext(**self._get_context_args(request))
+            result = await self._call_view_func(
                 view_func, view_instance, request, context, **kwargs
             )
 
-            # Check if the result is a raw framework response (e.g., HttpResponse)
-            # These have a status_code attribute and are not our HueResponse type
-            if hasattr(view_func_result, "status_code") and not isinstance(
-                view_func_result, HueResponse
-            ):
-                # Pass through raw responses directly
-                return RawResponse(response=view_func_result)
-
-            # Extract component and status code based on return type
-            if isinstance(view_func_result, HueResponse):
-                # HueResponse: use its properties (htmy() wraps in div with target)
-                component = cast(ComponentType, view_func_result)
-                status_code = view_func_result.status_code
+            if isinstance(result, HueResponse):
+                status_code = result.status_code
+            elif hasattr(result, "status_code"):
+                # Anything else with a status code is a framework response.
+                return RawResponse(response=result)
             else:
-                # Plain Component: use default status
-                component = cast(ComponentType, view_func_result)
                 status_code = DEFAULT_STATUS_CODE
 
-            rendered_html = await self.render(component, request)
+            rendered_html = await self.render(cast(ComponentType, result), request)
             return rendered_html, status_code
 
-        # Always return async wrapper (view functions should be async for rendering)
         return wrapped_view
 
     def _request(
         self, method: str, path: str, require_ajax: bool = True
     ) -> Callable[[ViewFunc], ViewFunc]:
-        """
-        Internal method to register a route.
-
-        Used with partialmethod to create the route decorator methods.
-        """
-
         def decorator(view_func: ViewFunc) -> ViewFunc:
-            normalized_path = self._normalize_path(path)
+            parsed_path = self._parse_path_params(self._normalize_path(path))
 
-            parsed_path = self._parse_path_params(normalized_path)
-            wrapped_view = self._wrap_view(view_func, require_ajax=require_ajax)
-
-            route = Route(
-                name=view_func.__name__.lower(),
-                method=method.upper(),
-                path=parsed_path.path,
-                view_func=wrapped_view,
-                path_params=parsed_path.param_names,
+            self._routes.append(
+                Route(
+                    name=view_func.__name__.lower(),
+                    method=method.upper(),
+                    path=parsed_path.path,
+                    view_func=self._wrap_view(view_func, require_ajax=require_ajax),
+                    path_params=parsed_path.param_names,
+                )
             )
-
-            self._routes.append(route)
-
-            # Return the original view function for decorator chain.
+            # Return the original so the method stays callable on the view.
             return view_func
 
         return decorator
 
-    # Non-AJAX route decorator for full page loads (e.g., index routes)
-    # Should not be used normally, but is useful for constructing the router manually.
-    _page = partialmethod(_request, "GET", require_ajax=False)
+    # A full-page GET route that is not AJAX-gated. Framework views use this to
+    # register the index; fragments use the decorators below.
+    page = partialmethod(_request, "GET", require_ajax=False)
 
     fragment_get = partialmethod(_request, "GET", require_ajax=True)
     fragment_post = partialmethod(_request, "POST", require_ajax=True)
