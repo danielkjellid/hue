@@ -6,113 +6,117 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component
+from hue.types.core import Component, ComponentType
 from hue.types.html import AriaHasPopup
+from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type ButtonVariant = Literal[
     "primary",
     "secondary",
-    "tertiary",
-    "quaternary",
     "outline",
-    "transparent",
-    "primary-destructive",
-    "secondary-destructive",
-    "tertiary-destructive",
-    "outline-destructive",
-    "transparent-destructive",
+    "ghost",
+    "link",
+    "danger",
+    "danger-outline",
 ]
-type ButtonSize = Literal["xs-icon", "sm", "md", "lg"]
+type ButtonSize = Literal["xs", "sm", "md", "lg"]
 type ButtonShape = Literal["rounded", "pill"]
 type ButtonType = Literal["button", "submit", "reset"]
 
-# Keyed by the Literal so mypy keeps the map exhaustive when a variant is added.
+# Keyed by the Literal so mypy keeps the maps exhaustive when a value is added.
+# Hover moves the background and never the foreground: dimming the label on
+# hover drops contrast below the resting state, which is a WCAG failure and the
+# single most common hover bug.
+# Every variant names its own border colour, including the transparent one.
+# Two border-color utilities on the same element resolve by stylesheet order
+# rather than by the order they are written in, so a shared base
+# `border-transparent` silently won over the outline variants' colours.
 _VARIANT_CLASSES: dict[ButtonVariant, str] = {
     "primary": (
-        "bg-primary text-white outline-primary hover:bg-primary-600 disabled:opacity-50"
+        "border-transparent bg-accent text-accent-fg "
+        "hover:bg-accent-hover active:bg-accent-active"
     ),
     "secondary": (
-        "bg-secondary text-white outline-secondary hover:bg-secondary-700 "
-        "disabled:bg-secondary-200 dark:text-secondary-900 "
-        "dark:hover:bg-secondary-800 dark:disabled:text-wg-white-500"
-    ),
-    "tertiary": (
-        "bg-surface-50 text-surface-900 outline-surface-50 hover:bg-surface-100 "
-        "disabled:text-surface-300"
-    ),
-    "quaternary": (
-        "bg-surface-200 text-surface-900 outline-surface-50 hover:bg-surface-300 "
-        "disabled:text-surface-300"
+        "border-transparent bg-fg text-canvas hover:bg-fg-muted active:bg-fg-subtle"
     ),
     "outline": (
-        "border border-surface-200 shadow-xs dark:shadow-none hover:bg-surface-50 "
-        "disabled:border-surface-50 dark:border-surface-100 text-surface-900 "
-        "outline-primary disabled:text-surface-300"
+        "bg-surface border-border-input text-fg shadow-field "
+        "hover:bg-surface-hover hover:border-border-hover active:bg-surface-active"
     ),
-    "transparent": (
-        "bg-transparent hover:bg-surface-50 text-surface-900 outline-primary "
-        "disabled:text-surface-300"
+    "ghost": (
+        "border-transparent text-fg hover:bg-surface-hover active:bg-surface-active"
     ),
-    "primary-destructive": (
-        "bg-destructive text-white outline-destructive hover:bg-destructive-600 "
-        "disabled:bg-destructive"
+    "link": (
+        "border-transparent text-accent-text underline underline-offset-[3px] "
+        "decoration-current/35 hover:decoration-current"
     ),
-    "secondary-destructive": (
-        "bg-destructive text-white outline-destructive hover:bg-destructive-600 "
-        "disabled:bg-destructive disabled:opacity-50 dark:text-white "
-        "dark:hover:bg-destructive-600 dark:disabled:text-white"
-    ),
-    "tertiary-destructive": (
-        "bg-destructive-50 hover:bg-destructive-100 disabled:bg-destructive-50 "
-        "dark:bg-surface-100 dark:hover:bg-surface-200 text-destructive-700 "
-        "outline-destructive disabled:text-destructive-300 "
-        "dark:text-destructive-500 dark:disabled:text-destructive/50"
-    ),
-    "outline-destructive": (
-        "border-destructive hover:bg-destructive-50 disabled:border-destructive-100 "
-        "dark:border-destructive dark:hover:bg-surface-50 "
-        "dark:disabled:border-destructive-900 text-destructive-700 outline "
-        "outline-destructive disabled:text-destructive-300 "
-        "dark:text-destructive-500 dark:disabled:text-destructive/50"
-    ),
-    "transparent-destructive": (
-        "hover:bg-destructive-50 dark:hover:bg-surface-50 text-destructive-700 "
-        "outline-destructive disabled:text-destructive-300 "
-        "dark:text-destructive-500 dark:disabled:text-destructive/50"
+    "danger": ("border-transparent bg-danger text-danger-fg hover:bg-danger-hover"),
+    "danger-outline": (
+        "bg-surface border-danger-border text-danger-text "
+        "hover:bg-danger-subtle hover:border-danger"
     ),
 }
 
-_SIZE_CLASSES: dict[ButtonSize, str] = {
-    "xs-icon": "gap-0 p-1",
-    "sm": "gap-0 p-1",
-    "md": "gap-1 p-2",
-    "lg": "gap-1 p-3",
+_FONT_CLASSES: dict[ButtonSize, str] = {
+    "xs": "text-xs",
+    "sm": "text-sm",
+    "md": "text-base",
+    "lg": "text-md",
+}
+
+_GAP_CLASSES: dict[ButtonSize, str] = {
+    "xs": "gap-1",
+    "sm": "gap-2",
+    "md": "gap-2",
+    "lg": "gap-2",
+}
+
+_HEIGHT_CLASSES: dict[ButtonSize, str] = {
+    "xs": "h-control-xs",
+    "sm": "h-control-sm",
+    "md": "h-control-md",
+    "lg": "h-control-lg",
+}
+
+# Square, so an icon-only button lines up with the text buttons beside it.
+_WIDTH_CLASSES: dict[ButtonSize, str] = {
+    "xs": "w-control-xs",
+    "sm": "w-control-sm",
+    "md": "w-control-md",
+    "lg": "w-control-lg",
+}
+
+_PADDING_CLASSES: dict[ButtonSize, str] = {
+    "xs": "px-2",
+    "sm": "px-2.5",
+    "md": "px-3.5",
+    "lg": "px-5",
 }
 
 _SHAPE_CLASSES: dict[ButtonShape, str] = {
-    "rounded": "rounded-lg",
+    "rounded": "rounded-md",
     "pill": "rounded-full",
 }
 
 
 class Button(ChainableComponent):
     """
-    A clickable button styled with the design system.
+    A clickable button.
 
-    The appearance is driven by variant(), size() and shape(). fluid() fills the
-    available width, type() sets the button type and disabled() disables it.
-    Children become the button's content.
+    variant() picks the role, size() the height, and shape() the corners.
+    icon_only() makes it square and names it, fluid() fills the width, and
+    loading() marks work in flight. Children become the button's content.
 
-        Button().variant("primary").size("md").content(Text("Save"))
+        Button().variant("primary").content(Icon("plus"), "New project")
     """
 
     category = "Actions"
 
     @classmethod
     def example(cls) -> Self:
-        return cls().fluid(False).content("Button")
+        return cls().content("Button")
 
     def variant(self, value: ButtonVariant) -> Self:
         self._props["variant"] = value
@@ -138,34 +142,106 @@ class Button(ChainableComponent):
         self._props["disabled"] = value
         return self
 
+    def icon_only(self, label: str) -> Self:
+        """
+        Drop to a square button holding nothing but an icon.
+
+        The label is required and becomes the accessible name, because an icon
+        on its own has none - taking it as an argument is what makes the
+        unlabelled version impossible to write rather than merely discouraged.
+        """
+        self._props["icon_only"] = True
+        self._attrs["aria_label"] = label
+        return self
+
+    def loading(self, value: bool = True) -> Self:
+        """
+        Show a spinner and stop the button being pressed again.
+
+        The button keeps its width and its label so neither the layout nor the
+        accessible name shifts underneath the user; aria-busy announces the
+        state instead.
+        """
+        self._props["loading"] = value
+        return self
+
     def aria_haspopup(self, value: AriaHasPopup) -> Self:
         self._attrs["aria_haspopup"] = value
         return self
+
+    def _box_classes(self, size: ButtonSize, *, link: bool, icon_only: bool) -> str:
+        """
+        Height and horizontal padding, which the layout modes disagree about.
+
+        Kept out of the class list rather than overridden in it: two competing
+        height utilities resolve by stylesheet order, not by the order they are
+        written in, so the loser is whichever Tailwind happened to emit second.
+        """
+        if link:
+            # A link button is text in a sentence; a control height would make
+            # it sit oddly on the line.
+            return "h-auto px-0"
+        if icon_only:
+            return classnames(_HEIGHT_CLASSES[size], _WIDTH_CLASSES[size])
+        return classnames(_HEIGHT_CLASSES[size], _PADDING_CLASSES[size])
 
     def _render(self, context: HueContext) -> Component:
         variant: ButtonVariant = self._get_prop("variant", "primary")
         size: ButtonSize = self._get_prop("size", "md")
         shape: ButtonShape = self._get_prop("shape", "rounded")
-        fluid: bool = self._get_prop("fluid", True)
+        fluid: bool = self._get_prop("fluid", False)
         disabled: bool = self._get_prop("disabled", False)
+        loading: bool = self._get_prop("loading", False)
+        icon_only: bool = self._get_prop("icon_only", False)
 
         classes = classnames(
-            "group inline-flex select-none items-center justify-center cursor-pointer",
-            "text-sm font-medium leading-6 transition-colors duration-100 antialiased",
-            "focus:outline-0 focus-visible:outline focus-visible:outline-2",
-            "focus-visible:outline-offset-2 disabled:pointer-events-none",
+            "relative inline-flex items-center justify-center select-none",
+            "cursor-pointer whitespace-nowrap border",
+            "font-ui font-semibold leading-none transition-colors",
+            "[&_svg]:size-4 [&_svg]:shrink-0",
+            "disabled:pointer-events-none",
+            FOCUS_RING,
             _SHAPE_CLASSES[shape],
-            _SIZE_CLASSES[size],
+            _FONT_CLASSES[size],
+            _GAP_CLASSES[size],
             _VARIANT_CLASSES[variant],
-            "w-full" if fluid else "w-fit",
+            self._box_classes(size, link=variant == "link", icon_only=icon_only),
+            "w-full" if fluid and not icon_only else "",
+            # A loading button is disabled to stop a second submit, but it
+            # should not also look greyed out - the spinner already says why it
+            # cannot be pressed.
+            "disabled:opacity-45" if not loading else "",
             self._get_prop("class_"),
         )
 
+        children: tuple[ComponentType, ...] = self._children
+        if loading:
+            children = (
+                # Still rendered, so both the button's width and its accessible
+                # name hold steady. opacity rather than visibility, because
+                # visibility:hidden would drop the label out of the a11y tree
+                # and leave a screen reader with an unnamed busy button.
+                html.span(
+                    *self._children,
+                    class_=classnames(
+                        "inline-flex items-center opacity-0", _GAP_CLASSES[size]
+                    ),
+                ),
+                html.span(
+                    class_=classnames(
+                        "absolute size-4 rounded-full border-2 border-current",
+                        "border-t-transparent animate-spinner",
+                    ),
+                    aria_hidden="true",
+                ),
+            )
+
         return html.button(
-            *self._children,
+            *children,
             class_=classes,
             type=self._get_prop("type", "button"),
             # Boolean attributes are true by presence, so False must omit it.
-            disabled=disabled or None,
+            disabled=disabled or loading or None,
+            aria_busy="true" if loading else None,
             **self._get_base_html_attrs(),
         )

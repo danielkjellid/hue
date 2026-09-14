@@ -65,7 +65,7 @@ def test_button_variant_axis_is_introspected():
 
     assert variant.kind == "enum"
     assert "primary" in variant.values
-    assert "outline-destructive" in variant.values
+    assert "danger-outline" in variant.values
     assert variant.default == "primary"
 
 
