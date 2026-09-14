@@ -122,7 +122,9 @@ class HueFragmentsView(_BaseView):
             router = Router[HttpRequest]()
 
             @router.fragment_get("comments/")
-            async def list_comments(self, request, context):
+            async def list_comments(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> html.div:
                 return html.div("Comments list")
     """
 
@@ -147,11 +149,15 @@ class HueView(_BaseView):
         class LoginView(HueView):
             router = Router[HttpRequest]()
 
-            async def index(self, request, context) -> Page:
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> Page:
                 return Page(title="Login", body=...)
 
             @router.fragment_post("login/")
-            async def login(self, request, context):
+            async def login(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> html.div:
                 return html.div("Login successful")
     """
 

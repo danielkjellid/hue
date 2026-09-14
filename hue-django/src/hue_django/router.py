@@ -23,8 +23,18 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         class MyView(HueView):
             router = Router[HttpRequest]()
 
+            async def index(
+                self, request: HttpRequest, context: HueContext[HttpRequest]
+            ) -> Page:
+                return Page(title="Comments", body=...)
+
             @router.fragment_get("comments/<int:comment_id>/")
-            async def comment(self, request, context, comment_id: int):
+            async def comment(
+                self,
+                request: HttpRequest,
+                context: HueContext[HttpRequest],
+                comment_id: int,
+            ) -> html.div:
                 return html.div(f"Comment {comment_id}")
     """
 
