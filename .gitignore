@@ -12,3 +12,7 @@ node_modules/
 
 # Claude Code — machine-local settings (committed config lives in settings.json)
 .claude/settings.local.json
+
+# Built by `make build-css` in hue-python. Generated, so not committed - see
+# hue-python/README or CLAUDE.md.
+hue-python/src/hue/static/styles/tailwind.css

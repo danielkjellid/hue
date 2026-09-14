@@ -1,7 +1,11 @@
 import re
 from typing import Any
 
+import subprocess
+from pathlib import Path
+
 import pytest
+from hue.assets import css_built_path
 
 from hue.context import HueContextArgs
 from hue.router import PathParseResult, Router
@@ -85,3 +89,20 @@ def mock_request() -> MockRequest:
         )
 
     return _mock_request
+
+
+@pytest.fixture(scope="session", autouse=True)
+def built_stylesheet() -> None:
+    """
+    Build the stylesheet if it is missing.
+
+    It is generated rather than committed, so a fresh checkout has none and the
+    asset tests would otherwise fail on an artifact nobody had made yet.
+    """
+    if css_built_path().exists():
+        return
+
+    package_root = Path(__file__).resolve().parent.parent
+    subprocess.run(
+        ["make", "build-css"], cwd=package_root, check=True, capture_output=True
+    )
