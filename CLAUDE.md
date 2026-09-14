@@ -25,6 +25,13 @@ live at the repo root.
 Run from the package directory. `make lint`/`make fix` exist in every package (via
 `base.mk`); other targets vary.
 
+**`hue-python/src/hue/static/styles/tailwind.css` is generated, not committed.** Build it
+with `make build-css` in `hue-python`. The test suites build it for you when it is missing,
+so a fresh checkout needs nothing special; `read_css()` says the same if anything else hits
+it first. Never commit it: a generated file in every branch is a conflict in every branch,
+which is why it left the repo. The Alpine bundle stays committed by contrast, because
+building it needs npm while the Tailwind CLI arrives with hue's own dependencies.
+
 ```bash
 # Lint (ruff check + ruff format --diff + mypy + deptry)   — any package
 make lint

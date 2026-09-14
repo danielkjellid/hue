@@ -17,6 +17,15 @@ include ../base.mk
 build: .venv ; $(info $(M) building docs site into dist/) @
 	$Q cd $(BASE) && PYTHONPATH=src $(UV) run python -m hue_docs
 
+# CSS_OUT so the tests can build a throwaway copy without touching dist/.
+CSS_OUT ?= dist/styles/tailwind.css
+
+.PHONY: build-css
+build-css: .venv ; $(info $(M) building docs css) @
+	$Q cd $(BASE) && $(UV) run tailwindcss \
+		-i $(PACKAGE)/styles/docs.input.css \
+		-o $(CSS_OUT)
+
 .PHONY: watch-css
 watch-css: .venv ; $(info $(M) watching docs css) @
 	$Q cd $(BASE) && $(UV) run tailwindcss \

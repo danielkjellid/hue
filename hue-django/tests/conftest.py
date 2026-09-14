@@ -1,7 +1,8 @@
-from django.urls import URLPattern
-import pytest
 import django
+import pytest
 from django.conf import settings
+from django.urls import URLPattern
+from hue_django import middleware
 
 urlpatterns = []
 
@@ -33,3 +34,25 @@ def urlpatterns_() -> list[URLPattern]:
     """
     urlpatterns.clear()
     return urlpatterns
+
+
+@pytest.fixture(autouse=True)
+def _stub_assets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Serve stand-in assets to the middleware.
+
+    The middleware's job is caching, ETags and content types, none of which care
+    what the bytes are - and hue's stylesheet is generated, so depending on it
+    here would tie these tests to another package's build. hue-python covers
+    that the real assets exist and are readable.
+    """
+    monkeypatch.setitem(
+        middleware._ASSET_ROUTES,
+        middleware.CSS_URL,
+        (lambda: ".stub{color:red}", "text/css; charset=utf-8"),
+    )
+    monkeypatch.setitem(
+        middleware._ASSET_ROUTES,
+        middleware.JS_URL,
+        (lambda: "export const stub = 1;", "text/javascript; charset=utf-8"),
+    )

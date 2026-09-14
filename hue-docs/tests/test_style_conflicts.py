@@ -19,20 +19,17 @@ import html as html_lib
 import re
 
 import pytest
-from hue.assets import css_built_path
 
 from hue_docs.discovery import discover
 from hue_docs.registry import auto_showcases, example_instance
 from hue_docs.render import render_html_sync
 from hue_docs.showcase import curated_showcases
 
-_CSS = css_built_path().read_text()
 
-
-def _declarations(token: str) -> dict[str, str]:
+def _declarations(token: str, css: str) -> dict[str, str]:
     """The properties a bare utility sets, mapped to their values."""
     escaped = "".join(c if (c.isalnum() or c in "-_") else "\\" + c for c in token)
-    match = re.search(r"\n\s*\." + re.escape(escaped) + r"\s*\{([^}]*)\}", _CSS)
+    match = re.search(r"\n\s*\." + re.escape(escaped) + r"\s*\{([^}]*)\}", css)
     if match is None:
         return {}
 
@@ -45,7 +42,7 @@ def _declarations(token: str) -> dict[str, str]:
     return found
 
 
-def _competing(class_attr: str) -> dict[str, list[str]]:
+def _competing(class_attr: str, css: str) -> dict[str, list[str]]:
     by_property: dict[str, list[str]] = collections.defaultdict(list)
     composed: set[str] = set()
 
@@ -54,7 +51,7 @@ def _competing(class_attr: str) -> dict[str, list[str]]:
         # they are meant to win and are not in competition.
         if ":" in token:
             continue
-        for prop, value in _declarations(token).items():
+        for prop, value in _declarations(token, css).items():
             if prop == "box-shadow":
                 # Assembled from separate --tw-* slots for ring, shadow, inset.
                 continue
@@ -73,7 +70,7 @@ def _competing(class_attr: str) -> dict[str, list[str]]:
 
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
-def test_no_two_classes_fight_over_the_same_property(doc):
+def test_no_two_classes_fight_over_the_same_property(doc, built_css):
     rendered = [example_instance(doc)]
     for showcase in curated_showcases(doc) + auto_showcases(doc):
         rendered += [variant.build() for variant in showcase.variants]
@@ -81,7 +78,7 @@ def test_no_two_classes_fight_over_the_same_property(doc):
     clashes: dict[str, set[str]] = collections.defaultdict(set)
     for component in rendered:
         for attr in re.findall(r'class="([^"]*)"', render_html_sync(component)):
-            for prop, tokens in _competing(attr).items():
+            for prop, tokens in _competing(attr, built_css).items():
                 clashes[prop].add(" and ".join(sorted(tokens)))
 
     assert not clashes, (

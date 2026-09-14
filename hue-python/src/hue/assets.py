@@ -40,9 +40,20 @@ def icons_path() -> Path:
 
 def read_css() -> str:
     """
-    Read the pre-built CSS. Used by framework middleware.
+    Read the built CSS. Used by framework middleware.
+
+    The stylesheet is generated rather than committed, so a fresh checkout has
+    to build it once.
     """
-    return css_built_path().read_text(encoding="utf-8")
+    path = css_built_path()
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"hue's stylesheet has not been built yet ({path}). It is generated "
+            f"rather than committed: run `make build-css` in hue-python, or "
+            f"`make build` to produce the JS bundle too."
+        ) from None
 
 
 def read_js() -> str:
