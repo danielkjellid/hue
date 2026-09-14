@@ -11,9 +11,10 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "A native checkbox with a styled box. Use .checked() for the initial "
-            "state, .indeterminate() for a mixed state, and .hint() / "
-            ".error() for supporting copy (an error marks it invalid)."
+            "The browser's own checkbox with a styled box, rather than a "
+            "hidden input behind a lookalike - so every keyboard, form and "
+            "assistive-tech behaviour stays the browser's to provide. The "
+            "whole row is the hit area, not just the 18px box."
         ),
         variants=[
             variant("Basic", 'Checkbox().name("terms").label("I accept the terms")'),
@@ -50,6 +51,30 @@ SHOWCASES: list[Showcase] = [
             variant(
                 "Disabled",
                 'Checkbox().name("locked").label("Unavailable option").disabled()',
+            ),
+            variant(
+                "With a description",
+                """
+                (
+                    Checkbox()
+                    .name("digest")
+                    .label("Weekly digest")
+                    .description("A summary of everything that changed, every Monday.")
+                )
+                """,
+            ),
+            variant(
+                "As a card",
+                """
+                (
+                    Checkbox()
+                    .name("sso")
+                    .label("Enforce SSO")
+                    .description("Members sign in through your identity provider.")
+                    .variant("card")
+                    .checked()
+                )
+                """,
             ),
             variant(
                 "Error",
