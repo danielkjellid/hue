@@ -234,7 +234,7 @@ class ProgressRing(ChainableComponent):
                 f"{value:g}%",
                 class_=classnames(
                     "absolute inset-0 flex items-center justify-center",
-                    "font-ui text-xs font-semibold tabular-nums text-fg",
+                    "font-ui text-2xs font-semibold tabular-nums text-fg",
                 ),
                 aria_hidden="true",
             )
