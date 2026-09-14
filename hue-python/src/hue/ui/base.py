@@ -90,6 +90,10 @@ class ChainableComponent(ABC):
         self._attrs["aria_expanded"] = value
         return self
 
+    def aria_pressed(self, value: Literal["true", "false", "mixed"]) -> Self:
+        self._attrs["aria_pressed"] = value
+        return self
+
     def aria_controls(self, value: str) -> Self:
         self._attrs["aria_controls"] = value
         return self
