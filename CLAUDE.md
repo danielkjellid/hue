@@ -139,6 +139,12 @@ component shows up correctly:
 - Defaults are read from the **literal** second argument of `_get_prop("name", <literal>)`
   in `_render` (via the AST), then overlaid with anything the constructor pre-sets in
   `_props`.
+- **Every `Literal`/`bool` modifier becomes a control**, so each one has to change what
+  `example()` renders — a test in `hue-docs` fails when an axis comes out identical for every
+  value, because a knob that does nothing reads as a broken page. Either give the modifier a
+  visible effect, or take the `Literal`/`bool` out of its signature: a semantic-only knob
+  belongs as a keyword-only argument on the modifier it qualifies
+  (`Empty.title(value, *, heading=None)`), which also keeps it off the playground.
 - `hue-docs` pins `htmy==0.8.2` (APIs removed in 0.9+); keep core compatible with that pin.
 
 ## Testing
