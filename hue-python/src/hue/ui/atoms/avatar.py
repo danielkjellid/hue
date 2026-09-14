@@ -283,7 +283,7 @@ class AvatarGroup(ChainableComponent):
                 html.span(
                     f"+{more}",
                     class_=classnames(
-                        "ms-2 font-ui font-semibold text-fg-muted tabular-nums",
+                        "ms-2 font-ui font-semibold text-fg-subtle tabular-nums",
                         _TEXT_CLASSES[size],
                     ),
                     aria_hidden="true",
