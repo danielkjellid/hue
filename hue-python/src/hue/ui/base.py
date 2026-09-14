@@ -241,16 +241,10 @@ class ChainableComponent(ABC):
         """
         Trap focus inside this element while the expression is truthy.
 
-        On open it moves focus inside, on close it returns focus to whatever was
-        focused before. Trapping is the correct behaviour for a modal rather
-        than a WCAG keyboard trap, because the trap releases on Escape and on
-        close - so whatever sets the expression must also clear it there.
-
+        Focus moves inside on open and returns to the previously focused
+        element on close, so whatever sets the expression must also clear it.
         inert hides the rest of the page from assistive tech, noscroll locks
-        background scrolling, and noreturn leaves focus where it is on close
-        (for when the trigger is gone by then).
-
-            Dialog().x_trap("open", inert=True, noscroll=True)
+        background scrolling, and noreturn skips the focus restore.
         """
         modifiers = "".join(
             f".{name}"
@@ -274,10 +268,8 @@ class ChainableComponent(ABC):
         """
         Position this element against another, given as a reference expression.
 
-        Use it for panels that float next to their trigger - popovers, menus,
-        listboxes, tooltips. The placement is a preference, not a promise: the
-        plugin flips and shifts the panel to keep it in the viewport, which is
-        what stops a menu near the edge from forcing a horizontal scrollbar.
+        The placement is a preference, not a promise: the plugin flips and
+        shifts the panel to keep it inside the viewport.
 
             Popover().x_anchor("$refs.trigger", "bottom-start", offset=6)
         """

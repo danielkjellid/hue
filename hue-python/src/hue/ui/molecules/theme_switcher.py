@@ -35,14 +35,11 @@ _OPTIONS = (
 
 class ThemeSwitcher(ChainableComponent):
     """
-    Lets the visitor pick the colour theme.
+    Lets the visitor pick the colour theme: light, dark or system.
 
-    Three states, not two: "system" is a real, selectable option, because a
-    binary toggle cannot represent "follow my OS", and defaulting to light while
-    the OS is dark is a jarring first impression. The choice is remembered in
-    localStorage under the page's theme_storage_key and applied to <html>.
-
-        ThemeSwitcher().variant("labelled")
+    The choice is remembered under the page's theme_storage_key. Only the
+    resolved light or dark reaches data-theme on <html>, so "system" keeps
+    following the OS for as long as it stays selected.
     """
 
     category = "Utility"

@@ -191,10 +191,24 @@ Every component must satisfy these — review against them before finishing:
 - **Comments & docstrings:** informative and simple — explain *why*, not *what*. Don't
   over-document. Write docstrings as **plain prose**: no reStructuredText markup (no
   ``` ``backticks`` ```, no `:func:`/`:class:`/`:data:` roles, no `::` literal blocks) — refer
-  to code in plain words (`size-4`, `aria-hidden`, `create_icon_base`). State the *why* and any
-  one nuance worth keeping; drop exhaustive lists, restated signatures, and repeated examples.
-  At most one short example, and only when it earns its place. Always start a docstring on a
-  new line after the opening `"""` (summary on the second line), including one-line docstrings.
+  to code in plain words (`size-4`, `aria-hidden`, `create_icon_base`). Always start a
+  docstring on a new line after the opening `"""` (summary on the second line), including
+  one-line docstrings.
+- **Component docstrings stay short.** A one-line summary of what it is, then a sentence or
+  two on the modifiers. Around eight lines is plenty. At most one short example, and only
+  where the shape isn't obvious from the summary — the docs page already renders `example()`
+  verbatim as the usage snippet.
+- **Design intent goes in the defaults, not the prose.** The design guide leads internal
+  development — it describes what is *intended*, not what is enforced. Express that intent by
+  choosing the default and the set of variants: Badge starts `neutral`, Card starts flat
+  rather than raised, the accent is the step that clears contrast. A consumer gets the
+  intention for free and can override all of it. What must not go in is usage rules, taste,
+  or predictions about end users ("exactly one primary per viewport", "a table where every
+  row is tinted has taught the reader to ignore colour"): an intention shapes what someone
+  gets by default, an opinion just sits in the docstring being unactionable. Facts about the
+  *code* are fine and often necessary — an icon-only button takes its label as an argument
+  because an icon has no accessible name; a skeleton renders `aria-hidden`, so `aria-busy`
+  belongs on the region around it.
 - Priority order: **correctness → performance → readability/reusability.**
 
 ### Building from a React reference
