@@ -36,13 +36,13 @@ _VARIANTS: dict[CalloutVariant, _Variant] = {
         icon="circle-info",
         icon_classes="text-surface-400",
         title_classes="text-surface-900",
-        box_classes="border-surface-200 text-surface-500",
+        box_classes="border-surface-200 bg-surface-50 text-surface-500",
     ),
     "primary": _Variant(
         icon="circle-info",
         icon_classes="text-primary",
         title_classes="text-surface-900",
-        box_classes="border-primary text-surface-500",
+        box_classes="border-primary bg-surface-50 text-surface-500",
     ),
     "info": _Variant(
         icon="circle-info",
@@ -128,8 +128,8 @@ class Callout(ChainableComponent):
                 ),
             ),
             class_=classnames(
-                "antialiased flex text-sm leading-6 bg-surface-50 dark:bg-surface-50",
-                "dark:text-surface-500 items-start w-full rounded-lg px-2 py-3 border",
+                "antialiased flex text-sm leading-6 dark:text-surface-500",
+                "items-start w-full rounded-lg px-2 py-3 border",
                 style.box_classes,
                 self._get_prop("class_"),
             ),

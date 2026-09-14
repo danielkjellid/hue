@@ -20,27 +20,39 @@ def _get_box_classes(*, disabled: bool, invalid: bool) -> str:
     """
     Classes for the visual box that reflects the (peer) input's state.
     """
+    if disabled:
+        resting_border = "border-surface-200"
+        fill = "bg-surface-100"
+    else:
+        # The invalid border has to be chosen here rather than added on top:
+        # two border-color utilities on one element resolve by stylesheet
+        # order, and border-surface-300 is emitted last, so an appended
+        # border-destructive silently lost and the error state showed a plain
+        # grey box.
+        resting_border = "border-destructive" if invalid else "border-surface-300"
+        fill = "bg-background"
+
     return classnames(
-        "absolute inset-0 rounded-md border bg-background shadow-xs",
+        "absolute inset-0 rounded-md border shadow-xs",
         "transition-colors duration-100",
         # 2px inset focus ring, shown only on keyboard focus.
         "outline-primary peer-focus-visible:outline",
         "peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2",
+        resting_border,
+        fill,
         classes_if_else(
             disabled,
             [
-                "border-surface-200 bg-surface-100",
                 "peer-checked:border-surface-300 peer-checked:bg-surface-300",
                 "peer-indeterminate:border-surface-300",
                 "peer-indeterminate:bg-surface-300",
             ],
             [
-                "border-surface-300 peer-hover:border-surface-400",
+                "peer-hover:border-surface-400",
                 "peer-checked:border-primary peer-checked:bg-primary",
                 "peer-indeterminate:border-primary peer-indeterminate:bg-primary",
             ],
         ),
-        {"border-destructive": invalid},
     )
 
 

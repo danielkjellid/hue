@@ -1228,9 +1228,6 @@
   .dark\:border-surface-100:where([data-theme=dark], [data-theme=dark] *) {
     border-color: var(--color-surface-100);
   }
-  .dark\:bg-surface-50:where([data-theme=dark], [data-theme=dark] *) {
-    background-color: var(--color-surface-50);
-  }
   .dark\:bg-surface-100:where([data-theme=dark], [data-theme=dark] *) {
     background-color: var(--color-surface-100);
   }
