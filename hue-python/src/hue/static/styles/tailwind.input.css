@@ -220,6 +220,12 @@
      clean anti-aliased perimeter. A single drop shadow looks cheap. */
 
   --shadow-field: 0 1px 2px 0 rgb(18 18 23 / 0.04);
+
+  /* The native select's chevron. A token rather than a class, because an
+     arbitrary value holding a data URI cannot survive a class attribute: it
+     carries both spaces and quotes. The stroke is fg-subtle, written out
+     because a URL cannot reference another custom property. */
+  --background-image-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236C6C89' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   /* The lift on a selected segment: theme switcher, segmented tabs, segmented
      button group. A raised shadow would be far too much at that size. */
   --shadow-segment: 0 1px 2px 0 rgb(18 18 23 / 0.1);
@@ -339,6 +345,7 @@
   --color-info-vivid: var(--hue-blue-400);
 
   --shadow-field: none;
+  --background-image-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8AA8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --shadow-raised:
     0 0 0 1px rgb(0 0 0 / 0.3),
     0 2px 6px 0 rgb(0 0 0 / 0.36),
