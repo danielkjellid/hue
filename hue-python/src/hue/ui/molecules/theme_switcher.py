@@ -2,16 +2,14 @@ from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
-from htmy import html
 from typing_extensions import Self
 
-from hue import html as hue_html
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
-from hue.utils import classes_if_else, classnames
+from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
+from hue.utils import classnames
 
 type ThemeSwitcherVariant = Literal["icons", "labelled"]
 
@@ -53,54 +51,35 @@ class ThemeSwitcher(ChainableComponent):
         return self
 
     def _option(self, option: _Option, labelled: bool) -> ComponentType:
-        children: list[ComponentType] = [HueIcon(option.icon).class_("size-3.5")]
-        if labelled:
-            children.append(option.text)
-
-        button = (
-            hue_html.button()
-            .type("button")
-            .class_(
-                classnames(
-                    "inline-flex items-center justify-center gap-1.5 h-6.5",
-                    "rounded-sm text-fg-subtle transition-colors hover:text-fg",
-                    "aria-pressed:bg-surface aria-pressed:text-fg",
-                    "aria-pressed:shadow-segment cursor-pointer",
-                    FOCUS_RING,
-                    classes_if_else(
-                        labelled,
-                        ["w-auto", "px-2.5", "font-ui", "text-sm", "font-semibold"],
-                        ["w-7"],
-                    ),
-                )
-            )
+        # No value() on the control, so the pressed state is left to these
+        # bindings: which theme is on is only known in the browser.
+        segment = (
+            SegmentedOption()
+            .value(option.choice)
             .x_on("click", f"$store.theme.select('{option.choice}')")
             .x_bind("aria-pressed", f"$store.theme.choice === '{option.choice}'")
-            .content(*children)
         )
 
-        # The visible text already names the option in the labelled variant;
-        # adding aria-label there would override it with different wording.
-        return button if labelled else button.aria_label(option.description)
+        icon = HueIcon(option.icon)
+        if labelled:
+            # The visible text names the option, so a label here would only
+            # override it with different wording.
+            return segment.content(icon, option.text)
+        return segment.icon_only(option.description).content(icon)
 
     def _render(self, context: HueContext) -> Component:
         variant: ThemeSwitcherVariant = self._get_prop("variant", "icons")
         labelled = variant == "labelled"
 
-        # A caller-supplied role or label wins, so the group can be renamed or
-        # relabelled for a different language.
-        attrs = {
-            "role": "group",
-            "aria_label": "Color theme",
-            **self._get_base_html_attrs(),
-        }
-
-        return html.div(
-            *(self._option(option, labelled) for option in _OPTIONS),
-            class_=classnames(
-                "inline-flex gap-0.5 p-[3px] rounded-md border border-border",
-                "bg-surface-sunken",
-                self._get_prop("class_"),
-            ),
-            **attrs,
+        control = (
+            SegmentedControl()
+            .size("sm")
+            .label("Color theme")
+            .class_(classnames(self._get_prop("class_")))
+            .content(*(self._option(option, labelled) for option in _OPTIONS))
         )
+
+        # This renders as the control, so the caller's own attributes belong on
+        # it - including an aria-label, which then wins over the default above.
+        control._attrs.update(self._get_base_html_attrs())
+        return control
