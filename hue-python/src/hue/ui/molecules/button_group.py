@@ -9,10 +9,14 @@ from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
-# A group draws the buttons' own borders into one shared edge, so a variant
-# without a box has nothing to join: ghost is invisible until hovered, and link
-# has no control height at all.
-_UNSUPPORTED_VARIANTS: frozenset[ButtonVariant] = frozenset({"ghost", "link"})
+# A group draws the buttons' own borders into one shared edge, so only variants
+# with a box can join it: ghost is invisible until hovered, and link has no
+# control height at all. An allowlist rather than the inverse, so a variant
+# added to Button later has to be let in deliberately instead of arriving here
+# by default.
+_SUPPORTED_VARIANTS: frozenset[ButtonVariant] = frozenset(
+    {"primary", "secondary", "outline", "danger", "danger-outline"}
+)
 
 
 class ButtonGroup(ChainableComponent):
@@ -51,11 +55,12 @@ class ButtonGroup(ChainableComponent):
         for child in self._children:
             if isinstance(child, Button):
                 variant = child._get_prop("variant", "primary")
-                if variant in _UNSUPPORTED_VARIANTS:
+                if variant not in _SUPPORTED_VARIANTS:
+                    supported = ", ".join(sorted(_SUPPORTED_VARIANTS))
                     raise ValueError(
                         f"ButtonGroup cannot join {variant!r} buttons: the group "
                         f"is made of their borders, and that variant has none. "
-                        f"Use a variant with a box, or SegmentedControl if you "
+                        f"Use one of {supported}, or SegmentedControl if you "
                         f"meant a choice."
                     )
 

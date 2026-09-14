@@ -1,9 +1,12 @@
 from html import unescape
+from typing import get_args
 
 import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Button, ButtonGroup
+from hue.ui.atoms.button import ButtonVariant
+from hue.ui.molecules.button_group import _SUPPORTED_VARIANTS
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
@@ -34,6 +37,12 @@ class TestButtonGroup:
     async def test_children_keep_their_own_variant(self, context_args):
         html = await render_tree(_group(), context_args=context_args)
         assert_selector(html, "button.border-border-input", count=2)
+
+    def test_every_supported_variant_is_a_real_one(self):
+        # A renamed Button variant would otherwise leave a dead string in the
+        # allowlist, quietly rejecting the variant it used to name. ButtonVariant
+        # is a PEP 695 alias, so the Literal is behind __value__.
+        assert _SUPPORTED_VARIANTS <= set(get_args(ButtonVariant.__value__))
 
     # A group is made of its buttons' borders, so a variant without a box has
     # nothing to join and would render as loose text.
