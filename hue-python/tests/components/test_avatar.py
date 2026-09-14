@@ -21,19 +21,21 @@ class TestAvatar:
         html = await render_tree(Avatar().name("Madonna"), context_args=context_args)
         assert "MA" in html
 
-    # src(): drawn as a background, with the initials left underneath
+    # src(): drawn as a background, replacing the initials
     @pytest.mark.asyncio
-    async def test_a_picture_keeps_the_initials_behind_it(self, context_args):
-        # A URL that fails to load then leaves a name rather than an empty
-        # circle, which an img element cannot do.
+    async def test_a_picture_replaces_the_initials(self, context_args):
+        # The picture is the face; initials underneath would only show through
+        # wherever it does not quite cover.
         html = await render_tree(
             Avatar().name("Grace Hopper").src("/grace.jpg"),
             context_args=context_args,
         )
         assert_no_selector(html, "img")
-        assert "GH" in html
+        assert "GH" not in html
         assert "/grace.jpg" in html
         assert_selector(html, "span.bg-cover")
+        # The name still reaches assistive tech from the wrapper.
+        assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper")
 
     @pytest.mark.asyncio
     async def test_no_background_without_a_picture(self, context_args):
@@ -146,7 +148,7 @@ class TestAvatarGroup:
             .content(Avatar().name("Ada Lovelace")),
             context_args=context_args,
         )
-        assert_selector(html, "span.size-16", count=2)
+        assert_selector(html, "span.size-16")
 
     @pytest.mark.asyncio
     async def test_a_member_keeps_a_size_it_asked_for(self, context_args):
@@ -199,9 +201,9 @@ class TestAvatarContent:
         assert_selector(html, "span.inline-flex.rounded-full.ring-2", count=2)
 
     @pytest.mark.asyncio
-    async def test_the_count_reads_as_a_label_not_a_face(self, context_args):
-        # Surface rather than the tint a face gets, plus a hairline so it is
-        # still a circle on a surface-coloured page.
+    async def test_the_count_is_a_number_not_another_face(self, context_args):
+        # A circle around it would read as one more person in the row rather
+        # than as a count of the row.
         html = await render_tree(
             AvatarGroup()
             .label("Ada and 3 others")
@@ -209,5 +211,31 @@ class TestAvatarContent:
             .content(Avatar().name("Ada Lovelace")),
             context_args=context_args,
         )
-        assert_selector(html, "span.bg-surface.border-border")
-        assert_no_selector(html, "span.bg-surface-sunken")
+        assert "+3" in html
+        assert_selector(html, "span.inline-flex.rounded-full.ring-2", count=1)
+        assert_no_selector(html, "span.rounded-full:-soup-contains('+3')")
+
+    @pytest.mark.asyncio
+    async def test_the_overlap_scales_with_the_avatars(self, context_args):
+        # A fixed offset swallows a small face and barely touches a large one.
+        small = await render_tree(
+            AvatarGroup().label("Two").size("xs").content(Avatar(), Avatar()),
+            context_args=context_args,
+        )
+        large = await render_tree(
+            AvatarGroup().label("Two").size("xl").content(Avatar(), Avatar()),
+            context_args=context_args,
+        )
+        assert_selector(small, r"span.-ms-1\.5", count=2)
+        assert_selector(large, "span.-ms-4", count=2)
+
+    @pytest.mark.asyncio
+    async def test_earlier_members_stack_on_top(self, context_args):
+        html = await render_tree(
+            AvatarGroup()
+            .label("Ada and Grace")
+            .content(Avatar().name("Ada Lovelace"), Avatar().name("Grace Hopper")),
+            context_args=context_args,
+        )
+        wrappers = select(html, 'span[aria-hidden="true"]')
+        assert [w["style"] for w in wrappers] == ["z-index:2", "z-index:1"]

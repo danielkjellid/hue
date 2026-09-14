@@ -14,13 +14,21 @@ type AvatarSize = Literal["xs", "sm", "md", "lg", "xl"]
 type AvatarShape = Literal["circle", "square"]
 type AvatarStatus = Literal["online", "away", "busy", "offline"]
 
+_BOX_CLASSES: dict[AvatarSize, str] = {
+    "xs": "size-5",
+    "sm": "size-7",
+    "md": "size-9",
+    "lg": "size-11",
+    "xl": "size-16",
+}
+
 # The type scales with the circle, so initials stay optically centred.
-_SIZE_CLASSES: dict[AvatarSize, str] = {
-    "xs": "size-5 text-[8px]",
-    "sm": "size-7 text-[11px]",
-    "md": "size-9 text-sm",
-    "lg": "size-11 text-md",
-    "xl": "size-16 text-[24px]",
+_TEXT_CLASSES: dict[AvatarSize, str] = {
+    "xs": "text-[8px]",
+    "sm": "text-[11px]",
+    "md": "text-sm",
+    "lg": "text-md",
+    "xl": "text-[24px]",
 }
 
 _STATUS_CLASSES: dict[AvatarStatus, str] = {
@@ -84,9 +92,9 @@ class Avatar(ChainableComponent):
         A picture, drawn as the background of the avatar.
 
         A background rather than an img element because the wrapper already
-        carries the name, so the picture is decorative either way - and when the
-        URL is broken this falls back to the initials underneath instead of a
-        broken-image icon in the middle of a face.
+        carries the name, so the picture is decorative either way - and a URL
+        that fails to load leaves an empty circle rather than a broken-image
+        icon in the middle of a face.
         """
         self._props["src"] = value
         return self
@@ -109,35 +117,27 @@ class Avatar(ChainableComponent):
         self._props["status"] = value
         return self
 
-    def subtle(self, value: bool = True) -> Self:
-        """
-        Quieten the fill, for an avatar standing in for something other than a
-        person - the count at the end of a group, say. It keeps the surface
-        colour rather than the tint a face gets, so it reads as a label.
-        """
-        self._props["subtle"] = value
-        return self
-
     def _render(self, context: HueContext) -> Component:
         size: AvatarSize = self._get_prop("size", "md")
         shape: AvatarShape = self._get_prop("shape", "circle")
         name: str | None = self._get_prop("name")
         src: str | None = self._get_prop("src")
         status: AvatarStatus | None = self._get_prop("status")
-        subtle: bool = self._get_prop("subtle", False)
 
         label = name
         if label is not None and status is not None:
             label = f"{label}, {status}"
 
-        # The initials stay in the DOM behind a picture, so a URL that fails to
-        # load leaves a name rather than an empty circle.
         body: tuple[ComponentType, ...]
-        if name:
+        if src is not None:
+            # The picture is the face; initials underneath would only show
+            # through wherever it does not quite cover.
+            body = ()
+        elif name:
             body = (_initials(name),)
         else:
-            # No name: whatever the caller put inside, such as an icon or the
-            # count at the end of a group.
+            # No name and no picture: whatever the caller put inside, such as
+            # an icon.
             body = self._children
 
         radius = "rounded-md" if shape == "square" else "rounded-full"
@@ -150,12 +150,13 @@ class Avatar(ChainableComponent):
                 *body,
                 class_=classnames(
                     "flex size-full items-center justify-center overflow-hidden",
-                    # A hairline, because a surface-coloured circle on a
-                    # surface-coloured page is only its text otherwise.
-                    "bg-surface text-fg-muted border border-border"
-                    if subtle
-                    else "bg-surface-active text-fg-muted",
+                    # An inset hairline, so a pale photo or a surface-coloured
+                    # circle still has an edge on a light page. Drawn as an
+                    # outline rather than a border because it costs no layout.
+                    "outline-1 -outline-offset-1 outline-border",
+                    "bg-surface-active text-fg-muted",
                     "font-ui font-semibold leading-none",
+                    _TEXT_CLASSES[size],
                     "bg-cover bg-center" if src is not None else "",
                     radius,
                 ),
@@ -173,7 +174,7 @@ class Avatar(ChainableComponent):
             ),
             class_=classnames(
                 "relative inline-flex shrink-0 select-none",
-                _SIZE_CLASSES[size],
+                _BOX_CLASSES[size],
                 radius,
                 self._get_prop("class_"),
             ),
@@ -189,7 +190,18 @@ class Avatar(ChainableComponent):
 # inline-flex so the wrapper shrink-wraps the avatar: as a plain inline span its
 # box is a line box, and the ring meant to separate overlapping members was
 # drawn around that instead of around the circle.
-_MEMBER_CLASSES = "inline-flex rounded-full ring-2 ring-canvas -ms-2.5 first:ms-0"
+_MEMBER_CLASSES = "relative inline-flex rounded-full ring-2 ring-canvas first:ms-0"
+
+# The overlap is a fraction of the avatar rather than a fixed distance, so a row
+# of small faces is not stacked nearly on top of each other while a row of large
+# ones barely touches.
+_OVERLAP_CLASSES: dict[AvatarSize, str] = {
+    "xs": "-ms-1.5",
+    "sm": "-ms-2",
+    "md": "-ms-2.5",
+    "lg": "-ms-3",
+    "xl": "-ms-4",
+}
 
 
 class AvatarGroup(ChainableComponent):
@@ -223,7 +235,7 @@ class AvatarGroup(ChainableComponent):
 
     def more(self, value: int) -> Self:
         """
-        Append a "+N" chip for the people not shown.
+        Add a "+N" for the people not shown.
         """
         self._props["more"] = value
         return self
@@ -248,32 +260,43 @@ class AvatarGroup(ChainableComponent):
         # size does reach them, so the group and the count it ends with cannot
         # disagree about how big a face is.
         members = []
-        for child in self._children:
+        for index, child in enumerate(self._children):
             if isinstance(child, Avatar):
                 child._size_default(size)
             members.append(
                 html.span(
                     child,
-                    class_=_MEMBER_CLASSES,
+                    class_=classnames(_MEMBER_CLASSES, _OVERLAP_CLASSES[size]),
+                    # Earlier members stack on top of later ones, so the row
+                    # reads left to right rather than the last face climbing
+                    # over everything before it. Computed, so it cannot be a
+                    # Tailwind class - nothing would scan it.
+                    style=f"z-index:{len(self._children) - index}",
                     aria_hidden="true",
                 )
             )
 
         if more is not None:
-            # An Avatar rather than a lookalike, so the count sits on exactly
-            # the same baseline as the faces beside it. A hand-built span drifted
-            # from the real thing the moment Avatar's markup changed.
+            # Just the number: a circle around it would read as one more face
+            # in the row rather than as a count of the row.
             members.append(
                 html.span(
-                    Avatar().size(size).subtle().content(f"+{more}"),
-                    class_=_MEMBER_CLASSES,
+                    f"+{more}",
+                    class_=classnames(
+                        "ms-2 font-ui font-semibold text-fg-muted tabular-nums",
+                        _TEXT_CLASSES[size],
+                    ),
                     aria_hidden="true",
                 )
             )
 
         return html.span(
             *members,
-            class_=classnames("inline-flex items-center", self._get_prop("class_")),
+            # isolate keeps the members' stacking order to themselves rather
+            # than letting it compete with whatever surrounds the group.
+            class_=classnames(
+                "isolate inline-flex items-center", self._get_prop("class_")
+            ),
             **{
                 "role": "img",
                 "aria_label": label,
