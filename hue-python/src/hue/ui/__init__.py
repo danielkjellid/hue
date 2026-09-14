@@ -15,6 +15,7 @@ from hue.ui.atoms.input import (
 )
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.spacer import Spacer
+from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.text import Label, Text
 from hue.ui.base import ChainableComponent
@@ -49,6 +50,7 @@ __all__ = [
     "NumberInput",
     "PasswordInput",
     "Spacer",
+    "Spinner",
     "Stack",
     "Table",
     "TableBody",
