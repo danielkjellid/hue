@@ -9,9 +9,6 @@ async def render_tree[T_Request](
     context_args: HueContextArgs[T_Request],
 ) -> str:
     """
-    Render a tree of components to a HTML string.
+    Render a tree of components to an HTML string.
     """
-    context = HueContext(*children, **context_args)
-    renderer = Renderer()
-    result = await renderer.render(context)
-    return result
+    return await Renderer().render(HueContext(*children, **context_args))

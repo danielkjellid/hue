@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Column, DataTable, Text
-from tests._a11y import assert_attr, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestDataTable:
@@ -118,3 +118,50 @@ class TestDataTable:
         )
         assert_attr(html, "table", "id", "users-table")
         assert_selector(html, "table.custom-class")
+
+    @pytest.mark.asyncio
+    async def test_caption_is_first_child_of_table(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("Name", accessor="name")])
+            .data([{"name": "Ada"}])
+            .caption("Users"),
+            context_args=context_args,
+        )
+        table = select(html, "table")[0]
+        first_child = next(c for c in table.children if c.name)
+        assert first_child.name == "caption"
+
+    @pytest.mark.asyncio
+    async def test_empty_state_keeps_cell_semantics(self, context_args):
+        html = await render_tree(
+            DataTable().columns([Column("Name", accessor="name")]).data([]),
+            context_args=context_args,
+        )
+        # role="status" on the td itself would replace its cell role.
+        assert_no_selector(html, 'td[role="status"]')
+        assert_selector(html, 'td [role="status"]')
+
+    def test_column_needs_accessor_or_cell(self):
+        with pytest.raises(ValueError, match="accessor or a cell"):
+            Column("Name")
+
+    @pytest.mark.asyncio
+    async def test_cell_only_column(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("Actions", cell=lambda r: Text("Edit"))])
+            .data([{"id": 1}]),
+            context_args=context_args,
+        )
+        assert "Edit" in html
+
+    @pytest.mark.asyncio
+    async def test_missing_key_reports_accessor(self, context_args):
+        with pytest.raises(ValueError, match="'city' is not a key"):
+            await render_tree(
+                DataTable()
+                .columns([Column("City", accessor="address.city")])
+                .data([{"address": {}}]),
+                context_args=context_args,
+            )

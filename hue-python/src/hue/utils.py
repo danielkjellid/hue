@@ -1,10 +1,6 @@
-from typing import Callable, TypeGuard
+from collections.abc import Callable
 
 from hue.types.core import UNDEFINED, ComponentType
-
-
-def _is_not_none[T: object](value: T | None) -> TypeGuard[T]:
-    return value is not None
 
 
 def render_if[T: object](
@@ -13,79 +9,45 @@ def render_if[T: object](
     fallback: ComponentType = UNDEFINED,
 ) -> ComponentType:
     """
-    Render a component if the condition is true, if not render fallback.
+    Render component_factory(value) when value is not None, otherwise fallback.
+
+    fallback renders to nothing by default, which makes this the idiom for
+    optional children: render_if(title, lambda t: html.h2(t)).
     """
-    return component_factory(value) if _is_not_none(value) else fallback
+    return component_factory(value) if value is not None else fallback
 
 
 def classnames(*args: str | list[str] | dict[str, bool] | None) -> str:
     """
-    A utility for constructing className strings conditionally.
-    Similar to the JavaScript classnames library.
+    Join class names into one space separated string, like the JS classnames
+    library.
 
-    Args:
-        *args: Variable number of arguments that can be:
-            - str: A class name string
-            - list[str]: A list of class names
-            - dict[str, bool]: A dictionary where keys are class names and values
-              determine if the class should be included
-            - None: Ignored
-
-    Returns:
-        A space-separated string of class names.
-
-    Examples:
-        >>> classnames("foo", "bar")
-        'foo bar'
-        >>> classnames(["foo", "bar"], "baz")
-        'foo bar baz'
-        >>> classnames("foo", {"bar": True, "baz": False})
-        'foo bar'
-        >>> classnames("foo", None, ["bar", "baz"])
-        'foo bar baz'
+    Strings and lists are included as-is, dict keys are included when their value
+    is truthy, and None and empty strings are dropped.
     """
     classes: list[str] = []
 
     for arg in args:
         if arg is None:
             continue
-        elif isinstance(arg, str):
-            if arg:  # Only add non-empty strings
+        if isinstance(arg, str):
+            if arg:
                 classes.append(arg)
         elif isinstance(arg, list):
-            classes.extend([cls for cls in arg if cls])
-        elif isinstance(arg, dict):
-            classes.extend([cls for cls, condition in arg.items() if condition and cls])
+            classes.extend(cls for cls in arg if cls)
         else:
-            # Handle other types by converting to string (for flexibility)
-            str_arg = str(arg)
-            if str_arg:
-                classes.append(str_arg)
+            classes.extend(cls for cls, condition in arg.items() if condition and cls)
 
     return " ".join(classes)
 
 
-def classes_if(
-    condition: bool,
-    classes: list[str],
-) -> dict[str, bool]:
+def classes_if(condition: bool, classes: list[str]) -> dict[str, bool]:
     """
-    A utility for constructing a dictionary of classes and their conditions. This is
-    useful in the event where the keyname consists of so many classes that it would
-    be so long that it would be difficult to read.
+    Gate a whole block of classes on one condition.
 
-    Args:
-        classes: A list of class names to conditionally include.
-        condition: If True, all classes will be included; if False, none will be.
-
-    Returns:
-        A dictionary mapping each class to the condition value.
-
-    Examples:
-        >>> classes_if(["foo", "bar"], True)
-        {'foo': True, 'bar': True}
-        >>> classes_if(["foo", "bar"], False)
-        {'foo': False, 'bar': False}
+    Keeps the classnames dict readable when a single condition would otherwise
+    have to be repeated for every class: classes_if(disabled, ["opacity-50",
+    "cursor-not-allowed"]).
     """
     return dict.fromkeys(classes, condition)
 
@@ -96,28 +58,12 @@ def classes_if_else(
     if_false: list[str],
 ) -> dict[str, bool]:
     """
-    A ternary utility for constructing a dictionary of classes based on a condition.
-    Returns classes from the first list if condition is True, otherwise from the
-    second list.
+    Pick between two mutually exclusive sets of classes.
 
-    This is useful when you have mutually exclusive sets of classes based on a
-    condition, avoiding the need to use `not condition` in separate calls.
-
-    Args:
-        classes_if_true: Classes to include when condition is True.
-        condition: The condition to evaluate.
-        classes_if_false: Classes to include when condition is False.
-
-    Returns:
-        A dictionary mapping classes to their condition values.
-
-    Examples:
-        >>> classes_if_else(["enabled"], True, ["disabled"])
-        {'enabled': True, 'disabled': False}
-        >>> classes_if_else(["enabled"], False, ["disabled"])
-        {'enabled': False, 'disabled': True}
+    classes_if_else(disabled, ["text-surface-300"], ["text-surface-900"]) marks
+    the first set on when the condition holds and the second set on otherwise.
     """
-    result: dict[str, bool] = {}
-    result.update(dict.fromkeys(if_true, condition))
-    result.update(dict.fromkeys(if_false, not condition))
-    return result
+    return {
+        **dict.fromkeys(if_true, condition),
+        **dict.fromkeys(if_false, not condition),
+    }

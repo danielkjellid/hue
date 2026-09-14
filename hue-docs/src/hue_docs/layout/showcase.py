@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from htmy import SafeStr
 from hue import html
 from hue.types.core import ComponentType
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.layout.code import code_block
 from hue_docs.registry import Showcase, Variant, example_code
-from hue_docs.render import render_html_sync
+from hue_docs.render import preview
 
 _CONTAINER = {
     "row": "flex flex-wrap gap-4",
@@ -24,15 +23,6 @@ _CARD_WIDTH = {
 }
 
 
-def _preview(variant: Variant) -> ComponentType:
-    try:
-        rendered = render_html_sync(variant.build())
-    except Exception as exc:  # defensive: keep one bad variant from failing the build
-        return html.p(f"Could not render: {exc}").class_("text-sm text-destructive")
-    # Already-rendered HTML; embed verbatim without re-escaping.
-    return SafeStr(rendered)
-
-
 def _card(variant: Variant, layout: str) -> ComponentType:
     return html.div(
         html.div(
@@ -40,7 +30,7 @@ def _card(variant: Variant, layout: str) -> ComponentType:
                 "absolute left-2 top-2 rounded bg-surface px-1.5 py-0.5 "
                 "text-[10px] uppercase tracking-wide text-surface-400"
             ),
-            _preview(variant),
+            preview(variant.build()),
         ).class_(
             "relative flex min-h-28 flex-wrap items-center justify-center gap-3 "
             "rounded-lg border border-surface-200 bg-background px-6 pb-6 pt-8"

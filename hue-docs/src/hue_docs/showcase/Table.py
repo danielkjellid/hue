@@ -1,4 +1,4 @@
-"""Curated showcases for the ``Table`` primitives (modelled on shadcn's table)."""
+"""Curated showcases for the Table primitives (modelled on shadcn's table)."""
 
 from __future__ import annotations
 

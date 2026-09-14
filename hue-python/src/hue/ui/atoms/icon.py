@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 
 from htmy import Formatter, Properties, PropertyValue, SafeStr, html
 
+from hue.assets import icons_path
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.base import ChainableComponent
@@ -170,13 +171,7 @@ class Icon(ChainableComponent):
 
     @classmethod
     def example(cls) -> "Icon":
-        """
-        A representative instance, used by the docs site for previews.
-        """
-        icons_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "static", "icons")
-        )
-        return create_icon_base(icons_dir=icons_dir)("circle-info").class_("size-6")
+        return HueIcon("circle-info").class_("size-6")
 
     @property
     def resolver(self) -> IconResolver:
@@ -231,3 +226,8 @@ def create_icon_base(
     _ConfiguredIcon.__name__ = "Icon"
 
     return _ConfiguredIcon
+
+
+# hue's own small icon set (static/icons), for components that need a glyph of
+# their own such as Callout and Checkbox. Not part of the public API.
+HueIcon = create_icon_base(icons_dir=str(icons_path()))

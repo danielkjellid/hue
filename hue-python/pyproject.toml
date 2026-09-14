@@ -8,8 +8,8 @@ description = "A component library for Python and html template rendering engine
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "arel>=0.4.0",
-    "htmy>=0.8.2",
+    # htmy 0.9 removed htmy.core.Tag and friends that hue builds on.
+    "htmy>=0.8.2,<0.9",
     "pydantic>=2.0.0",
     "pydantic_core>=2.0.0",
     "pytailwindcss>=0.3.0",
@@ -38,7 +38,7 @@ known_first_party = ["hue"]
 extend_exclude = ["tests", "test_.*\\.py"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["arel", "pytailwindcss"]
+DEP002 = ["pytailwindcss"]
 
 ##########
 # Pytest #

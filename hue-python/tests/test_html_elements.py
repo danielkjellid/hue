@@ -62,6 +62,8 @@ class TestElement:
     def test_void_element_rejects_children(self):
         with pytest.raises(TypeError):
             html.input_("nope")
+        with pytest.raises(TypeError):
+            html.input_().content("nope")
 
     def test_void_element_without_children_ok(self):
         assert isinstance(html.input_(), Element)

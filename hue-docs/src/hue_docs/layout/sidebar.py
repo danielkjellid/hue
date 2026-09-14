@@ -18,11 +18,14 @@ def _nav_link(label: str, href: str, *, active: bool) -> ComponentType:
 
 
 def _nav_group(group: NavGroup, active_href: str) -> ComponentType:
+    heading_id = f"nav-{group.title.lower().replace(' ', '-')}"
     return (
         html.div()
         .class_("mb-6")
         .content(
-            html.p(group.title).class_(
+            html.p(group.title)
+            .id(heading_id)
+            .class_(
                 "mb-2 px-3 text-xs font-semibold uppercase tracking-wide "
                 "text-surface-400"
             ),
@@ -31,7 +34,9 @@ def _nav_group(group: NavGroup, active_href: str) -> ComponentType:
                     _nav_link(item.label, item.href, active=item.href == active_href)
                     for item in group.items
                 ]
-            ).class_("space-y-0.5"),
+            )
+            .attr("aria_labelledby", heading_id)
+            .class_("space-y-0.5"),
         )
     )
 
@@ -41,6 +46,7 @@ def sidebar(groups: list[NavGroup], active_href: str) -> ComponentType:
         html.aside(
             *[_nav_group(group, active_href) for group in groups],
         )
+        .id("docs-sidebar")
         .class_(
             "w-60 shrink-0 border-r border-surface-200 px-4 py-8 "
             "lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:overflow-y-auto"

@@ -40,7 +40,7 @@ PYTHONPATH=src uv run python -m hue_docs   # build → writes dist/   (also: mak
 make serve                                 # http.server on http://localhost:8000
 
 # Assets (from hue-python/)
-make build        # build CSS + JS, copy bundles into hue-django/.../static/hue/
+make build        # build CSS + the Alpine JS bundle (hue-django serves them from the hue package)
 make watch-css    # Tailwind watch mode
 ```
 
@@ -60,7 +60,14 @@ canonical templates. The shape:
   `self._get_prop(key, default)`, splat shared attrs with `self._get_base_html_attrs()`, and
   return an `htmy.html.*` tree.
 - Variants/sizes/shapes are PEP 695 type aliases: `type ButtonVariant = Literal[...]`.
-- `category: ClassVar[str]` sets the docs sidebar group (e.g. `"Actions"`, `"Feedback"`).
+- `category: ClassVar[str | None]` sets the docs sidebar group (e.g. `"Actions"`,
+  `"Feedback"`). Set it to `None` for composition-only parts (e.g. `TableRow`) that are
+  exported but should not get their own docs page.
+- Named form controls (inputs, checkbox) subclass `FormControl` (`hue-python/src/hue/ui/form.py`),
+  which owns `name`/`label`/`disabled`/`required`/`help_text`/`error_text`, `x_model`, and the
+  `aria-describedby` / `aria-errormessage` wiring — don't re-implement those per control.
+- Boolean HTML attributes are true by presence: emit `value or None`, never a raw `False`
+  (htmy renders `False` as `attr="false"`, which the browser reads as true).
 - `@classmethod example(cls) -> Self` returns a representative instance for the docs preview.
 - The base already provides `.class_()`, `.id()`, the ARIA helpers (`aria_label`, `role`,
   `aria_expanded`, …), and the Alpine / Alpine AJAX directives — **reuse them**, don't
@@ -83,14 +90,16 @@ canonical templates. The shape:
 
 `hue-docs` introspects `hue.ui.__all__`, keeps `ChainableComponent` subclasses, derives
 "axes" from `Literal` enum and `bool` modifier signatures, and reads default values out of
-`_render` source by regex-matching `_get_prop("name", <default>)`. Practical rules so a new
+the `_render` source via the AST (`_get_prop("name", <literal>)`). Practical rules so a new
 component shows up correctly:
 
-- Keep the `example()` body a **single simple expression** — it is AST-unparsed into the
-  snippet shown on the site.
+- Every documented component **must** define `example()` — the docs build fails loudly
+  otherwise — and its body must be a **single `return` expression** (its source is shown
+  verbatim as the usage snippet; a test enforces this).
 - Use real `Literal` type aliases for variant axes (so they resolve as enum axes).
-- Defaults must be **literals written inside** the `_get_prop(...)` call, not computed
-  elsewhere.
+- Defaults are read from the **literal** second argument of `_get_prop("name", <literal>)`
+  in `_render` (via the AST), then overlaid with anything the constructor pre-sets in
+  `_props`.
 - `hue-docs` pins `htmy==0.8.2` (APIs removed in 0.9+); keep core compatible with that pin.
 
 ## Testing
@@ -168,11 +177,17 @@ methods and its variants to `Literal` axes.
   async) and an optional `router`. Exposes `.urls` / `.app_name` as class properties.
 - `HueFragmentsView` — router-only view (no `index`).
 - `Router[HttpRequest]` (`router.py`) — `@router.fragment_post("path/<int:id>/")`; parses
-  Django path params, injects the CSRF token into `HueContextArgs`, detects AJAX
-  (`X-Requested-With` / `X-Alpine-Request`), and wraps sync handlers in `sync_to_async`.
+  Django path params (`<name>` and `<converter:name>`), injects the CSRF token into
+  `HueContextArgs`, and wraps sync handlers in `sync_to_async`. AJAX detection
+  (`X-Requested-With` / `X-Alpine-Request`) lives in the core router.
+- `.urls` is built once per class and never mutates the user's `router` (the index is
+  registered on a private router via `Router.page`), so subclasses get their own index.
+- Body validation failures return 422 via the overridable
+  `handle_body_validation_error(request, exc)` hook.
 - `HueAssetsMiddleware` (`middleware.py`) — serves `/__hue__/styles.css` and
-  `/__hue__/js/alpine.js` straight from the `hue` package (no `collectstatic`), with ETag
-  caching.
+  `/__hue__/js/alpine.js` straight from the `hue` package (no `collectstatic`), sync and
+  async capable, with RFC 7232 conditional (ETag / 304) handling. The bundle sends the
+  CSRF token as `X-CSRFToken`, the header Django reads.
 - Tests configure Django in `conftest.py` and use the `urlpatterns_` fixture for isolation.
 
 ## House rules

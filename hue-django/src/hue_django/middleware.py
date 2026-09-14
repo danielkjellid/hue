@@ -1,67 +1,83 @@
 import hashlib
 from collections.abc import Callable
+from typing import Any
 
-from django.http import HttpRequest, HttpResponse
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+from django.http import HttpRequest, HttpResponse, HttpResponseBase
+from django.utils.cache import get_conditional_response
+from django.utils.http import quote_etag
 from hue.assets import read_css, read_js
 
-# URL prefix for Hue's built-in asset endpoints.
+# URL prefix for hue's built-in asset endpoints.
 HUE_ASSETS_PREFIX = "/__hue__/"
+CSS_URL = f"{HUE_ASSETS_PREFIX}styles.css"
+JS_URL = f"{HUE_ASSETS_PREFIX}js/alpine.js"
 
-# Asset routes: path suffix -> (content reader, content type)
+# Asset path -> (content reader, content type)
 _ASSET_ROUTES: dict[str, tuple[Callable[[], str], str]] = {
-    "styles.css": (read_css, "text/css; charset=utf-8"),
-    "js/alpine.js": (read_js, "application/javascript; charset=utf-8"),
+    CSS_URL: (read_css, "text/css; charset=utf-8"),
+    JS_URL: (read_js, "text/javascript; charset=utf-8"),
 }
 
-# In-memory cache: path suffix -> (content, etag)
-_cache: dict[str, tuple[str, str]] = {}
+# In-memory cache: asset path -> (encoded content, quoted etag)
+_cache: dict[str, tuple[bytes, str]] = {}
 
 
-def _get_cached_asset(path: str) -> tuple[str, str]:
-    """Get asset content and ETag, reading from disk on first access."""
+def _get_cached_asset(path: str) -> tuple[bytes, str]:
+    """
+    Content and ETag for an asset, read from the hue package on first access.
+    """
     if path not in _cache:
         reader, _ = _ASSET_ROUTES[path]
-        content = reader()
-        etag = hashlib.md5(content.encode()).hexdigest()
-        _cache[path] = (content, etag)
+        content = reader().encode("utf-8")
+        digest = hashlib.md5(content, usedforsecurity=False).hexdigest()
+        _cache[path] = (content, quote_etag(digest))
     return _cache[path]
 
 
+def _asset_response(request: HttpRequest) -> HttpResponseBase | None:
+    """
+    The response for a hue asset request, or None when the request is not one.
+    """
+    if request.path not in _ASSET_ROUTES or request.method not in ("GET", "HEAD"):
+        return None
+
+    content, etag = _get_cached_asset(request.path)
+    _, content_type = _ASSET_ROUTES[request.path]
+
+    response = HttpResponse(content, content_type=content_type)
+    response["ETag"] = etag
+    response["Cache-Control"] = "public, max-age=3600"
+    # Turns the response into a 304 when If-None-Match matches, handling weak
+    # validators, lists and "*" per RFC 7232.
+    return get_conditional_response(request, etag=etag, response=response)
+
+
 class HueAssetsMiddleware:
-    """Django middleware that serves Hue's built-in CSS and JS assets.
+    """
+    Serve hue's built-in CSS and JS straight from the hue package.
 
-    Intercepts requests to /__hue__/ and serves assets directly from
-    the hue Python package. No collectstatic or static file configuration
-    needed.
+    No collectstatic or static file configuration is needed. Works under both
+    WSGI and ASGI without forcing the rest of the chain through a thread.
 
-    Add to MIDDLEWARE in settings.py:
         MIDDLEWARE = [
             "hue_django.middleware.HueAssetsMiddleware",
             ...
         ]
     """
 
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+    sync_capable = True
+    async_capable = True
+
+    def __init__(self, get_response: Callable[[HttpRequest], Any]) -> None:
         self.get_response = get_response
+        if iscoroutinefunction(get_response):
+            markcoroutinefunction(self)
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        if not request.path.startswith(HUE_ASSETS_PREFIX):
-            return self.get_response(request)
+    def __call__(self, request: HttpRequest) -> Any:
+        if iscoroutinefunction(self):
+            return self.__acall__(request)
+        return _asset_response(request) or self.get_response(request)
 
-        asset_path = request.path[len(HUE_ASSETS_PREFIX) :]
-
-        if asset_path not in _ASSET_ROUTES:
-            return self.get_response(request)
-
-        content, etag = _get_cached_asset(asset_path)
-        _, content_type = _ASSET_ROUTES[asset_path]
-
-        # Handle conditional requests (304 Not Modified)
-        if_none_match = request.META.get("HTTP_IF_NONE_MATCH", "")
-        if if_none_match == etag:
-            return HttpResponse(status=304)
-
-        response = HttpResponse(content, content_type=content_type)
-        response["ETag"] = etag
-        response["Cache-Control"] = "public, max-age=3600"
-        return response
+    async def __acall__(self, request: HttpRequest) -> HttpResponseBase:
+        return _asset_response(request) or await self.get_response(request)

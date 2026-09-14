@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal, Type, cast
+from typing import Literal, cast
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component, ComponentType
+from hue.types.core import UNDEFINED, Component
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames
+from hue.utils import classes_if_else, classnames
 
 type TextTag = (
     html.p
@@ -31,42 +31,45 @@ type TextVariant = Literal[
     "body",
 ]
 
+# The values double as the Tailwind classes they apply.
 type TextAlign = Literal["text-left", "text-center", "text-right"]
+
+_VARIANT_CLASSES: dict[TextVariant, str] = {
+    "title-1": "text-5xl font-bold",
+    "title-2": "text-3xl font-bold",
+    "title-3": "text-2xl",
+    "subtitle-1": "text-base font-medium",
+    "subtitle-2": "text-sm font-medium leading-6",
+    "body": "text-sm leading-6",
+}
 
 
 class Text(ChainableComponent):
     """
     A run of text rendered with a typographic style.
 
-    Renders the given text inside a configurable tag (``.tag()`` — defaults to
-    ``<p>``; also span, h1-h6, label) using one of the design system's type
-    ``.variant()`` scales (title, subtitle, body). ``.align()`` controls
-    alignment, and ``.muted()`` / ``.destructive()`` set the colour.
+    Renders inside a configurable tag (p by default; also span, h1 to h6 and
+    label) using one of the design system's type scales via variant(). align()
+    controls alignment and muted() / destructive() set the colour.
 
-    Example::
-
-        Text("Section title")
-            .variant("title-3")
-            .tag(html.h2)
-            .align("text-center")
+        Text("Section title").variant("title-3").tag(html.h2).align("text-center")
     """
+
+    category = "Typography"
 
     def __init__(self, text: str = "") -> None:
         super().__init__()
         self._text = text
 
-    category = "Typography"
-
     @classmethod
     def example(cls) -> Self:
-        """A representative instance, used by the docs site for previews."""
         return cls("The quick brown fox")
 
     def variant(self, value: TextVariant) -> Self:
         self._props["variant"] = value
         return self
 
-    def tag(self, value: Type[TextTag]) -> Self:
+    def tag(self, value: type[TextTag]) -> Self:
         self._props["tag"] = value
         return self
 
@@ -87,31 +90,17 @@ class Text(ChainableComponent):
         align: TextAlign = self._get_prop("align", "text-left")
         muted: bool = self._get_prop("muted", False)
         destructive: bool = self._get_prop("destructive", False)
-        html_tag: Type[TextTag] = self._get_prop("tag", html.p)
+        html_tag: type[TextTag] = self._get_prop("tag", html.p)
 
-        color_classes = classnames(
+        classes = classnames(
+            _VARIANT_CLASSES[variant],
+            align,
             {
-                "text-surface-500": muted and not destructive,
+                # Destructive wins over muted when both are set.
                 "text-destructive": destructive,
+                "text-surface-500": muted and not destructive,
                 "text-surface-900": not muted and not destructive,
             },
-        )
-
-        all_classes = classnames(
-            {
-                "text-5xl font-bold": variant == "title-1",
-                "text-3xl font-bold": variant == "title-2",
-                "text-2xl": variant == "title-3",
-                "text-base font-medium": variant == "subtitle-1",
-                "text-sm font-medium leading-6": variant == "subtitle-2",
-                "text-sm leading-6": variant == "body",
-            },
-            {
-                "text-center": align == "text-center",
-                "text-right": align == "text-right",
-                "text-left": align == "text-left",
-            },
-            color_classes,
             self._get_prop("class_"),
         )
 
@@ -120,7 +109,7 @@ class Text(ChainableComponent):
             html_tag(
                 self._text,
                 *self._children,
-                class_=all_classes,
+                class_=classes,
                 **self._get_base_html_attrs(),
             ),
         )
@@ -128,29 +117,24 @@ class Text(ChainableComponent):
 
 class Label(ChainableComponent):
     """
-    A ``<label>`` for a form control.
+    A label for a form control.
 
-    Renders the label text, optionally followed by a required-field asterisk
-    (``.required()``). Use ``.html_for()`` to link it to a control's ``id``,
-    ``.disabled()`` to style it as disabled, and ``.hidden_label()`` to keep it
-    visually hidden but still available to screen readers.
+    Renders the label text, optionally followed by a required-field asterisk.
+    Use html_for() to link it to a control's id, disabled() to style it as
+    disabled, and hidden_label() to keep it visually hidden but available to
+    screen readers.
 
-    Example::
-
-        Label("Email")
-            .html_for("email-input")
-            .required()
+        Label("Email").html_for("email-input").required()
     """
+
+    category = "Typography"
 
     def __init__(self, text: str = "") -> None:
         super().__init__()
         self._text = text
 
-    category = "Typography"
-
     @classmethod
     def example(cls) -> Self:
-        """A representative instance, used by the docs site for previews."""
         return cls("Email")
 
     def html_for(self, value: str) -> Self:
@@ -174,28 +158,21 @@ class Label(ChainableComponent):
         disabled: bool = self._get_prop("disabled", False)
         hidden_label: bool = self._get_prop("hidden_label", False)
 
-        content: list[ComponentType] = [html.span(self._text)]
-
-        if required:
-            content.append(html.span("*", class_="text-destructive"))
-
         classes = classnames(
-            {
-                "pointer-events-none text-surface-300": disabled,
-                "cursor-pointer": not disabled,
-                "sr-only": hidden_label,
-            },
-            "inline-flex items-center gap-1 text-surface-900",
-            # Label variant is always subtitle-2
-            "text-sm font-medium leading-6",
-            {
-                "text-left": True,
-            },
+            # Labels always use the subtitle-2 scale.
+            "inline-flex items-center gap-1 text-left text-sm font-medium leading-6",
+            classes_if_else(
+                disabled,
+                ["pointer-events-none", "text-surface-300"],
+                ["cursor-pointer", "text-surface-900"],
+            ),
+            {"sr-only": hidden_label},
             self._get_prop("class_"),
         )
 
         return html.label(
-            *content,
+            html.span(self._text),
+            html.span("*", class_="text-destructive") if required else UNDEFINED,
             class_=classes,
             for_=self._get_prop("html_for"),
             **self._get_base_html_attrs(),

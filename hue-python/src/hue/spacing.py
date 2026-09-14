@@ -1,11 +1,20 @@
-from collections import namedtuple
-from typing import Literal, Mapping
+from collections.abc import Mapping
+from typing import Literal, NamedTuple
 
-Size = Literal["xs", "sm", "md", "lg", "xl"]
+type Size = Literal["xs", "sm", "md", "lg", "xl"]
 
 
-XY = namedtuple("XY", ["x", "y"])
-TRBL = namedtuple("TRBL", ["top", "right", "bottom", "left"])
+class XY(NamedTuple):
+    x: str
+    y: str
+
+
+class TRBL(NamedTuple):
+    top: str
+    right: str
+    bottom: str
+    left: str
+
 
 MARGIN: Mapping[Size, TRBL] = {
     "xs": TRBL(top="mt-1", right="mr-1", bottom="mb-1", left="ml-1"),

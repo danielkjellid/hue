@@ -1,4 +1,5 @@
-"""Build the static documentation site into ``dist/``.
+"""
+Build the static documentation site into dist/.
 
 Pipeline: discover components -> render every page (prose + one per component)
 with hue's own renderer -> copy the Alpine bundle -> run the Tailwind CLI to
@@ -15,7 +16,7 @@ from pathlib import Path
 from hue.assets import js_bundle_path
 
 from hue_docs import content
-from hue_docs.categories import category_for, ordered_categories
+from hue_docs.categories import ordered_categories
 from hue_docs.discovery import ComponentDoc, discover
 from hue_docs.layout.highlight import highlight_css
 from hue_docs.layout.page import build_page
@@ -45,14 +46,16 @@ _CSS_BANNER = f"/* {_GENERATED_NOTICE} */\n"
 _DOCTYPE = "<!DOCTYPE html>"
 
 
-def _component_href(doc: ComponentDoc) -> str:
-    return f"/components/{doc.slug}/"
-
-
 def build_nav(prose_pages: list[ProsePage], docs: list[ComponentDoc]) -> list[NavGroup]:
     by_group: dict[str, list[ProsePage]] = defaultdict(list)
     for page in prose_pages:
         by_group[page.group].append(page)
+
+    unknown = by_group.keys() - set(_GROUP_ORDER)
+    if unknown:
+        raise ValueError(
+            f"Prose pages use nav groups not in _GROUP_ORDER: {sorted(unknown)}"
+        )
 
     nav: list[NavGroup] = []
     for group_name in _GROUP_ORDER:
@@ -67,9 +70,7 @@ def build_nav(prose_pages: list[ProsePage], docs: list[ComponentDoc]) -> list[Na
 
     for category in ordered_categories(docs):
         items = [
-            NavItem(doc.name, url(_component_href(doc)))
-            for doc in docs
-            if category_for(doc) == category
+            NavItem(doc.name, url(doc.href)) for doc in docs if doc.category == category
         ]
         nav.append(NavGroup(category, items))
     return nav
@@ -111,17 +112,15 @@ def _render_pages(
         # Curated examples first (for compositional components the auto-grid
         # can't represent), then the auto-generated per-axis grids.
         showcases = curated_showcases(doc) + auto_showcases(doc)
-        playground = build_playground(doc)
-        href = _component_href(doc)
         html = render_html_sync(
             build_page(
                 title=doc.name,
                 nav=nav,
-                active_href=url(href),
-                main=component_main(doc, showcases, playground),
+                active_href=url(doc.href),
+                main=component_main(doc, showcases, build_playground(doc)),
             )
         )
-        _write(href, html)
+        _write(doc.href, html)
 
 
 def _copy_assets() -> None:

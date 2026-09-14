@@ -135,3 +135,28 @@ class TestCheckbox:
         html = await render_tree(Checkbox().name("bare"), context_args=context_args)
         assert_selector(html, "input[type='checkbox']")
         assert_no_selector(html, "div.flex-col")
+
+    @pytest.mark.asyncio
+    async def test_constructor_name(self, context_args):
+        html = await render_tree(Checkbox("terms"), context_args=context_args)
+        assert_attr(html, "input", "name", "terms")
+
+    @pytest.mark.asyncio
+    async def test_checked_false_omits_attribute(self, context_args):
+        # checked="false" would still check the box.
+        html = await render_tree(
+            Checkbox("a").checked(False), context_args=context_args
+        )
+        assert_no_selector(html, "input[checked]")
+
+    @pytest.mark.asyncio
+    async def test_icons_are_decorative(self, context_args):
+        html = await render_tree(Checkbox("a"), context_args=context_args)
+        assert_selector(html, 'svg[aria-hidden="true"]', count=2)
+
+    @pytest.mark.asyncio
+    async def test_class_applies_to_root(self, context_args):
+        html = await render_tree(
+            Checkbox("a").class_("mt-4"), context_args=context_args
+        )
+        assert_selector(html, "div.flex.items-start.mt-4")

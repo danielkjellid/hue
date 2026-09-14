@@ -7,8 +7,7 @@ class _Undefined:
     """
     A sentinel component that renders to nothing.
 
-    Use :data:`UNDEFINED` to indicate that a component is not supposed to be
-    rendered.
+    Use UNDEFINED where a component slot should stay empty.
     """
 
     def htmy(self, context: Context, /) -> "Component":

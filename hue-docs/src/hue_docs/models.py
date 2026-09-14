@@ -12,7 +12,7 @@ from hue.types.core import ComponentType
 class ProsePage:
     """A hand-written, non-component documentation page.
 
-    ``slug`` becomes the URL path (``""`` is the home page at ``/``). ``build``
+    slug becomes the URL path ("" is the home page at /). build
     is a zero-arg factory that returns the page's main content as a hue
     component, so construction is deferred until render time.
     """

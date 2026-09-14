@@ -1,34 +1,17 @@
 """
-Chainable HTML elements — a drop-in companion to ``htmy.html``.
+Chainable HTML elements, a drop-in companion to htmy.html.
 
-Every HTML tag available in htmy is accessible as a factory function on this
-module via ``__getattr__``.  Calling the factory returns a chainable
-:class:`~hue.html.element.Element` (or a specialized subclass for tags like
-``form``, ``a``, ``img``, etc.)::
+Every HTML tag htmy knows is available as a factory on this module, returning a
+chainable Element (or a specialised subclass for tags such as form, a and img):
 
     from hue import html
 
-    html.div()
-        .class_("container")
-        .content(
-            html.p("Hello world"),
-        )
+    html.form().method("POST").action("/login/").content(
+        html.a("Click me").href("/about").target("_blank"),
+    )
 
-    html.form()
-        .method("POST")
-        .action("/login/")
-        .content(...)
-
-Positional arguments are children (like ``htmy.html``), so the simple case
-reads naturally and is equivalent to calling ``.content()``::
-
-    html.span("Hello")
-    html.a("Click me").href("/about").target("_blank")
-
-Void elements (``input``, ``br``, ``img``, ...) cannot have children and raise
-if any are passed.
-
-For raw htmy tags (non-chainable) import ``htmy.html`` directly.
+Positional arguments are children, like htmy.html, so the simple case reads
+naturally. Void elements (input, br, img, ...) raise if given children.
 """
 
 from __future__ import annotations
@@ -55,7 +38,7 @@ if TYPE_CHECKING:
     )
     from hue.types.core import ComponentType
 
-    # Typed factories so editors/type-checkers resolve the correct subclass.
+    # Typed factories so editors and type-checkers resolve the specialised class.
     def form(*children: ComponentType) -> FormElement: ...
     def a(*children: ComponentType) -> AnchorElement: ...
     def img(*children: ComponentType) -> ImgElement: ...
@@ -68,32 +51,22 @@ if TYPE_CHECKING:
 
 __all__ = ["Element"]
 
-# Cache factories so repeated access (e.g. html.div, html.div) returns the
-# same callable without repeated getattr lookups.
+# Factories are cached so repeated html.div lookups return the same callable.
 _factories: dict[str, Callable[..., Element]] = {}
 
 
 def __getattr__(name: str) -> Callable[..., Element]:
-    """Dynamically create chainable Element factories for any htmy tag."""
     if name in _factories:
         return _factories[name]
 
     tag_class: Any = getattr(_htmy_html, name, None)
 
-    if tag_class is None or not (
-        isinstance(tag_class, type) and issubclass(tag_class, (Tag, TagWithProps))
-    ):
+    if not (isinstance(tag_class, type) and issubclass(tag_class, (Tag, TagWithProps))):
         raise AttributeError(f"module 'hue.html' has no attribute {name!r}")
 
-    # Use a specialized Element subclass when available
     element_class = SPECIALIZED_ELEMENTS.get(name, Element)
-    is_void = not issubclass(tag_class, Tag)
 
     def _factory(*children: Any) -> Element:
-        if children and is_void:
-            raise TypeError(
-                f"<{name.rstrip('_')}> is a void element and cannot have children."
-            )
         element = element_class(tag_class)
         if children:
             element.content(*children)

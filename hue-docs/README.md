@@ -34,10 +34,10 @@ discover components  ->  render pages (hue's own render_tree + BasePage)  ->  di
 - **Prose in Python** — the intro/install/usage/framework pages live in
   `src/hue_docs/content/`, written with hue's own components.
 
-To document a new component well, give it an `example()` classmethod in
-`hue-python` returning a representative instance — that's the one hook the docs
-read. Without it, the component still appears, using a bare `Cls()` (and the
-playground is skipped if that can't render).
+To document a new component, give it an `example()` classmethod in `hue-python`
+returning a representative instance in a single expression; that is the one hook
+the docs read, and the build fails loudly if it is missing. Composition-only
+parts (such as `TableRow`) opt out with `category = None`.
 
 The site is static, so live Alpine-AJAX demos can't hit a backend — those are
 shown as code. Everything client-side (theme toggle, inputs, nav) works through

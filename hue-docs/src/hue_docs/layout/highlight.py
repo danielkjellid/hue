@@ -2,13 +2,13 @@
 
 Highlighting happens at build time and is embedded as plain HTML spans, so the
 site stays fully static — no client-side highlighter, no CDN. A light theme is
-emitted under ``.highlight`` and a dark one under ``[data-theme=dark]
-.highlight`` to match Hue's theme toggle.
+emitted under .highlight and a dark one under [data-theme=dark]
+.highlight to match Hue's theme toggle.
 
 Pygments' lexers leave a lot on the table for our code samples: its Python
-lexer tags every identifier as a generic ``Name`` (so class instantiations and
+lexer tags every identifier as a generic Name (so class instantiations and
 method calls render black in the default theme), and its Bash lexer tags
-command words as plain ``Text`` (so shell snippets look unhighlighted). The
+command words as plain Text (so shell snippets look unhighlighted). The
 filters below promote those generic tokens to richer types the theme already
 colors.
 """
@@ -24,7 +24,7 @@ from pygments import highlight as _highlight
 from pygments.filter import Filter
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import Lexer
-from pygments.lexers import BashLexer, CssLexer, PythonLexer
+from pygments.lexers import BashLexer, CssLexer, HtmlLexer, PythonLexer
 from pygments.token import Name, Text, Token, _TokenType
 
 # A single token in Pygments' stream: its type and its text.
@@ -36,7 +36,7 @@ _FORMATTER = HtmlFormatter(nowrap=True)
 
 
 def _next_significant(tokens: list[Token_], start: int) -> str | None:
-    """Return the value of the next non-whitespace token after ``start``."""
+    """Return the value of the next non-whitespace token after start."""
     for ttype, value in tokens[start:]:
         if ttype in Token.Text.Whitespace or not value.strip():
             continue
@@ -45,12 +45,12 @@ def _next_significant(tokens: list[Token_], start: int) -> str | None:
 
 
 class _PythonNamesFilter(Filter):
-    """Resolve generic Python ``Name`` tokens into class/call/kwarg tokens.
+    """Resolve generic Python Name tokens into class/call/kwarg tokens.
 
-    Pygments can't tell ``Button(...)`` (a class instantiation) or ``.variant()``
-    (a method call) from any other identifier — all are ``Name``. We apply
+    Pygments can't tell Button(...) (a class instantiation) or .variant()
+    (a method call) from any other identifier — all are Name. We apply
     editor-style heuristics: TitleCase names are classes, names followed by
-    ``(`` are calls, and names followed by ``=`` (inside a call) are keyword
+    ( are calls, and names followed by = (inside a call) are keyword
     arguments.
     """
 
@@ -65,7 +65,7 @@ class _PythonNamesFilter(Filter):
                 elif nxt == "(":
                     yield Name.Function, value
                 elif nxt == "=" and depth > 0:
-                    # A name followed by ``=`` is a keyword argument only inside
+                    # A name followed by = is a keyword argument only inside
                     # a call; at the top level it's an assignment target.
                     yield Name.Attribute, value
                 else:
@@ -79,11 +79,11 @@ class _PythonNamesFilter(Filter):
 
 
 class _BashCommandFilter(Filter):
-    """Tag the leading word of each shell command as ``Name.Function``.
+    """Tag the leading word of each shell command as Name.Function.
 
-    Bash command words arrive as plain ``Text`` (no span). We mark the first
+    Bash command words arrive as plain Text (no span). We mark the first
     word of every command — at the start of input or after a separator like
-    ``|``, ``;``, ``&&`` or a newline — so commands stand out.
+    |, ;, && or a newline — so commands stand out.
     """
 
     _SEPARATORS: ClassVar[set[str]] = {"|", ";", "&", "&&", "||", "\n", "(", "{"}
@@ -120,11 +120,19 @@ _LEXERS: dict[str, Lexer] = {
     "python": _python_lexer(),
     "bash": _bash_lexer(),
     "css": CssLexer(),
+    "html": HtmlLexer(),
 }
 
 
 def highlight_code(source: str, language: str = "python") -> SafeStr:
-    lexer = _LEXERS.get(language, _LEXERS["python"])
+    # A typo in the language must not silently highlight as Python.
+    try:
+        lexer = _LEXERS[language]
+    except KeyError:
+        raise ValueError(
+            f"Unknown code block language {language!r}; expected one of "
+            f"{sorted(_LEXERS)}"
+        ) from None
     return SafeStr(_highlight(source, lexer, _FORMATTER).rstrip("\n"))
 
 

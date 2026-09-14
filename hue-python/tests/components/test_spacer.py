@@ -20,3 +20,8 @@ class TestSpacer:
     async def test_spacing_xl(self, context_args):
         html = await render_tree(Spacer().spacing("xl"), context_args=context_args)
         assert "mb-16" in html
+
+    @pytest.mark.asyncio
+    async def test_class_is_appended(self, context_args):
+        html = await render_tree(Spacer().class_("shrink-0"), context_args=context_args)
+        assert_selector(html, "div.mb-2.shrink-0")
