@@ -30,10 +30,10 @@ class TestEmpty:
         with_icon = await render_tree(
             Empty().icon("!").title("Nothing"), context_args=context_args
         )
-        assert_selector(with_icon, "div.size-12")
+        assert_selector(with_icon, "span.size-12")
 
         without = await render_tree(Empty().title("Nothing"), context_args=context_args)
-        assert_no_selector(without, "div.size-12")
+        assert_no_selector(without, "span.size-12")
 
     @pytest.mark.asyncio
     async def test_actions_are_optional(self, context_args):
@@ -52,34 +52,22 @@ class TestEmpty:
         )
         assert_no_selector(html, "div.font-bold")
 
-    # variant(): the tone carries on the icon chip and the title
+    # variant(): only the icon chip changes tone
     @pytest.mark.asyncio
     async def test_neutral_by_default(self, context_args):
         html = await render_tree(
             Empty().icon("!").title("Nothing"), context_args=context_args
         )
-        assert_selector(html, "div.bg-surface-sunken")
-        assert_selector(html, "div.text-fg")
+        assert_selector(html, "span.bg-surface-sunken")
 
     @pytest.mark.asyncio
-    async def test_danger_tints_the_icon_and_the_title(self, context_args):
+    async def test_danger_tints_the_icon(self, context_args):
         html = await render_tree(
             Empty().variant("danger").icon("!").title("Could not load"),
             context_args=context_args,
         )
-        assert_selector(html, "div.bg-danger-subtle")
-        assert_no_selector(html, "div.bg-surface-sunken")
-        # The title too, because an empty state need not have an icon and the
-        # variant has to show somewhere.
-        assert_selector(html, "div.text-danger-text")
-
-    @pytest.mark.asyncio
-    async def test_the_variant_shows_without_an_icon(self, context_args):
-        html = await render_tree(
-            Empty().variant("danger").title("Could not load"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.text-danger-text")
+        assert_selector(html, "span.bg-danger-subtle")
+        assert_no_selector(html, "span.bg-surface-sunken")
 
     # title(heading=...): both branches
     @pytest.mark.asyncio

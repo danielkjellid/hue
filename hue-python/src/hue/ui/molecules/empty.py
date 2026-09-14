@@ -8,23 +8,17 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
+from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type EmptyVariant = Literal["neutral", "danger"]
 type HeadingLevel = Literal["h1", "h2", "h3", "h4", "h5", "h6"]
 
-# The tone carries on the icon chip and the title; the layout is the same
-# either way. The title matters because an empty state need not have an icon,
-# and a variant that renders identically to the default is not a variant.
+# Only the icon chip changes tone; the layout is the same either way.
 _ICON_CLASSES: dict[EmptyVariant, str] = {
     "neutral": "bg-surface-sunken border-border text-fg-subtle",
     "danger": "bg-danger-subtle border-danger-border text-danger-text",
-}
-
-_TITLE_CLASSES: dict[EmptyVariant, str] = {
-    "neutral": "text-fg",
-    "danger": "text-danger-text",
 }
 
 _HEADING_TAGS: dict[HeadingLevel, Callable[..., ComponentType]] = {
@@ -42,7 +36,7 @@ class Empty(ChainableComponent):
     What to show where content would have been.
 
     icon(), title(), description() and actions() are all optional. variant()
-    sets the tone, compact() tightens the padding, and title() takes a heading
+    tints the icon, compact() tightens the padding, and title() takes a heading
     level for an empty state that stands in for a page.
 
         Empty().title("No invoices yet").actions(Button().content("Create"))
@@ -54,6 +48,7 @@ class Empty(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
+            .icon(HueIcon("inbox"))
             .title("No invoices yet")
             .description("Invoices appear here once your first order is paid.")
         )
@@ -106,20 +101,18 @@ class Empty(ChainableComponent):
 
         if icon is not None:
             children.append(
-                html.div(
+                html.span(
                     icon,
                     class_=classnames(
                         "mb-2 flex size-12 items-center justify-center",
-                        "rounded-lg border [&_svg]:size-5",
+                        "rounded-lg border [&_svg]:size-5.5",
                         _ICON_CLASSES[variant],
                     ),
                 )
             )
 
         if title is not None:
-            title_classes = classnames(
-                "font-ui text-md font-bold", _TITLE_CLASSES[variant]
-            )
+            title_classes = "font-ui text-md font-bold"
             children.append(
                 html.div(title, class_=title_classes)
                 if heading is None
@@ -132,7 +125,7 @@ class Empty(ChainableComponent):
                     description,
                     # Measured in characters: a description that runs the full
                     # width of a table is not centred copy, it is a paragraph.
-                    class_="max-w-[42ch] text-sm leading-relaxed text-fg-muted",
+                    class_="max-w-[42ch] text-sm leading-[1.55] text-fg-muted",
                 )
             )
 

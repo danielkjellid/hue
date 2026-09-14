@@ -26,6 +26,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Empty()
+                    .icon(HueIcon("inbox"))
                     .title("No invoices yet")
                     .description("Invoices appear here once your first order is paid.")
                     .actions(Button().content("Create invoice"))
@@ -37,6 +38,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Empty()
+                    .icon(HueIcon("search"))
                     .compact()
                     .title('No results for "refund q3"')
                     .description("Try clearing the Declined filter.")
@@ -51,6 +53,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Empty()
+                    .icon(HueIcon("triangle-alert"))
                     .variant("danger")
                     .compact()
                     .title("Couldn't load invoices")
