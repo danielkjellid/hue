@@ -96,22 +96,22 @@ class CardMedia(ChainableComponent):
     """
     An image across the top of a card.
 
-    Only the width is locked: the image keeps its own aspect ratio rather than
-    being cropped into a fixed one.
+    The band is a fixed 16/9 and the image fills it, so a row of cards lines up
+    whatever sizes the pictures happen to be.
     """
 
     category = None
 
     @classmethod
     def example(cls) -> Self:
-        return cls().content(html.img(src="/cover.jpg", alt=""))
+        return cls().content(html.img(src="/assets/cover.svg", alt=""))
 
     def _render(self, context: HueContext) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
-                "overflow-hidden bg-surface-sunken",
-                "[&_img]:block [&_img]:w-full [&_img]:h-auto",
+                "aspect-video overflow-hidden bg-surface-sunken",
+                "[&_img]:block [&_img]:size-full [&_img]:object-cover",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),

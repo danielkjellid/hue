@@ -116,6 +116,5 @@ class TestCardSlots:
         # The image keeps its own aspect ratio rather than being cropped into
         # a fixed one.
         html = await render_tree(CardMedia(), context_args=context_args)
-        assert_selector(html, "div.\\[\\&_img\\]\\:w-full")
-        assert_selector(html, "div.\\[\\&_img\\]\\:h-auto")
-        assert "aspect-" not in html
+        assert_selector(html, "div.aspect-video")
+        assert_selector(html, "div.\\[\\&_img\\]\\:object-cover")

@@ -52,6 +52,29 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
+                "Every piece",
+                """
+                (
+                    Card().content(
+                        CardMedia().content(
+                            html.img(src="/assets/cover.svg", alt="")
+                        ),
+                        CardHeader()
+                        .title("Q3 revenue report")
+                        .description("Published 14 September")
+                        .content(Badge().content("New")),
+                        CardBody().content(
+                            "Revenue grew 12.4% against a flat quarter last year."
+                        ),
+                        CardFooter().content(
+                            Button().variant("ghost").content("Dismiss"),
+                            Button().content("Open report"),
+                        ),
+                    )
+                )
+                """,
+            ),
+            variant(
                 "Flat",
                 """
                 (
