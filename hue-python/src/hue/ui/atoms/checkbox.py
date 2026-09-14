@@ -9,6 +9,7 @@ from hue.context import HueContext
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FormControl
+from hue.ui.molecules.field import error_component, hint_component
 from hue.utils import classes_if_else, classnames, render_if
 
 # The check mark and the indeterminate dash sit centred over the box and are
@@ -64,7 +65,7 @@ class Checkbox(FormControl):
     form-submission behaviour; a styled box sibling reflects its state through
     Tailwind's peer variants (checked, indeterminate, focus, hover). The
     mixed-state dash is driven via Alpine x-init because the indeterminate DOM
-    property has no HTML attribute, and error_text marks the field invalid.
+    property has no HTML attribute, and error() marks the field invalid.
 
         Checkbox("terms").label("I accept the terms").required()
     """
@@ -95,7 +96,7 @@ class Checkbox(FormControl):
         required: bool = self._get_prop("required", False)
         checked: bool = self._get_prop("checked", False)
         indeterminate: bool = self._get_prop("indeterminate", False)
-        invalid = self._get_prop("error_text") is not None
+        invalid = self._get_prop("error") is not None
         input_id = self._input_id()
 
         # No explicit role: a native checkbox input already carries it. Boolean
@@ -109,8 +110,7 @@ class Checkbox(FormControl):
             checked=checked or None,
             disabled=disabled or None,
             required=required or None,
-            aria_invalid=invalid or None,
-            aria_errormessage=self._error_id(),
+            aria_invalid="true" if invalid else None,
             aria_describedby=self._describedby(),
         )
         if indeterminate:
@@ -155,13 +155,11 @@ class Checkbox(FormControl):
                     ),
                 ),
             ),
-            self._help_text_component(),
-            self._error_text_component(),
+            render_if(self._get_prop("hint"), lambda t: hint_component(t, input_id)),
+            render_if(self._get_prop("error"), lambda t: error_component(t, input_id)),
         ]
 
-        has_text = bool(
-            label_text or self._get_prop("help_text") or self._get_prop("error_text")
-        )
+        has_text = bool(label_text or self._get_prop("hint") or self._get_prop("error"))
 
         return html.div(
             box,

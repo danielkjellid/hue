@@ -1,3 +1,4 @@
+from hue.ui._styles import CONTROL_SHELL
 from hue.ui.atoms.avatar import Avatar, AvatarGroup
 from hue.ui.atoms.badge import Badge
 from hue.ui.atoms.button import Button
@@ -32,6 +33,7 @@ from hue.ui.molecules.card import (
     CardMedia,
 )
 from hue.ui.molecules.empty import Empty
+from hue.ui.molecules.field import Field
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.ui.molecules.table import (
@@ -49,6 +51,7 @@ from hue.ui.molecules.table import (
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 
 __all__ = [
+    "CONTROL_SHELL",
     "Avatar",
     "AvatarGroup",
     "Badge",
@@ -66,6 +69,7 @@ __all__ = [
     "DataTable",
     "EmailInput",
     "Empty",
+    "Field",
     "Icon",
     "IconResolver",
     "Kbd",

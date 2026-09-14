@@ -57,7 +57,7 @@ class TestTextInput:
         html = await render_tree(
             TextInput().name("f").label("F"), context_args=context_args
         )
-        assert "cursor-not-allowed" not in html
+        assert_no_selector(html, "input[disabled]")
 
     @pytest.mark.asyncio
     async def test_forwards_base_attrs_to_input(self, context_args):
@@ -141,31 +141,44 @@ class TestInputStates:
         assert_attr(html, "input", "maxlength", "8")
 
     @pytest.mark.asyncio
-    async def test_help_text_describes_input(self, context_args):
+    async def test_hint_describes_input(self, context_args):
         html = await render_tree(
-            TextInput("f").help_text("Some help"), context_args=context_args
+            TextInput("f").hint("Some help"), context_args=context_args
         )
-        assert_attr(html, "input", "aria-describedby", "f-description")
-        assert_selector(html, "#f-description")
+        assert_attr(html, "input", "aria-describedby", "f-hint")
+        assert_selector(html, "#f-hint")
         assert "Some help" in html
 
     @pytest.mark.asyncio
-    async def test_error_text_marks_invalid_and_references_message(self, context_args):
+    async def test_error_marks_invalid_and_describes_the_input(self, context_args):
+        # Described rather than pointed at with aria-errormessage, whose
+        # screen-reader support is still patchy.
         html = await render_tree(
-            TextInput("f").error_text("Too short"), context_args=context_args
+            TextInput("f").error("Too short"), context_args=context_args
         )
         assert_attr(html, "input", "aria-invalid", "true")
-        assert_attr(html, "input", "aria-errormessage", "f-error")
+        assert_no_selector(html, "[aria-errormessage]")
         assert_attr(html, "input", "aria-describedby", "f-error")
         assert_selector(html, '[role="alert"]#f-error')
 
     @pytest.mark.asyncio
-    async def test_caller_describedby_is_merged(self, context_args):
+    async def test_an_error_replaces_the_hint(self, context_args):
+        # Two lines of supporting text under one control is one more than
+        # anybody reads.
         html = await render_tree(
-            TextInput("f").help_text("Help").aria_describedby("external"),
+            TextInput("f").hint("Some help").error("Too short"),
             context_args=context_args,
         )
-        assert_attr(html, "input", "aria-describedby", "f-description external")
+        assert "Some help" not in html
+        assert_attr(html, "input", "aria-describedby", "f-hint f-error")
+
+    @pytest.mark.asyncio
+    async def test_caller_describedby_is_merged(self, context_args):
+        html = await render_tree(
+            TextInput("f").hint("Help").aria_describedby("external"),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-describedby", "f-hint external")
 
     @pytest.mark.asyncio
     async def test_class_applies_to_input(self, context_args):

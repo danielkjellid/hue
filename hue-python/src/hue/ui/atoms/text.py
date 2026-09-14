@@ -159,12 +159,12 @@ class Label(ChainableComponent):
         hidden_label: bool = self._get_prop("hidden_label", False)
 
         classes = classnames(
-            # Labels always use the subtitle-2 scale.
-            "inline-flex items-center gap-1 text-left text-sm font-medium leading-6",
+            "inline-flex items-center gap-[5px] text-left",
+            "font-ui text-sm font-medium leading-[1.4]",
             classes_if_else(
                 disabled,
-                ["pointer-events-none", "text-surface-300"],
-                ["cursor-pointer", "text-surface-900"],
+                ["pointer-events-none", "text-fg-disabled"],
+                ["cursor-pointer", "text-fg"],
             ),
             {"sr-only": hidden_label},
             self._get_prop("class_"),
@@ -172,7 +172,11 @@ class Label(ChainableComponent):
 
         return html.label(
             html.span(self._text),
-            html.span("*", class_="text-destructive") if required else UNDEFINED,
+            # Hidden from assistive tech: the control's own required attribute
+            # announces it, and an asterisk read aloud as "star" does not.
+            html.span("*", aria_hidden="true", class_="font-normal text-danger-text")
+            if required
+            else UNDEFINED,
             class_=classes,
             for_=self._get_prop("html_for"),
             **self._get_base_html_attrs(),

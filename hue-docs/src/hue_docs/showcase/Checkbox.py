@@ -12,8 +12,8 @@ SHOWCASES: list[Showcase] = [
         layout="stack",
         description=(
             "A native checkbox with a styled box. Use .checked() for the initial "
-            "state, .indeterminate() for a mixed state, and .help_text() / "
-            ".error_text() for supporting copy (error_text marks it invalid)."
+            "state, .indeterminate() for a mixed state, and .hint() / "
+            ".error() for supporting copy (an error marks it invalid)."
         ),
         variants=[
             variant("Basic", 'Checkbox().name("terms").label("I accept the terms")'),
@@ -39,7 +39,7 @@ SHOWCASES: list[Showcase] = [
                     Checkbox()
                     .name("marketing")
                     .label("Marketing emails")
-                    .help_text("You can unsubscribe at any time.")
+                    .hint("You can unsubscribe at any time.")
                 )
                 """,
             ),
@@ -58,7 +58,7 @@ SHOWCASES: list[Showcase] = [
                     Checkbox()
                     .name("consent")
                     .label("I consent")
-                    .error_text("This field is required.")
+                    .error("This field is required.")
                 )
                 """,
             ),
