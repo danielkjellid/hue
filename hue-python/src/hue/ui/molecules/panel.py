@@ -91,6 +91,9 @@ class Panel(ChainableComponent):
                 *self._children,
                 class_=classnames(
                     _PADDING_CLASSES[padding],
+                    # The page ground rather than surface-sunken, which the
+                    # name suggests: the body has to recede past the frame it
+                    # sits in, and the bar above already owns surface-sunken.
                     "bg-canvas-subtle" if sunken else "",
                 ),
             )
