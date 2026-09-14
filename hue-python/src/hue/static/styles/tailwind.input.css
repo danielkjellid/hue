@@ -408,8 +408,8 @@
    ========================================================================== */
 
 @theme {
-  /* Callout still styles its status variants off raw ramp names, and the old
-     Button reaches for a white step. Both go when Alert replaces Callout. */
+  /* Callout is the last component styling its status variants off raw ramp
+     names. These go when Alert replaces it. */
   --color-wg-blue: var(--hue-blue-500);
   --color-wg-blue-50: var(--hue-blue-50);
   --color-wg-blue-700: var(--hue-blue-700);
@@ -425,7 +425,6 @@
   --color-wg-red-50: var(--hue-red-50);
   --color-wg-red-700: var(--hue-red-700);
   --color-wg-red-800: var(--hue-red-800);
-  --color-wg-white-500: var(--hue-white-500);
 
   --color-background: #FFFFFF;
   --color-background-darker: #F7F7F8;
@@ -442,17 +441,6 @@
   --color-primary-900: var(--hue-blue-900);
   --color-primary: var(--color-primary-500);
 
-  --color-secondary-50: var(--hue-gray-50);
-  --color-secondary-100: var(--hue-gray-100);
-  --color-secondary-200: var(--hue-gray-200);
-  --color-secondary-300: var(--hue-gray-300);
-  --color-secondary-400: var(--hue-gray-400);
-  --color-secondary-500: var(--hue-gray-500);
-  --color-secondary-600: var(--hue-gray-600);
-  --color-secondary-700: var(--hue-gray-700);
-  --color-secondary-800: var(--hue-gray-800);
-  --color-secondary-900: var(--hue-gray-900);
-  --color-secondary: var(--color-secondary-900);
 
   --color-surface-50: var(--hue-gray-50);
   --color-surface-100: var(--hue-gray-100);
@@ -485,17 +473,6 @@
   --color-background: #121217;
   --color-background-darker: #0E0E11;
 
-  --color-secondary-50: var(--hue-white-50);
-  --color-secondary-100: var(--hue-white-100);
-  --color-secondary-200: var(--hue-white-200);
-  --color-secondary-300: var(--hue-white-300);
-  --color-secondary-400: var(--hue-white-400);
-  --color-secondary-500: var(--hue-white-500);
-  --color-secondary-600: var(--hue-white-600);
-  --color-secondary-700: var(--hue-white-700);
-  --color-secondary-800: var(--hue-white-800);
-  --color-secondary-900: var(--hue-gray-900);
-  --color-secondary: var(--hue-white-900);
 
   --color-surface-50: rgb(255 255 255 / 0.1);
   --color-surface-100: rgb(255 255 255 / 0.2);
