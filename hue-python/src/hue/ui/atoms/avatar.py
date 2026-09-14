@@ -112,7 +112,8 @@ class Avatar(ChainableComponent):
     def subtle(self, value: bool = True) -> Self:
         """
         Quieten the fill, for an avatar standing in for something other than a
-        person - the count at the end of a group, say.
+        person - the count at the end of a group, say. It keeps the surface
+        colour rather than the tint a face gets, so it reads as a label.
         """
         self._props["subtle"] = value
         return self
@@ -149,7 +150,9 @@ class Avatar(ChainableComponent):
                 *body,
                 class_=classnames(
                     "flex size-full items-center justify-center overflow-hidden",
-                    "bg-surface-sunken text-fg-subtle"
+                    # A hairline, because a surface-coloured circle on a
+                    # surface-coloured page is only its text otherwise.
+                    "bg-surface text-fg-muted border border-border"
                     if subtle
                     else "bg-surface-active text-fg-muted",
                     "font-ui font-semibold leading-none",
@@ -181,6 +184,12 @@ class Avatar(ChainableComponent):
                 **self._get_base_html_attrs(),
             },
         )
+
+
+# inline-flex so the wrapper shrink-wraps the avatar: as a plain inline span its
+# box is a line box, and the ring meant to separate overlapping members was
+# drawn around that instead of around the circle.
+_MEMBER_CLASSES = "inline-flex rounded-full ring-2 ring-canvas -ms-2.5 first:ms-0"
 
 
 class AvatarGroup(ChainableComponent):
@@ -245,7 +254,7 @@ class AvatarGroup(ChainableComponent):
             members.append(
                 html.span(
                     child,
-                    class_="ring-2 ring-canvas rounded-full -ms-2.5 first:ms-0",
+                    class_=_MEMBER_CLASSES,
                     aria_hidden="true",
                 )
             )
@@ -257,7 +266,7 @@ class AvatarGroup(ChainableComponent):
             members.append(
                 html.span(
                     Avatar().size(size).subtle().content(f"+{more}"),
-                    class_="ring-2 ring-canvas rounded-full -ms-2.5 first:ms-0",
+                    class_=_MEMBER_CLASSES,
                     aria_hidden="true",
                 )
             )

@@ -184,3 +184,30 @@ class TestAvatarContent:
         # role="img" with nothing to announce is worse than no role at all.
         html = await render_tree(Avatar().content("+3"), context_args=context_args)
         assert_no_selector(html, '[role="img"]')
+
+    @pytest.mark.asyncio
+    async def test_members_are_separated_from_each_other(self, context_args):
+        # The ring is what keeps overlapping circles apart. On a plain inline
+        # span it was drawn around a line box rather than the avatar, so the
+        # members ran together.
+        html = await render_tree(
+            AvatarGroup()
+            .label("Ada and Grace")
+            .content(Avatar().name("Ada Lovelace"), Avatar().name("Grace Hopper")),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.inline-flex.rounded-full.ring-2", count=2)
+
+    @pytest.mark.asyncio
+    async def test_the_count_reads_as_a_label_not_a_face(self, context_args):
+        # Surface rather than the tint a face gets, plus a hairline so it is
+        # still a circle on a surface-coloured page.
+        html = await render_tree(
+            AvatarGroup()
+            .label("Ada and 3 others")
+            .more(3)
+            .content(Avatar().name("Ada Lovelace")),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.bg-surface.border-border")
+        assert_no_selector(html, "span.bg-surface-sunken")
