@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/hue/static/js/index.js --bundle --format=esm --outfile=src/hue/static/js/alpine-bundle.js"
+    "build": "esbuild src/hue/static/js/index.js --bundle --format=esm --minify --outfile=src/hue/static/js/alpine-bundle.js"
   },
   "dependencies": {
+    "@alpinejs/anchor": "^3.17.2",
+    "@alpinejs/focus": "^3.17.2",
     "@imacrayon/alpine-ajax": "^0.12.6",
     "alpinejs": "^3.14.0"
   },
