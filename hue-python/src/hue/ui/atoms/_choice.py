@@ -11,13 +11,26 @@ from typing import Literal
 
 from htmy import html
 
-from hue.types.core import ComponentType
+from hue.types.core import UNDEFINED, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.utils import classnames, render_if
 
 type ChoiceVariant = Literal["inline", "card"]
 
-_ROW = "flex items-start gap-3"
+#: Which side the control sits on. "inline" leads with it, the way a checkbox
+#: in a form does; "horizontal" puts the text first and pushes the control to
+#: the far end, which is the scanning order a settings list wants - what can I
+#: change, then the thing that changes it.
+type ChoiceLayout = Literal["inline", "horizontal"]
+
+_ROW: dict[ChoiceLayout, str] = {
+    # Top-aligned, because a two-line label would otherwise push the control
+    # down to the middle of its own text.
+    "inline": "flex items-start gap-3",
+    # Centred, because the control is opposite the whole block rather than
+    # beside its first line.
+    "horizontal": "flex items-center justify-between gap-6",
+}
 _TEXT = "flex min-w-0 flex-col gap-px"
 _LABEL = "font-ui text-base font-medium leading-[1.35]"
 _DESCRIPTION = "text-sm leading-[1.45] text-fg-muted"
@@ -69,6 +82,8 @@ def choice_row(
     description: str | None,
     disabled: bool,
     variant: ChoiceVariant,
+    layout: ChoiceLayout = "inline",
+    status: ComponentType = UNDEFINED,
     messages: tuple[ComponentType, ...] = (),
     class_: str | None = None,
 ) -> ComponentType:
@@ -76,7 +91,9 @@ def choice_row(
     A control with its label, its description and any error beneath.
 
     The whole row is a label element, so the text is part of the hit area
-    rather than something to aim past on the way to an 18px box.
+    rather than something to aim past on the way to an 18px box. status sits
+    on the label's own line, which is the one thing in the row guaranteed to
+    be there.
 
     Both pieces of text carry ids. Wrapping the control in a label makes every
     word inside it part of the control's name, so a screen reader would read a
@@ -84,34 +101,37 @@ def choice_row(
     points at the label for its name and at the description for its
     description instead, which is what the two of them are.
     """
-    text = render_if(
-        label or description,
-        lambda _: html.span(
-            render_if(
-                label,
-                lambda text: html.span(
-                    text,
-                    id=label_id(control_id),
-                    class_=classnames(_LABEL, "text-fg-disabled" if disabled else None),
-                ),
-            ),
+    horizontal = layout == "horizontal"
+    head = render_if(
+        label,
+        lambda text: html.span(
+            text,
+            id=label_id(control_id),
+            class_=classnames(_LABEL, "text-fg-disabled" if disabled else None),
+        ),
+    )
+
+    text: ComponentType = UNDEFINED
+    if label is not None or description is not None or status is not UNDEFINED:
+        text = html.span(
+            # The label and the status share a line, so the status does not
+            # move depending on whether there is a description under it.
+            html.span(head, status, class_="inline-flex items-center gap-2"),
             render_if(
                 description,
                 lambda text: html.span(
                     text, id=description_id(control_id), class_=_DESCRIPTION
                 ),
             ),
-            class_=_TEXT,
-        ),
-    )
+            class_=classnames(_TEXT, "flex-1" if horizontal else None),
+        )
 
     return html.div(
         html.label(
-            control,
-            text,
+            *((text, control) if horizontal else (control, text)),
             for_=control_id,
             class_=classnames(
-                _ROW,
+                _ROW[layout],
                 "cursor-not-allowed" if disabled else "cursor-pointer",
                 _CARD if variant == "card" else None,
             ),

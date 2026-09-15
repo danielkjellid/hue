@@ -17,10 +17,12 @@ from hue.ui.atoms.input import (
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.progress import Progress, ProgressRing
+from hue.ui.atoms.radio import Radio, RadioGroup
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
+from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.text import Label, Text
 from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
@@ -80,12 +82,15 @@ __all__ = [
     "PasswordInput",
     "Progress",
     "ProgressRing",
+    "Radio",
+    "RadioGroup",
     "SegmentedControl",
     "SegmentedOption",
     "Skeleton",
     "Spacer",
     "Spinner",
     "Stack",
+    "Switch",
     "Table",
     "TableBody",
     "TableCaption",

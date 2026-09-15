@@ -20,6 +20,7 @@ from hue_docs.discovery import Axis, ComponentDoc
 from hue_docs.layout.code import code_block
 from hue_docs.registry import (
     _make_unique,
+    example_code,
     example_instance,
     format_call,
     playground_axes,
@@ -93,7 +94,11 @@ def _combination_block(
     calls = "".join(
         format_call(axis, value) for axis, value in zip(controls, combo, strict=True)
     )
-    code = f"{doc.name}(){calls}"
+    # Built on the example rather than on the component name alone. The
+    # preview is the example with these calls applied, so a snippet that
+    # showed only the calls described something the reader was not looking at
+    # - RadioGroup().required() beside a group with a legend and two options.
+    code = (example_code(doc) or f"{doc.name}()") + calls
 
     return (
         html.div(

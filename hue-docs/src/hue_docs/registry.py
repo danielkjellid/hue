@@ -142,10 +142,19 @@ def example_code(doc: ComponentDoc) -> str | None:
     segment = ast.get_source_segment(source, expr)
     if segment is None or "cls(" not in segment:
         return None
-    # Chains are often wrapped in parentheses across lines; keep the chain itself.
+    # Chains are often wrapped in parentheses across lines; keep the chain
+    # itself.
     code = textwrap.dedent(segment).strip()
     if code.startswith("(") and code.endswith(")"):
         code = textwrap.dedent(code[1:-1]).strip()
+
+    # A wrapped chain comes back with its first line at column zero and the
+    # rest still carrying the indentation they had inside the method, which
+    # dedent cannot see as common. Measure the continuation on its own and put
+    # it back one step in, which is how the chain was written.
+    first, _, rest = code.partition("\n")
+    if rest:
+        code = first + "\n" + textwrap.indent(textwrap.dedent(rest).rstrip(), "    ")
     return code.replace("cls(", f"{doc.name}(")
 
 

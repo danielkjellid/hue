@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component
+from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames
 
@@ -115,6 +115,16 @@ class Text(ChainableComponent):
         )
 
 
+def required_marker() -> ComponentType:
+    """
+    The asterisk beside the label of a required field.
+
+    Hidden from assistive tech: the control's own required attribute announces
+    it, and an asterisk read aloud as "star" does not.
+    """
+    return html.span("*", aria_hidden="true", class_="font-normal text-danger-text")
+
+
 class Label(ChainableComponent):
     """
     A label for a form control.
@@ -172,11 +182,7 @@ class Label(ChainableComponent):
 
         return html.label(
             html.span(self._text),
-            # Hidden from assistive tech: the control's own required attribute
-            # announces it, and an asterisk read aloud as "star" does not.
-            html.span("*", aria_hidden="true", class_="font-normal text-danger-text")
-            if required
-            else UNDEFINED,
+            required_marker() if required else UNDEFINED,
             class_=classes,
             for_=self._get_prop("html_for"),
             **self._get_base_html_attrs(),
