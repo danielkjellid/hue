@@ -109,7 +109,7 @@ class RadioGroup(FormControl):
     rather than only the option's own label. The group owns the name and the
     selection; the options carry their value and their text.
 
-        RadioGroup("region").legend("Region").content(Radio().value("eu")...)
+        RadioGroup().name("region").legend("Region").content(Radio().value("eu")...)
     """
 
     category: ClassVar[str | None] = "Inputs"

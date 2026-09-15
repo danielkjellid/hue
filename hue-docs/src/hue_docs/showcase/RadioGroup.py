@@ -24,7 +24,7 @@ SHOWCASES: list[Showcase] = [
                 "Inline",
                 """
                 (
-                    RadioGroup("region")
+                    RadioGroup().name("region")
                     .legend("Region")
                     .value("eu")
                     .content(
@@ -39,7 +39,7 @@ SHOWCASES: list[Showcase] = [
                 "With descriptions",
                 """
                 (
-                    RadioGroup("plan")
+                    RadioGroup().name("plan")
                     .legend("Plan")
                     .value("team")
                     .content(
@@ -59,7 +59,7 @@ SHOWCASES: list[Showcase] = [
                 "As cards",
                 """
                 (
-                    RadioGroup("plan")
+                    RadioGroup().name("plan")
                     .legend("Plan")
                     .variant("card")
                     .value("team")
@@ -80,7 +80,7 @@ SHOWCASES: list[Showcase] = [
                 "Invalid",
                 """
                 (
-                    RadioGroup("region")
+                    RadioGroup().name("region")
                     .legend("Region")
                     .required()
                     .error("Pick a region to continue.")
