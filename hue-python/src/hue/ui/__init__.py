@@ -19,6 +19,7 @@ from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.progress import Progress, ProgressRing
 from hue.ui.atoms.radio import Radio, RadioGroup
 from hue.ui.atoms.skeleton import Skeleton
+from hue.ui.atoms.slider import Slider
 from hue.ui.atoms.spacer import Spacer
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.atoms.stack import Stack
@@ -87,6 +88,7 @@ __all__ = [
     "SegmentedControl",
     "SegmentedOption",
     "Skeleton",
+    "Slider",
     "Spacer",
     "Spinner",
     "Stack",
