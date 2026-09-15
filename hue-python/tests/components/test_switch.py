@@ -168,3 +168,20 @@ class TestSwitch:
         )
         assert_no_selector(html, "label.justify-between")
         assert html.index("<input") < html.index("Two-factor")
+
+    @pytest.mark.asyncio
+    async def test_named_by_its_label_alone(self, context_args):
+        # The label wraps the control, so without this the description becomes
+        # part of the switch's name and is read before "switch".
+        html = await render_tree(
+            Switch("n").label("Weekly digest").description("Every Monday."),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "n-label")
+        assert_attr(html, "input", "aria-describedby", "n-description")
+
+    @pytest.mark.asyncio
+    async def test_a_choice_has_no_field_hint(self, context_args):
+        # It says its extra line with description(), beside the control,
+        # rather than under the whole row where a field puts its hint.
+        assert not hasattr(Switch(), "hint")

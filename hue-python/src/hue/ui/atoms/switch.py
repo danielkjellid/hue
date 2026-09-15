@@ -8,11 +8,16 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
-from hue.ui.atoms._choice import ChoiceLayout, choice_row
+from hue.ui.atoms._choice import (
+    ChoiceLayout,
+    choice_row,
+    description_id,
+    label_id,
+)
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.form import FormControl
-from hue.ui.molecules.field import error_component, hint_component
+from hue.ui.molecules.field import error_component
 from hue.utils import classnames, render_if
 
 type SwitchSize = Literal["sm", "md", "lg"]
@@ -76,7 +81,8 @@ class Switch(FormControl):
     role="switch" rather than a checkbox, so it is announced as on or off
     rather than checked or unchecked. submission_state() reports the round
     trip, since the change is saved as it is made. A finished state clears
-    itself; settle_after(None) holds it.
+    itself; settle_after(None) holds it. description() adds a second line
+    under the label.
 
         Switch().name("notify").label("Email notifications").checked()
     """
@@ -173,7 +179,8 @@ class Switch(FormControl):
         state: SubmissionState = self._get_prop("submission_state", "none")
         disabled: bool = self._get_prop("disabled", False) or state == "pending"
         error: str | None = self._get_prop("error")
-        hint: str | None = self._get_prop("hint")
+        label: str | None = self._get_prop("label")
+        description: str | None = self._get_prop("description")
         input_id = self._input_id()
 
         # A native checkbox underneath, so it posts and toggles like one; the
@@ -196,21 +203,23 @@ class Switch(FormControl):
                 disabled=disabled or None,
                 required=self._get_prop("required", False) or None,
                 aria_invalid="true" if error is not None else None,
-                aria_describedby=self._describedby(),
+                # An explicit name, so the description inside the label does
+                # not become part of it.
+                aria_labelledby=label_id(input_id) if label is not None else None,
+                aria_describedby=self._describedby(
+                    description_id(input_id) if description is not None else None
+                ),
             )
         )
 
         return choice_row(
             control,
             control_id=input_id,
-            label=self._get_prop("label"),
-            description=self._get_prop("description"),
+            label=label,
+            description=description,
             disabled=disabled,
             variant="inline",
             layout=layout,
             status=UNDEFINED if state == "none" else self._indicator(state),
-            messages=(
-                render_if(hint, lambda text: hint_component(text, input_id)),
-                render_if(error, lambda text: error_component(text, input_id)),
-            ),
+            messages=(render_if(error, lambda text: error_component(text, input_id)),),
         )
