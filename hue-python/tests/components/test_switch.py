@@ -30,23 +30,70 @@ class TestSwitch:
         html = await render_tree(Switch("notify").label("N"), context_args=context_args)
         assert_no_selector(html, "input[checked]")
 
-    # pending(): both branches
+    # submission_state(): every value, because a switch writes as it is
+    # flipped and each stage of that write looks different.
     @pytest.mark.asyncio
     async def test_pending_disables_it_and_says_why(self, context_args):
         # Otherwise the switch just refuses to move, with nothing to say a
         # round trip is what is holding it.
         html = await render_tree(
-            Switch("notify").label("N").pending(), context_args=context_args
+            Switch("notify").label("N").submission_state("pending"),
+            context_args=context_args,
         )
         assert_attr(html, "input", "disabled")
-        assert_selector(html, '[role="status"]')
-        assert "Saving" in html
+        assert_attr(html, '[role="status"]', "aria-label", "Saving")
+
+    @pytest.mark.parametrize(
+        ("state", "announced"), [("success", "Saved"), ("error", "Not saved")]
+    )
+    @pytest.mark.asyncio
+    async def test_an_outcome_is_named_not_just_coloured(
+        self, context_args, state, announced
+    ):
+        # A tick that only means something if you can see it is not a report.
+        html = await render_tree(
+            Switch("notify").label("N").submission_state(state),
+            context_args=context_args,
+        )
+        assert_attr(html, '[role="status"]', "aria-label", announced)
+        assert_no_selector(html, "input[disabled]")
+
+    @pytest.mark.parametrize("state", ["success", "error"])
+    @pytest.mark.asyncio
+    async def test_an_outcome_clears_itself(self, context_args, state):
+        # Nothing else is going to re-render this row, so a row left wearing
+        # the outcome of a change made minutes ago is the default otherwise.
+        html = await render_tree(
+            Switch("notify").label("N").submission_state(state),
+            context_args=context_args,
+        )
+        assert_attr(html, '[role="status"]', "x-init")
+        assert_attr(html, '[role="status"]', "x-show", "!settled")
 
     @pytest.mark.asyncio
-    async def test_not_pending_by_default(self, context_args):
+    async def test_pending_does_not_clear_itself(self, context_args):
+        # It ends when the response lands, not when a timer says so.
+        html = await render_tree(
+            Switch("notify").label("N").submission_state("pending"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[x-init]")
+
+    @pytest.mark.asyncio
+    async def test_nothing_reported_by_default(self, context_args):
         html = await render_tree(Switch("notify").label("N"), context_args=context_args)
         assert_no_selector(html, '[role="status"]')
         assert_no_selector(html, "input[disabled]")
+
+    @pytest.mark.asyncio
+    async def test_the_indicator_sits_on_the_label_line(self, context_args):
+        # The one row guaranteed to be there, so it does not move depending
+        # on whether the switch has a description.
+        html = await render_tree(
+            Switch("notify").label("N").submission_state("pending"),
+            context_args=context_args,
+        )
+        assert_selector(html, 'span.items-center > [role="status"]')
 
     @pytest.mark.asyncio
     async def test_the_knob_travels_the_width_of_the_track(self, context_args):
