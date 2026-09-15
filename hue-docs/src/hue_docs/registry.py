@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from hue.types.core import ComponentType
+from hue.ui.base import ChainableComponent
+from hue.ui.form import FormControl
 
 from hue_docs.discovery import Axis, ComponentDoc
 
@@ -37,6 +39,22 @@ _AUTO_PROP_PRIORITY = (
     "justify_content",
     "align_items",
 )
+
+
+def _make_unique(component: ComponentType, token: str) -> None:
+    """
+    Give one preview an identity of its own.
+
+    Every variant and every playground combination is in the document at the
+    same time, so a component that names its own id from a prop collides with
+    its own copies - and a label points at the first match in the document,
+    not the nearest one. A form control's name is what its id and its grouping
+    are both built from, so that is the thing to vary.
+    """
+    if isinstance(component, FormControl):
+        component.name(token)
+    elif isinstance(component, ChainableComponent):
+        component.id(token)
 
 
 @dataclass(frozen=True)
@@ -168,9 +186,16 @@ def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
         variants: list[Variant] = []
         for value in values:
 
-            def make(value: Any = value, method: str = axis.method) -> ComponentType:
+            def make(
+                value: Any = value,
+                method: str = axis.method,
+                index: int = len(variants),
+            ) -> ComponentType:
                 instance = example_instance(doc)
                 getattr(instance, method)(value)
+                # Every card is on the page at once, so a shared id would
+                # point every label at the first one.
+                _make_unique(instance, f"{doc.slug}-{method}-{index}")
                 return instance
 
             code = f"{doc.name}(){format_call(axis, value, omit_default=False)}"

@@ -26,7 +26,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     PasswordInput()
-                    .name("password")
+                    .name("current_password")
                     .label("Password")
                 )
                 """,

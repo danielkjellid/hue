@@ -34,7 +34,7 @@ SHOWCASES: list[Showcase] = [
                 "With a counter",
                 """
                 (
-                    Textarea().name("description")
+                    Textarea().name("summary")
                     .label("Description")
                     .max_length(280)
                     .value("Internal tooling for the logistics team.")
@@ -45,7 +45,7 @@ SHOWCASES: list[Showcase] = [
                 "Over the limit",
                 """
                 (
-                    Textarea().name("description")
+                    Textarea().name("blurb")
                     .label("Description")
                     .max_length(40)
                     .value(
