@@ -1,0 +1,60 @@
+"""
+Curated showcases for the Alert molecule.
+
+The auto-grid has the variants, but an alert is a title, a description and
+sometimes a way out of the situation - none of which it can assemble.
+"""
+
+from __future__ import annotations
+
+from hue_docs.showcase import Showcase, variant
+
+SHOWCASES: list[Showcase] = [
+    Showcase(
+        title="Examples",
+        layout="stack",
+        description=(
+            "The variant decides how loudly it arrives: danger interrupts "
+            'the screen reader with role="alert", the rest wait for a gap '
+            'with role="status". Nothing is announced twice - a live region '
+            "that exists with its content already in it is never announced, "
+            "so one rendered with the page is simply read in order."
+        ),
+        variants=[
+            variant(
+                "With a way out",
+                """
+                (
+                    Alert()
+                    .variant("danger")
+                    .title("We could not charge your card")
+                    .description("The bank declined the payment. Nothing was lost.")
+                    .actions(
+                        Button().variant("ghost").size("sm").content("Try again"),
+                        Button()
+                        .variant("ghost")
+                        .size("sm")
+                        .content("Use another card"),
+                    )
+                )
+                """,
+            ),
+            variant(
+                "Dismissible",
+                """
+                (
+                    Alert()
+                    .variant("success")
+                    .title("Workspace created")
+                    .description("You can invite people from the members page.")
+                    .dismissible()
+                )
+                """,
+            ),
+            variant(
+                "Title only",
+                'Alert().variant("warning").title("Two invoices are overdue")',
+            ),
+        ],
+    ),
+]
