@@ -27,7 +27,7 @@ from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.text import Label, Text
 from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.alert import Alert
+from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.button_group import ButtonGroup
 from hue.ui.molecules.card import (
     Card,
@@ -59,6 +59,7 @@ __all__ = [
     "Avatar",
     "AvatarGroup",
     "Badge",
+    "Banner",
     "Button",
     "ButtonGroup",
     "Card",

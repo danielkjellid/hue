@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from htmy import html
 from typing_extensions import Self
@@ -75,6 +75,12 @@ class Alert(ChainableComponent):
 
     category = "Feedback"
 
+    #: Whether the box runs to the edges of whatever holds it. Banner is the
+    #: one that does; it is a class attribute rather than a modifier because
+    #: it is what the two of them are, not something either can be talked out
+    #: of halfway down a chain.
+    edge_to_edge: ClassVar[bool] = False
+
     @classmethod
     def example(cls) -> Self:
         return (
@@ -114,21 +120,12 @@ class Alert(ChainableComponent):
         self._props["dismissible"] = value
         return self
 
-    def banner(self, value: bool = True) -> Self:
-        """
-        Square it off and run it edge to edge, for a message about the whole
-        page rather than about one thing on it.
-        """
-        self._props["banner"] = value
-        return self
-
     def _render(self, context: HueContext) -> Component:
         variant: AlertVariant = self._get_prop("variant", "neutral")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
         actions: tuple[ComponentType, ...] = self._get_prop("actions", ())
         dismissible: bool = self._get_prop("dismissible", False)
-        banner: bool = self._get_prop("banner", False)
 
         body = html.div(
             render_if(
@@ -176,7 +173,7 @@ class Alert(ChainableComponent):
             close if dismissible else UNDEFINED,
             class_=classnames(
                 "flex items-start gap-3 border px-4 py-3 text-base",
-                "rounded-none border-x-0" if banner else "rounded-md",
+                "rounded-none border-x-0" if self.edge_to_edge else "rounded-md",
                 _VARIANTS[variant],
                 self._get_prop("class_"),
             ),
@@ -190,3 +187,28 @@ class Alert(ChainableComponent):
         if not dismissible:
             return alert
         return html.div(alert, **{"x-data": "{ shown: true }", "x-show": "shown"})
+
+
+class Banner(Alert):
+    """
+    An alert about the whole page, run edge to edge across the top of it.
+
+    Everything an Alert has, in the shape a page-level message takes: squared
+    off, with no side borders, so it reads as part of the frame rather than as
+    something sitting inside the content.
+
+        Banner().variant("warning").title("Your trial ends on Friday")
+    """
+
+    category = "Feedback"
+
+    edge_to_edge: ClassVar[bool] = True
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .variant("info")
+            .title("Scheduled maintenance on Sunday")
+            .description("The API is read-only between 02:00 and 04:00 UTC.")
+        )

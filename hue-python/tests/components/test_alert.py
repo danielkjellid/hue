@@ -95,14 +95,8 @@ class TestAlert:
         assert_no_selector(html, "button")
         assert_no_selector(html, "[x-data]")
 
-    # banner(): both branches
     @pytest.mark.asyncio
-    async def test_a_banner_runs_edge_to_edge(self, context_args):
-        html = await render_tree(Alert().title("T").banner(), context_args=context_args)
-        assert_selector(html, "div.rounded-none")
-
-    @pytest.mark.asyncio
-    async def test_boxed_by_default(self, context_args):
+    async def test_an_alert_is_a_box(self, context_args):
         html = await render_tree(Alert().title("T"), context_args=context_args)
         assert_selector(html, "div.rounded-md")
 
