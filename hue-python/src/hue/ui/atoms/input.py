@@ -269,7 +269,7 @@ class TextInput(_BaseInput):
     """
     A single-line text input.
 
-        TextInput("username").label("Username").placeholder("Enter username")
+        TextInput().name("username").label("Username").placeholder("Enter username")
     """
 
     _input_type = "text"
@@ -279,7 +279,7 @@ class EmailInput(_BaseInput):
     """
     An email input, with autocomplete preset to email.
 
-        EmailInput("email").label("Email").placeholder("you@example.com")
+        EmailInput().name("email").label("Email").placeholder("you@example.com")
     """
 
     _input_type = "email"
@@ -293,7 +293,7 @@ class PasswordInput(_BaseInput):
     """
     A password input, with autocomplete preset to current-password.
 
-        PasswordInput("password").label("Password").revealable()
+        PasswordInput().name("password").label("Password").revealable()
     """
 
     _input_type = "password"
@@ -341,7 +341,7 @@ class NumberInput(_BaseInput):
     """
     A number input with min(), max() and step().
 
-        NumberInput("quantity").label("Quantity").min(1).max(100).step(1)
+        NumberInput().name("quantity").label("Quantity").min(1).max(100).step(1)
     """
 
     _input_type = "number"

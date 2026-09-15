@@ -25,7 +25,7 @@ SHOWCASES: list[Showcase] = [
                 "Hint",
                 """
                 (
-                    EmailInput("email")
+                    EmailInput().name("email")
                     .label("Email address")
                     .hint("We only use it for receipts.")
                 )
@@ -35,7 +35,7 @@ SHOWCASES: list[Showcase] = [
                 "Error",
                 """
                 (
-                    EmailInput("email")
+                    EmailInput().name("email")
                     .label("Email address")
                     .required()
                     .value("ada@example")
@@ -47,7 +47,7 @@ SHOWCASES: list[Showcase] = [
                 "Read-only",
                 """
                 (
-                    TextInput("account")
+                    TextInput().name("account")
                     .label("Account ID")
                     .value("acct_9f2Kd81mQ")
                     .readonly()
@@ -70,7 +70,7 @@ SHOWCASES: list[Showcase] = [
                 "Settings row",
                 """
                 (
-                    TextInput("url")
+                    TextInput().name("url")
                     .label("Workspace URL")
                     .hint("Used in every share link.")
                     .value("northwind")
@@ -94,7 +94,7 @@ SHOWCASES: list[Showcase] = [
                 "Prefix",
                 """
                 (
-                    TextInput("url")
+                    TextInput().name("url")
                     .label("Workspace URL")
                     .prefix("hue.app/")
                     .value("northwind")
@@ -106,7 +106,7 @@ SHOWCASES: list[Showcase] = [
                 "Suffix",
                 """
                 (
-                    NumberInput("rate")
+                    NumberInput().name("rate")
                     .label("API rate limit")
                     .suffix("req/min")
                     .value("600")
@@ -117,7 +117,7 @@ SHOWCASES: list[Showcase] = [
                 "Leading icon",
                 """
                 (
-                    TextInput("q")
+                    TextInput().name("q")
                     .label("Search invoices")
                     .hidden_label()
                     .leading_icon(HueIcon("search"))
@@ -129,7 +129,7 @@ SHOWCASES: list[Showcase] = [
                 "Revealable password",
                 """
                 (
-                    PasswordInput("password")
+                    PasswordInput().name("password")
                     .label("Password")
                     .revealable()
                     .value("hunter2")
