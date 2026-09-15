@@ -149,14 +149,14 @@ class TestCheckbox:
 
     @pytest.mark.asyncio
     async def test_constructor_name(self, context_args):
-        html = await render_tree(Checkbox("terms"), context_args=context_args)
+        html = await render_tree(Checkbox().name("terms"), context_args=context_args)
         assert_attr(html, "input", "name", "terms")
 
     @pytest.mark.asyncio
     async def test_checked_false_omits_attribute(self, context_args):
         # checked="false" would still check the box.
         html = await render_tree(
-            Checkbox("a").checked(False), context_args=context_args
+            Checkbox().name("a").checked(False), context_args=context_args
         )
         assert_no_selector(html, "input[checked]")
 
@@ -165,14 +165,14 @@ class TestCheckbox:
         # The label wraps the control, so the text is part of the target
         # rather than something to aim past on the way to an 18px box.
         html = await render_tree(
-            Checkbox("a").label("Accept"), context_args=context_args
+            Checkbox().name("a").label("Accept"), context_args=context_args
         )
         assert_selector(html, "label > input[type='checkbox']")
 
     @pytest.mark.asyncio
     async def test_class_applies_to_root(self, context_args):
         html = await render_tree(
-            Checkbox("a").class_("mt-4"), context_args=context_args
+            Checkbox().name("a").class_("mt-4"), context_args=context_args
         )
         assert_selector(html, "div.flex.flex-col.mt-4")
 
@@ -182,14 +182,15 @@ class TestCheckbox:
         # The fill follows :checked through :has, so nothing has to be
         # mirrored in Alpine to keep the surface in step with the box.
         html = await render_tree(
-            Checkbox("plan").label("Pro").variant("card"), context_args=context_args
+            Checkbox().name("plan").label("Pro").variant("card"),
+            context_args=context_args,
         )
         assert_selector(html, "label.has-\\[\\:checked\\]\\:bg-accent-subtle")
 
     @pytest.mark.asyncio
     async def test_inline_by_default(self, context_args):
         html = await render_tree(
-            Checkbox("plan").label("Pro"), context_args=context_args
+            Checkbox().name("plan").label("Pro"), context_args=context_args
         )
         assert_no_selector(html, "label.p-4")
 
@@ -197,7 +198,10 @@ class TestCheckbox:
     @pytest.mark.asyncio
     async def test_a_description_sits_under_the_label(self, context_args):
         html = await render_tree(
-            Checkbox("plan").label("Pro").description("Everything in Free, plus SSO."),
+            Checkbox()
+            .name("plan")
+            .label("Pro")
+            .description("Everything in Free, plus SSO."),
             context_args=context_args,
         )
         assert_selector(html, "span.text-fg-muted")
@@ -206,6 +210,6 @@ class TestCheckbox:
     @pytest.mark.asyncio
     async def test_no_description_by_default(self, context_args):
         html = await render_tree(
-            Checkbox("plan").label("Pro"), context_args=context_args
+            Checkbox().name("plan").label("Pro"), context_args=context_args
         )
         assert_no_selector(html, "span.text-fg-muted")

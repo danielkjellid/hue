@@ -12,7 +12,7 @@ class TestAttachedSegments:
     @pytest.mark.asyncio
     async def test_a_plain_input_keeps_its_own_frame(self, context_args):
         html = await render_tree(
-            TextInput("url").label("URL"), context_args=context_args
+            TextInput().name("url").label("URL"), context_args=context_args
         )
         assert_selector(html, "input.shadow-field")
         assert_no_selector(html, "input.bg-transparent")
@@ -22,7 +22,7 @@ class TestAttachedSegments:
         # A square segment inside a rounded box pokes past the corner, so the
         # border and the fill have to belong to the outer element.
         html = await render_tree(
-            TextInput("url").label("URL").prefix("hue.app/"),
+            TextInput().name("url").label("URL").prefix("hue.app/"),
             context_args=context_args,
         )
         assert_selector(html, "div.focus-within\\:border-accent")
@@ -32,7 +32,7 @@ class TestAttachedSegments:
     @pytest.mark.asyncio
     async def test_prefix_and_suffix_sit_on_the_matching_sides(self, context_args):
         html = await render_tree(
-            TextInput("rate").label("Rate").prefix("$").suffix("/mo"),
+            TextInput().name("rate").label("Rate").prefix("$").suffix("/mo"),
             context_args=context_args,
         )
         assert_selector(html, "span.rounded-s-\\[7px\\]")
@@ -44,7 +44,7 @@ class TestAttachedSegments:
     async def test_the_leading_icon_is_decorative(self, context_args):
         # The label names the control; an announced icon would name it twice.
         html = await render_tree(
-            TextInput("q").label("Search").leading_icon(HueIcon("search")),
+            TextInput().name("q").label("Search").leading_icon(HueIcon("search")),
             context_args=context_args,
         )
         assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
@@ -52,7 +52,7 @@ class TestAttachedSegments:
     @pytest.mark.asyncio
     async def test_an_action_is_attached_to_the_end(self, context_args):
         html = await render_tree(
-            TextInput("key").label("API key").action("copy"),
+            TextInput().name("key").label("API key").action("copy"),
             context_args=context_args,
         )
         assert_selector(html, "div.flex.w-full > span.pe-1")
@@ -65,7 +65,7 @@ class TestRevealablePassword:
         # A control renamed to "Hide password" is announced as a different
         # control each time it is pressed; aria-pressed says the state instead.
         html = await render_tree(
-            PasswordInput("pw").label("Password").revealable(),
+            PasswordInput().name("pw").label("Password").revealable(),
             context_args=context_args,
         )
         assert_attr(html, "button", "aria-label", "Show password")
@@ -75,7 +75,7 @@ class TestRevealablePassword:
     @pytest.mark.asyncio
     async def test_the_type_is_bound_so_it_can_change(self, context_args):
         html = await render_tree(
-            PasswordInput("pw").label("Password").revealable(),
+            PasswordInput().name("pw").label("Password").revealable(),
             context_args=context_args,
         )
         assert_attr(html, "input", ":type", "shown ? 'text' : 'password'")
@@ -89,7 +89,7 @@ class TestRevealablePassword:
     @pytest.mark.asyncio
     async def test_no_toggle_by_default(self, context_args):
         html = await render_tree(
-            PasswordInput("pw").label("Password"), context_args=context_args
+            PasswordInput().name("pw").label("Password"), context_args=context_args
         )
         assert_no_selector(html, "button")
         assert_attr(html, "input", "type", "password")

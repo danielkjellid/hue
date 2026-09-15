@@ -7,7 +7,8 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 def _select(**kwargs):
     return (
-        NativeSelect("tz")
+        NativeSelect()
+        .name("tz")
         .label("Time zone")
         .options([("utc", "UTC"), ("oslo", "Europe/Oslo")])
     )
