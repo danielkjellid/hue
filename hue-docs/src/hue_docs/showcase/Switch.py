@@ -30,7 +30,7 @@ SHOWCASES: list[Showcase] = [
             variant("Off", 'Switch().name("notify").label("Email notifications")'),
             variant(
                 "On",
-                'Switch().name("notify").label("Email notifications").checked()',
+                'Switch().name("notify_on").label("Email notifications").checked()',
             ),
             variant(
                 "With a description",
@@ -58,7 +58,7 @@ SHOWCASES: list[Showcase] = [
                 "Saved",
                 """
                 (
-                    Switch().name("sso")
+                    Switch().name("sso_saved")
                     .label("Enforce SSO")
                     .checked()
                     .submission_state("success")
@@ -70,7 +70,7 @@ SHOWCASES: list[Showcase] = [
                 "Could not save",
                 """
                 (
-                    Switch().name("sso")
+                    Switch().name("sso_failed")
                     .label("Enforce SSO")
                     .submission_state("error")
                     .settle_after(None)
