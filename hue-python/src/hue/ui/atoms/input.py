@@ -9,7 +9,7 @@ from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.form import FormControl
-from hue.ui.molecules.field import Field, FieldLayout
+from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
 
 type Autocomplete = Literal[
@@ -142,7 +142,6 @@ class _BaseInput(FormControl):
 
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
-        label_text: str = self._get_prop("label") or name
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
@@ -175,22 +174,7 @@ class _BaseInput(FormControl):
             **self._get_extra_input_attrs(),
         )
 
-        field = (
-            Field()
-            .label(label_text)
-            .html_for(input_id)
-            .layout(self._get_prop("layout", "stacked"))
-            .required(required)
-            .disabled(disabled)
-            .hidden_label(self._get_prop("hidden_label", False))
-            .content(html.input_(**input_attrs))
-        )
-        hint: str | None = self._get_prop("hint")
-        if hint is not None:
-            field.hint(hint)
-        if error is not None:
-            field.error(error)
-        return field
+        return self._field(html.input_(**input_attrs))
 
 
 class TextInput(_BaseInput):

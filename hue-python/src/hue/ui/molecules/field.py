@@ -10,7 +10,7 @@ from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames
+from hue.utils import classnames, render_if
 
 type FieldLayout = Literal["stacked", "horizontal"]
 
@@ -89,16 +89,18 @@ class Field(ChainableComponent):
         self._props["html_for"] = value
         return self
 
-    def hint(self, value: str) -> Self:
+    def hint(self, value: str | None) -> Self:
         """
-        A note about what to enter, shown under the control.
+        A note about what to enter, shown under the control. None for no hint,
+        so a control can pass its own straight through.
         """
         self._props["hint"] = value
         return self
 
-    def error(self, value: str) -> Self:
+    def error(self, value: str | None) -> Self:
         """
-        What is wrong with the value. Shown in place of the hint.
+        What is wrong with the value. Shown in place of the hint. None for no
+        error, so a control can pass its own straight through.
         """
         self._props["error"] = value
         return self
@@ -136,52 +138,53 @@ class Field(ChainableComponent):
         hint: str | None = self._get_prop("hint")
         error: str | None = self._get_prop("error")
         trailing: tuple[ComponentType, ...] = self._get_prop("trailing", ())
-        control_id: str | None = self._get_prop("html_for")
         horizontal = layout == "horizontal"
 
-        header: list[ComponentType] = []
-        if label is not None:
-            label_component = Label(label)
-            if control_id is not None:
-                label_component.html_for(control_id)
-            header.append(
-                label_component.required(self._get_prop("required", False))
-                .disabled(self._get_prop("disabled", False))
-                .hidden_label(self._get_prop("hidden_label", False))
-            )
-        # Laid beside the control, the hint belongs with the label: under a
-        # 180px column it reads as part of the question, where under the
-        # control it would sit in the next row's space.
-        if horizontal and hint is not None:
-            header.append(hint_component(hint, control_id))
-        if trailing:
-            header.append(html.span(*trailing, class_=TRAILING_CLASSES))
+        header: list[ComponentType] = [
+            render_if(label, self._label),
+            # Laid beside the control, the hint belongs with the label: under a
+            # 180px column it reads as part of the question, where under the
+            # control it would sit in the next row's space.
+            render_if(hint if horizontal else None, self._hint),
+            render_if(
+                trailing or None,
+                lambda items: html.span(*items, class_=TRAILING_CLASSES),
+            ),
+        ]
 
         # An error replaces the hint rather than joining it: two lines of
-        # supporting text under one control is one more than anyone reads.
-        messages: list[ComponentType] = []
-        if error is not None:
-            messages.append(error_component(error, control_id))
-        elif hint is not None and not horizontal:
-            messages.append(hint_component(hint, control_id))
-
-        control: list[ComponentType] = [*self._children, *messages]
+        # supporting text under one control is one more than anyone reads. In
+        # the horizontal layout the hint has already gone up beside the label.
+        control: list[ComponentType] = [
+            *self._children,
+            render_if(
+                error,
+                self._error,
+                fallback=render_if(None if horizontal else hint, self._hint),
+            ),
+        ]
 
         return html.div(
-            html.div(
-                *header,
-                class_=classnames(
-                    "flex",
-                    f"{_LABEL_COLUMN} flex-col items-start gap-0.5"
-                    if horizontal
-                    else "items-baseline justify-between gap-3",
+            render_if(
+                self._filled(header),
+                lambda items: html.div(
+                    *items,
+                    class_=classnames(
+                        "flex",
+                        f"{_LABEL_COLUMN} flex-col items-start gap-0.5"
+                        if horizontal
+                        else "items-baseline justify-between gap-3",
+                    ),
                 ),
-            )
-            if header
-            else UNDEFINED,
-            html.div(*control, class_="flex min-w-0 flex-1 flex-col gap-1.5")
-            if horizontal
-            else UNDEFINED,
+            ),
+            # Horizontal puts the control and its messages in their own column
+            # beside the label; stacked has nothing to wrap them in.
+            render_if(
+                control if horizontal else None,
+                lambda items: html.div(
+                    *items, class_="flex min-w-0 flex-1 flex-col gap-1.5"
+                ),
+            ),
             *(() if horizontal else control),
             class_=classnames(
                 "flex",
@@ -190,3 +193,28 @@ class Field(ChainableComponent):
             ),
             **self._get_base_html_attrs(),
         )
+
+    @staticmethod
+    def _filled(items: list[ComponentType]) -> list[ComponentType] | None:
+        """
+        The items that will actually render, or None when none of them will.
+        """
+        rendered = [item for item in items if item is not UNDEFINED]
+        return rendered or None
+
+    def _label(self, text: str) -> ComponentType:
+        control_id: str | None = self._get_prop("html_for")
+        label = Label(text)
+        if control_id is not None:
+            label.html_for(control_id)
+        return (
+            label.required(self._get_prop("required", False))
+            .disabled(self._get_prop("disabled", False))
+            .hidden_label(self._get_prop("hidden_label", False))
+        )
+
+    def _hint(self, text: str) -> ComponentType:
+        return hint_component(text, self._get_prop("html_for"))
+
+    def _error(self, text: str) -> ComponentType:
+        return error_component(text, self._get_prop("html_for"))

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing_extensions import Self
 
+from hue.types.core import ComponentType
 from hue.ui.base import AlpineModelMixin, ChainableComponent
-from hue.ui.molecules.field import error_id, hint_id
+from hue.ui.molecules.field import Field, error_id, hint_id
 from hue.utils import classnames
 
 
@@ -81,6 +82,27 @@ class FormControl(AlpineModelMixin, ChainableComponent):
                 self._attrs.get("aria_describedby"),
             )
             or None
+        )
+
+    def _field(self, control: ComponentType) -> Field:
+        """
+        The Field every named control renders into, filled from its own props.
+
+        Here rather than in each control because they all answer the same
+        questions the same way, and a control that grew its own answer would
+        be the one that looked different for no reason.
+        """
+        return (
+            Field()
+            .label(self._get_prop("label") or self._require_name())
+            .html_for(self._input_id())
+            .layout(self._get_prop("layout", "stacked"))
+            .required(self._get_prop("required", False))
+            .disabled(self._get_prop("disabled", False))
+            .hidden_label(self._get_prop("hidden_label", False))
+            .hint(self._get_prop("hint"))
+            .error(self._get_prop("error"))
+            .content(control)
         )
 
     def _control_attrs(self, **own: object) -> dict[str, object]:
