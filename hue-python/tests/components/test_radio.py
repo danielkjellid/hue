@@ -153,3 +153,24 @@ class TestRadio:
             context_args=context_args,
         )
         assert_attr(html, "fieldset", "aria-describedby", "r-hint")
+
+    # required(): both branches, visible as well as announced
+    @pytest.mark.asyncio
+    async def test_a_required_group_is_marked_on_its_legend(self, context_args):
+        # The legend is the group's label, so it carries the same mark a
+        # field's label does - the attribute alone showed nothing at all.
+        html = await render_tree(_group().required(), context_args=context_args)
+        assert_selector(html, 'legend > span[aria-hidden="true"]')
+
+    @pytest.mark.asyncio
+    async def test_an_optional_group_is_not_marked(self, context_args):
+        html = await render_tree(_group(), context_args=context_args)
+        assert_no_selector(html, 'legend > span[aria-hidden="true"]')
+
+    @pytest.mark.asyncio
+    async def test_the_legend_carries_the_gap_the_fieldset_cannot(self, context_args):
+        # A legend is not a flex item of its fieldset, so the gap that spaces
+        # every other child never reaches it and the first option sits flush
+        # against the question.
+        html = await render_tree(_group(), context_args=context_args)
+        assert_selector(html, "legend.mb-1\\.5")

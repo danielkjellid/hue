@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component, ComponentType
+from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
     ChoiceVariant,
@@ -14,6 +14,7 @@ from hue.ui.atoms._choice import (
     description_id,
     label_id,
 )
+from hue.ui.atoms.text import required_marker
 from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
 from hue.ui.molecules.field import error_component, hint_component
@@ -166,6 +167,7 @@ class RadioGroup(FieldControl):
         legend: str | None = self._get_prop("legend") or self._get_prop("label")
         variant: ChoiceVariant = self._get_prop("variant", "inline")
         disabled: bool = self._get_prop("disabled", False)
+        required: bool = self._get_prop("required", False)
         error: str | None = self._get_prop("error")
         hint: str | None = self._get_prop("hint")
 
@@ -177,7 +179,7 @@ class RadioGroup(FieldControl):
                     selected=self._get_prop("value"),
                     variant=variant,
                     disabled=disabled,
-                    required=self._get_prop("required", False),
+                    required=required,
                 )
             options.append(child)
 
@@ -185,7 +187,18 @@ class RadioGroup(FieldControl):
             render_if(
                 legend,
                 lambda text: html.legend(
-                    text, class_="font-ui text-sm font-medium leading-[1.4] text-fg"
+                    text,
+                    # A legend is the group's label, so it carries the same
+                    # mark a field's label does when the answer is required.
+                    required_marker() if required else UNDEFINED,
+                    # The margin is the fieldset's own gap, written out: a
+                    # legend is not a flex item of its fieldset, so the gap
+                    # that spaces every other child never reaches it and the
+                    # first option sits flush against the question.
+                    class_=(
+                        "mb-1.5 inline-flex items-center gap-[5px] "
+                        "font-ui text-sm font-medium leading-[1.4] text-fg"
+                    ),
                 ),
             ),
             html.div(
