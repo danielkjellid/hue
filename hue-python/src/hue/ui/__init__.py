@@ -1,4 +1,3 @@
-from hue.ui._styles import CONTROL_SHELL
 from hue.ui.atoms.avatar import Avatar, AvatarGroup
 from hue.ui.atoms.badge import Badge
 from hue.ui.atoms.button import Button
@@ -51,7 +50,6 @@ from hue.ui.molecules.table import (
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 
 __all__ = [
-    "CONTROL_SHELL",
     "Avatar",
     "AvatarGroup",
     "Badge",

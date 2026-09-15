@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import UNDEFINED, Component, ComponentType
-from hue.ui._styles import CONTROL_SHELL
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label
 from hue.ui.base import ChainableComponent
@@ -72,24 +71,12 @@ class Field(ChainableComponent):
     """
     The frame around a form control: its label, its hint and its error.
 
-    hue's own controls build one for themselves, so reach for this directly
-    when wrapping a control hue does not ship. html_for() has to name that
-    control's id, which is what ties the label and the messages to it.
-
-        Field().label("Region").html_for("region").content(my_select)
+    Not documented on its own and not something to reach for directly: the
+    controls build one for themselves, and their own modifiers - label(),
+    hint(), error(), layout() - are the API. This is where those land.
     """
 
-    category = "Inputs"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Workspace URL")
-            .hint("Used in every share link.")
-            .html_for("workspace-url")
-            .content(html.input_(id="workspace-url", class_=CONTROL_SHELL))
-        )
+    category: ClassVar[str | None] = None
 
     def label(self, value: str) -> Self:
         self._props["label"] = value

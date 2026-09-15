@@ -49,7 +49,3 @@ FIELD_SHELL = (
     "disabled:cursor-not-allowed disabled:bg-surface-sunken "
     "disabled:text-fg-disabled disabled:shadow-none"
 )
-
-#: What a control hue does not ship needs in order to look like one that it
-#: does. Field is the frame; this is the box that goes inside it.
-CONTROL_SHELL = f"{FIELD_SHELL} {CONTROL_SIZES['md']}"
