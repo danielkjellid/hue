@@ -24,7 +24,7 @@ SHOWCASES: list[Showcase] = [
                 "Empty",
                 """
                 (
-                    Textarea("description")
+                    Textarea().name("description")
                     .label("Description")
                     .placeholder("What does this workspace do?")
                 )
@@ -34,7 +34,7 @@ SHOWCASES: list[Showcase] = [
                 "With a counter",
                 """
                 (
-                    Textarea("description")
+                    Textarea().name("description")
                     .label("Description")
                     .max_length(280)
                     .value("Internal tooling for the logistics team.")
@@ -45,7 +45,7 @@ SHOWCASES: list[Showcase] = [
                 "Over the limit",
                 """
                 (
-                    Textarea("description")
+                    Textarea().name("description")
                     .label("Description")
                     .max_length(40)
                     .value(
@@ -60,7 +60,7 @@ SHOWCASES: list[Showcase] = [
                 "Autosizing",
                 """
                 (
-                    Textarea("notes")
+                    Textarea().name("notes")
                     .label("Notes")
                     .autosize()
                     .value("One line.\\nTwo lines.\\nThree lines.")

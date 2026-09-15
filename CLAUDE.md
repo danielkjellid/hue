@@ -76,6 +76,12 @@ canonical templates. The shape:
 - `category: ClassVar[str | None]` sets the docs sidebar group (e.g. `"Actions"`,
   `"Feedback"`). Set it to `None` for composition-only parts (e.g. `TableRow`) that are
   exported but should not get their own docs page.
+- **Write the chain, not the shortcut.** A named control takes its name either way, but
+  every docstring, `example()` and showcase spells it `TextInput().name("email")` rather
+  than `TextInput("email")` — one positional string is the only thing in the API whose
+  meaning you have to already know, and it happens to set the submitted name, the `id`,
+  the `for` on the label, and the ids the hint and error hang off. The constructor form
+  stays supported; it just isn't what we teach.
 - Named form controls (inputs, checkbox) subclass `FormControl` (`hue-python/src/hue/ui/form.py`),
   which owns `name`/`label`/`disabled`/`required`/`help_text`/`error_text`, `x_model`, and the
   `aria-describedby` / `aria-errormessage` wiring — don't re-implement those per control.

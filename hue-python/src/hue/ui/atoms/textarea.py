@@ -52,7 +52,7 @@ class Textarea(FormControl):
     invalid past the limit rather than refusing the keystroke, because an input
     that silently stops accepting characters reads as a broken keyboard.
 
-        Textarea("bio").label("About you").max_length(280)
+        Textarea().name("bio").label("About you").max_length(280)
     """
 
     category = "Inputs"
