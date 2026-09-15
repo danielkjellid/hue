@@ -1,6 +1,6 @@
 """
-Refuse to build a distribution that would install as a component library with
-no CSS.
+Refuse to build a *distribution* that would install as a component library with
+no CSS. Editable installs are exempt: they build the assets after syncing.
 
 tailwind.css and the Alpine bundle are both generated, and the stylesheet is
 not committed, so a build from a clean checkout has nothing to ship. Left
@@ -27,6 +27,12 @@ class AssetsBuildHook(BuildHookInterface):
     PLUGIN_NAME = "hue-assets"
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        if version == "editable":
+            # A development install builds the assets after syncing, not
+            # before, so demanding them here only breaks the step that would
+            # have produced them. Nothing leaves the repo either way.
+            return
+
         root = Path(self.root)
         missing = {
             path: command

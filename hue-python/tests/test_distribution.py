@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from hatch_build import AssetsBuildHook
+
 PACKAGE = Path(__file__).resolve().parent.parent
 
 # The assets a consumer has no second chance at: they are generated from
@@ -53,3 +55,26 @@ def test_the_wheel_ships_the_icons(wheel_contents: set[str]) -> None:
     expected = {f"hue/static/icons/{icon.name}" for icon in source.glob("*.svg")}
     assert expected
     assert expected <= wheel_contents
+
+
+class TestTheAssetGuard:
+    """
+    The hook that refuses to build a distribution with no styling in it.
+
+    It has to tell a release apart from a development install: an editable
+    install builds the assets *after* syncing, so demanding them up front
+    breaks the very step that would have produced them - which is how this
+    first went wrong, taking every CI job with it.
+    """
+
+    @staticmethod
+    def _hook(root: Path) -> AssetsBuildHook:
+        metadata = type("Metadata", (), {"name": "hue"})()
+        return AssetsBuildHook(str(root), {}, {}, metadata, "", "wheel")
+
+    def test_a_release_without_the_assets_is_refused(self, tmp_path: Path) -> None:
+        with pytest.raises(RuntimeError, match="no styling at all"):
+            self._hook(tmp_path).initialize("standard", {})
+
+    def test_an_editable_install_is_left_alone(self, tmp_path: Path) -> None:
+        self._hook(tmp_path).initialize("editable", {})
