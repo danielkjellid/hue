@@ -68,3 +68,41 @@ class TestSwitch:
     async def test_no_description_by_default(self, context_args):
         html = await render_tree(Switch("n").label("N"), context_args=context_args)
         assert_no_selector(html, "span.text-fg-muted")
+
+    # size(): each one meets the label's first line in a different place, so
+    # each carries its own offset rather than sharing one nudge.
+    @pytest.mark.parametrize(
+        ("size", "offset"),
+        [("sm", "mt-px"), ("md", "mt-0"), ("lg", "-mt-\\[3px\\]")],
+    )
+    @pytest.mark.asyncio
+    async def test_every_size_sits_on_the_first_line(self, context_args, size, offset):
+        html = await render_tree(
+            Switch("n").label("N").size(size), context_args=context_args
+        )
+        assert_selector(html, f"input.{offset}")
+
+    # layout(): both branches
+    @pytest.mark.asyncio
+    async def test_horizontal_puts_the_text_first(self, context_args):
+        # The scanning order a settings list wants: what can I change, then
+        # the thing that changes it.
+        html = await render_tree(
+            Switch("n")
+            .label("Two-factor")
+            .description("A code every time.")
+            .layout("horizontal"),
+            context_args=context_args,
+        )
+        assert_selector(html, "label.justify-between")
+        assert html.index("Two-factor") < html.index("<input")
+        # Centred against the whole block, so no first-line offset applies.
+        assert_no_selector(html, "input.mt-0")
+
+    @pytest.mark.asyncio
+    async def test_the_switch_leads_by_default(self, context_args):
+        html = await render_tree(
+            Switch("n").label("Two-factor"), context_args=context_args
+        )
+        assert_no_selector(html, "label.justify-between")
+        assert html.index("<input") < html.index("Two-factor")

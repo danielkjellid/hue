@@ -18,7 +18,9 @@ SHOWCASES: list[Showcase] = [
             "or off rather than checked or unchecked. A switch takes effect "
             "as it is flipped; pending() covers the round trip when that means "
             "a request, so the delay is visible rather than the switch just "
-            "refusing to move."
+            'refusing to move. layout("horizontal") puts the text first and '
+            "the switch at the far end, which is the order a settings list "
+            "reads in."
         ),
         variants=[
             variant("Off", 'Switch("notify").label("Email notifications")'),
@@ -45,6 +47,20 @@ SHOWCASES: list[Showcase] = [
                     .label("Enforce SSO")
                     .checked()
                     .pending()
+                )
+                """,
+            ),
+            variant(
+                "In a settings list",
+                """
+                (
+                    Switch("twofactor")
+                    .label("Two-factor authentication")
+                    .description(
+                        "Require a code from your authenticator at every sign-in."
+                    )
+                    .layout("horizontal")
+                    .checked()
                 )
                 """,
             ),

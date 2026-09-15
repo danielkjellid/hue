@@ -8,7 +8,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
-from hue.ui.atoms._choice import choice_row
+from hue.ui.atoms._choice import ChoiceLayout, choice_row
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.form import FormControl
 from hue.ui.molecules.field import error_component, hint_component
@@ -24,8 +24,18 @@ _SIZES: dict[SwitchSize, str] = {
     "lg": ("w-[44px] h-[25px] before:size-[21px] checked:before:translate-x-[19px]"),
 }
 
+# What it takes to sit the track on the middle of the label's first line,
+# which is 19px tall. One offset per size, because a track that is 17, 20 or
+# 25px tall does not meet that line in the same place - a single nudge tuned
+# for the smallest left the other two visibly high.
+_ALIGNMENT: dict[SwitchSize, str] = {
+    "sm": "mt-px",
+    "md": "mt-0",
+    "lg": "-mt-[3px]",
+}
+
 _TRACK = classnames(
-    "relative mt-px flex-none cursor-pointer appearance-none rounded-full",
+    "relative flex-none cursor-pointer appearance-none rounded-full",
     "bg-border-strong transition-colors duration-200",
     "enabled:hover:bg-fg-subtle",
     "checked:bg-accent checked:enabled:hover:bg-accent-hover",
@@ -64,6 +74,16 @@ class Switch(FormControl):
         self._props["size"] = value
         return self
 
+    def layout(self, value: ChoiceLayout) -> Self:
+        """
+        Put the text first and the switch at the far end of the row.
+
+        The arrangement a settings list wants: what can I change, then the
+        thing that changes it.
+        """
+        self._props["layout"] = value
+        return self
+
     def description(self, value: str) -> Self:
         self._props["description"] = value
         return self
@@ -80,6 +100,7 @@ class Switch(FormControl):
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
         size: SwitchSize = self._get_prop("size", "md")
+        layout: ChoiceLayout = self._get_prop("layout", "inline")
         pending: bool = self._get_prop("pending", False)
         disabled: bool = self._get_prop("disabled", False) or pending
         error: str | None = self._get_prop("error")
@@ -94,7 +115,14 @@ class Switch(FormControl):
                 role="switch",
                 name=name,
                 id=input_id,
-                class_=classnames(_TRACK, _SIZES[size], self._get_prop("class_")),
+                class_=classnames(
+                    _TRACK,
+                    _SIZES[size],
+                    # Centred against the whole block in the horizontal row,
+                    # where there is no first line to line up with.
+                    _ALIGNMENT[size] if layout == "inline" else None,
+                    self._get_prop("class_"),
+                ),
                 checked=self._get_prop("checked", False) or None,
                 disabled=disabled or None,
                 required=self._get_prop("required", False) or None,
@@ -110,6 +138,7 @@ class Switch(FormControl):
             description=self._get_prop("description"),
             disabled=disabled,
             variant="inline",
+            layout=layout,
             messages=(
                 render_if(
                     pending or None,
