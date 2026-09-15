@@ -15,6 +15,7 @@ from hue.ui.atoms.input import (
     TextInput,
 )
 from hue.ui.atoms.kbd import Kbd
+from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.progress import Progress, ProgressRing
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.spacer import Spacer
@@ -73,6 +74,7 @@ __all__ = [
     "IconResolver",
     "Kbd",
     "Label",
+    "NativeSelect",
     "NumberInput",
     "Panel",
     "PasswordInput",
