@@ -32,6 +32,7 @@ from hue.ui.molecules.card import (
     CardMedia,
 )
 from hue.ui.molecules.empty import Empty
+from hue.ui.molecules.field import Field
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.ui.molecules.table import (
@@ -66,6 +67,7 @@ __all__ = [
     "DataTable",
     "EmailInput",
     "Empty",
+    "Field",
     "Icon",
     "IconResolver",
     "Kbd",

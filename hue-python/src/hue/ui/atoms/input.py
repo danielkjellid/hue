@@ -7,10 +7,10 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui.atoms.stack import Stack
-from hue.ui.atoms.text import Label
+from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.form import FormControl
-from hue.utils import classes_if_else, classnames
+from hue.ui.molecules.field import FieldLayout
+from hue.utils import classnames
 
 type Autocomplete = Literal[
     "off",
@@ -60,34 +60,6 @@ type Autocomplete = Literal[
 ]
 
 
-def _get_base_input_classes(*, disabled: bool, invalid: bool) -> str:
-    return classnames(
-        "flex grow w-full rounded-lg border px-4 py-2 text-sm leading-6 shadow-xs",
-        "transition-colors duration-100 placeholder:text-surface-500",
-        "outline-primary focus:outline focus:outline-2 focus:-outline-offset-1",
-        classes_if_else(
-            disabled,
-            [
-                "cursor-not-allowed bg-surface-50 text-surface-300",
-                "placeholder:text-surface-300 dark:bg-white/5 dark:text-surface-200",
-                "dark:placeholder:text-surface-200",
-            ],
-            [
-                "bg-background text-surface-900 hover:border-surface-300",
-                "dark:hover:border-surface-200",
-            ],
-        ),
-        classes_if_else(
-            invalid,
-            [
-                "border-destructive outline-destructive hover:border-destructive",
-                "dark:hover:border-destructive",
-            ],
-            ["border-surface-200 dark:border-surface-100"],
-        ),
-    )
-
-
 class _BaseInput(FormControl):
     """
     Shared implementation of the text-like inputs. Use a concrete subclass:
@@ -106,8 +78,38 @@ class _BaseInput(FormControl):
         self._props["placeholder"] = value
         return self
 
+    def value(self, value: str) -> Self:
+        """
+        What the input starts with, for a form rendered from existing data.
+        """
+        self._props["value"] = value
+        return self
+
+    def size(self, value: ControlSize) -> Self:
+        self._props["size"] = value
+        return self
+
+    def readonly(self, value: bool = True) -> Self:
+        """
+        Show the value but refuse edits. Unlike a disabled input it stays
+        focusable and copyable, which is what a shown-but-fixed value needs.
+
+        On the input rather than on every control: a checkbox has no readonly
+        state in HTML, only disabled.
+        """
+        self._props["readonly"] = value
+        return self
+
     def hidden_label(self, value: bool = True) -> Self:
         self._props["hidden_label"] = value
+        return self
+
+    def layout(self, value: FieldLayout) -> Self:
+        """
+        Put the label beside the input rather than above it, for a settings
+        page where every row shares one edge.
+        """
+        self._props["layout"] = value
         return self
 
     def autocomplete(self, value: Autocomplete) -> Self:
@@ -131,55 +133,48 @@ class _BaseInput(FormControl):
             "maxlength": self._get_prop("max_length"),
         }
 
+    def _get_extra_classes(self) -> str:
+        """
+        Type-specific classes, kept apart from the attributes so a subclass
+        adding one does not have to restate the whole shell.
+        """
+        return ""
+
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
-        label_text: str = self._get_prop("label") or name
+        size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
-        hidden_label: bool = self._get_prop("hidden_label", False)
+        readonly: bool = self._get_prop("readonly", False)
         autocomplete: Autocomplete = self._get_prop("autocomplete", "off")
-        invalid = self._get_prop("error_text") is not None
+        error: str | None = self._get_prop("error")
         input_id = self._input_id()
 
         # The visible <label for> supplies the accessible name, so no aria-label.
-        # Native disabled/required carry their ARIA semantics; aria-invalid and
-        # aria-errormessage point at the rendered error text.
+        # Native disabled/required/readonly carry their own ARIA semantics;
+        # aria-invalid is what the shell keys its error border off.
         input_attrs = self._control_attrs(
             type=self._input_type,
             name=name,
             id=input_id,
             class_=classnames(
-                _get_base_input_classes(disabled=disabled, invalid=invalid),
+                FIELD_SHELL,
+                CONTROL_SIZES[size],
+                self._get_extra_classes(),
                 self._get_prop("class_"),
             ),
             placeholder=self._get_prop("placeholder"),
+            value=self._get_prop("value"),
             autocomplete=autocomplete,
             disabled=disabled or None,
             required=required or None,
-            aria_invalid=invalid or None,
-            aria_errormessage=self._error_id(),
+            readonly=readonly or None,
+            aria_invalid="true" if error is not None else None,
             aria_describedby=self._describedby(),
             **self._get_extra_input_attrs(),
         )
 
-        return (
-            Stack()
-            .direction("vertical")
-            .spacing("sm")
-            .content(
-                Label(label_text)
-                .required(required)
-                .disabled(disabled)
-                .hidden_label(hidden_label)
-                .html_for(input_id),
-                html.div(
-                    html.input_(**input_attrs),
-                    class_="relative flex items-center w-full",
-                ),
-                self._help_text_component(),
-                self._error_text_component(),
-            )
-        )
+        return self._field(html.input_(**input_attrs))
 
 
 class TextInput(_BaseInput):
@@ -246,4 +241,10 @@ class NumberInput(_BaseInput):
             "min": self._get_prop("min"),
             "max": self._get_prop("max"),
             "step": self._get_prop("step"),
+            # A phone offers digits rather than a full keyboard.
+            "inputmode": "numeric",
         }
+
+    def _get_extra_classes(self) -> str:
+        # Figures on shared widths, so a column of them lines up.
+        return "tabular-nums"

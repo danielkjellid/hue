@@ -88,11 +88,11 @@ class TestLabel:
     @pytest.mark.asyncio
     async def test_disabled_label(self, context_args):
         html = await render_tree(Label("Email").disabled(), context_args=context_args)
-        assert_selector(html, "label.text-surface-300")
-        assert_no_selector(html, "label.text-surface-900")
+        assert_selector(html, "label.text-fg-disabled")
+        assert_no_selector(html, "label.text-fg")
 
     @pytest.mark.asyncio
     async def test_enabled_label(self, context_args):
         html = await render_tree(Label("Email"), context_args=context_args)
-        assert_selector(html, "label.text-surface-900.cursor-pointer")
-        assert_no_selector(html, "label.text-surface-300")
+        assert_selector(html, "label.text-fg.cursor-pointer")
+        assert_no_selector(html, "label.text-fg-disabled")

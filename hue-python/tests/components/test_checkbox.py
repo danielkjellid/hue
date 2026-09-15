@@ -81,19 +81,19 @@ class TestCheckbox:
         assert_attr(html, "input", "x-init", "$el.indeterminate = true")
 
     @pytest.mark.asyncio
-    async def test_help_text_describes_input(self, context_args):
+    async def test_hint_describes_input(self, context_args):
         html = await render_tree(
-            Checkbox().name("opt").label("Opt").help_text("Optional setting"),
+            Checkbox().name("opt").label("Opt").hint("Optional setting"),
             context_args=context_args,
         )
-        assert_attr(html, "input", "aria-describedby", "opt-description")
-        assert_selector(html, "#opt-description")
+        assert_attr(html, "input", "aria-describedby", "opt-hint")
+        assert_selector(html, "#opt-hint")
         assert "Optional setting" in html
 
     @pytest.mark.asyncio
-    async def test_error_text_marks_invalid(self, context_args):
+    async def test_error_marks_invalid(self, context_args):
         html = await render_tree(
-            Checkbox().name("c").label("C").error_text("This is required"),
+            Checkbox().name("c").label("C").error("This is required"),
             context_args=context_args,
         )
         assert_attr(html, "input", "aria-invalid", "true")
