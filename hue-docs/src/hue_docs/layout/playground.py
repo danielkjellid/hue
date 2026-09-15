@@ -105,8 +105,31 @@ def _combination_block(
         )
         .class_("space-y-2")
         .attr("x-show", condition)
+        # Every combination is rendered once and then only hidden and shown,
+        # so whatever the reader does to one of them sticks. That is wrong for
+        # a preview of what the server would send, and for the indeterminate
+        # checkbox it is unrecoverable: clicking it clears a DOM property that
+        # nothing re-applies, so the state can be seen exactly once per page
+        # load. Each block remembers how it arrived and puts itself back when
+        # it is selected again.
+        .attr("x-init", f"$nextTick(() => {_SNAPSHOT})")
+        .attr("x-effect", f"({condition}) && {_RESTORE}")
         .x_cloak()
     )
+
+
+# Taken on the tick after Alpine has walked the tree, so anything a component
+# sets for itself on init - the indeterminate checkbox does exactly this - is
+# already in place by the time it is read.
+_SNAPSHOT = (
+    "$el._initial = [...$el.querySelectorAll('input')]"
+    ".map(i => ({ i, checked: i.checked, indeterminate: i.indeterminate }))"
+)
+
+_RESTORE = (
+    "$el._initial?.forEach(s => { "
+    "s.i.checked = s.checked; s.i.indeterminate = s.indeterminate; })"
+)
 
 
 def _control_id(axis: Axis) -> str:

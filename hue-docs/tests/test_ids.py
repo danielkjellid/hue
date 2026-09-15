@@ -35,3 +35,22 @@ def test_no_id_appears_twice(page: Path) -> None:
         f"one page cannot share a name: a label points at the first match in "
         f"the document, not the nearest one."
     )
+
+
+@pytest.mark.skipif(not DIST.exists(), reason="site has not been built")
+@pytest.mark.parametrize("page", _pages(), ids=lambda p: p.parent.name)
+def test_every_playground_block_can_be_put_back(page: Path) -> None:
+    """
+    A combination is rendered once and then only hidden and shown, so whatever
+    the reader does to one of them sticks. For the indeterminate checkbox that
+    is unrecoverable on its own: clicking it clears a DOM property nothing
+    re-applies, so the state could be seen exactly once per page load.
+    """
+    html = page.read_text()
+    shown = len(re.findall(r'x-show="sel\.', html))
+    restored = html.count("_initial?.forEach")
+
+    assert restored == shown, (
+        f"{page.parent.name} has {shown} playground combinations but "
+        f"{restored} that restore themselves when selected again."
+    )
