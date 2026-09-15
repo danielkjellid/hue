@@ -434,24 +434,6 @@
    ========================================================================== */
 
 @theme {
-  /* Callout is the last component styling its status variants off raw ramp
-     names. These go when Alert replaces it. */
-  --color-wg-blue: var(--hue-blue-500);
-  --color-wg-blue-50: var(--hue-blue-50);
-  --color-wg-blue-700: var(--hue-blue-700);
-  --color-wg-blue-800: var(--hue-blue-800);
-  --color-wg-green: var(--hue-green-500);
-  --color-wg-green-50: var(--hue-green-50);
-  --color-wg-green-700: var(--hue-green-700);
-  --color-wg-green-800: var(--hue-green-800);
-  --color-wg-yellow: var(--hue-yellow-500);
-  --color-wg-yellow-50: var(--hue-yellow-50);
-  --color-wg-yellow-800: var(--hue-yellow-800);
-  --color-wg-red: var(--hue-red-500);
-  --color-wg-red-50: var(--hue-red-50);
-  --color-wg-red-700: var(--hue-red-700);
-  --color-wg-red-800: var(--hue-red-800);
-
   --color-background: #FFFFFF;
   --color-background-darker: #F7F7F8;
 
