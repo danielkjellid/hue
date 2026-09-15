@@ -100,41 +100,21 @@ def _combination_block(
     # - RadioGroup().required() beside a group with a legend and two options.
     code = (example_code(doc) or f"{doc.name}()") + calls
 
-    return (
+    # A template rather than a hidden div: x-if puts one combination in the
+    # document and leaves the rest out of it entirely. Hidden is not the same
+    # as absent - twelve pre-rendered dialogs all said open: true, so twelve
+    # focus traps fired at load and left the page unscrollable. It also means
+    # a combination is built fresh each time it is selected, so nothing the
+    # reader did to it last time is still there.
+    return html.template(
         html.div(
             html.div(preview(instance)).class_(
                 "flex min-h-28 flex-wrap items-center justify-center gap-3 "
                 "rounded-lg border border-surface-200 bg-background px-6 py-8"
             ),
             code_block(code),
-        )
-        .class_("space-y-2")
-        .attr("x-show", condition)
-        # Every combination is rendered once and then only hidden and shown,
-        # so whatever the reader does to one of them sticks. That is wrong for
-        # a preview of what the server would send, and for the indeterminate
-        # checkbox it is unrecoverable: clicking it clears a DOM property that
-        # nothing re-applies, so the state can be seen exactly once per page
-        # load. Each block remembers how it arrived and puts itself back when
-        # it is selected again.
-        .attr("x-init", f"$nextTick(() => {_SNAPSHOT})")
-        .attr("x-effect", f"({condition}) && {_RESTORE}")
-        .x_cloak()
-    )
-
-
-# Taken on the tick after Alpine has walked the tree, so anything a component
-# sets for itself on init - the indeterminate checkbox does exactly this - is
-# already in place by the time it is read.
-_SNAPSHOT = (
-    "$el._initial = [...$el.querySelectorAll('input')]"
-    ".map(i => ({ i, checked: i.checked, indeterminate: i.indeterminate }))"
-)
-
-_RESTORE = (
-    "$el._initial?.forEach(s => { "
-    "s.i.checked = s.checked; s.i.indeterminate = s.indeterminate; })"
-)
+        ).class_("space-y-2")
+    ).attr("x-if", condition)
 
 
 def _control_id(axis: Axis) -> str:
