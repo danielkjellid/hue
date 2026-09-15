@@ -53,6 +53,7 @@ from hue.ui.molecules.table import (
     TableRow,
 )
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
+from hue.ui.molecules.tooltip import Tooltip
 
 __all__ = [
     "Alert",
@@ -106,6 +107,7 @@ __all__ = [
     "TextInput",
     "Textarea",
     "ThemeSwitcher",
+    "Tooltip",
     "create_icon_base",
     "directory_resolver",
 ]
