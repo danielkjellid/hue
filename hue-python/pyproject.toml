@@ -16,9 +16,39 @@ dependencies = [
     "typing-extensions>=4.15.0",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+###########
+# Hatch   #
+###########
+
+# Without this the backend ships the Python modules and nothing else, which is
+# a component library with no stylesheet, no Alpine bundle and no icons - and
+# nothing in either suite notices, because every test runs from the source tree.
+[tool.hatch.build.targets.wheel]
+packages = ["src/hue"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/hue", "README.md"]
+
+# tailwind.css is generated rather than committed, so the backend's VCS-aware
+# file discovery skips it. The build hook below is what makes sure it is there.
+[tool.hatch.build]
+artifacts = ["src/hue/static/styles/tailwind.css"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "hatch_build.py"
+
 [dependency-groups]
 dev = [
     "beautifulsoup4>=4.12.0",
+    # The build backend, so the tests can exercise hue's own build hook.
+    "hatchling>=1.27.0",
     "deptry>=0.24.0",
     "mypy>=1.18.2",
     "pytest>=9.0.0",
@@ -35,17 +65,19 @@ extend = "../ruff.toml"
 
 [tool.deptry]
 known_first_party = ["hue"]
-extend_exclude = ["tests", "test_.*\\.py"]
+# hatch_build.py runs at build time and is not part of the package, so its
+# import of the build backend is not an application dependency.
+extend_exclude = ["tests", "test_.*\\.py", "hatch_build.py"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["pytailwindcss"]
+DEP002 = ["pytailwindcss", "hatchling"]
 
 ##########
 # Pytest #
 ##########
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.basedpyright]
 include = ["src"]

@@ -32,6 +32,12 @@ it first. Never commit it: a generated file in every branch is a conflict in eve
 which is why it left the repo. The Alpine bundle stays committed by contrast, because
 building it needs npm while the Tailwind CLI arrives with hue's own dependencies.
 
+**Building a distribution**: `make dist` in `hue-python` (not bare `uv build`). The
+stylesheet and the Alpine bundle are generated, so a wheel built without them installs
+as a component library that styles nothing — a build hook (`hue-python/hatch_build.py`)
+refuses to produce one, and `tests/test_distribution.py` asserts what a consumer
+actually receives.
+
 ```bash
 # Lint (ruff check + ruff format --diff + mypy + deptry)   — any package
 make lint
