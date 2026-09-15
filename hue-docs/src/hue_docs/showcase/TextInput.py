@@ -37,7 +37,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     EmailInput()
-                    .name("email")
+                    .name("billing_email")
                     .label("Email address")
                     .required()
                     .value("ada@example")
@@ -74,7 +74,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     TextInput()
-                    .name("url")
+                    .name("workspace_url")
                     .label("Workspace URL")
                     .hint("Used in every share link.")
                     .value("northwind")

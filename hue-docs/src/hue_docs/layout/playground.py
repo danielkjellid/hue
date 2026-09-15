@@ -18,7 +18,12 @@ from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
 from hue_docs.layout.code import code_block
-from hue_docs.registry import example_instance, format_call, playground_axes
+from hue_docs.registry import (
+    _make_unique,
+    example_instance,
+    format_call,
+    playground_axes,
+)
 from hue_docs.render import preview, render_html_sync
 
 # Upper bound on pre-rendered combinations per component — every combination is
@@ -67,6 +72,7 @@ def _combination_block(
     doc: ComponentDoc,
     controls: list[Axis],
     combo: tuple[Any, ...],
+    index: int,
 ) -> ComponentType:
     condition = " && ".join(
         f"sel.{axis.method} === {_js_literal(value)}"
@@ -76,6 +82,13 @@ def _combination_block(
     instance = example_instance(doc)
     for axis, value in zip(controls, combo, strict=True):
         getattr(instance, axis.method)(value)
+
+    # Every combination is in the document at once, so one shared id points
+    # every label at the first copy of it: clicking the visible card toggles a
+    # checkbox in a combination nobody can see, and any click at all clears
+    # the indeterminate one for good. A form control's name is what its id and
+    # its grouping are both built from, so that is the thing to vary.
+    _make_unique(instance, f"playground-{doc.slug}-{index}")
 
     calls = "".join(
         format_call(axis, value) for axis, value in zip(controls, combo, strict=True)
@@ -175,7 +188,12 @@ def playground(doc: ComponentDoc) -> ComponentType | None:
             "text-sm text-surface-600"
         ),
         html.div(
-            html.div(*[_combination_block(doc, controls, combo) for combo in combos]),
+            html.div(
+                *[
+                    _combination_block(doc, controls, combo, index)
+                    for index, combo in enumerate(combos)
+                ]
+            ),
             _controls_table(controls),
         )
         .class_("space-y-3")
