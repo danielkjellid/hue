@@ -40,3 +40,7 @@ build-js: node_modules package.json ; $(info $(M) building js bundle) @
 
 .PHONY: build
 build: build-css build-js
+
+.PHONY: dist
+dist: build ; $(info $(M) building the wheel and sdist) @
+	$Q cd $(BASE) && $(UV) build
