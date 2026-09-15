@@ -79,7 +79,12 @@ class TestRevealablePassword:
             context_args=context_args,
         )
         assert_attr(html, "input", ":type", "shown ? 'text' : 'password'")
-        assert_attr(html, "[x-data]", "x-data")
+        # The scope has to wrap both: declared on the input it would reach
+        # only the input, leaving every expression on the toggle - which is
+        # its sibling - reading a name that is not there.
+        assert_selector(html, "[x-data] input")
+        assert_selector(html, "[x-data] button")
+        assert_no_selector(html, "input[x-data]")
 
     @pytest.mark.asyncio
     async def test_no_toggle_by_default(self, context_args):

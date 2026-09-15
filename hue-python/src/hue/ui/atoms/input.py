@@ -178,6 +178,15 @@ class _BaseInput(FormControl):
         """
         return ""
 
+    def _get_group_attrs(self) -> dict[str, object]:
+        """
+        Attributes for the group, rather than for the input inside it.
+
+        Alpine state belongs here: a scope declared on the input reaches only
+        the input, and everything attached to it is a sibling.
+        """
+        return {}
+
     _GROUP_PROPS = ("prefix", "suffix", "leading_icon", "action")
 
     def _is_grouped(self) -> bool:
@@ -226,7 +235,7 @@ class _BaseInput(FormControl):
         if action is not None:
             segments.append(html.span(action, class_="flex items-center pe-1"))
 
-        return html.div(*segments, class_=GROUP_SHELL)
+        return html.div(*segments, class_=GROUP_SHELL, **self._get_group_attrs())
 
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
@@ -315,11 +324,20 @@ class PasswordInput(_BaseInput):
         return self
 
     @override
+    def _get_group_attrs(self) -> dict[str, object]:
+        # On the group, so the input and the toggle attached to it are both
+        # inside the scope. On the input it would reach only the input, and
+        # the toggle is its sibling.
+        if not self._get_prop("revealable", False):
+            return {}
+        return {"x-data": '{"shown": false}'}
+
+    @override
     def _render(self, context: HueContext) -> Component:
         if self._get_prop("revealable", False):
             # The input's own type has to give way to the binding, so the
             # toggle has something to change.
-            self.x_data({"shown": False}).x_bind("type", "shown ? 'text' : 'password'")
+            self.x_bind("type", "shown ? 'text' : 'password'")
             self._props.setdefault(
                 "action",
                 Button()
