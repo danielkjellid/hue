@@ -229,5 +229,5 @@ def create_icon_base(
 
 
 # hue's own small icon set (static/icons), for components that need a glyph of
-# their own such as Callout and Checkbox. Not part of the public API.
+# their own such as Alert and Checkbox. Not part of the public API.
 HueIcon = create_icon_base(icons_dir=str(icons_path()))
