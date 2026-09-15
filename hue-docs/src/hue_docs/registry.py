@@ -21,9 +21,9 @@ from hue_docs.discovery import Axis, ComponentDoc
 
 Layout = Literal["row", "grid", "stack"]
 
-# Enum axes with more values than this are passthrough-ish attributes (an
-# input's autocomplete, say) rather than primary visual variants: trim their
-# grid and sink them to the bottom of the playground so the useful props win.
+# Enum axes with more values than this are passthrough attributes (an input's
+# autocomplete, say) rather than primary visual variants: they get no grid at
+# all, and sink to the bottom of the playground so the useful props win.
 _BIG_ENUM_THRESHOLD = 12
 
 # Props worth keeping first when the playground has to be capped.
@@ -151,17 +151,19 @@ def playground_axes(doc: ComponentDoc) -> list[Axis]:
 def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
     """
     One grid per enum axis (bool toggles are covered by the playground).
+
+    Passthrough attributes get none. An autocomplete grid is a row of inputs
+    that all look identical under a heading of values most of them should
+    never be given - PasswordInput().autocomplete("address-line2") is not an
+    example of anything. The playground keeps them, at the bottom, where the
+    full list is one dropdown rather than twelve cards.
     """
     showcases: list[Showcase] = []
     for axis in doc.axes:
-        if axis.kind != "enum":
+        if axis.kind != "enum" or len(axis.values) > _BIG_ENUM_THRESHOLD:
             continue
 
         values = list(axis.values)
-        description: str | None = None
-        if len(values) > _BIG_ENUM_THRESHOLD:
-            description = f"Showing {_BIG_ENUM_THRESHOLD} of {len(values)} values."
-            values = values[:_BIG_ENUM_THRESHOLD]
 
         variants: list[Variant] = []
         for value in values:
@@ -178,7 +180,6 @@ def auto_showcases(doc: ComponentDoc) -> list[Showcase]:
             Showcase(
                 title=axis.method.replace("_", " ").title(),
                 variants=variants,
-                description=description,
                 layout="stack",
             )
         )
