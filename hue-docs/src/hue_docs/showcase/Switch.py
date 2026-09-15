@@ -20,9 +20,11 @@ SHOWCASES: list[Showcase] = [
             "round trip to report on. submission_state() covers it: "
             '"pending" also holds the switch still, and the two finished '
             "states clear themselves after a couple of seconds so a row is "
-            'not left wearing an outcome from minutes ago. layout("horizontal") '
-            "puts the text first and the switch at the far end, which is the "
-            "order a settings list reads in."
+            "not left wearing an outcome from minutes ago - the two below "
+            "pass settle_after(None) only so there is something here to look "
+            "at. "
+            'layout("horizontal") puts the text first and the switch at the '
+            "far end, which is the order a settings list reads in."
         ),
         variants=[
             variant("Off", 'Switch("notify").label("Email notifications")'),
@@ -60,6 +62,7 @@ SHOWCASES: list[Showcase] = [
                     .label("Enforce SSO")
                     .checked()
                     .submission_state("success")
+                    .settle_after(None)
                 )
                 """,
             ),
@@ -70,6 +73,7 @@ SHOWCASES: list[Showcase] = [
                     Switch("sso")
                     .label("Enforce SSO")
                     .submission_state("error")
+                    .settle_after(None)
                 )
                 """,
             ),

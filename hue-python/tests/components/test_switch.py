@@ -67,8 +67,23 @@ class TestSwitch:
             Switch("notify").label("N").submission_state(state),
             context_args=context_args,
         )
-        assert_attr(html, '[role="status"]', "x-init")
         assert_attr(html, '[role="status"]', "x-show", "!settled")
+        # Guarded on visibility: an outcome that expired while the row was
+        # hidden - in a closed drawer, or a docs page showing every state at
+        # once - was never reported at all.
+        assert "checkVisibility" in html
+
+    @pytest.mark.parametrize("state", ["success", "error"])
+    @pytest.mark.asyncio
+    async def test_an_outcome_can_be_held(self, context_args, state):
+        # For an outcome that has to be read rather than glimpsed, and for
+        # anywhere the row is not live.
+        html = await render_tree(
+            Switch("notify").label("N").submission_state(state).settle_after(None),
+            context_args=context_args,
+        )
+        assert_selector(html, '[role="status"]')
+        assert_no_selector(html, "[x-init]")
 
     @pytest.mark.asyncio
     async def test_pending_does_not_clear_itself(self, context_args):

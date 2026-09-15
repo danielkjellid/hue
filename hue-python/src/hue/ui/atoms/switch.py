@@ -23,7 +23,9 @@ type SwitchSize = Literal["sm", "md", "lg"]
 type SubmissionState = Literal["none", "pending", "success", "error"]
 
 # How long a finished state stays up before the row goes quiet again. Long
-# enough to read, short enough to be gone before the next change.
+# enough to read, short enough to be gone before the next change. Not an enum
+# or a flag, so the docs do not offer it as a knob that does nothing until a
+# finished state is showing.
 _SETTLE_MS = 2400
 
 # Icon and tone for the two states that finish. Announced through a label on
@@ -73,7 +75,8 @@ class Switch(FormControl):
 
     role="switch" rather than a checkbox, so it is announced as on or off
     rather than checked or unchecked. submission_state() reports the round
-    trip, since the change is saved as it is made.
+    trip, since the change is saved as it is made. A finished state clears
+    itself; settle_after(None) holds it.
 
         Switch("notify").label("Email notifications").checked()
     """
@@ -118,6 +121,17 @@ class Switch(FormControl):
         self._props["submission_state"] = value
         return self
 
+    def settle_after(self, value: int | None) -> Self:
+        """
+        How long a finished state stays up, in milliseconds. None holds it.
+
+        Hold it for an outcome that has to be read rather than glimpsed - a
+        failure the user has to act on - or anywhere the row is not live, such
+        as a page showing what the states look like.
+        """
+        self._props["settle_after"] = value
+        return self
+
     def _indicator(self, state: SubmissionState) -> ComponentType:
         """
         The icon beside the label. No text: the row already says what it is,
@@ -127,19 +141,29 @@ class Switch(FormControl):
             return Spinner().size("xs").muted().aria_label("Saving")
 
         icon, tone, label = _FINISHED[state]
+        # It clears itself rather than waiting for another render: the request
+        # that set it was the last one anybody was going to make on this row.
+        # The countdown only starts if the row is on screen, because an
+        # outcome that expired while it was hidden was never reported at all.
+        settle_after: int | None = self._get_prop("settle_after", _SETTLE_MS)
+        settling = (
+            {}
+            if settle_after is None
+            else {
+                "x-data": "{ settled: false }",
+                "x-init": (
+                    "if ($el.checkVisibility?.() ?? $el.offsetParent !== null) "
+                    f"setTimeout(() => settled = true, {settle_after})"
+                ),
+                "x-show": "!settled",
+            }
+        )
         return html.span(
             HueIcon(icon).class_(f"size-4 {tone}"),
             role="status",
             aria_label=label,
             class_="inline-flex",
-            **{
-                # It clears itself rather than waiting for another render: the
-                # request that set it was the last one anybody was going to
-                # make on this row.
-                "x-data": "{ settled: false }",
-                "x-init": f"setTimeout(() => settled = true, {_SETTLE_MS})",
-                "x-show": "!settled",
-            },
+            **settling,
         )
 
     def _render(self, context: HueContext) -> Component:
