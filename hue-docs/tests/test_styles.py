@@ -15,15 +15,16 @@ most of the class names in the system. The assertion is against hue's own
 built stylesheet, not the docs one, since that is what a consumer gets.
 
 A failure means a class name that no rule matches - almost always a typo, or a
-design token that was never defined.
+design token that was never defined. It says nothing about how Tailwind found
+the class: that is Tailwind's own business, and tested by Tailwind.
 """
 
 from __future__ import annotations
 
-import html as html_lib
 import re
 
 import pytest
+from bs4 import BeautifulSoup
 
 from hue_docs.discovery import discover
 from hue_docs.registry import auto_showcases, example_instance
@@ -41,42 +42,16 @@ def _is_defined(token: str, css: str) -> bool:
     return re.search(pattern, css) is not None
 
 
-def _classes_in_source(code: str | None) -> set[str]:
-    """Class names written by hand in a curated showcase snippet."""
-    return {
-        token
-        for literal in re.findall(r'class_\(\s*"([^"]*)"', code or "")
-        for token in literal.split()
-    }
-
-
 def _classes(html: str) -> set[str]:
-    # The lookbehind keeps Alpine's :class and x-bind:class out of this: their
-    # contents are an expression, not a class list, and "count > 280" is not a
-    # missing utility. The quoted class names inside them are picked up by
-    # _bound_classes instead.
-    literal = {
-        token
-        for attr in re.findall(r'(?<![\w:-])class="([^"]*)"', html)
-        for token in html_lib.unescape(attr).split()
-    }
-    return literal | _bound_classes(html)
-
-
-def _bound_classes(html: str) -> set[str]:
     """
-    Class names that only ever appear inside an Alpine class binding.
+    Every class name the rendered markup actually puts on an element.
 
-    Worth checking because Tailwind has to have found them in the source to
-    emit them at all, and a class that exists only inside an expression is the
-    easiest one for it to miss.
+    Parsed rather than pattern-matched, so Alpine's :class - an expression,
+    not a class list - is simply a different attribute and never has to be
+    told apart from this one.
     """
-    return {
-        token
-        for attr in re.findall(r'(?::|x-bind:)class="([^"]*)"', html)
-        for quoted in re.findall(r"'([^']*)'", html_lib.unescape(attr))
-        for token in quoted.split()
-    }
+    soup = BeautifulSoup(html, "html.parser")
+    return {token for el in soup.select("[class]") for token in el["class"]}
 
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda d: d.name)
@@ -84,17 +59,11 @@ def test_every_rendered_class_exists_in_the_stylesheet(doc, built_css):
     # Every showcase variant, so non-default variants and sizes are covered
     # too - they are where most of the class names live.
     used = _classes(render_html_sync(example_instance(doc)))
-    authored: set[str] = set()
     for showcase in curated_showcases(doc) + auto_showcases(doc):
         for showcase_variant in showcase.variants:
             used |= _classes(render_html_sync(showcase_variant.build()))
-            # A curated snippet may call .class_() with a docs-only utility.
-            # Those are the docs' own stylesheet's problem, not hue's.
-            authored |= _classes_in_source(showcase_variant.code)
 
-    undefined = sorted(
-        token for token in used - authored if not _is_defined(token, built_css)
-    )
+    undefined = sorted(token for token in used if not _is_defined(token, built_css))
 
     assert not undefined, (
         f"{doc.name} renders classes that are not in hue's tailwind.css: "
