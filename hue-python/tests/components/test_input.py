@@ -107,7 +107,9 @@ class TestTypedInputs:
 class TestInputStates:
     @pytest.mark.asyncio
     async def test_constructor_name(self, context_args):
-        html = await render_tree(TextInput("username"), context_args=context_args)
+        html = await render_tree(
+            TextInput().name("username"), context_args=context_args
+        )
         assert_attr(html, "input", "name", "username")
 
     @pytest.mark.asyncio
@@ -119,14 +121,14 @@ class TestInputStates:
     async def test_disabled_and_required_are_native(self, context_args):
         # aria-* alone would leave the field editable and skip browser validation.
         html = await render_tree(
-            TextInput("f").disabled().required(), context_args=context_args
+            TextInput().name("f").disabled().required(), context_args=context_args
         )
         assert_attr(html, "input", "disabled")
         assert_attr(html, "input", "required")
 
     @pytest.mark.asyncio
     async def test_enabled_and_optional_by_default(self, context_args):
-        html = await render_tree(TextInput("f"), context_args=context_args)
+        html = await render_tree(TextInput().name("f"), context_args=context_args)
         assert_no_selector(html, "input[disabled]")
         assert_no_selector(html, "input[required]")
         assert_no_selector(html, "input[aria-invalid]")
@@ -135,7 +137,7 @@ class TestInputStates:
     @pytest.mark.asyncio
     async def test_length_constraints_use_html_attribute_names(self, context_args):
         html = await render_tree(
-            TextInput("f").min_length(2).max_length(8), context_args=context_args
+            TextInput().name("f").min_length(2).max_length(8), context_args=context_args
         )
         assert_attr(html, "input", "minlength", "2")
         assert_attr(html, "input", "maxlength", "8")
@@ -143,7 +145,7 @@ class TestInputStates:
     @pytest.mark.asyncio
     async def test_hint_describes_input(self, context_args):
         html = await render_tree(
-            TextInput("f").hint("Some help"), context_args=context_args
+            TextInput().name("f").hint("Some help"), context_args=context_args
         )
         assert_attr(html, "input", "aria-describedby", "f-hint")
         assert_selector(html, "#f-hint")
@@ -154,7 +156,7 @@ class TestInputStates:
         # Described rather than pointed at with aria-errormessage, whose
         # screen-reader support is still patchy.
         html = await render_tree(
-            TextInput("f").error("Too short"), context_args=context_args
+            TextInput().name("f").error("Too short"), context_args=context_args
         )
         assert_attr(html, "input", "aria-invalid", "true")
         assert_no_selector(html, "[aria-errormessage]")
@@ -166,7 +168,7 @@ class TestInputStates:
         # Two lines of supporting text under one control is one more than
         # anybody reads.
         html = await render_tree(
-            TextInput("f").hint("Some help").error("Too short"),
+            TextInput().name("f").hint("Some help").error("Too short"),
             context_args=context_args,
         )
         assert "Some help" not in html
@@ -175,7 +177,7 @@ class TestInputStates:
     @pytest.mark.asyncio
     async def test_caller_describedby_is_merged(self, context_args):
         html = await render_tree(
-            TextInput("f").hint("Help").aria_describedby("external"),
+            TextInput().name("f").hint("Help").aria_describedby("external"),
             context_args=context_args,
         )
         assert_attr(html, "input", "aria-describedby", "f-hint external")
@@ -183,7 +185,7 @@ class TestInputStates:
     @pytest.mark.asyncio
     async def test_class_applies_to_input(self, context_args):
         html = await render_tree(
-            TextInput("f").class_("custom"), context_args=context_args
+            TextInput().name("f").class_("custom"), context_args=context_args
         )
         assert_selector(html, "input.custom")
 
@@ -191,11 +193,13 @@ class TestInputStates:
     @pytest.mark.asyncio
     async def test_hidden_label_is_screen_reader_only(self, context_args):
         html = await render_tree(
-            TextInput("f").label("F").hidden_label(), context_args=context_args
+            TextInput().name("f").label("F").hidden_label(), context_args=context_args
         )
         assert_selector(html, "label.sr-only")
 
     @pytest.mark.asyncio
     async def test_label_visible_by_default(self, context_args):
-        html = await render_tree(TextInput("f").label("F"), context_args=context_args)
+        html = await render_tree(
+            TextInput().name("f").label("F"), context_args=context_args
+        )
         assert_no_selector(html, "label.sr-only")
