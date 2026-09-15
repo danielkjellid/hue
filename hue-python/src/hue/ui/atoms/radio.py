@@ -7,9 +7,15 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms._choice import CHOICE_BOX, ChoiceVariant, choice_row
+from hue.ui.atoms._choice import (
+    CHOICE_BOX,
+    ChoiceVariant,
+    choice_row,
+    description_id,
+    label_id,
+)
 from hue.ui.base import ChainableComponent
-from hue.ui.form import FormControl
+from hue.ui.form import FieldControl
 from hue.ui.molecules.field import error_component, hint_component
 from hue.utils import classnames, render_if
 
@@ -25,7 +31,8 @@ class Radio(ChainableComponent):
     One choice inside a RadioGroup.
 
     The group owns the name and which option is selected, so a radio on its
-    own has nothing to be exclusive with and is not exported for use alone.
+    own has nothing to be exclusive with and is not documented alone.
+    description() adds a second line under its label.
 
         Radio().value("eu").label("Europe")
     """
@@ -81,6 +88,9 @@ class Radio(ChainableComponent):
         variant: ChoiceVariant = self._get_prop("variant", "inline")
         input_id = f"{name}-{value}"
 
+        label: str | None = self._get_prop("label")
+        description: str | None = self._get_prop("description")
+
         return choice_row(
             html.input_(
                 type="radio",
@@ -91,17 +101,23 @@ class Radio(ChainableComponent):
                 checked=self._get_prop("checked", False) or None,
                 disabled=disabled or None,
                 required=self._get_prop("required", False) or None,
+                # An explicit name, so the description inside the label does
+                # not become part of it.
+                aria_labelledby=label_id(input_id) if label is not None else None,
+                aria_describedby=(
+                    description_id(input_id) if description is not None else None
+                ),
                 **self._get_base_html_attrs(),
             ),
             control_id=input_id,
-            label=self._get_prop("label"),
-            description=self._get_prop("description"),
+            label=label,
+            description=description,
             disabled=disabled,
             variant=variant,
         )
 
 
-class RadioGroup(FormControl):
+class RadioGroup(FieldControl):
     """
     A set of choices where exactly one can be selected.
 

@@ -127,3 +127,29 @@ class TestRadio:
         )
         assert_selector(html, "input[required]", count=2)
         assert_no_selector(html, "fieldset[required]")
+
+    @pytest.mark.asyncio
+    async def test_an_option_is_named_by_its_label_alone(self, context_args):
+        # The label wraps the control, so without this the description becomes
+        # part of the option's name and is read out before "radio button".
+        html = await render_tree(
+            RadioGroup("r")
+            .legend("Plan")
+            .content(Radio().value("a").label("Solo").description("One seat.")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "r-a-label")
+        assert_attr(html, "input", "aria-describedby", "r-a-description")
+
+    @pytest.mark.asyncio
+    async def test_the_group_keeps_a_hint(self, context_args):
+        # Group-level, unlike an option's description: it is about the
+        # question, not about one of the answers.
+        html = await render_tree(
+            RadioGroup("r")
+            .legend("Plan")
+            .hint("Change any time.")
+            .content(Radio().value("a").label("Solo")),
+            context_args=context_args,
+        )
+        assert_attr(html, "fieldset", "aria-describedby", "r-hint")
