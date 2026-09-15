@@ -366,6 +366,25 @@
   }
 }
 
+/* Someone who has asked their system for less motion has usually asked for a
+   reason - vestibular disorders, migraine - and the request covers everything,
+   not just the decorative parts. So this is a blanket rule rather than a per
+   component opt-out: nothing hue ships animates unless it is asked for again.
+
+   Not zero. A duration of 0.01ms still fires transitionend and animationend,
+   so anything waiting on one to remove an element or hand focus over carries
+   on working; a duration of 0 would leave those listeners waiting forever. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   html {
     color-scheme: light;
