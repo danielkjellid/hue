@@ -78,7 +78,7 @@ class Switch(FormControl):
     trip, since the change is saved as it is made. A finished state clears
     itself; settle_after(None) holds it.
 
-        Switch("notify").label("Email notifications").checked()
+        Switch().name("notify").label("Email notifications").checked()
     """
 
     category: ClassVar[str | None] = "Inputs"

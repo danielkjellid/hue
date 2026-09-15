@@ -27,16 +27,16 @@ SHOWCASES: list[Showcase] = [
             "far end, which is the order a settings list reads in."
         ),
         variants=[
-            variant("Off", 'Switch("notify").label("Email notifications")'),
+            variant("Off", 'Switch().name("notify").label("Email notifications")'),
             variant(
                 "On",
-                'Switch("notify").label("Email notifications").checked()',
+                'Switch().name("notify").label("Email notifications").checked()',
             ),
             variant(
                 "With a description",
                 """
                 (
-                    Switch("digest")
+                    Switch().name("digest")
                     .label("Weekly digest")
                     .description("A summary of everything that changed, every Monday.")
                     .checked()
@@ -47,7 +47,7 @@ SHOWCASES: list[Showcase] = [
                 "Saving",
                 """
                 (
-                    Switch("sso")
+                    Switch().name("sso")
                     .label("Enforce SSO")
                     .checked()
                     .submission_state("pending")
@@ -58,7 +58,7 @@ SHOWCASES: list[Showcase] = [
                 "Saved",
                 """
                 (
-                    Switch("sso")
+                    Switch().name("sso")
                     .label("Enforce SSO")
                     .checked()
                     .submission_state("success")
@@ -70,7 +70,7 @@ SHOWCASES: list[Showcase] = [
                 "Could not save",
                 """
                 (
-                    Switch("sso")
+                    Switch().name("sso")
                     .label("Enforce SSO")
                     .submission_state("error")
                     .settle_after(None)
@@ -81,7 +81,7 @@ SHOWCASES: list[Showcase] = [
                 "In a settings list",
                 """
                 (
-                    Switch("twofactor")
+                    Switch().name("twofactor")
                     .label("Two-factor authentication")
                     .description(
                         "Require a code from your authenticator at every sign-in."
@@ -93,7 +93,14 @@ SHOWCASES: list[Showcase] = [
             ),
             variant(
                 "Disabled",
-                'Switch("locked").label("Managed by your administrator").disabled()',
+                """
+                (
+                    Switch()
+                    .name("locked")
+                    .label("Managed by your administrator")
+                    .disabled()
+                )
+                """,
             ),
         ],
     ),
