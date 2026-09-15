@@ -137,5 +137,5 @@ def choice_row(
             ),
         ),
         *messages,
-        class_=classnames("flex flex-col gap-1", class_),
+        class_=classnames("flex flex-col gap-1.5", class_),
     )

@@ -196,7 +196,7 @@ class RadioGroup(FieldControl):
                     # that spaces every other child never reaches it and the
                     # first option sits flush against the question.
                     class_=(
-                        "mb-1 inline-flex items-center gap-[5px] "
+                        "mb-1.5 inline-flex items-center gap-[5px] "
                         "font-ui text-sm font-medium leading-[1.4] text-fg"
                     ),
                 ),
@@ -210,7 +210,7 @@ class RadioGroup(FieldControl):
             ),
             render_if(hint, lambda text: hint_component(text, name)),
             render_if(error, lambda text: error_component(text, name)),
-            class_=classnames("flex flex-col gap-1", self._get_prop("class_")),
+            class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
             **{
                 # The legend names the group, so no aria-label as well.
                 "aria_describedby": self._describedby(),
