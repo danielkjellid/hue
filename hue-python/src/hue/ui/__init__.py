@@ -36,6 +36,7 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
+from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.field import Field
 from hue.ui.molecules.panel import Panel
@@ -71,6 +72,7 @@ __all__ = [
     "Checkbox",
     "Column",
     "DataTable",
+    "Dialog",
     "EmailInput",
     "Empty",
     "Field",
