@@ -55,18 +55,6 @@ SHOWCASES: list[Showcase] = [
                 "Title only",
                 'Alert().variant("warning").title("Two invoices are overdue")',
             ),
-            variant(
-                "As a page banner",
-                """
-                (
-                    Alert()
-                    .variant("info")
-                    .title("Scheduled maintenance on Sunday")
-                    .description("The API is read-only between 02:00 and 04:00 UTC.")
-                    .banner()
-                )
-                """,
-            ),
         ],
     ),
 ]
