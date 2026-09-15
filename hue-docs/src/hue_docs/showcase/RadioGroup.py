@@ -59,7 +59,7 @@ SHOWCASES: list[Showcase] = [
                 "As cards",
                 """
                 (
-                    RadioGroup().name("plan")
+                    RadioGroup().name("plan_card")
                     .legend("Plan")
                     .variant("card")
                     .value("team")
@@ -80,7 +80,7 @@ SHOWCASES: list[Showcase] = [
                 "Invalid",
                 """
                 (
-                    RadioGroup().name("region")
+                    RadioGroup().name("region_required")
                     .legend("Region")
                     .required()
                     .error("Pick a region to continue.")
