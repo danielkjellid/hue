@@ -7,9 +7,15 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component
-from hue.ui.atoms._choice import CHOICE_BOX, ChoiceVariant, choice_row
+from hue.ui.atoms._choice import (
+    CHOICE_BOX,
+    ChoiceVariant,
+    choice_row,
+    description_id,
+    label_id,
+)
 from hue.ui.form import FormControl
-from hue.ui.molecules.field import error_component, hint_component
+from hue.ui.molecules.field import error_component
 from hue.utils import classnames, render_if
 
 # The tick and the dash are drawn by the box itself. A clipped square rather
@@ -37,8 +43,9 @@ class Checkbox(FormControl):
 
     The native control is styled rather than hidden behind a lookalike, so
     every keyboard, form and assistive-tech behaviour stays the browser's.
-    description() adds a second line under the label, and variant("card")
-    puts the whole row on a pressable surface.
+    description() adds a second line under the label - a choice says its
+    extra sentence there rather than under the whole row, which is where a
+    field puts its hint. variant("card") puts the row on a pressable surface.
 
         Checkbox().name("terms").label("I accept the terms").required()
     """
@@ -84,7 +91,8 @@ class Checkbox(FormControl):
         checked: bool = self._get_prop("checked", False)
         indeterminate: bool = self._get_prop("indeterminate", False)
         error: str | None = self._get_prop("error")
-        hint: str | None = self._get_prop("hint")
+        label: str | None = self._get_prop("label")
+        description: str | None = self._get_prop("description")
         variant: ChoiceVariant = self._get_prop("variant", "inline")
         input_id = self._input_id()
 
@@ -100,7 +108,12 @@ class Checkbox(FormControl):
             disabled=disabled or None,
             required=required or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(),
+            # An explicit name, so the description inside the label does not
+            # become part of it.
+            aria_labelledby=label_id(input_id) if label is not None else None,
+            aria_describedby=self._describedby(
+                description_id(input_id) if description is not None else None
+            ),
         )
         if indeterminate:
             # The indeterminate DOM property has no HTML attribute; set it on
@@ -110,13 +123,10 @@ class Checkbox(FormControl):
         return choice_row(
             html.input_(**input_attrs),
             control_id=input_id,
-            label=self._get_prop("label"),
-            description=self._get_prop("description"),
+            label=label,
+            description=description,
             disabled=disabled,
             variant=variant,
-            messages=(
-                render_if(hint, lambda text: hint_component(text, input_id)),
-                render_if(error, lambda text: error_component(text, input_id)),
-            ),
+            messages=(render_if(error, lambda text: error_component(text, input_id)),),
             class_=self._get_prop("class_"),
         )

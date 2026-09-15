@@ -14,7 +14,9 @@ SHOWCASES: list[Showcase] = [
             "The browser's own checkbox with a styled box, rather than a "
             "hidden input behind a lookalike - so every keyboard, form and "
             "assistive-tech behaviour stays the browser's to provide. The "
-            "whole row is the hit area, not just the 18px box."
+            "whole row is the hit area, not just the 18px box - which is also "
+            "why description() is pointed at rather than left to be read as "
+            "part of the control's name."
         ),
         variants=[
             variant("Basic", 'Checkbox().name("terms").label("I accept the terms")'),
@@ -34,13 +36,13 @@ SHOWCASES: list[Showcase] = [
                 'Checkbox().name("all").label("Select all").indeterminate()',
             ),
             variant(
-                "With helper text",
+                "With a description",
                 """
                 (
                     Checkbox()
                     .name("marketing")
                     .label("Marketing emails")
-                    .hint("You can unsubscribe at any time.")
+                    .description("You can unsubscribe at any time.")
                 )
                 """,
             ),
@@ -51,17 +53,6 @@ SHOWCASES: list[Showcase] = [
             variant(
                 "Disabled",
                 'Checkbox().name("locked").label("Unavailable option").disabled()',
-            ),
-            variant(
-                "With a description",
-                """
-                (
-                    Checkbox()
-                    .name("digest")
-                    .label("Weekly digest")
-                    .description("A summary of everything that changed, every Monday.")
-                )
-                """,
             ),
             variant(
                 "As a card",

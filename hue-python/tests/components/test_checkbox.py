@@ -82,14 +82,24 @@ class TestCheckbox:
         assert_attr(html, "input", "x-init", "$el.indeterminate = true")
 
     @pytest.mark.asyncio
-    async def test_hint_describes_input(self, context_args):
+    async def test_the_description_describes_rather_than_names(self, context_args):
+        # Wrapping the control in a label makes every word inside it part of
+        # the name, so without this a screen reader reads the whole sentence
+        # before getting to "checkbox".
         html = await render_tree(
-            Checkbox().name("opt").label("Opt").hint("Optional setting"),
+            Checkbox().name("opt").label("Opt").description("Optional setting"),
             context_args=context_args,
         )
-        assert_attr(html, "input", "aria-describedby", "opt-hint")
-        assert_selector(html, "#opt-hint")
-        assert "Optional setting" in html
+        assert_attr(html, "input", "aria-labelledby", "opt-label")
+        assert_attr(html, "input", "aria-describedby", "opt-description")
+        assert_selector(html, "#opt-label")
+        assert_selector(html, "#opt-description")
+
+    @pytest.mark.asyncio
+    async def test_a_choice_has_no_field_hint(self, context_args):
+        # It says its extra line with description(), beside the box, rather
+        # than under the whole row where a field puts its hint.
+        assert not hasattr(Checkbox(), "hint")
 
     @pytest.mark.asyncio
     async def test_error_marks_invalid(self, context_args):

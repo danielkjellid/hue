@@ -47,6 +47,20 @@ CHOICE_BOX = classnames(
 )
 
 
+def label_id(control_id: str) -> str:
+    """
+    The id of the label belonging to the control with this id.
+    """
+    return f"{control_id}-label"
+
+
+def description_id(control_id: str) -> str:
+    """
+    The id of the description belonging to the control with this id.
+    """
+    return f"{control_id}-description"
+
+
 def choice_row(
     control: ComponentType,
     *,
@@ -59,10 +73,16 @@ def choice_row(
     class_: str | None = None,
 ) -> ComponentType:
     """
-    A control with its label, description and any hint or error beneath.
+    A control with its label, its description and any error beneath.
 
     The whole row is a label element, so the text is part of the hit area
     rather than something to aim past on the way to an 18px box.
+
+    Both pieces of text carry ids. Wrapping the control in a label makes every
+    word inside it part of the control's name, so a screen reader would read a
+    whole sentence of description before getting to "checkbox". The control
+    points at the label for its name and at the description for its
+    description instead, which is what the two of them are.
     """
     text = render_if(
         label or description,
@@ -71,10 +91,16 @@ def choice_row(
                 label,
                 lambda text: html.span(
                     text,
+                    id=label_id(control_id),
                     class_=classnames(_LABEL, "text-fg-disabled" if disabled else None),
                 ),
             ),
-            render_if(description, lambda text: html.span(text, class_=_DESCRIPTION)),
+            render_if(
+                description,
+                lambda text: html.span(
+                    text, id=description_id(control_id), class_=_DESCRIPTION
+                ),
+            ),
             class_=_TEXT,
         ),
     )

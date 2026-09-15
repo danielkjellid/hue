@@ -6,7 +6,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
-from hue.ui.form import FormControl
+from hue.ui.form import FieldControl
 from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames, render_if
 
@@ -21,7 +21,7 @@ _SELECT_CLASSES = classnames(
 )
 
 
-class NativeSelect(FormControl):
+class NativeSelect(FieldControl):
     """
     A select built on the browser's own, for a short list of plain choices.
 
