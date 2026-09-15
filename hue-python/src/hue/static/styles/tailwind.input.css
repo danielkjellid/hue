@@ -495,3 +495,15 @@
   --color-surface-overlay-foreground: var(--hue-white-700);
   --color-surface-overlay-focus: var(--hue-white-50);
 }
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+
+/* The checkbox's tick. A clipped square rather than an icon, because a native
+   input takes no children - and a utility rather than an arbitrary value,
+   because the class would have to be one unbroken run of source text for
+   Tailwind to find it, which no formatter will leave alone at this length. */
+@utility checkmark {
+  clip-path: polygon(14% 45%, 0 60%, 39% 100%, 100% 22%, 85% 8%, 38% 71%);
+}

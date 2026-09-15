@@ -10,11 +10,11 @@ from hue.utils import classnames
 
 class FormControl(AlpineModelMixin, ChainableComponent):
     """
-    Shared plumbing for named form controls (the text inputs and the checkbox).
+    Shared plumbing for every named form control.
 
-    Owns name, label, required, disabled, hint and error, and the ids
-    that tie the hint and the error to the control through aria-describedby, so
-    every control wires them up the same way.
+    Owns name, label, required, disabled and error, and the ids that tie the
+    supporting text to the control through aria-describedby, so every control
+    wires them up the same way.
     """
 
     def __init__(self, name: str | None = None) -> None:
@@ -35,13 +35,6 @@ class FormControl(AlpineModelMixin, ChainableComponent):
 
     def required(self, value: bool = True) -> Self:
         self._props["required"] = value
-        return self
-
-    def hint(self, value: str) -> Self:
-        """
-        A note about what to enter, shown under the control.
-        """
-        self._props["hint"] = value
         return self
 
     def error(self, value: str) -> Self:
@@ -67,9 +60,10 @@ class FormControl(AlpineModelMixin, ChainableComponent):
     def _input_id(self) -> str:
         return self._attrs.get("id") or self._require_name()
 
-    def _describedby(self) -> str | None:
+    def _describedby(self, *extra: str | None) -> str | None:
         """
-        The hint and error ids plus anything the caller set via aria_describedby.
+        Every id describing this control, plus anything the caller added
+        through aria_describedby.
 
         Errors are described rather than pointed at with aria-errormessage,
         which still has patchy screen-reader support.
@@ -77,12 +71,39 @@ class FormControl(AlpineModelMixin, ChainableComponent):
         control_id = self._input_id()
         return (
             classnames(
+                *extra,
                 hint_id(control_id) if self._get_prop("hint") else None,
                 error_id(control_id) if self._get_prop("error") else None,
                 self._attrs.get("aria_describedby"),
             )
             or None
         )
+
+    def _control_attrs(self, **own: object) -> dict[str, object]:
+        """
+        Merge the caller's base attrs (id, ARIA, Alpine) with the control's own,
+        where the control's own win and None values are dropped.
+        """
+        merged = {**self._get_base_html_attrs(), **own}
+        return {k: v for k, v in merged.items() if v is not None}
+
+
+class FieldControl(FormControl):
+    """
+    A control with room under it for a note about what to enter.
+
+    The controls that sit in a Field, in other words. A choice - a checkbox, a
+    radio, a switch - says its extra line with description() instead, beside
+    the control rather than under the whole row, because that is where it
+    belongs when the control is one box and a sentence.
+    """
+
+    def hint(self, value: str) -> Self:
+        """
+        A note about what to enter, shown under the control.
+        """
+        self._props["hint"] = value
+        return self
 
     def _field(self, control: ComponentType) -> Field:
         """
@@ -104,11 +125,3 @@ class FormControl(AlpineModelMixin, ChainableComponent):
             .error(self._get_prop("error"))
             .content(control)
         )
-
-    def _control_attrs(self, **own: object) -> dict[str, object]:
-        """
-        Merge the caller's base attrs (id, ARIA, Alpine) with the control's own,
-        where the control's own win and None values are dropped.
-        """
-        merged = {**self._get_base_html_attrs(), **own}
-        return {k: v for k, v in merged.items() if v is not None}

@@ -17,7 +17,7 @@ from hue.ui._styles import (
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.form import FormControl
+from hue.ui.form import FieldControl
 from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
 
@@ -69,7 +69,7 @@ type Autocomplete = Literal[
 ]
 
 
-class _BaseInput(FormControl):
+class _BaseInput(FieldControl):
     """
     Shared implementation of the text-like inputs. Use a concrete subclass:
     TextInput, EmailInput, NumberInput or PasswordInput.

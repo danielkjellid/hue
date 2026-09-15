@@ -9,7 +9,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import FIELD_SHELL
-from hue.ui.form import FormControl
+from hue.ui.form import FieldControl
 from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
 
@@ -44,7 +44,7 @@ class _Textarea(html.textarea):
 _AUTOSIZE = "$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
 
 
-class Textarea(FormControl):
+class Textarea(FieldControl):
     """
     A multi-line text input.
 

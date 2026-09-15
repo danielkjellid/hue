@@ -41,8 +41,9 @@ class TestCheckbox:
         )
         assert_attr(html, "input", "checked")
         assert_attr(html, "input", "required")
-        # Required fields show a destructive asterisk beside the label.
-        assert_selector(html, "span.text-destructive")
+        # No asterisk: the native required attribute announces it, and the
+        # guide does not mark a choice row the way it marks a field label.
+        assert_no_selector(html, "span.text-danger-text")
 
     @pytest.mark.asyncio
     async def test_unchecked_and_optional_by_default(self, context_args):
@@ -81,14 +82,24 @@ class TestCheckbox:
         assert_attr(html, "input", "x-init", "$el.indeterminate = true")
 
     @pytest.mark.asyncio
-    async def test_hint_describes_input(self, context_args):
+    async def test_the_description_describes_rather_than_names(self, context_args):
+        # Wrapping the control in a label makes every word inside it part of
+        # the name, so without this a screen reader reads the whole sentence
+        # before getting to "checkbox".
         html = await render_tree(
-            Checkbox().name("opt").label("Opt").hint("Optional setting"),
+            Checkbox().name("opt").label("Opt").description("Optional setting"),
             context_args=context_args,
         )
-        assert_attr(html, "input", "aria-describedby", "opt-hint")
-        assert_selector(html, "#opt-hint")
-        assert "Optional setting" in html
+        assert_attr(html, "input", "aria-labelledby", "opt-label")
+        assert_attr(html, "input", "aria-describedby", "opt-description")
+        assert_selector(html, "#opt-label")
+        assert_selector(html, "#opt-description")
+
+    @pytest.mark.asyncio
+    async def test_a_choice_has_no_field_hint(self, context_args):
+        # It says its extra line with description(), beside the box, rather
+        # than under the whole row where a field puts its hint.
+        assert not hasattr(Checkbox(), "hint")
 
     @pytest.mark.asyncio
     async def test_error_marks_invalid(self, context_args):
@@ -111,15 +122,15 @@ class TestCheckbox:
         assert_no_selector(html, '[role="alert"]')
 
     @pytest.mark.asyncio
-    async def test_renders_check_and_dash_icons(self, context_args):
+    async def test_the_dash_wins_over_the_tick(self, context_args):
         html = await render_tree(
             Checkbox().name("x").label("X"), context_args=context_args
         )
-        # The check shows only when checked and not indeterminate; the dash shows
-        # on the mixed state — so the dash always wins when both are set.
-        assert "peer-[:checked:not(:indeterminate)]:block" in html
-        assert "peer-indeterminate:block" in html
-        assert_selector(html, "svg path")
+        # Both marks are drawn by the box itself, so the tick has to exclude
+        # the mixed state rather than rely on which rule Tailwind emits last.
+        assert "checked:not-indeterminate:before:content-['']" in html
+        assert "indeterminate:before:content-['']" in html
+        assert_no_selector(html, "svg")
 
     @pytest.mark.asyncio
     async def test_forwards_x_model_to_input(self, context_args):
@@ -131,10 +142,10 @@ class TestCheckbox:
 
     @pytest.mark.asyncio
     async def test_text_column_omitted_when_no_label_or_text(self, context_args):
-        # With no label/help/error, only the box renders — no text column.
+        # With no label/hint/error, only the box renders — no text column.
         html = await render_tree(Checkbox().name("bare"), context_args=context_args)
         assert_selector(html, "input[type='checkbox']")
-        assert_no_selector(html, "div.flex-col")
+        assert_no_selector(html, "span.flex-col")
 
     @pytest.mark.asyncio
     async def test_constructor_name(self, context_args):
@@ -150,13 +161,51 @@ class TestCheckbox:
         assert_no_selector(html, "input[checked]")
 
     @pytest.mark.asyncio
-    async def test_icons_are_decorative(self, context_args):
-        html = await render_tree(Checkbox("a"), context_args=context_args)
-        assert_selector(html, 'svg[aria-hidden="true"]', count=2)
+    async def test_the_whole_row_is_the_hit_area(self, context_args):
+        # The label wraps the control, so the text is part of the target
+        # rather than something to aim past on the way to an 18px box.
+        html = await render_tree(
+            Checkbox("a").label("Accept"), context_args=context_args
+        )
+        assert_selector(html, "label > input[type='checkbox']")
 
     @pytest.mark.asyncio
     async def test_class_applies_to_root(self, context_args):
         html = await render_tree(
             Checkbox("a").class_("mt-4"), context_args=context_args
         )
-        assert_selector(html, "div.flex.items-start.mt-4")
+        assert_selector(html, "div.flex.flex-col.mt-4")
+
+    # variant(): both branches
+    @pytest.mark.asyncio
+    async def test_a_card_reacts_to_its_own_control(self, context_args):
+        # The fill follows :checked through :has, so nothing has to be
+        # mirrored in Alpine to keep the surface in step with the box.
+        html = await render_tree(
+            Checkbox("plan").label("Pro").variant("card"), context_args=context_args
+        )
+        assert_selector(html, "label.has-\\[\\:checked\\]\\:bg-accent-subtle")
+
+    @pytest.mark.asyncio
+    async def test_inline_by_default(self, context_args):
+        html = await render_tree(
+            Checkbox("plan").label("Pro"), context_args=context_args
+        )
+        assert_no_selector(html, "label.p-4")
+
+    # description(): both branches
+    @pytest.mark.asyncio
+    async def test_a_description_sits_under_the_label(self, context_args):
+        html = await render_tree(
+            Checkbox("plan").label("Pro").description("Everything in Free, plus SSO."),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.text-fg-muted")
+        assert "Everything in Free, plus SSO." in html
+
+    @pytest.mark.asyncio
+    async def test_no_description_by_default(self, context_args):
+        html = await render_tree(
+            Checkbox("plan").label("Pro"), context_args=context_args
+        )
+        assert_no_selector(html, "span.text-fg-muted")

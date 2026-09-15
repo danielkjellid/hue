@@ -1,71 +1,51 @@
 from __future__ import annotations
 
-from typing import ClassVar, override
+from typing import ClassVar
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component, ComponentType
-from hue.ui.atoms.icon import HueIcon
+from hue.types.core import Component
+from hue.ui.atoms._choice import (
+    CHOICE_BOX,
+    ChoiceVariant,
+    choice_row,
+    description_id,
+    label_id,
+)
 from hue.ui.form import FormControl
-from hue.ui.molecules.field import error_component, hint_component
-from hue.utils import classes_if_else, classnames, render_if
+from hue.ui.molecules.field import error_component
+from hue.utils import classnames, render_if
 
-# The check mark and the indeterminate dash sit centred over the box and are
-# revealed by the input's state through the peer variants.
-_ICON_CLASSES = "pointer-events-none absolute inset-0 m-auto size-3.5 text-white"
+# The tick and the dash are drawn by the box itself. A clipped square rather
+# than an icon element, because a native input takes no children - and the
+# indeterminate dash has to win over the tick when both states are set, which
+# is what the not-checked ordering below is for.
+_TICK = (
+    "checked:not-indeterminate:before:content-[''] "
+    "checked:not-indeterminate:before:size-[10px] "
+    "checked:not-indeterminate:before:bg-accent-fg "
+    "checked:not-indeterminate:before:checkmark"
+)
 
-
-def _get_box_classes(*, disabled: bool, invalid: bool) -> str:
-    """
-    Classes for the visual box that reflects the (peer) input's state.
-    """
-    if disabled:
-        resting_border = "border-surface-200"
-        fill = "bg-surface-100"
-    else:
-        # The invalid border has to be chosen here rather than added on top:
-        # two border-color utilities on one element resolve by stylesheet
-        # order, and border-surface-300 is emitted last, so an appended
-        # border-destructive silently lost and the error state showed a plain
-        # grey box.
-        resting_border = "border-destructive" if invalid else "border-surface-300"
-        fill = "bg-background"
-
-    return classnames(
-        "absolute inset-0 rounded-md border shadow-xs",
-        "transition-colors duration-100",
-        # 2px inset focus ring, shown only on keyboard focus.
-        "outline-primary peer-focus-visible:outline",
-        "peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2",
-        resting_border,
-        fill,
-        classes_if_else(
-            disabled,
-            [
-                "peer-checked:border-surface-300 peer-checked:bg-surface-300",
-                "peer-indeterminate:border-surface-300",
-                "peer-indeterminate:bg-surface-300",
-            ],
-            [
-                "peer-hover:border-surface-400",
-                "peer-checked:border-primary peer-checked:bg-primary",
-                "peer-indeterminate:border-primary peer-indeterminate:bg-primary",
-            ],
-        ),
-    )
+_DASH = (
+    "indeterminate:border-accent indeterminate:bg-accent "
+    "indeterminate:before:content-[''] indeterminate:before:h-[2px] "
+    "indeterminate:before:w-[9px] indeterminate:before:rounded-[1px] "
+    "indeterminate:before:bg-accent-fg"
+)
 
 
 class Checkbox(FormControl):
     """
-    An accessible checkbox built on a native input type=checkbox.
+    A checkbox, built on the browser's own.
 
-    The native input is visually hidden but keeps full keyboard, focus, and
-    form-submission behaviour; a styled box sibling reflects its state through
-    Tailwind's peer variants (checked, indeterminate, focus, hover). The
-    mixed-state dash is driven via Alpine x-init because the indeterminate DOM
-    property has no HTML attribute, and error() marks the field invalid.
+    The native control is styled rather than hidden behind a lookalike, so
+    every keyboard, form and assistive-tech behaviour stays the browser's.
+    description() adds a second line under the label - a choice says its
+    extra sentence there rather than under the whole row, which is where a
+    field puts its hint. variant("card") puts the row on a pressable surface.
 
         Checkbox().name("terms").label("I accept the terms").required()
     """
@@ -85,18 +65,35 @@ class Checkbox(FormControl):
         return self
 
     def indeterminate(self, value: bool = True) -> Self:
+        """
+        The mixed state, for a checkbox standing for several others that do
+        not agree. It survives only until the next click, which is how the
+        native control behaves.
+        """
         self._props["indeterminate"] = value
         return self
 
-    @override
-    def _render(self, context: HueContext[object]) -> Component:
+    def description(self, value: str) -> Self:
+        """
+        A second line under the label, for what the choice actually does.
+        """
+        self._props["description"] = value
+        return self
+
+    def variant(self, value: ChoiceVariant) -> Self:
+        self._props["variant"] = value
+        return self
+
+    def _render(self, context: HueContext) -> Component:
         name = self._require_name()
-        label_text: str | None = self._get_prop("label")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
         checked: bool = self._get_prop("checked", False)
         indeterminate: bool = self._get_prop("indeterminate", False)
-        invalid = self._get_prop("error") is not None
+        error: str | None = self._get_prop("error")
+        label: str | None = self._get_prop("label")
+        description: str | None = self._get_prop("description")
+        variant: ChoiceVariant = self._get_prop("variant", "inline")
         input_id = self._input_id()
 
         # No explicit role: a native checkbox input already carries it. Boolean
@@ -106,69 +103,30 @@ class Checkbox(FormControl):
             name=name,
             id=input_id,
             value=self._get_prop("value"),
-            class_="peer sr-only",
+            class_=classnames(CHOICE_BOX, "rounded-xs", _TICK, _DASH),
             checked=checked or None,
             disabled=disabled or None,
             required=required or None,
-            aria_invalid="true" if invalid else None,
-            aria_describedby=self._describedby(),
+            aria_invalid="true" if error is not None else None,
+            # An explicit name, so the description inside the label does not
+            # become part of it.
+            aria_labelledby=label_id(input_id) if label is not None else None,
+            aria_describedby=self._describedby(
+                description_id(input_id) if description is not None else None
+            ),
         )
         if indeterminate:
             # The indeterminate DOM property has no HTML attribute; set it on
-            # init so the CSS :indeterminate (peer) styles apply.
+            # init so the CSS :indeterminate styles apply.
             input_attrs["x-init"] = "$el.indeterminate = true"
 
-        cursor = "cursor-not-allowed" if disabled else "cursor-pointer"
-
-        # The clickable box: a label wrapping the visually hidden input, the
-        # styled box, and the check/dash icons, all peer siblings of the input.
-        # The check shows only when checked and not indeterminate, so the dash
-        # always wins when both states are set.
-        box = html.label(
+        return choice_row(
             html.input_(**input_attrs),
-            html.span(class_=_get_box_classes(disabled=disabled, invalid=invalid)),
-            HueIcon("check").class_(
-                f"{_ICON_CLASSES} hidden peer-[:checked:not(:indeterminate)]:block"
-            ),
-            HueIcon("minus").class_(f"{_ICON_CLASSES} hidden peer-indeterminate:block"),
-            for_=input_id,
-            # mt-0.5 centres the 20px box with the 24px (leading-6) first line of
-            # the label while the row stays top-aligned for multi-line text.
-            class_=classnames("relative mt-0.5 inline-flex size-5 shrink-0", cursor),
-        )
-
-        # The text column sits beside the box so the label, help, and error text
-        # all align with the label rather than the box.
-        text_items: list[ComponentType] = [
-            render_if(
-                label_text,
-                lambda text: html.label(
-                    text,
-                    html.span("*", class_="text-destructive")
-                    if required
-                    else UNDEFINED,
-                    for_=input_id,
-                    class_=classnames(
-                        "inline-flex items-center gap-1 select-none",
-                        "text-sm leading-6 text-surface-900",
-                        cursor,
-                    ),
-                ),
-            ),
-            render_if(self._get_prop("hint"), lambda t: hint_component(t, input_id)),
-            render_if(self._get_prop("error"), lambda t: error_component(t, input_id)),
-        ]
-
-        has_text = bool(label_text or self._get_prop("hint") or self._get_prop("error"))
-
-        return html.div(
-            box,
-            html.div(*text_items, class_="flex flex-col gap-1")
-            if has_text
-            else UNDEFINED,
-            class_=classnames(
-                "flex items-start gap-2",
-                {"opacity-50": disabled},
-                self._get_prop("class_"),
-            ),
+            control_id=input_id,
+            label=label,
+            description=description,
+            disabled=disabled,
+            variant=variant,
+            messages=(render_if(error, lambda text: error_component(text, input_id)),),
+            class_=self._get_prop("class_"),
         )
