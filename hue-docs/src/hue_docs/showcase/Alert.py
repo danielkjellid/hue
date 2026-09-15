@@ -14,10 +14,11 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            'role="alert" is not the default. An alert already on the page '
-            "when it loads is read in order like any other text, and a live "
-            "region would have it said a second time; live() is for one that "
-            "arrives in response to something the user just did."
+            "The variant decides how loudly it arrives: danger interrupts "
+            'the screen reader with role="alert", the rest wait for a gap '
+            'with role="status". Nothing is announced twice - a live region '
+            "that exists with its content already in it is never announced, "
+            "so one rendered with the page is simply read in order."
         ),
         variants=[
             variant(
@@ -35,7 +36,6 @@ SHOWCASES: list[Showcase] = [
                         .size("sm")
                         .content("Use another card"),
                     )
-                    .live()
                 )
                 """,
             ),

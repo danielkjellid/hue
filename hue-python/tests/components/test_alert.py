@@ -48,18 +48,37 @@ class TestAlert:
         )
         assert_no_selector(html, "svg")
 
-    # live(): both branches
+    # The role follows the variant: only danger is worth interrupting for.
+    @pytest.mark.parametrize(
+        ("variant", "role"),
+        [
+            ("neutral", "status"),
+            ("info", "status"),
+            ("success", "status"),
+            ("warning", "status"),
+            ("danger", "alert"),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_it_is_not_a_live_region_by_default(self, context_args):
-        # One on the page at load is read in order like any other text; a live
-        # region would have it said a second time.
-        html = await render_tree(Alert().title("T"), context_args=context_args)
-        assert_no_selector(html, '[role="alert"]')
+    async def test_how_loudly_it_arrives_follows_the_variant(
+        self, context_args, variant, role
+    ):
+        # Safe as a default: a live region that exists with its content
+        # already in it is never announced, so a server-rendered alert is read
+        # in document order. The role only does anything when one arrives
+        # after the page, which is when it should.
+        html = await render_tree(
+            Alert().variant(variant).title("T"), context_args=context_args
+        )
+        assert_selector(html, f'[role="{role}"]')
 
     @pytest.mark.asyncio
-    async def test_live_announces_it(self, context_args):
-        html = await render_tree(Alert().title("T").live(), context_args=context_args)
-        assert_selector(html, '[role="alert"]')
+    async def test_a_caller_who_knows_better_can_say_so(self, context_args):
+        html = await render_tree(
+            Alert().variant("danger").title("T").role("none"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, '[role="alert"]')
 
     # dismissible(): both branches
     @pytest.mark.asyncio

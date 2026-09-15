@@ -26,6 +26,23 @@ _VARIANTS: dict[AlertVariant, str] = {
     "danger": "bg-danger-subtle border-danger-border text-danger-text",
 }
 
+# What the variant is worth interrupting for. danger is assertive because it
+# is the one that stops the user getting what they came for; the rest are
+# polite, so they are read when the screen reader reaches a gap rather than
+# over the top of whatever it is saying.
+#
+# Safe to have by default: a live region that exists with its content already
+# in it is never announced, so a server-rendered alert is read in document
+# order like any other text. The role only does anything when the alert
+# arrives after the page - which is exactly when it should.
+_ROLES: dict[AlertVariant, str] = {
+    "neutral": "status",
+    "info": "status",
+    "success": "status",
+    "warning": "status",
+    "danger": "alert",
+}
+
 _ICONS: dict[AlertVariant, str] = {
     "neutral": "circle-info",
     "info": "circle-info",
@@ -50,10 +67,8 @@ class Alert(ChainableComponent):
     """
     A message about the thing it sits next to.
 
-    variant() sets the tone and picks the icon. live() makes it announce
-    itself, which is for a message that appears in response to something the
-    user just did - a message present when the page loads has already been
-    read by the time a live region would say it.
+    variant() sets the tone, picks the icon, and decides how loudly it is
+    announced when it arrives: danger interrupts, the rest wait for a gap.
 
         Alert().variant("danger").title("Payment failed")
     """
@@ -105,17 +120,6 @@ class Alert(ChainableComponent):
         page rather than about one thing on it.
         """
         self._props["banner"] = value
-        return self
-
-    def live(self, value: bool = True) -> Self:
-        """
-        Announce it when it appears.
-
-        Only for a message that arrives in response to something the user just
-        did. One already on the page when it loads is read in order like any
-        other text, and a live region would say it a second time.
-        """
-        self._props["live"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
@@ -177,9 +181,8 @@ class Alert(ChainableComponent):
                 self._get_prop("class_"),
             ),
             **{
-                # role="alert" only when asked for: an alert already on the
-                # page when it loads is read in order like any other text.
-                **({"role": "alert"} if self._get_prop("live", False) else {}),
+                "role": _ROLES[variant],
+                # After, so a caller who knows better can say so.
                 **self._get_base_html_attrs(),
             },
         )
