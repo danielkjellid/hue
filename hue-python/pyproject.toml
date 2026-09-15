@@ -65,11 +65,12 @@ extend = "../ruff.toml"
 
 [tool.deptry]
 known_first_party = ["hue"]
-extend_exclude = ["tests", "test_.*\\.py"]
+# hatch_build.py runs at build time and is not part of the package, so its
+# import of the build backend is not an application dependency.
+extend_exclude = ["tests", "test_.*\\.py", "hatch_build.py"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["pytailwindcss"]
-DEP004 = ["hatch_build"]
+DEP002 = ["pytailwindcss", "hatchling"]
 
 ##########
 # Pytest #
