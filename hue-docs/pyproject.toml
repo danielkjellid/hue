@@ -25,6 +25,8 @@ hue = { path = "../hue-python", editable = true }
 
 [dependency-groups]
 dev = [
+    # Reads the class attributes back out of rendered markup.
+    "beautifulsoup4>=4.12.0",
     "deptry>=0.24.0",
     "mypy>=1.18.2",
     "pytest>=9.0.0",
