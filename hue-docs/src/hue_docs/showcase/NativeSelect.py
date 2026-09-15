@@ -25,7 +25,7 @@ SHOWCASES: list[Showcase] = [
                 "With a value",
                 f"""
                 (
-                    NativeSelect("tz")
+                    NativeSelect().name("tz")
                     .label("Time zone")
                     .options({_ZONES})
                     .value("oslo")
@@ -37,7 +37,7 @@ SHOWCASES: list[Showcase] = [
                 "Nothing picked yet",
                 f"""
                 (
-                    NativeSelect("tz")
+                    NativeSelect().name("tz")
                     .label("Time zone")
                     .placeholder("Select a time zone")
                     .options({_ZONES})
@@ -48,7 +48,7 @@ SHOWCASES: list[Showcase] = [
                 "Invalid",
                 f"""
                 (
-                    NativeSelect("tz")
+                    NativeSelect().name("tz")
                     .label("Time zone")
                     .required()
                     .placeholder("Select a time zone")

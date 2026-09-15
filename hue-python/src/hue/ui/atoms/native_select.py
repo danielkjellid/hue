@@ -29,7 +29,7 @@ class NativeSelect(FormControl):
     assistive-tech behaviour come for free. Reach for Select instead when an
     option needs more than a line of text.
 
-        NativeSelect("tz").label("Time zone").options([("utc", "UTC")])
+        NativeSelect().name("tz").label("Time zone").options([("utc", "UTC")])
     """
 
     category = "Inputs"

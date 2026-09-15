@@ -67,7 +67,7 @@ class Checkbox(FormControl):
     mixed-state dash is driven via Alpine x-init because the indeterminate DOM
     property has no HTML attribute, and error() marks the field invalid.
 
-        Checkbox("terms").label("I accept the terms").required()
+        Checkbox().name("terms").label("I accept the terms").required()
     """
 
     category: ClassVar[str | None] = "Inputs"
