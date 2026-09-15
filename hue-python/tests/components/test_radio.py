@@ -173,4 +173,4 @@ class TestRadio:
         # every other child never reaches it and the first option sits flush
         # against the question.
         html = await render_tree(_group(), context_args=context_args)
-        assert_selector(html, "legend.mb-1\\.5")
+        assert_selector(html, "legend.mb-1")

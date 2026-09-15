@@ -191,13 +191,13 @@ class Field(ChainableComponent):
             render_if(
                 control if horizontal else None,
                 lambda items: html.div(
-                    *items, class_="flex min-w-0 flex-1 flex-col gap-1.5"
+                    *items, class_="flex min-w-0 flex-1 flex-col gap-1"
                 ),
             ),
             *(() if horizontal else control),
             class_=classnames(
                 "flex",
-                f"flex-row gap-6 {row_alignment}" if horizontal else "flex-col gap-1.5",
+                f"flex-row gap-6 {row_alignment}" if horizontal else "flex-col gap-1",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
