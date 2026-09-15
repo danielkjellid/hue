@@ -73,11 +73,54 @@ class TestField:
             .label("Region")
             .html_for("region")
             .hint("Where data lives.")
-            .layout("horizontal"),
+            .layout("horizontal")
+            .content("a control"),
             context_args=context_args,
         )
         assert_selector(html, "div.flex-row")
         assert_selector(html, "div.w-\\[180px\\] > #region-hint")
+
+    # A horizontal row centres only when both columns are one line.
+    @pytest.mark.asyncio
+    async def test_a_single_line_row_is_centred(self, context_args):
+        # One line against one box: top-aligning them leaves the label sitting
+        # above the middle of the control it names.
+        html = await render_tree(
+            Field()
+            .label("Region")
+            .html_for("region")
+            .layout("horizontal")
+            .content("a control"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.flex-row.items-center")
+
+    @pytest.mark.asyncio
+    async def test_a_hint_puts_the_row_back_on_its_top_edge(self, context_args):
+        # Centred, the label would drift down past the control as the column
+        # under it grows.
+        html = await render_tree(
+            Field()
+            .label("Region")
+            .html_for("region")
+            .hint("Where data lives.")
+            .layout("horizontal"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.flex-row.items-start")
+
+    @pytest.mark.asyncio
+    async def test_an_error_does_the_same_from_the_other_side(self, context_args):
+        html = await render_tree(
+            Field()
+            .label("Region")
+            .html_for("region")
+            .error("Pick one.")
+            .layout("horizontal")
+            .content("a control"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.flex-row.items-start")
 
     # trailing(): both branches
     @pytest.mark.asyncio

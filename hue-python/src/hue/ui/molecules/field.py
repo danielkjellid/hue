@@ -164,6 +164,15 @@ class Field(ChainableComponent):
             ),
         ]
 
+        # A label on its own, beside a control on its own, is one line against
+        # one box: centring them is the only thing that reads as a row. The
+        # moment either column has a second line - a hint under the label, an
+        # error under the control - the two have to start at the same top edge
+        # instead, or the label drifts down past the control it names.
+        rows = (self._filled(header), self._filled(control))
+        single_line = horizontal and all(len(items or ()) <= 1 for items in rows)
+        row_alignment = "items-center" if single_line else "items-start"
+
         return html.div(
             render_if(
                 self._filled(header),
@@ -188,7 +197,7 @@ class Field(ChainableComponent):
             *(() if horizontal else control),
             class_=classnames(
                 "flex",
-                "flex-row items-start gap-6" if horizontal else "flex-col gap-1.5",
+                f"flex-row gap-6 {row_alignment}" if horizontal else "flex-col gap-1.5",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
