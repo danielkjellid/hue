@@ -208,6 +208,11 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  /* Avatars, switches, the slider track. Tailwind has a rounded-full of its
+     own, so this is only reached by name - which is exactly how it went
+     missing: var(--radius-full) resolves to nothing and the corner is simply
+     square, with no error anywhere to say so. */
+  --radius-full: 9999px;
 
   /* md is the desktop default; coarse pointers bump every step (see below). */
   --spacing-control-xs: 28px;
