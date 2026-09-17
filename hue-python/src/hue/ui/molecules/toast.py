@@ -8,6 +8,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
+from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.base import ChainableComponent
@@ -64,9 +65,10 @@ class Toast(ChainableComponent):
     """
     A transient note about something that just happened.
 
-    It lives in a ToastRegion, which is what announces it; on its own it is
-    only the card. Dismisses itself after five seconds unless a pointer or
-    the keyboard is on it, and duration(None) keeps it until it is dismissed.
+    It lives in a ToastRegion, which is what announces it and what times it;
+    on its own it is only the card, and stays. In a region it leaves after
+    the region's five seconds unless a pointer or the keyboard is on it, and
+    duration(None) keeps it until it is dismissed.
     Never put the only way out of a problem in one - that belongs in an Alert
     that stays.
     """
@@ -150,7 +152,10 @@ class Toast(ChainableComponent):
                         data_toast_description="",
                     ),
                 ),
-                render_when(bool(action), html.div(*action, class_="mt-2")),
+                render_when(
+                    bool(action),
+                    html.div(*action, class_="mt-2", data_toast_action=""),
+                ),
                 class_="min-w-0 flex-1",
             ),
             render_when(
@@ -199,9 +204,11 @@ def _init(toast: Toast, variant: ToastVariant) -> str:
     $data, because a toast rendered outside a region has nothing to announce
     into.
     """
-    # Unset, the toast asks the region it is in; 0 is one that stays.
+    # Unset, the toast asks the region it is in - and outside one there is no
+    # timer at all, because the region is what times a toast. A specimen on a
+    # page is then a card that stays put rather than one that quietly leaves.
     if "duration" not in toast._props:
-        start = f"start($data.{_DEFAULT} ?? {_DURATION_MS})"
+        start = f"start($data.{_DEFAULT} ?? 0)"
     else:
         duration: int | None = toast._get_prop("duration")
         start = f"start({duration if duration is not None else 0})"
@@ -276,6 +283,10 @@ def _template(variant: ToastVariant) -> ComponentType:
     class list.
     """
     return html.template(
-        Toast().variant(variant).title("").description(""),
+        Toast()
+        .variant(variant)
+        .title("")
+        .description("")
+        .action(Button().variant("outline").size("xs")),
         data_variant=variant,
     )

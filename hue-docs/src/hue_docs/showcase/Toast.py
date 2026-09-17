@@ -53,6 +53,23 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
+                "With a way to retry",
+                """
+                (
+                    Button()
+                    .variant("outline")
+                    .content("Failed, with a retry")
+                    .x_on(
+                        "click",
+                        "$toast.danger('Could not send invoice', { "
+                        "description: 'The mail server rejected the address.', "
+                        "action: { label: 'Retry', "
+                        "onClick: () => $toast.success('Invoice sent') } })",
+                    )
+                )
+                """,
+            ),
+            variant(
                 "Title only",
                 """
                 (
@@ -86,7 +103,8 @@ SHOWCASES: list[Showcase] = [
         layout="stack",
         description=(
             "The same markup, standing still. A toast is a card until it is "
-            "in a region: the region is what announces it and what times it."
+            "in a region: the region is what announces it and what times it, "
+            "so these specimens have no timer and stay where they are."
         ),
         variants=[
             variant(

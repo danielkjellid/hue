@@ -70,6 +70,11 @@ def _build() -> ComponentType:
             "$toast.success('Invoice sent', {\n"
             "    description: 'INV-2048 sent to ada@example.com',\n"
             "})\n\n"
+            "// a second chance at the thing that failed\n"
+            "$toast.danger('Could not send invoice', {\n"
+            "    description: 'The mail server rejected the address.',\n"
+            "    action: { label: 'Retry', onClick: () => send() },\n"
+            "})\n\n"
             "// stays until it is dismissed\n"
             "$toast.loading('Exporting 2,481 rows', { duration: null })\n\n"
             "// or a number of milliseconds of its own\n"
@@ -87,9 +92,11 @@ def _build() -> ComponentType:
         pr.h2("How long they stay"),
         pr.p(
             "5200 milliseconds by default, which is about as long as it "
-            "takes to read two short lines twice. Set the page-wide number "
-            "on the region, and override it on a toast that needs longer or "
-            "should not leave at all:"
+            "takes to read two short lines twice. The number lives on the "
+            "region, because the region is what times a toast - one rendered "
+            "on its own, as a specimen in a page, has no timer and stays. "
+            "Set the page-wide number there, and override it on a toast that "
+            "needs longer or should not leave at all:"
         ),
         pr.code(
             "ToastRegion().duration(8000)\n\n"

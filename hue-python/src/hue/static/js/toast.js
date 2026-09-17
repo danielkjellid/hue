@@ -31,6 +31,19 @@ function raise(variant, title, options = {}) {
 		description.remove();
 	}
 
+	// { label, onClick }: a second chance at the thing that failed, not the
+	// only chance - whatever the toast was about has to be reachable without it.
+	const action = toast.querySelector("[data-toast-action]");
+	if (options.action) {
+		const button = action.querySelector("button");
+		button.textContent = options.action.label;
+		if (options.action.onClick) {
+			button.addEventListener("click", options.action.onClick);
+		}
+	} else {
+		action.remove();
+	}
+
 	// undefined keeps the region's default; null is a toast that stays.
 	if (options.duration !== undefined) {
 		const ms = options.duration === null ? 0 : options.duration;

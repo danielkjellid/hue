@@ -7,15 +7,16 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 class TestToast:
     @pytest.mark.asyncio
-    async def test_it_dismisses_itself_and_stops_for_whoever_is_reading(
+    async def test_it_takes_its_timer_from_the_region_and_stops_for_a_reader(
         self, context_args
     ):
+        # The region is what times a toast, so a specimen outside one stays.
         # WCAG 2.2.1: a message that leaves on its own has to be stoppable.
         html = await render_tree(
             Toast().variant("success").title("Invoice sent"),
             context_args=context_args,
         )
-        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 5200)")
+        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 0)")
         assert_attr(html, "[x-data]", "x-on:mouseenter", "stop()")
         assert_attr(html, "[x-data]", "x-on:mouseleave", "start(2600)")
         assert_attr(html, "[x-data]", "x-on:focusin", "stop()")
@@ -49,7 +50,7 @@ class TestToast:
             html,
             "[x-data]",
             "x-init",
-            "start($data.hueToastDuration ?? 5200); "
+            "start($data.hueToastDuration ?? 0); "
             "$data.announce?.($el.innerText.trim())",
         )
 
@@ -58,7 +59,7 @@ class TestToast:
         html = await render_tree(
             Toast().variant("success").title("Invoice sent"), context_args=context_args
         )
-        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 5200)")
+        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 0)")
 
     @pytest.mark.asyncio
     async def test_the_loading_variant_spins_instead_of_an_icon(self, context_args):
