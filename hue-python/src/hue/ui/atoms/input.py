@@ -10,6 +10,7 @@ from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
     CONTROL_SIZES,
     FIELD_SHELL,
+    GROUP_ACTION,
     GROUP_ADDON,
     GROUP_SHELL,
     GROUPED_CONTROL,
@@ -17,6 +18,7 @@ from hue.ui._styles import (
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
+from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
 from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
@@ -67,6 +69,17 @@ type Autocomplete = Literal[
     "url",
     "photo",
 ]
+
+
+def _floats_inside(action: ComponentType) -> bool:
+    """
+    Whether an attached control sits inside the field rather than being a
+    segment of it. An icon-only button does: it acts on what is in the input,
+    where a labelled one is a second thing to press beside it.
+    """
+    return isinstance(action, ChainableComponent) and bool(
+        action._get_prop("icon_only", False)
+    )
 
 
 class _BaseInput(FieldControl):
@@ -123,6 +136,11 @@ class _BaseInput(FieldControl):
     def action(self, value: ComponentType) -> Self:
         """
         A control attached to the end of the input, such as a Copy button.
+
+        A labelled button becomes a segment of the control, flush with its
+        end. An icon-only one floats inside the field instead, which is where
+        a toggle belongs - it acts on what is in the input rather than being
+        a second thing to press beside it.
         """
         self._props["action"] = value
         return self
@@ -233,9 +251,17 @@ class _BaseInput(FieldControl):
                 )
             )
         if action is not None:
-            segments.append(html.span(action, class_="flex items-center pe-1"))
+            segments.append(
+                html.span(action, class_="flex items-center pe-1")
+                if _floats_inside(action)
+                else action
+            )
 
-        return html.div(*segments, class_=GROUP_SHELL, **self._get_group_attrs())
+        return html.div(
+            *segments,
+            class_=classnames(GROUP_SHELL, GROUP_ACTION),
+            **self._get_group_attrs(),
+        )
 
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()

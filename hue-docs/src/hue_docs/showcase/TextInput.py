@@ -120,6 +120,19 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
+                "Attached action",
+                """
+                (
+                    TextInput()
+                    .name("api_key")
+                    .label("API key")
+                    .value("sk_live_51H8xK2eZv")
+                    .readonly()
+                    .action(Button().variant("outline").content("Copy"))
+                )
+                """,
+            ),
+            variant(
                 "Leading icon",
                 """
                 (

@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import PasswordInput, TextInput
+from hue.ui import Button, PasswordInput, TextInput
 from hue.ui.atoms.icon import HueIcon
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
@@ -50,12 +50,32 @@ class TestAttachedSegments:
         assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
 
     @pytest.mark.asyncio
-    async def test_an_action_is_attached_to_the_end(self, context_args):
+    async def test_a_labelled_action_is_a_segment_of_the_control(self, context_args):
+        # Flush with the end, the outer edges coming from the group: a button
+        # with a radius of its own puts square corners on the group's round
+        # ones.
         html = await render_tree(
-            TextInput().name("key").label("API key").action("copy"),
+            TextInput()
+            .name("key")
+            .label("API key")
+            .action(Button().variant("outline").content("Copy")),
             context_args=context_args,
         )
-        assert_selector(html, "div.flex.w-full > span.pe-1")
+        assert_selector(html, "div.flex.w-full > button")
+        assert_selector(html, "div[class*='rounded-e-[7px]']")
+
+    @pytest.mark.asyncio
+    async def test_an_icon_action_floats_inside_the_field(self, context_args):
+        # It acts on what is in the input, where a labelled button is a
+        # second thing to press beside it.
+        html = await render_tree(
+            TextInput()
+            .name("q")
+            .label("Search")
+            .action(Button().variant("ghost").icon_only("Clear")),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.flex.w-full > span.pe-1 > button")
 
 
 class TestRevealablePassword:
