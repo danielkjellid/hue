@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING
+from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
@@ -140,6 +140,14 @@ class DropdownMenu(ChainableComponent):
                 "x-data": "{ open: false, "
                 "close() { this.open = false; this.$refs.trigger?.focus() } }",
                 "x-on:keydown.escape.window": "if (open) close()",
+                # Tab leaves the menu rather than walking it. The items are
+                # out of the tab order, so the browser's own Tab already goes
+                # to whatever follows the trigger - but only if the panel is
+                # still there when it looks: closing in the same event pulls
+                # the focused item out from under it and drops focus on the
+                # body. On the wrapper, because the trigger holds focus too
+                # and a keydown there never reaches the panel beside it.
+                "x-on:keydown.tab": "$nextTick(() => open = false)",
                 "x-on:click.outside": "open = false",
                 **self._get_base_html_attrs(),
             },
@@ -224,6 +232,11 @@ class MenuItem(ChainableComponent):
 
         attrs: dict[str, object] = {
             "role": "menuitemcheckbox" if checkable else "menuitem",
+            # Out of the tab order, because a menu is walked with the arrow
+            # keys: focus is moved here rather than tabbed to, and Tab means
+            # "leave", which the browser then does for us. Roving focus is
+            # what the menu role tells a screen reader to expect.
+            "tabindex": "-1",
             # Hovering moves focus, so the pointer and the arrow keys share
             # one active item instead of lighting two rows at once. The ring
             # is focus-visible, so it stays out of the way until the keyboard
@@ -234,7 +247,7 @@ class MenuItem(ChainableComponent):
             "class_": classnames(
                 _ITEM,
                 _VARIANTS[variant],
-                FOCUS_RING,
+                FOCUS_RING_INSET,
                 # The gutter the tick sits in, so the labels of a group of
                 # checkable items line up whether or not they are ticked.
                 classes_if(checkable, ["relative", "ps-7"]),

@@ -41,6 +41,25 @@ class TestDropdownMenu:
         assert_attr(html, '[role="menu"]', "x-effect")
 
     @pytest.mark.asyncio
+    async def test_tab_leaves_the_menu_rather_than_walking_it(self, context_args):
+        # Arrows move between items; Tab is how you get out. The items are
+        # out of the tab order, so the browser's Tab already goes to whatever
+        # follows the trigger - all the menu does is close, a tick later so
+        # the focused item is still there when the browser looks.
+        html = await render_tree(_menu(), context_args=context_args)
+        assert_attr(
+            html, "[x-data]", "x-on:keydown.tab", "$nextTick(() => open = false)"
+        )
+        assert_attr(html, '[role="menuitem"]', "tabindex", "-1")
+
+    @pytest.mark.asyncio
+    async def test_the_ring_stays_inside_the_item(self, context_args):
+        # An offset ring is drawn outside the item, where it lands on the
+        # panel's padding and past its edge.
+        html = await render_tree(_menu(), context_args=context_args)
+        assert_selector(html, '[role="menuitem"].focus-visible\\:inset-ring-2')
+
+    @pytest.mark.asyncio
     async def test_escape_closes_it_and_hands_focus_back(self, context_args):
         html = await render_tree(_menu(), context_args=context_args)
         assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "if (open) close()")
