@@ -6,12 +6,12 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component, ComponentType
+from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type DialogSize = Literal["sm", "md", "lg"]
 
@@ -158,28 +158,32 @@ class Dialog(ChainableComponent):
         )
 
         panel = html.div(
-            html.div(
-                heading,
-                close if dismissible else UNDEFINED,
-                class_="flex items-start gap-4 px-5 pt-5 pb-3",
-            )
-            if title is not None or description is not None or dismissible
-            else UNDEFINED,
-            html.div(
-                *self._children,
+            # The header is there when there is anything to put in it.
+            render_when(
+                bool(title or description or dismissible),
+                html.div(
+                    heading,
+                    render_when(dismissible, close),
+                    class_="flex items-start gap-4 px-5 pt-5 pb-3",
+                ),
+            ),
+            render_when(
+                bool(self._children),
                 # min-h-0 is what lets this scroll rather than pushing the
                 # footer out of the clipped panel.
-                class_="min-h-0 flex-1 overflow-y-auto px-5 pb-5 text-base",
-            )
-            if self._children
-            else UNDEFINED,
-            html.div(
-                *footer,
-                class_="flex items-center justify-end gap-2 border-t border-border "
-                "bg-surface-sunken px-5 py-4",
-            )
-            if footer
-            else UNDEFINED,
+                html.div(
+                    *self._children,
+                    class_="min-h-0 flex-1 overflow-y-auto px-5 pb-5 text-base",
+                ),
+            ),
+            render_when(
+                bool(footer),
+                html.div(
+                    *footer,
+                    class_="flex items-center justify-end gap-2 border-t "
+                    "border-border bg-surface-sunken px-5 py-4",
+                ),
+            ),
             class_=classnames(
                 "relative flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden",
                 "rounded-xl border border-border bg-surface-raised shadow-overlay",
