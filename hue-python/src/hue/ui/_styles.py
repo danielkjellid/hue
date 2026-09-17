@@ -54,11 +54,16 @@ FIELD_SHELL = (
 #: The frame around a control that has something attached to it - a prefix, an
 #: icon, a button. The border, the fill and the focus halo move up here, so the
 #: segments inside can be square without poking past a rounded corner.
+#:
+#: The halo answers the input rather than focus-within, so it means "you are
+#: typing here" and nothing else. An attached button is its own control and
+#: says it has focus the way every other button does, with its own ring.
 GROUP_SHELL = (
     "flex w-full items-stretch rounded-md border border-border-input bg-surface "
     "shadow-field transition-[border-color,box-shadow] duration-150 "
     "hover:border-border-hover "
-    "focus-within:border-accent focus-within:ring-3 focus-within:ring-accent-subtle "
+    "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
+    "has-[input:focus]:ring-accent-subtle "
     "has-[[aria-invalid=true]]:border-danger "
     "has-[:disabled]:bg-surface-sunken has-[:read-only]:bg-surface-sunken"
 )
