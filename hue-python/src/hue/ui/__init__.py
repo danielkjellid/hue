@@ -37,6 +37,7 @@ from hue.ui.molecules.card import (
     CardMedia,
 )
 from hue.ui.molecules.dialog import Dialog
+from hue.ui.molecules.drawer import Drawer
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.field import Field
 from hue.ui.molecules.menu import (
@@ -81,6 +82,7 @@ __all__ = [
     "Column",
     "DataTable",
     "Dialog",
+    "Drawer",
     "DropdownMenu",
     "EmailInput",
     "Empty",
