@@ -39,6 +39,12 @@ from hue.ui.molecules.card import (
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.field import Field
+from hue.ui.molecules.menu import (
+    DropdownMenu,
+    MenuItem,
+    MenuLabel,
+    MenuSeparator,
+)
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.ui.molecules.table import (
@@ -74,6 +80,7 @@ __all__ = [
     "Column",
     "DataTable",
     "Dialog",
+    "DropdownMenu",
     "EmailInput",
     "Empty",
     "Field",
@@ -81,6 +88,9 @@ __all__ = [
     "IconResolver",
     "Kbd",
     "Label",
+    "MenuItem",
+    "MenuLabel",
+    "MenuSeparator",
     "NativeSelect",
     "NumberInput",
     "Panel",
