@@ -15,13 +15,21 @@ from hue.utils import classnames, render_if, render_when
 
 type DialogSize = Literal["sm", "md", "lg"]
 
-# Width is capped against the viewport as well as set, so a dialog on a phone
-# keeps a margin rather than running under the edges.
+# A width is something only the centred dialog has: below sm the panel is a
+# sheet the width of the screen. Capped against the viewport as well as set,
+# so it keeps a margin rather than running under the edges.
 _SIZES: dict[DialogSize, str] = {
-    "sm": "w-[min(380px,calc(100vw-2rem))]",
-    "md": "w-[min(480px,calc(100vw-2rem))]",
-    "lg": "w-[min(640px,calc(100vw-2rem))]",
+    "sm": "sm:w-[min(380px,calc(100vw-2rem))]",
+    "md": "sm:w-[min(480px,calc(100vw-2rem))]",
+    "lg": "sm:w-[min(640px,calc(100vw-2rem))]",
 }
+
+# On a phone a box floating in the middle of the screen is a worse drawer -
+# the thumb is at the bottom edge and the box is not. Below sm it docks to
+# that edge instead, full width, and slides up from it.
+_SHEET = "w-full max-h-[85vh] rounded-t-xl sm:max-h-[calc(100vh-4rem)] sm:rounded-xl"
+_CLOSED = "translate-y-full opacity-0 sm:translate-y-3 sm:scale-[0.975]"
+_OPENED = "translate-y-0 opacity-100 sm:scale-100"
 
 
 class Dialog(ChainableComponent):
@@ -31,7 +39,8 @@ class Dialog(ChainableComponent):
     trigger() opens it and open() starts it open. Focus is trapped inside
     while it is up and returns to the trigger when it closes; the page behind
     cannot be scrolled or tabbed into. destructive() makes it an alertdialog,
-    for a question whose wrong answer cannot be undone.
+    for a question whose wrong answer cannot be undone. Below sm it docks to
+    the bottom edge as a sheet.
 
         Dialog().title("Delete project").trigger(Button().content("Delete"))
     """
@@ -76,6 +85,9 @@ class Dialog(ChainableComponent):
     def footer(self, *values: ComponentType) -> Self:
         """
         The actions, on a tinted strip along the bottom.
+
+        They are the way out of a dialog that cannot be dismissed, so each
+        one needs something to do: x_on("click", "close()") closes it.
         """
         self._props["footer"] = values
         return self
@@ -154,7 +166,7 @@ class Dialog(ChainableComponent):
                 "cursor-pointer text-fg-subtle hover:bg-surface-hover hover:text-fg",
                 FOCUS_RING,
             ),
-            **{"x-on:click": "open = false"},
+            **{"x-on:click": "close()"},
         )
 
         panel = html.div(
@@ -180,13 +192,18 @@ class Dialog(ChainableComponent):
                 bool(footer),
                 html.div(
                     *footer,
+                    # On a phone the strip is the bottom edge of the screen,
+                    # so its buttons clear the home indicator. The max() is
+                    # py-4 everywhere the inset is zero.
                     class_="flex items-center justify-end gap-2 border-t "
-                    "border-border bg-surface-sunken px-5 py-4",
+                    "border-border bg-surface-sunken px-5 pt-4 "
+                    "pb-[max(1rem,env(safe-area-inset-bottom))]",
                 ),
             ),
             class_=classnames(
-                "relative flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden",
-                "rounded-xl border border-border bg-surface-raised shadow-overlay",
+                "relative flex flex-col overflow-hidden",
+                "border border-border bg-surface-raised shadow-overlay",
+                _SHEET,
                 _SIZES[size],
             ),
             **{
@@ -202,6 +219,15 @@ class Dialog(ChainableComponent):
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
                 "x-trap.inert.noscroll": "open",
+                # The panel moves as well as fades: a sheet that appears
+                # where it ends up has not come from the edge.
+                "x-show": "open",
+                "x-transition:enter": "transition duration-200 ease-out",
+                "x-transition:enter-start": _CLOSED,
+                "x-transition:enter-end": _OPENED,
+                "x-transition:leave": "transition duration-150 ease-out",
+                "x-transition:leave-start": _OPENED,
+                "x-transition:leave-end": _CLOSED,
             },
         )
 
@@ -209,22 +235,25 @@ class Dialog(ChainableComponent):
             render_if(trigger, lambda control: control),
             html.div(
                 panel,
-                class_="fixed inset-0 z-80 flex items-center justify-center "
-                "bg-scrim p-4 backdrop-blur-[2px]",
+                class_="fixed inset-0 z-80 flex items-end justify-center "
+                "bg-scrim backdrop-blur-[2px] sm:items-center sm:p-4",
                 **{
                     "x-show": "open",
                     "x-cloak": True,
                     "x-transition.opacity": "",
-                    **({"x-on:click.self": "open = false"} if dismissible else {}),
+                    **({"x-on:click.self": "close()"} if dismissible else {}),
                 },
             ),
             class_=self._get_prop("class_"),
             **{
-                "x-data": f"{{ open: {'true' if starts_open else 'false'} }}",
+                # close() rather than a bare assignment, so the actions in the
+                # footer have a way out to call that is not the state's shape.
+                "x-data": f"{{ open: {str(starts_open).lower()}, "
+                "close() { this.open = false } }",
                 "x-id": "['hue-dialog-title', 'hue-dialog-description']",
                 # Escape always closes, dismissible or not: a modal with no
                 # way out is a trap, whatever the question was.
-                "x-on:keydown.escape.window": "open = false",
+                "x-on:keydown.escape.window": "close()",
                 **self._get_base_html_attrs(),
             },
         )

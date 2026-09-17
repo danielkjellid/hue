@@ -4,6 +4,10 @@ from hue.renderer import render_tree
 from hue.ui import Button, Dialog
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
+# close() is what the footer actions call, so it is part of the state the
+# dialog renders rather than an internal detail.
+_STATE = "{{ open: {open}, close() {{ this.open = false }} }}"
+
 
 def _dialog():
     return (
@@ -70,18 +74,25 @@ class TestDialog:
         )
         assert_no_selector(html, 'button[aria-label="Close"]')
         assert_no_selector(html, "[x-on\\:click\\.self]")
-        assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "open = false")
+        assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "close()")
 
     # open(): both branches
     @pytest.mark.asyncio
     async def test_it_starts_closed(self, context_args):
         html = await render_tree(_dialog(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-data", "{ open: false }")
+        assert_attr(html, "[x-data]", "x-data", _STATE.format(open="false"))
 
     @pytest.mark.asyncio
     async def test_the_server_can_start_it_open(self, context_args):
         html = await render_tree(_dialog().open(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-data", "{ open: true }")
+        assert_attr(html, "[x-data]", "x-data", _STATE.format(open="true"))
+
+    @pytest.mark.asyncio
+    async def test_it_docks_to_the_bottom_edge_below_sm(self, context_args):
+        # A box floating in the middle of a phone screen is a worse drawer.
+        html = await render_tree(_dialog(), context_args=context_args)
+        assert_selector(html, '[role="dialog"].rounded-t-xl.sm\\:rounded-xl')
+        assert_selector(html, "div.items-end.sm\\:items-center")
 
     @pytest.mark.asyncio
     async def test_the_body_scrolls_rather_than_pushing_the_footer_out(

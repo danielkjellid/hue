@@ -17,7 +17,10 @@ SHOWCASES: list[Showcase] = [
             "Focus is trapped inside while it is up and returns to whatever "
             "opened it; the page behind cannot be scrolled or tabbed into. "
             "Escape always closes, dismissible or not - a modal with no way "
-            "out is a trap whatever the question was."
+            "out is a trap whatever the question was. The footer actions are "
+            "the other way out, and the only one when the dialog cannot be "
+            "dismissed: each calls close(). Below sm every dialog docks to "
+            "the bottom edge as a sheet - narrow the window to see it."
         ),
         variants=[
             variant(
@@ -35,8 +38,11 @@ SHOWCASES: list[Showcase] = [
                         .placeholder("ada@example.com")
                     )
                     .footer(
-                        Button().variant("ghost").content("Cancel"),
-                        Button().content("Send invites"),
+                        Button()
+                        .variant("ghost")
+                        .content("Cancel")
+                        .x_on("click", "close()"),
+                        Button().content("Send invites").x_on("click", "close()"),
                     )
                 )
                 """,
@@ -52,8 +58,14 @@ SHOWCASES: list[Showcase] = [
                     .description("Everything in it goes too. This cannot be undone.")
                     .trigger(Button().variant("danger").content("Delete project"))
                     .footer(
-                        Button().variant("ghost").content("Keep it"),
-                        Button().variant("danger").content("Delete"),
+                        Button()
+                        .variant("ghost")
+                        .content("Keep it")
+                        .x_on("click", "close()"),
+                        Button()
+                        .variant("danger")
+                        .content("Delete")
+                        .x_on("click", "close()"),
                     )
                 )
                 """,
@@ -68,7 +80,7 @@ SHOWCASES: list[Showcase] = [
                     .title("Accept the new terms")
                     .description("You need to accept these before continuing.")
                     .trigger(Button().variant("outline").content("Review terms"))
-                    .footer(Button().content("Accept"))
+                    .footer(Button().content("Accept").x_on("click", "close()"))
                 )
                 """,
             ),
