@@ -70,6 +70,23 @@ GROUPED_CONTROL = (
     "disabled:cursor-not-allowed disabled:text-fg-disabled"
 )
 
+#: A labelled button attached to the end of a group, flush with its edge.
+#:
+#: The outer edges belong to the group, so the button gives up its own: no
+#: block borders, no end border, square where it meets the input and the
+#: group's 7px inner curve where it meets the corner. Selected from the group
+#: rather than set on the button, because a compound selector outranks the
+#: button's own radius wherever the two land in the stylesheet - and not
+#: solved with overflow-hidden on the group, which would clip the focus ring.
+#:
+#: An icon-only button is not this: it floats inside the field with a little
+#: padding, so the selector deliberately reaches only a direct child.
+GROUP_ACTION = (
+    "[&>button:last-child]:h-auto [&>button:last-child]:self-stretch "
+    "[&>button:last-child]:rounded-s-none [&>button:last-child]:rounded-e-[7px] "
+    "[&>button:last-child]:border-y-0 [&>button:last-child]:border-e-0"
+)
+
 #: A word or a unit attached to the end of a group. The 7px radius is the
 #: group's inner curve at a 1px border, so the fill follows its corner.
 GROUP_ADDON = (
