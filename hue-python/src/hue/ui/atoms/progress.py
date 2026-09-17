@@ -7,9 +7,9 @@ from htmy import SafeStr, html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component
+from hue.types.core import Component
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type ProgressVariant = Literal["accent", "success", "warning", "danger"]
 type ProgressSize = Literal["sm", "md", "lg"]
@@ -230,16 +230,17 @@ class ProgressRing(ChainableComponent):
         # hidden from assistive tech because the svg above already says it.
         return html.span(
             ring,
-            html.span(
-                f"{value:g}%",
-                class_=classnames(
-                    "absolute inset-0 flex items-center justify-center",
-                    "font-ui text-2xs font-semibold tabular-nums text-fg",
+            render_when(
+                show_value,
+                html.span(
+                    f"{value:g}%",
+                    class_=classnames(
+                        "absolute inset-0 flex items-center justify-center",
+                        "font-ui text-2xs font-semibold tabular-nums text-fg",
+                    ),
+                    aria_hidden="true",
                 ),
-                aria_hidden="true",
-            )
-            if show_value
-            else UNDEFINED,
+            ),
             class_=classnames("relative inline-flex", self._get_prop("class_")),
             **self._get_base_html_attrs(),
         )

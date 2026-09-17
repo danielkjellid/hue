@@ -104,6 +104,12 @@ canonical templates. The shape:
 - `classes_if_else(condition, if_true, if_false)` — mutually-exclusive class sets.
 - `render_if(value, factory, fallback=UNDEFINED)` — render `factory(value)` when `value` is
   not `None`, else `fallback` (renders nothing by default). Use for optional children.
+- `render_when(condition, component, fallback=UNDEFINED)` — the flag half of the same
+  thing, taking the component rather than a factory: there is no value to hand along, so
+  a callback would only be a lambda of no arguments everywhere. Use it for a bool
+  (`dismissible`, `required`) and for an optional collection, whose emptiness is a
+  condition rather than a value. Writing `render_if(flag or None, lambda _: …)` is the
+  smell this replaces: `render_if` tests against `None`, so a `False` would render.
 
 ### Design tokens (`hue-python/src/hue/static/styles/tailwind.input.css`)
 

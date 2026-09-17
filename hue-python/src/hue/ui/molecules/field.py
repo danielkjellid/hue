@@ -10,7 +10,7 @@ from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type FieldLayout = Literal["stacked", "horizontal"]
 
@@ -146,10 +146,7 @@ class Field(ChainableComponent):
             # 180px column it reads as part of the question, where under the
             # control it would sit in the next row's space.
             render_if(hint if horizontal else None, self._hint),
-            render_if(
-                trailing or None,
-                lambda items: html.span(*items, class_=TRAILING_CLASSES),
-            ),
+            render_when(bool(trailing), html.span(*trailing, class_=TRAILING_CLASSES)),
         ]
 
         # An error replaces the hint rather than joining it: two lines of

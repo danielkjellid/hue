@@ -239,6 +239,11 @@ class Button(ChainableComponent):
         return html.button(
             *children,
             class_=classes,
+            # A stable hook for the variant, since the classes that express it
+            # are indistinguishable from any other. A surface that needs to
+            # restyle the quiet buttons on it - an alert tinting its ghosts -
+            # has nothing else to select on.
+            data_variant=variant,
             type=self._get_prop("type", "button"),
             # Boolean attributes are true by presence, so False must omit it.
             disabled=disabled or loading or None,

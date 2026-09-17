@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hue.types.core import ComponentType
-from hue.ui import Callout
+from hue.ui import Alert
 
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
@@ -111,7 +111,7 @@ def _build() -> ComponentType:
             "app runs — no absolute paths to get wrong. Add your own caching "
             "inside the resolver if the source is slow to reach."
         ),
-        Callout()
+        Alert()
         .variant("warning")
         .title("Reading from disk? Build on directory_resolver")
         .content(
