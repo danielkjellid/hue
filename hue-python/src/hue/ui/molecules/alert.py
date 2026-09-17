@@ -51,29 +51,35 @@ _ICONS: dict[AlertVariant, str] = {
     "danger": "circle-x",
 }
 
-# A ghost button inside an alert takes the alert's tone rather than its own
-# near-black, and veils its own background instead of dropping an opaque grey
-# patch on a coloured surface. Always black, in both themes: the label is dark
-# on light and light on dark, so darkening is the one direction that raises
-# contrast either way.
+# A ghost button anywhere inside an alert takes the alert's tone rather than
+# its own near-black, and veils its own background instead of dropping an
+# opaque grey patch on a coloured surface. Always black, in both themes: the
+# label is dark on light and light on dark, so darkening is the one direction
+# that raises contrast either way.
 #
 # Scoped to the ghosts. Applied to every button it repaints a solid one's
 # label in the alert's tone as well - pale pink on a pink fill, which is the
 # contrast failure the rule exists to prevent, caused by the rule.
 #
-# The state goes inside the selector rather than in front of it: a hover
-# stacked onto an arbitrary variant emits nothing at all, silently.
-# Written out rather than built from a shared prefix: Tailwind finds a class
-# by scanning source text, so one assembled from an f-string is one it never
-# sees - and emits nothing, with no error to say so.
-_ACTIONS = (
-    "mt-3 flex flex-wrap items-center gap-2 "
+# On the alert rather than on the actions row, so a button put in content()
+# is toned the same as one in actions(). Two slots that style their contents
+# differently is a trap: the same button reads wrong in one of them and there
+# is nothing on the page to say why.
+#
+# The state goes inside the selector, and each class is written out. A hover
+# stacked onto an arbitrary variant emits no rule at all, and a class
+# assembled from an f-string is one Tailwind never sees - both silently.
+_GHOST_BUTTONS = (
     "[&_[data-variant=ghost]]:text-current "
     "[&_[data-variant=ghost]:hover]:bg-black/6 "
     "[&_[data-variant=ghost]:active]:bg-black/10 "
     "dark:[&_[data-variant=ghost]:hover]:bg-black/24 "
     "dark:[&_[data-variant=ghost]:active]:bg-black/36"
 )
+
+# The row under the copy. Its whole job is the gap and the space above it,
+# which is a decision the alert owns rather than one every caller repeats.
+_ACTIONS = "mt-3 flex flex-wrap items-center gap-2"
 
 
 class Alert(ChainableComponent):
@@ -83,7 +89,8 @@ class Alert(ChainableComponent):
     variant() sets the tone, picks the icon, and decides how loudly it is
     announced when it arrives: danger interrupts, the rest wait for a gap.
     content() is whatever goes under the title - a sentence, or a row with
-    something in it - and actions() the buttons under that.
+    something in it. actions() is the same thing with the gap and the space
+    above it already set, for the common case of a button or two.
 
         Alert().variant("danger").title("Payment failed").content("Try again later.")
     """
@@ -195,6 +202,7 @@ class Alert(ChainableComponent):
                 "flex items-start gap-3 border px-4 py-3 text-base",
                 "rounded-none border-x-0" if self.edge_to_edge else "rounded-md",
                 _VARIANTS[variant],
+                _GHOST_BUTTONS,
                 self._get_prop("class_"),
             ),
             **{

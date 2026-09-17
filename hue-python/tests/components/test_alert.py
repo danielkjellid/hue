@@ -158,3 +158,18 @@ class TestAlertTitleTone:
         assert "_button]:text-current" not in html
         # The solid one keeps the label its own variant gives it.
         assert_selector(html, '[data-variant="danger"].text-danger-fg')
+
+    @pytest.mark.asyncio
+    async def test_a_ghost_is_toned_wherever_it_is_put(self, context_args):
+        # On the actions row and in content() alike. Two slots that style
+        # their contents differently is a trap: the same button reads wrong in
+        # one of them with nothing on the page to say why.
+        html = await render_tree(
+            Alert()
+            .variant("danger")
+            .title("T")
+            .content(Button().variant("ghost").size("sm").content("In content")),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.\\[\\&_\\[data-variant\\=ghost\\]\\]\\:text-current")
+        assert_selector(html, '[data-variant="ghost"]')
