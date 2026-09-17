@@ -276,6 +276,8 @@
      step with the scrim on the way out. */
   --animate-dialog-in: hue-dialog-in 260ms var(--ease-out);
   --animate-sheet-in: hue-sheet-in 260ms var(--ease-out);
+  --animate-drawer-end: hue-drawer-end 260ms var(--ease-out);
+  --animate-drawer-start: hue-drawer-start 260ms var(--ease-out);
 
   @keyframes hue-spin {
     to {
@@ -302,6 +304,18 @@
   @keyframes hue-sheet-in {
     from {
       transform: translateY(100%);
+    }
+  }
+
+  @keyframes hue-drawer-end {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes hue-drawer-start {
+    from {
+      transform: translateX(-100%);
     }
   }
 

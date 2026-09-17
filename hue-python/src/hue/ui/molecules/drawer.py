@@ -12,38 +12,43 @@ from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
 
-type DialogSize = Literal["sm", "md", "lg"]
+type DrawerSide = Literal["end", "start", "bottom"]
+type DrawerSize = Literal["sm", "md", "lg"]
 
-# A width is something only the centred dialog has: below sm the panel is a
-# sheet the width of the screen. Capped against the viewport as well as set,
-# so it keeps a margin rather than running under the edges.
-_SIZES: dict[DialogSize, str] = {
-    "sm": "sm:w-[min(380px,calc(100vw-2rem))]",
-    "md": "sm:w-[min(480px,calc(100vw-2rem))]",
-    "lg": "sm:w-[min(640px,calc(100vw-2rem))]",
+# Which edge the panel is pinned to, from md up. Below that every drawer is
+# the bottom sheet the panel already is: a 420px panel on a 375px screen is a
+# dialog with a worse animation.
+_SIDES: dict[DrawerSide, str] = {
+    "end": "md:items-stretch md:justify-end",
+    "start": "md:items-stretch md:justify-start",
+    "bottom": "",
 }
 
-# On a phone a box floating in the middle of the screen is a worse drawer -
-# the thumb is at the bottom edge and the box is not. Below sm the panel is
-# the drawer's bottom sheet: docked to that edge, full width, its top corners
-# rounded and only its top edge drawn, coming up from the edge it sits on.
-_SHEET = (
-    "w-full max-h-[85vh] rounded-t-xl border-t animate-sheet-in "
-    "sm:max-h-[calc(100vh-4rem)] sm:rounded-xl sm:border sm:animate-dialog-in"
-)
+_PANELS: dict[DrawerSide, str] = {
+    "end": "md:h-full md:max-h-full md:rounded-none md:border-t-0 md:border-s "
+    "md:animate-drawer-end",
+    "start": "md:h-full md:max-h-full md:rounded-none md:border-t-0 md:border-e "
+    "md:animate-drawer-start",
+    "bottom": "",
+}
+
+# How wide a side drawer is. A bottom sheet is the width of the screen.
+_SIZES: dict[DrawerSize, str] = {
+    "sm": "md:w-[min(320px,100vw)]",
+    "md": "md:w-[min(420px,100vw)]",
+    "lg": "md:w-[min(560px,100vw)]",
+}
 
 
-class Dialog(ChainableComponent):
+class Drawer(ChainableComponent):
     """
-    A window over the page that has to be dealt with before anything else.
+    A dialog that slides in from an edge, for a list or a form long enough
+    that a centred box would be cramped.
 
-    trigger() opens it and open() starts it open. Focus is trapped inside
-    while it is up and returns to the trigger when it closes; the page behind
-    cannot be scrolled or tabbed into. destructive() makes it an alertdialog,
-    for a question whose wrong answer cannot be undone. Below sm it docks to
-    the bottom edge as a sheet.
-
-        Dialog().title("Delete project").trigger(Button().content("Delete"))
+    side() is logical - end and start land on the right edge and the left one
+    in a left-to-right page, and swap in a right-to-left one. Below md every
+    drawer is a bottom sheet. Focus is trapped inside while it is up and
+    returns to the trigger when it closes.
     """
 
     category = "Overlays"
@@ -52,12 +57,12 @@ class Dialog(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .title("Invite teammates")
-            .description("They will get an email with a join link.")
-            .trigger(Button().content("Invite"))
+            .title("Filters")
+            .description("3 filters applied, 148 of 2,481 records")
+            .trigger(Button().variant("outline").content("Open filters"))
             .footer(
-                Button().variant("ghost").content("Cancel"),
-                Button().content("Send invites"),
+                Button().variant("ghost").content("Reset all"),
+                Button().content("Show 148 records"),
             )
         )
 
@@ -69,7 +74,18 @@ class Dialog(ChainableComponent):
         self._props["description"] = value
         return self
 
-    def size(self, value: DialogSize) -> Self:
+    def side(self, value: DrawerSide) -> Self:
+        """
+        The edge it arrives from, from md up. Below that it is always the
+        bottom sheet, which is the native idiom on a phone.
+        """
+        self._props["side"] = value
+        return self
+
+    def size(self, value: DrawerSize) -> Self:
+        """
+        How wide a side drawer is. A bottom sheet is the width of the screen.
+        """
         self._props["size"] = value
         return self
 
@@ -77,7 +93,7 @@ class Dialog(ChainableComponent):
         """
         The control that opens it.
 
-        A hue component rather than any markup, because the dialog wires the
+        A hue component rather than any markup, because the drawer wires the
         click and the expanded state onto the control itself.
         """
         self._props["trigger"] = value
@@ -87,7 +103,7 @@ class Dialog(ChainableComponent):
         """
         The actions, on a tinted strip along the bottom.
 
-        They are the way out of a dialog that cannot be dismissed, so each
+        They are the way out of a drawer that cannot be dismissed, so each
         one needs something to do: x_on("click", "close()") closes it.
         """
         self._props["footer"] = values
@@ -97,62 +113,50 @@ class Dialog(ChainableComponent):
         """
         Whether it can be closed without answering.
 
-        Off also takes away the close button and the click-outside, for a
-        dialog that has to be resolved one way or the other. Escape still
-        works: a modal with no way out is a trap.
+        Off also takes away the close button and the click-outside. Escape
+        still works: a modal with no way out is a trap.
         """
         self._props["dismissible"] = value
         return self
 
-    def destructive(self, value: bool = True) -> Self:
-        """
-        Make it an alertdialog, for a question whose wrong answer cannot be
-        undone. The description is announced with the title rather than left
-        for the reader to find.
-        """
-        self._props["destructive"] = value
-        return self
-
     def open(self, value: bool = True) -> Self:
         """
-        Start it open, for a dialog the server decided to show.
+        Start it open, for a drawer the server decided to show.
         """
         self._props["open"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
-        size: DialogSize = self._get_prop("size", "md")
+        side: DrawerSide = self._get_prop("side", "end")
+        size: DrawerSize = self._get_prop("size", "md")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
         footer: tuple[ComponentType, ...] = self._get_prop("footer", ())
         trigger: ChainableComponent | None = self._get_prop("trigger")
         dismissible: bool = self._get_prop("dismissible", True)
-        destructive: bool = self._get_prop("destructive", False)
         starts_open: bool = self._get_prop("open", False)
 
         if trigger is not None:
             _overlay.open_on_click(trigger)
 
-        panel = html.div(
-            _overlay.grabber("sm:hidden"),
+        panel = html.aside(
+            # The grabber belongs to the sheet, so a side drawer loses it at
+            # the width where it stops being one.
+            _overlay.grabber("md:hidden" if side != "bottom" else ""),
             _overlay.header(title, description, dismissible=dismissible),
             _overlay.body(self._children),
             _overlay.footer(footer),
             class_=classnames(
-                "relative flex flex-col overflow-hidden",
-                "border-border bg-surface-raised shadow-overlay",
-                _SHEET,
-                _SIZES[size],
+                "relative flex w-full max-h-[85vh] flex-col overflow-hidden",
+                "rounded-t-xl border-t border-border bg-surface-raised",
+                "shadow-overlay animate-sheet-in",
+                _PANELS[side],
+                _SIZES[size] if side != "bottom" else "",
             ),
             **{
-                "role": "alertdialog" if destructive else "dialog",
+                "role": "dialog",
                 "aria_modal": "true",
                 ":aria-labelledby": _overlay.TITLE_ID if title is not None else None,
-                # Announced with the title only where the wrong answer cannot
-                # be undone; elsewhere it is read in order like any other text.
-                ":aria-describedby": (
-                    _overlay.DESCRIPTION_ID if destructive and description else None
-                ),
                 # inert takes the page behind out of the tab order, noscroll
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
@@ -164,10 +168,7 @@ class Dialog(ChainableComponent):
             render_if(trigger, lambda control: control),
             html.div(
                 panel,
-                class_=classnames(
-                    _overlay.SCRIM,
-                    "items-end justify-center sm:items-center sm:p-4",
-                ),
+                class_=classnames(_overlay.SCRIM, "items-end", _SIDES[side]),
                 **{
                     "x-show": "open",
                     "x-cloak": True,
