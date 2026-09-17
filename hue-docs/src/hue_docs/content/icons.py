@@ -114,7 +114,7 @@ def _build() -> ComponentType:
         Alert()
         .variant("warning")
         .title("Reading from disk? Build on directory_resolver")
-        .description(
+        .content(
             "If your custom resolver just reads .svg files from a folder, wrap "
             "directory_resolver rather than opening files yourself. A hand-rolled "
             "reader re-reads and re-parses on every render and raises whatever "

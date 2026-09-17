@@ -27,7 +27,7 @@ SHOWCASES: list[Showcase] = [
                     Banner()
                     .variant("info")
                     .title("Scheduled maintenance on Sunday")
-                    .description("The API is read-only between 02:00 and 04:00 UTC.")
+                    .content("The API is read-only between 02:00 and 04:00 UTC.")
                 )
                 """,
             ),

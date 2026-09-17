@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Alert
+from hue.ui import Alert, Button
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
@@ -9,7 +9,7 @@ class TestAlert:
     @pytest.mark.asyncio
     async def test_renders_a_title_and_description(self, context_args):
         html = await render_tree(
-            Alert().title("Payment failed").description("The card was declined."),
+            Alert().title("Payment failed").content("The card was declined."),
             context_args=context_args,
         )
         assert "Payment failed" in html
@@ -124,7 +124,7 @@ class TestAlertTitleTone:
         # Same weight and same colour made the two one block of text; the
         # title takes a deeper step of whatever tone it is inheriting.
         html = await render_tree(
-            Alert().variant("danger").title("T").description("D"),
+            Alert().variant("danger").title("T").content("D"),
             context_args=context_args,
         )
         assert_selector(html, "div.text-stronger")
@@ -137,3 +137,24 @@ class TestAlertTitleTone:
             Alert().variant("danger").title("T"), context_args=context_args
         )
         assert_selector(html, "span.mt-0\\.5.flex")
+
+    @pytest.mark.asyncio
+    async def test_only_the_quiet_buttons_take_the_alerts_tone(self, context_args):
+        # Applied to every button it repaints a solid one's label in the
+        # alert's tone as well - pale pink on a pink fill, which is the
+        # contrast failure the rule exists to prevent.
+        html = await render_tree(
+            Alert()
+            .variant("danger")
+            .title("T")
+            .actions(
+                Button().variant("danger").size("sm").content("Retry"),
+                Button().variant("ghost").size("sm").content("Later"),
+            ),
+            context_args=context_args,
+        )
+        # The & is escaped in the attribute, so match from past it.
+        assert "data-variant=ghost]]:text-current" in html
+        assert "_button]:text-current" not in html
+        # The solid one keeps the label its own variant gives it.
+        assert_selector(html, '[data-variant="danger"].text-danger-fg')

@@ -30,7 +30,7 @@ SHOWCASES: list[Showcase] = [
                     Alert()
                     .variant("danger")
                     .title("We could not charge your card")
-                    .description("The bank declined the payment. Nothing was lost.")
+                    .content("The bank declined the payment. Nothing was lost.")
                     .actions(
                         Button().variant("danger").size("sm").content("Try again"),
                         Button()
@@ -48,8 +48,28 @@ SHOWCASES: list[Showcase] = [
                     Alert()
                     .variant("success")
                     .title("Workspace created")
-                    .description("You can invite people from the members page.")
+                    .content("You can invite people from the members page.")
                     .dismissible()
+                )
+                """,
+            ),
+            variant(
+                "Anything under the title",
+                """
+                (
+                    Alert()
+                    .variant("warning")
+                    .title("Two invoices are overdue")
+                    .content(
+                        Stack()
+                        .direction("horizontal")
+                        .justify_content("justify-between")
+                        .align_items("items-center")
+                        .content(
+                            Text().variant("body").content("INV-2050 and INV-2051"),
+                            Button().variant("outline").size("sm").content("Pay both"),
+                        )
+                    )
                 )
                 """,
             ),

@@ -56,10 +56,23 @@ _ICONS: dict[AlertVariant, str] = {
 # patch on a coloured surface. Always black, in both themes: the label is dark
 # on light and light on dark, so darkening is the one direction that raises
 # contrast either way.
+#
+# Scoped to the ghosts. Applied to every button it repaints a solid one's
+# label in the alert's tone as well - pale pink on a pink fill, which is the
+# contrast failure the rule exists to prevent, caused by the rule.
+#
+# The state goes inside the selector rather than in front of it: a hover
+# stacked onto an arbitrary variant emits nothing at all, silently.
+# Written out rather than built from a shared prefix: Tailwind finds a class
+# by scanning source text, so one assembled from an f-string is one it never
+# sees - and emits nothing, with no error to say so.
 _ACTIONS = (
-    "mt-3 flex gap-2 [&_button]:text-current "
-    "[&_button:hover]:bg-black/6 [&_button:active]:bg-black/10 "
-    "dark:[&_button:hover]:bg-black/24 dark:[&_button:active]:bg-black/36"
+    "mt-3 flex flex-wrap items-center gap-2 "
+    "[&_[data-variant=ghost]]:text-current "
+    "[&_[data-variant=ghost]:hover]:bg-black/6 "
+    "[&_[data-variant=ghost]:active]:bg-black/10 "
+    "dark:[&_[data-variant=ghost]:hover]:bg-black/24 "
+    "dark:[&_[data-variant=ghost]:active]:bg-black/36"
 )
 
 
@@ -69,8 +82,10 @@ class Alert(ChainableComponent):
 
     variant() sets the tone, picks the icon, and decides how loudly it is
     announced when it arrives: danger interrupts, the rest wait for a gap.
+    content() is whatever goes under the title - a sentence, or a row with
+    something in it - and actions() the buttons under that.
 
-        Alert().variant("danger").title("Payment failed")
+        Alert().variant("danger").title("Payment failed").content("Try again later.")
     """
 
     category = "Feedback"
@@ -87,7 +102,7 @@ class Alert(ChainableComponent):
             cls()
             .variant("info")
             .title("Scheduled maintenance")
-            .description("The API is read-only on Sunday between 02:00 and 04:00 UTC.")
+            .content("The API is read-only on Sunday between 02:00 and 04:00 UTC.")
         )
 
     def variant(self, value: AlertVariant) -> Self:
@@ -96,10 +111,6 @@ class Alert(ChainableComponent):
 
     def title(self, value: str) -> Self:
         self._props["title"] = value
-        return self
-
-    def description(self, value: str) -> Self:
-        self._props["description"] = value
         return self
 
     def icon(self, value: ComponentType) -> Self:
@@ -123,7 +134,6 @@ class Alert(ChainableComponent):
     def _render(self, context: HueContext) -> Component:
         variant: AlertVariant = self._get_prop("variant", "neutral")
         title: str | None = self._get_prop("title")
-        description: str | None = self._get_prop("description")
         actions: tuple[ComponentType, ...] = self._get_prop("actions", ())
         dismissible: bool = self._get_prop("dismissible", False)
 
@@ -137,17 +147,16 @@ class Alert(ChainableComponent):
                     class_="font-ui text-base font-bold leading-[1.4] text-stronger",
                 ),
             ),
-            render_if(
-                description,
-                lambda text: html.div(
-                    text,
-                    class_=classnames(
-                        "max-w-[68ch] text-sm leading-[1.5]",
-                        # Neutral has no tone of its own to inherit.
-                        "text-fg-muted" if variant == "neutral" else None,
-                    ),
+            html.div(
+                *self._children,
+                class_=classnames(
+                    "max-w-[68ch] text-sm leading-[1.5]",
+                    # Neutral has no tone of its own to inherit.
+                    "text-fg-muted" if variant == "neutral" else None,
                 ),
-            ),
+            )
+            if self._children
+            else UNDEFINED,
             html.div(*actions, class_=_ACTIONS) if actions else UNDEFINED,
             class_="flex min-w-0 flex-1 flex-col gap-0.5",
         )
@@ -221,5 +230,5 @@ class Banner(Alert):
             cls()
             .variant("info")
             .title("Scheduled maintenance on Sunday")
-            .description("The API is read-only between 02:00 and 04:00 UTC.")
+            .content("The API is read-only between 02:00 and 04:00 UTC.")
         )
