@@ -171,9 +171,13 @@ class Alert(ChainableComponent):
                 lambda icon: html.span(
                     icon,
                     aria_hidden="true",
-                    # flex, or the svg sits on the text baseline of its span
-                    # and rides a few pixels above the title it belongs to.
-                    class_="mt-px flex flex-none [&_svg]:size-4",
+                    # 2px, which is neither what the arithmetic asks for nor
+                    # what the guide says. Centring the disc on the title's
+                    # cap band puts it at 1px, but a 16px disc beside a 10px
+                    # cap height reads heavy there; sitting it on the cap line
+                    # at 4px drops it too far. flex, or the svg aligns to the
+                    # text baseline of its own span and none of this applies.
+                    class_="mt-0.5 flex flex-none [&_svg]:size-4",
                 ),
             ),
             body,

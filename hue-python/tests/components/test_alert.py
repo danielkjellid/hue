@@ -136,4 +136,4 @@ class TestAlertTitleTone:
         html = await render_tree(
             Alert().variant("danger").title("T"), context_args=context_args
         )
-        assert_selector(html, "span.mt-px.flex")
+        assert_selector(html, "span.mt-0\\.5.flex")
