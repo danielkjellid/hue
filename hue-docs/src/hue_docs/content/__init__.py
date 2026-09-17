@@ -7,6 +7,7 @@ from hue_docs.content import (
     icons,
     installation,
     intro,
+    toasts,
     usage,
 )
 from hue_docs.models import ProsePage
@@ -18,6 +19,7 @@ PAGES: list[ProsePage] = [
     usage.PAGE,
     framework.PAGE,
     icons.PAGE,
+    toasts.PAGE,
     django_views.PAGE,
     django_css.PAGE,
 ]

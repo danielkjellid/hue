@@ -3,6 +3,7 @@ import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { registerThemeStore } from "./theme.js";
+import { registerToastMagic } from "./toast.js";
 
 // Make Alpine available globally
 window.Alpine = Alpine;
@@ -30,6 +31,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	});
 
 	registerThemeStore(Alpine, themeStorageKey);
+	registerToastMagic(Alpine);
 
 	Alpine.start();
 

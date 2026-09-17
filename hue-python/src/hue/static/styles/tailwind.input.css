@@ -290,6 +290,9 @@
   --animate-drawer-start-out: hue-drawer-start-out 180ms
     var(--default-transition-timing-function) forwards;
 
+  --animate-toast-in: hue-toast-in 260ms var(--ease-out);
+  --animate-toast-out: hue-toast-out 180ms var(--default-transition-timing-function) forwards;
+
   @keyframes hue-spin {
     to {
       transform: rotate(360deg);
@@ -352,6 +355,22 @@
   @keyframes hue-drawer-start-out {
     to {
       transform: translateX(-100%);
+    }
+  }
+
+  @keyframes hue-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
+  }
+
+  /* Out sideways rather than back down, so a toast leaving does not read as
+     the one below it arriving. */
+  @keyframes hue-toast-out {
+    to {
+      opacity: 0;
+      transform: translateX(16px);
     }
   }
 

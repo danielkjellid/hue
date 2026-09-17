@@ -24,7 +24,13 @@ from pygments import highlight as _highlight
 from pygments.filter import Filter
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import Lexer
-from pygments.lexers import BashLexer, CssLexer, HtmlLexer, PythonLexer
+from pygments.lexers import (
+    BashLexer,
+    CssLexer,
+    HtmlLexer,
+    JavascriptLexer,
+    PythonLexer,
+)
 from pygments.token import Name, Text, Token, _TokenType
 
 # A single token in Pygments' stream: its type and its text.
@@ -120,6 +126,7 @@ _LEXERS: dict[str, Lexer] = {
     "python": _python_lexer(),
     "bash": _bash_lexer(),
     "css": CssLexer(),
+    "javascript": JavascriptLexer(),
     "html": HtmlLexer(),
 }
 

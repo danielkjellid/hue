@@ -62,6 +62,7 @@ from hue.ui.molecules.table import (
     TableRow,
 )
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
+from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
 
 __all__ = [
@@ -123,6 +124,8 @@ __all__ = [
     "TextInput",
     "Textarea",
     "ThemeSwitcher",
+    "Toast",
+    "ToastRegion",
     "Tooltip",
     "create_icon_base",
     "directory_resolver",
