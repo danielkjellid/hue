@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component, ComponentType
+from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
     ChoiceVariant,
@@ -190,7 +190,7 @@ class RadioGroup(FieldControl):
                     text,
                     # A legend is the group's label, so it carries the same
                     # mark a field's label does when the answer is required.
-                    required_marker() if required else UNDEFINED,
+                    render_if(required or None, lambda _: required_marker()),
                     # The margin is the fieldset's own gap, written out: a
                     # legend is not a flex item of its fieldset, so the gap
                     # that spaces every other child never reaches it and the

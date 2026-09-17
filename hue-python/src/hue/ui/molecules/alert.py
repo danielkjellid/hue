@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import UNDEFINED, Component, ComponentType
+from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
@@ -154,17 +154,21 @@ class Alert(ChainableComponent):
                     class_="font-ui text-base font-bold leading-[1.4] text-stronger",
                 ),
             ),
-            html.div(
-                *self._children,
-                class_=classnames(
-                    "max-w-[68ch] text-sm leading-[1.5]",
-                    # Neutral has no tone of its own to inherit.
-                    "text-fg-muted" if variant == "neutral" else None,
+            render_if(
+                self._children or None,
+                lambda children: html.div(
+                    *children,
+                    class_=classnames(
+                        "max-w-[68ch] text-sm leading-[1.5]",
+                        # Neutral has no tone of its own to inherit.
+                        "text-fg-muted" if variant == "neutral" else None,
+                    ),
                 ),
-            )
-            if self._children
-            else UNDEFINED,
-            html.div(*actions, class_=_ACTIONS) if actions else UNDEFINED,
+            ),
+            render_if(
+                actions or None,
+                lambda buttons: html.div(*buttons, class_=_ACTIONS),
+            ),
             class_="flex min-w-0 flex-1 flex-col gap-0.5",
         )
 
@@ -197,7 +201,7 @@ class Alert(ChainableComponent):
                 ),
             ),
             body,
-            close if dismissible else UNDEFINED,
+            render_if(dismissible or None, lambda _: close),
             class_=classnames(
                 "flex items-start gap-3 border px-4 py-3 text-base",
                 "rounded-none border-x-0" if self.edge_to_edge else "rounded-md",
