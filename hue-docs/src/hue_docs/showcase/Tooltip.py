@@ -44,7 +44,7 @@ SHOWCASES: list[Showcase] = [
                 (
                     Tooltip()
                     .content("Search")
-                    .shortcut("⌘K")
+                    .shortcut(Kbd("mod", "K"))
                     .trigger(
                         Button()
                         .variant("ghost")

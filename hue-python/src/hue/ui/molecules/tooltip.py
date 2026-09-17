@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component
+from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
@@ -72,14 +72,11 @@ class Tooltip(ChainableComponent):
         self._props["placement"] = value
         return self
 
-    def shortcut(self, value: str) -> Self:
+    def shortcut(self, value: ComponentType) -> Self:
         """
-        The keystroke the trigger answers to, shown after the label.
-
-        A chip of its own rather than a Kbd: a Kbd is built to sit on the
-        page, and inside an inverted bubble it is a light key on a dark
-        ground with the contrast the wrong way round. This one is a veil of
-        the bubble's own text colour.
+        The keystroke the trigger answers to, shown after the label. Pass a
+        Kbd, which renders real kbd elements and gives each modifier a spoken
+        name - a glyph on its own is announced by its Unicode name.
         """
         self._props["shortcut"] = value
         return self
@@ -97,14 +94,7 @@ class Tooltip(ChainableComponent):
 
         bubble = html.div(
             *self._children,
-            render_if(
-                self._get_prop("shortcut"),
-                lambda keys: html.span(
-                    keys,
-                    class_="ms-1.5 rounded-[3px] bg-current/20 px-1 py-px "
-                    "font-mono text-[10px]",
-                ),
-            ),
+            render_if(self._get_prop("shortcut"), lambda keys: keys),
             # The arrow is drawn with borders on a zero-size box, which is the
             # one way to get a triangle without a second colour to keep in
             # step with the bubble.
