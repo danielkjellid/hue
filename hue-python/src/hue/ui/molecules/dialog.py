@@ -25,11 +25,13 @@ _SIZES: dict[DialogSize, str] = {
 }
 
 # On a phone a box floating in the middle of the screen is a worse drawer -
-# the thumb is at the bottom edge and the box is not. Below sm it docks to
-# that edge instead, full width, and slides up from it.
-_SHEET = "w-full max-h-[85vh] rounded-t-xl sm:max-h-[calc(100vh-4rem)] sm:rounded-xl"
-_CLOSED = "translate-y-full opacity-0 sm:translate-y-3 sm:scale-[0.975]"
-_OPENED = "translate-y-0 opacity-100 sm:scale-100"
+# the thumb is at the bottom edge and the box is not. Below sm the panel is
+# the drawer's bottom sheet: docked to that edge, full width, its top corners
+# rounded and only its top edge drawn, coming up from the edge it sits on.
+_SHEET = (
+    "w-full max-h-[85vh] rounded-t-xl border-t animate-sheet-in "
+    "sm:max-h-[calc(100vh-4rem)] sm:rounded-xl sm:border sm:animate-dialog-in"
+)
 
 
 class Dialog(ChainableComponent):
@@ -170,6 +172,11 @@ class Dialog(ChainableComponent):
         )
 
         panel = html.div(
+            html.div(
+                aria_hidden="true",
+                class_="mx-auto mt-3 mb-1 h-1 w-9 flex-none rounded-full "
+                "bg-border-strong sm:hidden",
+            ),
             # The header is there when there is anything to put in it.
             render_when(
                 bool(title or description or dismissible),
@@ -202,7 +209,7 @@ class Dialog(ChainableComponent):
             ),
             class_=classnames(
                 "relative flex flex-col overflow-hidden",
-                "border border-border bg-surface-raised shadow-overlay",
+                "border-border bg-surface-raised shadow-overlay",
                 _SHEET,
                 _SIZES[size],
             ),
@@ -219,15 +226,6 @@ class Dialog(ChainableComponent):
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
                 "x-trap.inert.noscroll": "open",
-                # The panel moves as well as fades: a sheet that appears
-                # where it ends up has not come from the edge.
-                "x-show": "open",
-                "x-transition:enter": "transition duration-200 ease-out",
-                "x-transition:enter-start": _CLOSED,
-                "x-transition:enter-end": _OPENED,
-                "x-transition:leave": "transition duration-150 ease-out",
-                "x-transition:leave-start": _OPENED,
-                "x-transition:leave-end": _CLOSED,
             },
         )
 

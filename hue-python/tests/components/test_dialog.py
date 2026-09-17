@@ -89,10 +89,12 @@ class TestDialog:
 
     @pytest.mark.asyncio
     async def test_it_docks_to_the_bottom_edge_below_sm(self, context_args):
-        # A box floating in the middle of a phone screen is a worse drawer.
+        # A box floating in the middle of a phone screen is a worse drawer, so
+        # below sm the panel is the drawer's bottom sheet, grabber and all.
         html = await render_tree(_dialog(), context_args=context_args)
         assert_selector(html, '[role="dialog"].rounded-t-xl.sm\\:rounded-xl')
         assert_selector(html, "div.items-end.sm\\:items-center")
+        assert_attr(html, '[role="dialog"] > div.sm\\:hidden', "aria-hidden", "true")
 
     @pytest.mark.asyncio
     async def test_the_body_scrolls_rather_than_pushing_the_footer_out(
