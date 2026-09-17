@@ -270,6 +270,13 @@
   --animate-shimmer: hue-shimmer 1.4s ease-in-out infinite;
   --animate-progress: hue-progress 1.3s cubic-bezier(0.2, 0, 0, 1) infinite;
 
+  /* Overlay entrances. A dialog lifts into place; a sheet comes up from the
+     edge it is docked to. Both are animations rather than transitions, so
+     they run whenever the overlay is shown and there is nothing to keep in
+     step with the scrim on the way out. */
+  --animate-dialog-in: hue-dialog-in 260ms var(--ease-out);
+  --animate-sheet-in: hue-sheet-in 260ms var(--ease-out);
+
   @keyframes hue-spin {
     to {
       transform: rotate(360deg);
@@ -282,6 +289,19 @@
     }
     to {
       background-position: -200% 0;
+    }
+  }
+
+  @keyframes hue-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.975);
+    }
+  }
+
+  @keyframes hue-sheet-in {
+    from {
+      transform: translateY(100%);
     }
   }
 

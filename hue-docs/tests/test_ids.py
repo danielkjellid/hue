@@ -57,18 +57,24 @@ def test_no_id_appears_twice(doc: ComponentDoc) -> None:
 
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda doc: doc.name)
-def test_every_playground_block_can_be_put_back(doc: ComponentDoc) -> None:
+def test_only_one_playground_combination_is_ever_live(doc: ComponentDoc) -> None:
     """
-    A combination is rendered once and then only hidden and shown, so whatever
-    the reader does to one of them sticks. For the indeterminate checkbox that
-    is unrecoverable on its own: clicking it clears a DOM property nothing
-    re-applies, so the state could be seen exactly once per page load.
+    Hidden is not the same as absent.
+
+    Every combination used to be rendered and then merely hidden, so all of
+    them were live at once: twelve pre-rendered dialogs each said open: true,
+    fired a focus trap at load and left the page unable to scroll. A template
+    is inert until Alpine clones it, so the page holds exactly the one that is
+    selected.
     """
     html = _page_html(doc)
+    templates = len(re.findall(r"<template x-if=", html))
     shown = len(re.findall(r'x-show="sel\.', html))
-    restored = html.count("_initial?.forEach")
 
-    assert restored == shown, (
-        f"the {doc.name} page has {shown} playground combinations but "
-        f"{restored} that restore themselves when selected again."
+    assert shown == 0, (
+        f"the {doc.name} playground renders {shown} combinations live and only "
+        f"hides them. They have to be templates, or everything a combination "
+        f"does on init happens for all of them at once."
     )
+    if templates:
+        assert templates > 1
