@@ -25,11 +25,14 @@ import re
 
 import pytest
 from bs4 import BeautifulSoup
+from hue.assets import css_source_path
 
 from hue_docs.discovery import discover
 from hue_docs.registry import auto_showcases, example_instance
 from hue_docs.render import render_html_sync
 from hue_docs.showcase import curated_showcases
+
+SOURCE = css_source_path().parent
 
 
 def _css_escape(token: str) -> str:
@@ -69,4 +72,25 @@ def test_every_rendered_class_exists_in_the_stylesheet(doc, built_css):
         f"{doc.name} renders classes that are not in hue's tailwind.css: "
         f"{', '.join(undefined)}. Either they are mistyped, or the stylesheet "
         f"needs rebuilding (make build-css in hue-python)."
+    )
+
+
+def test_no_token_is_referenced_without_being_defined() -> None:
+    """
+    A var() pointing at nothing renders nothing, and says nothing about it.
+
+    The declaration is simply dropped: a square corner where a round one was
+    meant, a transparent fill, a missing shadow. Nothing in either suite would
+    notice, because the class is present and the stylesheet is valid - which
+    is how --radius-full went missing from the slider's track.
+    """
+    source = (SOURCE / "tailwind.input.css").read_text()
+    defined = set(re.findall(r"^\s*(--[\w-]+)\s*:", source, re.M))
+    used = set(re.findall(r"var\((--[\w-]+)", source))
+    # Tailwind supplies its own --tw-* internals.
+    missing = sorted(t for t in used - defined if not t.startswith("--tw-"))
+
+    assert not missing, (
+        f"hue's stylesheet reads {', '.join(missing)} without defining them. "
+        f"A var() with nothing behind it drops the whole declaration."
     )
