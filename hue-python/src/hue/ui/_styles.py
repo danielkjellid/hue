@@ -22,6 +22,14 @@ FOCUS_RING = (
 )
 
 
+#: The same ring for a control that sits flush inside a padded panel - a menu
+#: item, and later a listbox option. Inset, because the offset ring is drawn
+#: outside the item, where it lands on the panel's padding and past its edge.
+FOCUS_RING_INSET = (
+    "outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-accent"
+)
+
+
 type ControlSize = Literal["sm", "md", "lg"]
 
 #: Height, inline padding, type size and the flat leading that keeps a
