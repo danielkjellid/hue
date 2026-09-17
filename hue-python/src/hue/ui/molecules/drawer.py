@@ -28,9 +28,11 @@ _SIDES: dict[DrawerSide, str] = {
 # the screen are not, since there is nothing behind them to round away from.
 _PANELS: dict[DrawerSide, str] = {
     "end": "md:h-full md:max-h-full md:rounded-s-xl md:rounded-e-none "
-    "md:border-t-0 md:border-s md:animate-drawer-end",
+    "md:border-t-0 md:border-s md:animate-drawer-end "
+    "md:group-[.leaving]:animate-drawer-end-out",
     "start": "md:h-full md:max-h-full md:rounded-e-xl md:rounded-s-none "
-    "md:border-t-0 md:border-e md:animate-drawer-start",
+    "md:border-t-0 md:border-e md:animate-drawer-start "
+    "md:group-[.leaving]:animate-drawer-start-out",
     "bottom": "",
 }
 
@@ -152,6 +154,7 @@ class Drawer(ChainableComponent):
                 "relative flex w-full max-h-[85vh] flex-col overflow-hidden",
                 "rounded-t-xl border-t border-border bg-surface-raised",
                 "shadow-overlay animate-sheet-in",
+                "group-[.leaving]:animate-sheet-out",
                 _PANELS[side],
                 _SIZES[size] if side != "bottom" else "",
             ),
@@ -174,7 +177,12 @@ class Drawer(ChainableComponent):
                 **{
                     "x-show": "open",
                     "x-cloak": True,
-                    "x-transition.opacity": "",
+                    "x-transition:enter": "transition-opacity duration-[180ms]",
+                    "x-transition:enter-start": "opacity-0",
+                    # The panel's own way out runs while this class is on,
+                    # which is the only thing timing the pair.
+                    "x-transition:leave": _overlay.LEAVING,
+                    "x-transition:leave-end": "opacity-0",
                     **({"x-on:click.self": "close()"} if dismissible else {}),
                 },
             ),

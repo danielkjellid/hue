@@ -278,6 +278,17 @@
   --animate-sheet-in: hue-sheet-in 260ms var(--ease-out);
   --animate-drawer-end: hue-drawer-end 260ms var(--ease-out);
   --animate-drawer-start: hue-drawer-start 260ms var(--ease-out);
+  /* And out again, the same move reversed and a little quicker - leaving is
+     not news. 180ms is what the scrim's fade is given, so the two end
+     together. */
+  --animate-dialog-out: hue-dialog-out 180ms var(--default-transition-timing-function)
+    forwards;
+  --animate-sheet-out: hue-sheet-out 180ms var(--default-transition-timing-function)
+    forwards;
+  --animate-drawer-end-out: hue-drawer-end-out 180ms
+    var(--default-transition-timing-function) forwards;
+  --animate-drawer-start-out: hue-drawer-start-out 180ms
+    var(--default-transition-timing-function) forwards;
 
   @keyframes hue-spin {
     to {
@@ -315,6 +326,31 @@
 
   @keyframes hue-drawer-start {
     from {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes hue-dialog-out {
+    to {
+      opacity: 0;
+      transform: translateY(12px) scale(0.975);
+    }
+  }
+
+  @keyframes hue-sheet-out {
+    to {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes hue-drawer-end-out {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes hue-drawer-start-out {
+    to {
       transform: translateX(-100%);
     }
   }

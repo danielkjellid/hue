@@ -23,7 +23,16 @@ DESCRIPTION_ID = "$id('hue-overlay-description')"
 OVERLAY_IDS = "['hue-overlay-title', 'hue-overlay-description']"
 
 #: The dimmed, blurred page behind an open overlay.
-SCRIM = "fixed inset-0 z-80 flex bg-scrim backdrop-blur-[2px]"
+#:
+#: group, so the panel inside can answer the one class Alpine puts here while
+#: the overlay is leaving. One x-show and one timer for the pair: the panel
+#: had its own once, and two animations deciding separately when they were
+#: done is what a closing overlay flickering looks like.
+SCRIM = "group fixed inset-0 z-80 flex bg-scrim backdrop-blur-[2px]"
+
+#: What Alpine applies for the length of the leave, and the mirror of the
+#: 180ms the exit animations run for.
+LEAVING = "leaving transition-opacity duration-[180ms]"
 
 
 def overlay_state(starts_open: bool) -> str:

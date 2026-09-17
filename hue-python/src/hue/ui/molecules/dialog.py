@@ -28,8 +28,10 @@ _SIZES: dict[DialogSize, str] = {
 # the drawer's bottom sheet: docked to that edge, full width, its top corners
 # rounded and only its top edge drawn, coming up from the edge it sits on.
 _SHEET = (
-    "w-full max-h-[85vh] rounded-t-xl border-t animate-sheet-in "
-    "sm:max-h-[calc(100vh-4rem)] sm:rounded-xl sm:border sm:animate-dialog-in"
+    "w-full max-h-[85vh] rounded-t-xl border-t "
+    "animate-sheet-in group-[.leaving]:animate-sheet-out "
+    "sm:max-h-[calc(100vh-4rem)] sm:rounded-xl sm:border "
+    "sm:animate-dialog-in sm:group-[.leaving]:animate-dialog-out"
 )
 
 
@@ -171,7 +173,12 @@ class Dialog(ChainableComponent):
                 **{
                     "x-show": "open",
                     "x-cloak": True,
-                    "x-transition.opacity": "",
+                    "x-transition:enter": "transition-opacity duration-[180ms]",
+                    "x-transition:enter-start": "opacity-0",
+                    # The panel's own way out runs while this class is on,
+                    # which is the only thing timing the pair.
+                    "x-transition:leave": _overlay.LEAVING,
+                    "x-transition:leave-end": "opacity-0",
                     **({"x-on:click.self": "close()"} if dismissible else {}),
                 },
             ),
