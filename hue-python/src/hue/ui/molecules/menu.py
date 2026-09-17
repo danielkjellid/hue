@@ -224,6 +224,12 @@ class MenuItem(ChainableComponent):
 
         attrs: dict[str, object] = {
             "role": "menuitemcheckbox" if checkable else "menuitem",
+            # Hovering moves focus, so the pointer and the arrow keys share
+            # one active item instead of lighting two rows at once. The ring
+            # is focus-visible, so it stays out of the way until the keyboard
+            # asks for it. preventScroll, because a menu that jumps under the
+            # pointer is a menu you cannot aim at.
+            "x-on:mouseenter": "$el.focus({ preventScroll: true })",
             "aria_disabled": "true" if disabled else None,
             "class_": classnames(
                 _ITEM,

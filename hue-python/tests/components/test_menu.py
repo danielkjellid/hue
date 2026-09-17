@@ -64,6 +64,18 @@ class TestDropdownMenu:
 
 class TestMenuItem:
     @pytest.mark.asyncio
+    async def test_hovering_moves_focus_so_one_item_is_active(self, context_args):
+        # Otherwise the ring sits on the item the keyboard left and the
+        # highlight on the one the pointer is over, and two rows look active.
+        html = await render_tree(_menu(), context_args=context_args)
+        assert_attr(
+            html,
+            '[role="menuitem"]',
+            "x-on:mouseenter",
+            "$el.focus({ preventScroll: true })",
+        )
+
+    @pytest.mark.asyncio
     async def test_picking_one_closes_the_menu(self, context_args):
         html = await render_tree(_menu(), context_args=context_args)
         assert_attr(html, '[role="menuitem"]', "x-on:click", "close()")
