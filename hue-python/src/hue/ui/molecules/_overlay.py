@@ -136,7 +136,11 @@ def footer(items: tuple[ComponentType, ...]) -> ComponentType:
         bool(items),
         html.div(
             *items,
-            class_="flex items-center justify-end gap-2 border-t border-border "
-            "bg-surface-sunken px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+            # mt-auto, because the strip belongs to the bottom edge of the
+            # panel rather than to whatever is above it - a drawer with no
+            # body at all still has its actions where the thumb expects them.
+            class_="mt-auto flex items-center justify-end gap-2 border-t "
+            "border-border bg-surface-sunken px-5 pt-4 "
+            "pb-[max(1rem,env(safe-area-inset-bottom))]",
         ),
     )

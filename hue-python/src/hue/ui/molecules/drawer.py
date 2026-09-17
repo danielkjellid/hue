@@ -24,11 +24,13 @@ _SIDES: dict[DrawerSide, str] = {
     "bottom": "",
 }
 
+# The corners that face the page are rounded; the ones against the edge of
+# the screen are not, since there is nothing behind them to round away from.
 _PANELS: dict[DrawerSide, str] = {
-    "end": "md:h-full md:max-h-full md:rounded-none md:border-t-0 md:border-s "
-    "md:animate-drawer-end",
-    "start": "md:h-full md:max-h-full md:rounded-none md:border-t-0 md:border-e "
-    "md:animate-drawer-start",
+    "end": "md:h-full md:max-h-full md:rounded-s-xl md:rounded-e-none "
+    "md:border-t-0 md:border-s md:animate-drawer-end",
+    "start": "md:h-full md:max-h-full md:rounded-e-xl md:rounded-s-none "
+    "md:border-t-0 md:border-e md:animate-drawer-start",
     "bottom": "",
 }
 

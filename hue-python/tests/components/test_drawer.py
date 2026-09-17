@@ -42,6 +42,20 @@ class TestDrawer:
         assert_selector(html, "div.md\\:justify-end")
 
     @pytest.mark.asyncio
+    async def test_the_footer_belongs_to_the_bottom_edge(self, context_args):
+        # Not to whatever is above it: a drawer with no body at all still has
+        # its actions where the thumb expects them.
+        html = await render_tree(_drawer().footer("ok"), context_args=context_args)
+        assert_selector(html, "aside > div.mt-auto")
+
+    @pytest.mark.asyncio
+    async def test_the_page_facing_corners_are_rounded(self, context_args):
+        # The edge against the screen has nothing behind it to round away
+        # from; the corners over the page do.
+        html = await render_tree(_drawer(), context_args=context_args)
+        assert_selector(html, "aside.md\\:rounded-s-xl.md\\:rounded-e-none")
+
+    @pytest.mark.asyncio
     async def test_the_other_edge_arrives_from_the_other_side(self, context_args):
         html = await render_tree(_drawer().side("start"), context_args=context_args)
         assert_selector(html, "aside.md\\:animate-drawer-start")
