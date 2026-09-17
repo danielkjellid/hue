@@ -13,8 +13,33 @@ def render_if[T: object](
 
     fallback renders to nothing by default, which makes this the idiom for
     optional children: render_if(title, lambda t: html.h2(t)).
+
+    For a flag rather than a value - dismissible, show_value, required - reach
+    for render_when instead. This one tests against None, so a False would
+    render; writing `flag or None` around it works but says nothing, and the
+    lambda then takes an argument it has no use for.
     """
     return component_factory(value) if value is not None else fallback
+
+
+def render_when(
+    condition: bool,
+    component: ComponentType,
+    fallback: ComponentType = UNDEFINED,
+) -> ComponentType:
+    """
+    Render component when condition is true, otherwise fallback.
+
+    The flag half of render_if, and it takes the component rather than a
+    factory: there is no value to hand along, so a callback would only be a
+    lambda of no arguments at every call site. The component is built either
+    way, which is an element and not a render - the cost of the one that turns
+    out not to be used is an object nobody walks.
+
+    Also the way to render an optional collection, whose emptiness is a
+    condition rather than a value: render_when(bool(actions), html.div(*actions)).
+    """
+    return component if condition else fallback
 
 
 def classnames(*args: str | list[str] | dict[str, bool] | None) -> str:

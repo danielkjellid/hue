@@ -6,7 +6,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.form import FieldControl
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_when
 
 # The readout. A fixed minimum width and tabular figures, so the row does not
 # shift as the number under the thumb changes width.
@@ -118,11 +118,9 @@ class Slider(FieldControl):
         field = self._field(
             html.div(
                 track,
-                render_if(
-                    ticks or None,
-                    lambda labels: html.div(
-                        *(html.span(tick) for tick in labels), class_=_TICKS
-                    ),
+                render_when(
+                    bool(ticks),
+                    html.div(*(html.span(tick) for tick in ticks), class_=_TICKS),
                 ),
                 class_="flex flex-col",
             )

@@ -18,7 +18,7 @@ from hue.ui.atoms.text import required_marker
 from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
 from hue.ui.molecules.field import error_component, hint_component
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 # The dot is drawn by the box itself, because a native input takes no children.
 _DOT = (
@@ -190,7 +190,7 @@ class RadioGroup(FieldControl):
                     text,
                     # A legend is the group's label, so it carries the same
                     # mark a field's label does when the answer is required.
-                    render_if(required or None, lambda _: required_marker()),
+                    render_when(required, required_marker()),
                     # The margin is the fieldset's own gap, written out: a
                     # legend is not a flex item of its fieldset, so the gap
                     # that spaces every other child never reaches it and the

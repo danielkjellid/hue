@@ -9,7 +9,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type ProgressVariant = Literal["accent", "success", "warning", "danger"]
 type ProgressSize = Literal["sm", "md", "lg"]
@@ -230,9 +230,9 @@ class ProgressRing(ChainableComponent):
         # hidden from assistive tech because the svg above already says it.
         return html.span(
             ring,
-            render_if(
-                show_value or None,
-                lambda _: html.span(
+            render_when(
+                show_value,
+                html.span(
                     f"{value:g}%",
                     class_=classnames(
                         "absolute inset-0 flex items-center justify-center",

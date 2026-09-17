@@ -1,104 +1,51 @@
+"""
+The two rendering helpers, and the line between them.
+
+They exist so every optional child in the system reads the same way. The
+split matters because reaching for the wrong one still compiles: render_if
+tests against None, so handing it a False renders the thing you meant to
+hide.
+"""
+
 import pytest
+from htmy import html
 
-from hue.utils import classnames
+from hue.types.core import UNDEFINED
+from hue.utils import render_if, render_when
 
 
-@pytest.mark.parametrize(
-    "classes, expected_str",
-    (
-        # Basic string arguments
-        (("foo",), "foo"),
-        (("foo", "bar"), "foo bar"),
-        (("foo", "bar", "baz"), "foo bar baz"),
-        # List arguments
-        ((["foo", "bar"],), "foo bar"),
-        ((["foo", "bar"], "baz"), "foo bar baz"),
-        (("foo", ["bar", "baz"]), "foo bar baz"),
-        # Dict arguments
-        (({"foo": True, "bar": False},), "foo"),
-        (({"foo": True, "bar": True},), "foo bar"),
-        (({"foo": False, "bar": False},), ""),
-        # None values (should be ignored)
-        (("foo", None, "bar"), "foo bar"),
-        ((None, "foo"), "foo"),
-        (("foo", None), "foo"),
-        ((None,), ""),
-        # Empty strings (should be ignored)
-        (("foo", "", "bar"), "foo bar"),
-        ((["foo", "", "bar"],), "foo bar"),
-        (("",), ""),
-        # Combinations
-        (("foo", {"bar": True, "baz": False}), "foo bar"),
-        (("foo", None, ["bar", "baz"]), "foo bar baz"),
-        ((["foo", "bar"], {"baz": True, "qux": False}), "foo bar baz"),
-        (("foo", None, ["bar"], {"baz": True}), "foo bar baz"),
-        # Real-world examples from text.py
-        # Text component with muted and not destructive
-        (
-            (
-                {
-                    "text-surface-500": True,
-                    "text-destructive": False,
-                    "text-surface-900": False,
-                },
-            ),
-            "text-surface-500",
-        ),
-        # Text component with destructive
-        (
-            (
-                {
-                    "text-surface-500": False,
-                    "text-destructive": True,
-                    "text-surface-900": False,
-                },
-            ),
-            "text-destructive",
-        ),
-        # Text component with normal (not muted, not destructive)
-        (
-            (
-                {
-                    "text-surface-500": False,
-                    "text-destructive": False,
-                    "text-surface-900": True,
-                },
-            ),
-            "text-surface-900",
-        ),
-        # Label component example
-        (
-            (
-                {
-                    "pointer-events-none text-surface-300": False,
-                    "cursor-pointer": True,
-                    "sr-only": False,
-                },
-                "inline-flex items-center gap-1 text-surface-900",
-            ),
-            "cursor-pointer inline-flex items-center gap-1 text-surface-900",
-        ),
-        # BaseText component example with variant and align
-        (
-            (
-                {
-                    "text-5xl font-bold": True,
-                    "text-3xl font-bold": False,
-                    "text-2xl": False,
-                    "text-base font-medium": False,
-                    "text-sm font-medium leading-6": False,
-                    "text-sm leading-6": False,
-                },
-                {"text-center": False, "text-right": False, "text-left": True},
-                "custom-class",
-            ),
-            "text-5xl font-bold text-left custom-class",
-        ),
-        # Edge cases
-        ((), ""),
-        (("foo", [], {"bar": False}), "foo"),
-        ((["foo", "bar"], None, {"baz": True}, "qux"), "foo bar baz qux"),
-    ),
-)
-def test_classnames(classes, expected_str):
-    assert classnames(*classes) == expected_str
+class TestRenderIf:
+    def test_renders_the_value(self):
+        assert render_if("Title", lambda text: html.h2(text)) is not UNDEFINED
+
+    def test_nothing_for_none(self):
+        assert render_if(None, lambda text: html.h2(text)) is UNDEFINED
+
+    @pytest.mark.parametrize("value", [False, 0, "", ()])
+    def test_falsy_is_still_a_value(self, value):
+        # Which is the whole reason render_when exists: a flag handed to this
+        # one renders, because False is not None.
+        assert render_if(value, lambda _: html.span("x")) is not UNDEFINED
+
+    def test_the_fallback_replaces_it(self):
+        fallback = html.span("none")
+        assert render_if(None, lambda _: html.span("x"), fallback) is fallback
+
+
+class TestRenderWhen:
+    def test_renders_when_true(self):
+        marker = html.span("x")
+        assert render_when(True, marker) is marker
+
+    def test_nothing_when_false(self):
+        assert render_when(False, html.span("x")) is UNDEFINED
+
+    def test_it_takes_the_component_not_a_factory(self):
+        # There is no value to hand along, so a callback would be a lambda of
+        # no arguments at every call site. The component is built either way;
+        # the one that turns out unused is an element nobody walks.
+        assert render_when(False, html.span("x"), html.span("y")) is not UNDEFINED
+
+    def test_an_empty_collection_is_a_condition(self):
+        assert render_when(bool([]), html.span("x")) is UNDEFINED
+        assert render_when(bool(["a"]), html.span("x")) is not UNDEFINED

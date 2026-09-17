@@ -8,7 +8,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
-from hue.utils import classes_if_else, classnames, render_if
+from hue.utils import classes_if_else, classnames, render_when
 
 type TextTag = (
     html.p
@@ -182,7 +182,7 @@ class Label(ChainableComponent):
 
         return html.label(
             html.span(self._text),
-            render_if(required or None, lambda _: required_marker()),
+            render_when(required, required_marker()),
             class_=classes,
             for_=self._get_prop("html_for"),
             **self._get_base_html_attrs(),

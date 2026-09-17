@@ -10,7 +10,7 @@ from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type AlertVariant = Literal["neutral", "info", "success", "warning", "danger"]
 
@@ -154,10 +154,10 @@ class Alert(ChainableComponent):
                     class_="font-ui text-base font-bold leading-[1.4] text-stronger",
                 ),
             ),
-            render_if(
-                self._children or None,
-                lambda children: html.div(
-                    *children,
+            render_when(
+                bool(self._children),
+                html.div(
+                    *self._children,
                     class_=classnames(
                         "max-w-[68ch] text-sm leading-[1.5]",
                         # Neutral has no tone of its own to inherit.
@@ -165,10 +165,7 @@ class Alert(ChainableComponent):
                     ),
                 ),
             ),
-            render_if(
-                actions or None,
-                lambda buttons: html.div(*buttons, class_=_ACTIONS),
-            ),
+            render_when(bool(actions), html.div(*actions, class_=_ACTIONS)),
             class_="flex min-w-0 flex-1 flex-col gap-0.5",
         )
 
@@ -201,7 +198,7 @@ class Alert(ChainableComponent):
                 ),
             ),
             body,
-            render_if(dismissible or None, lambda _: close),
+            render_when(dismissible, close),
             class_=classnames(
                 "flex items-start gap-3 border px-4 py-3 text-base",
                 "rounded-none border-x-0" if self.edge_to_edge else "rounded-md",
