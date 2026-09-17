@@ -116,3 +116,24 @@ class TestAlert:
     async def test_no_actions_by_default(self, context_args):
         html = await render_tree(Alert().title("T"), context_args=context_args)
         assert_no_selector(html, "div.mt-3")
+
+
+class TestAlertTitleTone:
+    @pytest.mark.asyncio
+    async def test_the_title_is_a_step_louder_than_the_description(self, context_args):
+        # Same weight and same colour made the two one block of text; the
+        # title takes a deeper step of whatever tone it is inheriting.
+        html = await render_tree(
+            Alert().variant("danger").title("T").description("D"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.text-stronger")
+
+    @pytest.mark.asyncio
+    async def test_the_icon_is_not_baseline_aligned(self, context_args):
+        # An svg inside a non-flex span sits on the text baseline and rides
+        # above the title it belongs to.
+        html = await render_tree(
+            Alert().variant("danger").title("T"), context_args=context_args
+        )
+        assert_selector(html, "span.mt-px.flex")

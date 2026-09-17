@@ -27,6 +27,11 @@
    ========================================================================== */
 
 :root {
+  /* Which way "stronger" goes. Mixing towards black raises contrast on a
+     light ground; in dark mode the same move is towards white, because there
+     a deeper colour is a lighter one. Read only by text-stronger. */
+  --hue-shade: #000;
+
   --hue-gray-50: #F7F7F8;
   --hue-gray-100: #EBEBEF;
   --hue-gray-200: #D1D1DB;
@@ -291,6 +296,8 @@
    ========================================================================== */
 
 [data-theme="dark"] {
+  --hue-shade: #fff;
+
   --color-canvas: #121217;
   --color-canvas-subtle: #0D0D11;
   --color-surface: #1A1A21;
@@ -587,6 +594,14 @@
     cursor: not-allowed;
     opacity: 0.45;
   }
+}
+
+/* One step louder than whatever colour is being inherited. An alert's title
+   against its own description, without a second token per variant and
+   without the title having to know which variant it is in. currentColor in a
+   color declaration resolves to the inherited value, which is the tone. */
+@utility text-stronger {
+  color: color-mix(in oklab, currentColor 78%, var(--hue-shade));
 }
 
 @utility checkmark {

@@ -131,7 +131,10 @@ class Alert(ChainableComponent):
             render_if(
                 title,
                 lambda text: html.div(
-                    text, class_="font-ui text-base font-bold leading-[1.4]"
+                    text,
+                    # A step louder than the description below it, so the two
+                    # are not one block of the same colour.
+                    class_="font-ui text-base font-bold leading-[1.4] text-stronger",
                 ),
             ),
             render_if(
@@ -166,7 +169,11 @@ class Alert(ChainableComponent):
             render_if(
                 self._get_prop("icon", HueIcon(_ICONS[variant])),
                 lambda icon: html.span(
-                    icon, aria_hidden="true", class_="mt-px flex-none [&_svg]:size-4"
+                    icon,
+                    aria_hidden="true",
+                    # flex, or the svg sits on the text baseline of its span
+                    # and rides a few pixels above the title it belongs to.
+                    class_="mt-px flex flex-none [&_svg]:size-4",
                 ),
             ),
             body,

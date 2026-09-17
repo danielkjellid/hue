@@ -39,7 +39,7 @@ SHOWCASES: list[Showcase] = [
                     .variant("warning")
                     .title("Your trial ends on Friday")
                     .actions(
-                        Button().variant("ghost").size("sm").content("Add billing")
+                        Button().variant("outline").size("sm").content("Add billing")
                     )
                     .dismissible()
                 )

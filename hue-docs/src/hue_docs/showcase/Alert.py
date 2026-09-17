@@ -18,7 +18,9 @@ SHOWCASES: list[Showcase] = [
             'the screen reader with role="alert", the rest wait for a gap '
             'with role="status". Nothing is announced twice - a live region '
             "that exists with its content already in it is never announced, "
-            "so one rendered with the page is simply read in order."
+            "so one rendered with the page is simply read in order. Actions "
+            "pair one solid or outline button with a ghost: two ghosts side "
+            "by side read as floating text rather than as things to press."
         ),
         variants=[
             variant(
@@ -30,7 +32,7 @@ SHOWCASES: list[Showcase] = [
                     .title("We could not charge your card")
                     .description("The bank declined the payment. Nothing was lost.")
                     .actions(
-                        Button().variant("ghost").size("sm").content("Try again"),
+                        Button().variant("danger").size("sm").content("Try again"),
                         Button()
                         .variant("ghost")
                         .size("sm")
