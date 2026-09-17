@@ -106,6 +106,14 @@
   --color-surface-hover: var(--hue-gray-50);
   --color-surface-active: var(--hue-gray-100);
   --color-surface-sunken: var(--hue-gray-50);
+  /* A tooltip is the page inverted - dark bubble, light text. Inverting a
+     dark page gives a white card floating on it, which reads as a popover
+     rather than a label, so in dark mode the bubble lifts off the surface
+     instead. Tokens rather than a dark: variant, because the difference is
+     in what the two themes mean by "a bubble over the page". */
+  --color-surface-inverse: var(--color-fg);
+  --color-surface-inverse-fg: var(--color-canvas);
+
   --color-scrim: rgb(18 18 23 / 0.45);
 
   /* ----------------------------------------------------------- foreground */
@@ -297,6 +305,9 @@
 
 [data-theme="dark"] {
   --hue-shade: #fff;
+
+  --color-surface-inverse: #2A2A35;
+  --color-surface-inverse-fg: var(--color-fg);
 
   --color-canvas: #121217;
   --color-canvas-subtle: #0D0D11;

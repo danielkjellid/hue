@@ -6,7 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component, ComponentType
+from hue.types.core import Component
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
@@ -24,10 +24,10 @@ _PLACEMENTS: dict[TooltipPlacement, str] = {
 }
 
 _ARROWS: dict[TooltipPlacement, str] = {
-    "top": "top-full left-1/2 -ms-[5px] border-t-fg border-b-0",
-    "bottom": "bottom-full left-1/2 -ms-[5px] border-b-fg border-t-0",
-    "start": "left-full top-1/2 -mt-[5px] border-s-fg border-e-0",
-    "end": "right-full top-1/2 -mt-[5px] border-e-fg border-s-0",
+    "top": "top-full left-1/2 -ms-[5px] border-t-surface-inverse border-b-0",
+    "bottom": "bottom-full left-1/2 -ms-[5px] border-b-surface-inverse border-t-0",
+    "start": "left-full top-1/2 -mt-[5px] border-s-surface-inverse border-e-0",
+    "end": "right-full top-1/2 -mt-[5px] border-e-surface-inverse border-s-0",
 }
 
 # ~400ms to open so a pointer crossing the toolbar does not trail bubbles,
@@ -72,9 +72,14 @@ class Tooltip(ChainableComponent):
         self._props["placement"] = value
         return self
 
-    def shortcut(self, value: ComponentType) -> Self:
+    def shortcut(self, value: str) -> Self:
         """
-        A key hint shown after the label, such as a Kbd.
+        The keystroke the trigger answers to, shown after the label.
+
+        A chip of its own rather than a Kbd: a Kbd is built to sit on the
+        page, and inside an inverted bubble it is a light key on a dark
+        ground with the contrast the wrong way round. This one is a veil of
+        the bubble's own text colour.
         """
         self._props["shortcut"] = value
         return self
@@ -92,7 +97,14 @@ class Tooltip(ChainableComponent):
 
         bubble = html.div(
             *self._children,
-            render_if(self._get_prop("shortcut"), lambda hint: hint),
+            render_if(
+                self._get_prop("shortcut"),
+                lambda keys: html.span(
+                    keys,
+                    class_="ms-1.5 rounded-[3px] bg-current/20 px-1 py-px "
+                    "font-mono text-[10px]",
+                ),
+            ),
             # The arrow is drawn with borders on a zero-size box, which is the
             # one way to get a triangle without a second colour to keep in
             # step with the bubble.
@@ -106,8 +118,8 @@ class Tooltip(ChainableComponent):
             role="tooltip",
             class_=classnames(
                 "absolute z-20 inline-flex w-max max-w-60 items-center gap-1.5",
-                "rounded-sm bg-fg px-[9px] py-[5px] shadow-raised",
-                "font-ui text-xs font-normal leading-[1.45] text-canvas",
+                "rounded-sm bg-surface-inverse px-[9px] py-[5px] shadow-raised",
+                "font-ui text-xs font-normal leading-[1.45] text-surface-inverse-fg",
                 _PLACEMENTS[placement],
             ),
             **{

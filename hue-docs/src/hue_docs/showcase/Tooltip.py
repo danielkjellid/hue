@@ -18,7 +18,9 @@ SHOWCASES: list[Showcase] = [
             "keyboard never hovers - and a touch device gets neither, so what "
             "a tooltip says can never be the only place that information "
             "lives. Never put a link or a button inside one: there is no way "
-            "to reach it."
+            "to reach it. The bubble is the page inverted in light mode, which "
+            "is what a tooltip looks like - and a lifted surface in dark, "
+            "where inverting again would put a white card on a dark page."
         ),
         variants=[
             variant(
@@ -26,8 +28,13 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Tooltip()
-                    .content("Rename")
-                    .trigger(Button().variant("ghost").icon_only("Rename"))
+                    .content("Dismiss")
+                    .trigger(
+                        Button()
+                        .variant("ghost")
+                        .icon_only("Dismiss")
+                        .content(HueIcon("x"))
+                    )
                 )
                 """,
             ),
@@ -37,8 +44,13 @@ SHOWCASES: list[Showcase] = [
                 (
                     Tooltip()
                     .content("Search")
-                    .shortcut(Kbd("mod", "K"))
-                    .trigger(Button().variant("outline").size("sm").content("Search"))
+                    .shortcut("⌘K")
+                    .trigger(
+                        Button()
+                        .variant("ghost")
+                        .icon_only("Search")
+                        .content(HueIcon("search"))
+                    )
                 )
                 """,
             ),

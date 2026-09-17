@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Button, Kbd, Tooltip
+from hue.ui import Button, Tooltip
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
@@ -75,10 +75,19 @@ class TestTooltip:
     # shortcut(): both branches
     @pytest.mark.asyncio
     async def test_a_shortcut_sits_after_the_label(self, context_args):
-        html = await render_tree(
-            _tooltip().shortcut(Kbd("mod", "K")), context_args=context_args
-        )
-        assert_selector(html, '[role="tooltip"] kbd')
+        # Its own chip rather than a Kbd: a Kbd is built to sit on the page,
+        # and inside an inverted bubble it is a light key on a dark ground.
+        html = await render_tree(_tooltip().shortcut("⌘K"), context_args=context_args)
+        assert_selector(html, '[role="tooltip"] span.font-mono')
+        assert_no_selector(html, "kbd")
+
+    @pytest.mark.asyncio
+    async def test_the_bubble_answers_to_the_theme(self, context_args):
+        # Inverted in light, lifted in dark - and the arrow has to follow the
+        # bubble, or it points back at it in a different colour.
+        html = await render_tree(_tooltip(), context_args=context_args)
+        assert_selector(html, '[role="tooltip"].bg-surface-inverse')
+        assert_selector(html, "span.border-t-surface-inverse")
 
     @pytest.mark.asyncio
     async def test_no_shortcut_by_default(self, context_args):
