@@ -25,7 +25,7 @@ class TestAttachedSegments:
             TextInput().name("url").label("URL").prefix("hue.app/"),
             context_args=context_args,
         )
-        assert_selector(html, "div.focus-within\\:border-accent")
+        assert_selector(html, "div[class*='has-[input:focus]:border-accent']")
         assert_selector(html, "input.bg-transparent.border-none")
         assert_no_selector(html, "input.shadow-field")
 
@@ -63,6 +63,21 @@ class TestAttachedSegments:
         )
         assert_selector(html, "div.flex.w-full > button")
         assert_selector(html, "div[class*='rounded-e-[7px]']")
+
+    @pytest.mark.asyncio
+    async def test_the_focus_halo_answers_the_input_alone(self, context_args):
+        # Not focus-within: that lights the whole control up when an attached
+        # button is clicked, which reads as "you are typing here". The button
+        # says it has focus the way every other button does.
+        html = await render_tree(
+            TextInput()
+            .name("key")
+            .label("API key")
+            .action(Button().variant("outline").content("Copy")),
+            context_args=context_args,
+        )
+        assert_selector(html, "div[class*='has-[input:focus]:border-accent']")
+        assert_no_selector(html, "div[class*='focus-within:border-accent']")
 
     @pytest.mark.asyncio
     async def test_an_icon_action_floats_inside_the_field(self, context_args):
