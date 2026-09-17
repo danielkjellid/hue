@@ -40,6 +40,7 @@ from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.field import Field
 from hue.ui.molecules.panel import Panel
+from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.ui.molecules.table import (
     Column,
@@ -85,6 +86,7 @@ __all__ = [
     "NumberInput",
     "Panel",
     "PasswordInput",
+    "Popover",
     "Progress",
     "ProgressRing",
     "Radio",
