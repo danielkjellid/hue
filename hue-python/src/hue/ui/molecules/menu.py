@@ -33,8 +33,9 @@ _VARIANTS: dict[MenuItemVariant, str] = {
         "[&_svg]:text-fg-subtle [&:hover_svg]:text-fg-muted"
     ),
     # The only coloured thing in a menu, which is what makes it stand out
-    # without a second signal.
-    "danger": "text-danger-fg hover:bg-danger-subtle [&_svg]:text-danger-fg",
+    # without a second signal. -text rather than -fg: -fg is what goes on top
+    # of a danger fill, and there is no fill here.
+    "danger": "text-danger-text hover:bg-danger-subtle [&_svg]:text-danger-text",
 }
 
 

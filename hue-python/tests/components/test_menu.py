@@ -121,7 +121,7 @@ class TestMenuItem:
             _menu(MenuItem().variant("danger").content("Delete")),
             context_args=context_args,
         )
-        assert_selector(html, '[role="menuitem"].text-danger-fg')
+        assert_selector(html, '[role="menuitem"].text-danger-text')
 
     @pytest.mark.asyncio
     async def test_the_default_variant_takes_the_menu_colour(self, context_args):
