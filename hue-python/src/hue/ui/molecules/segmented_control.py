@@ -8,7 +8,7 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING
+from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classnames
 
@@ -105,10 +105,7 @@ class SegmentedOption(Clickable):
             *self._children,
             type="button",
             class_=classnames(
-                "inline-flex items-center justify-center gap-1.5",
-                "rounded-sm cursor-pointer select-none whitespace-nowrap",
-                "font-ui font-semibold leading-none transition-colors",
-                "text-fg-muted hover:text-fg [&_svg]:size-3.5 [&_svg]:shrink-0",
+                SEGMENTED_ITEM,
                 "aria-pressed:bg-surface aria-pressed:text-fg",
                 "aria-pressed:shadow-segment",
                 FOCUS_RING,
@@ -198,10 +195,6 @@ class SegmentedControl(ChainableComponent):
 
         return html.div(
             *options,
-            class_=classnames(
-                "inline-flex gap-0.5 p-[3px] rounded-md",
-                "border border-border bg-surface-sunken",
-                self._get_prop("class_"),
-            ),
+            class_=classnames(SEGMENTED_TRACK, self._get_prop("class_")),
             **attrs,
         )

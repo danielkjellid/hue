@@ -64,6 +64,7 @@ from hue.ui.molecules.table import (
     TableHeader,
     TableRow,
 )
+from hue.ui.molecules.tabs import Tab, Tabs
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
@@ -119,6 +120,7 @@ __all__ = [
     "Spinner",
     "Stack",
     "Switch",
+    "Tab",
     "Table",
     "TableBody",
     "TableCaption",
@@ -127,6 +129,7 @@ __all__ = [
     "TableHead",
     "TableHeader",
     "TableRow",
+    "Tabs",
     "Text",
     "TextInput",
     "Textarea",
