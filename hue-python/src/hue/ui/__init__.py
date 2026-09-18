@@ -78,6 +78,7 @@ from hue.ui.molecules.table import (
     TableHeader,
     TableRow,
 )
+from hue.ui.molecules.table_of_contents import Heading, TableOfContents
 from hue.ui.molecules.tabs import Tab, Tabs
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 from hue.ui.molecules.toast import Toast, ToastRegion
@@ -110,6 +111,7 @@ __all__ = [
     "EmailInput",
     "Empty",
     "Field",
+    "Heading",
     "Icon",
     "IconResolver",
     "Kbd",
@@ -154,6 +156,7 @@ __all__ = [
     "TableFooter",
     "TableHead",
     "TableHeader",
+    "TableOfContents",
     "TableRow",
     "Tabs",
     "Text",
