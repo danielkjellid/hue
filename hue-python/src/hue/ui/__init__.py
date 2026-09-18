@@ -51,7 +51,18 @@ from hue.ui.molecules.menu import (
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
-from hue.ui.molecules.sidebar import Sidebar, SidebarGroup, SidebarLink
+from hue.ui.molecules.sidebar import (
+    Sidebar,
+    SidebarBody,
+    SidebarDivider,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarHeading,
+    SidebarItem,
+    SidebarLabel,
+    SidebarSection,
+    SidebarSpacer,
+)
 from hue.ui.molecules.table import (
     Column,
     DataTable,
@@ -113,8 +124,15 @@ __all__ = [
     "SegmentedControl",
     "SegmentedOption",
     "Sidebar",
-    "SidebarGroup",
-    "SidebarLink",
+    "SidebarBody",
+    "SidebarDivider",
+    "SidebarFooter",
+    "SidebarHeader",
+    "SidebarHeading",
+    "SidebarItem",
+    "SidebarLabel",
+    "SidebarSection",
+    "SidebarSpacer",
     "Skeleton",
     "Slider",
     "Spacer",

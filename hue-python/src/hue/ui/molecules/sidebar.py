@@ -6,34 +6,34 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import ChainableComponent
+from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classnames, render_if, render_when
 
-_LINK = (
-    "flex items-center gap-2 rounded-md px-2 py-[7px] font-ui text-base "
-    "font-medium no-underline cursor-pointer "
+_ITEM = (
+    "relative flex w-full items-center gap-3 rounded-lg px-2 py-2.5 "
+    "text-start font-ui text-base font-medium no-underline cursor-pointer "
     "[&_svg]:size-4 [&_svg]:flex-none"
 )
 
-# The accent is spent here and nowhere else in the sidebar: this is the one
-# place in an app where "where am I" has to be answerable at a glance.
-_CURRENT = "bg-accent-subtle text-accent-text [&_svg]:text-accent-text"
-
 _IDLE = (
     "text-fg-muted [&_svg]:text-fg-subtle "
-    "hover:bg-surface-active hover:text-fg [&:hover_svg]:text-fg-muted"
+    "hover:bg-surface-hover hover:text-fg [&:hover_svg]:text-fg-muted"
 )
+
+# The page you are on, marked twice: a tint for the eye and a bar in the
+# gutter for the glance. The accent is spent here and nowhere else in the
+# sidebar, so "where am I" survives a squint.
+_CURRENT = "bg-accent-subtle text-accent-text [&_svg]:text-accent-text"
 
 
 class Sidebar(ChainableComponent):
     """
-    The app's own navigation, down the side.
+    The app's navigation, down the side, in three parts.
 
-    current() is the path of the page you are on, which is what marks one
-    link as where you are. brand() names the app at the top and footer()
-    holds whatever belongs at the bottom, usually the account.
-
-        Sidebar().brand("Northwind").current("/billing").content(...)
+    A header that stays, a body that scrolls, a footer that stays - built
+    from SidebarSection, SidebarHeading, SidebarDivider and SidebarSpacer,
+    which is what lets a section sit at the bottom without being pinned
+    there. current() marks the link whose href matches the page you are on.
     """
 
     category = "Navigation"
@@ -42,26 +42,21 @@ class Sidebar(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .brand("Northwind")
-            .current("/billing")
+            .current("/events")
             .content(
-                SidebarGroup()
-                .label("Workspace")
-                .content(
-                    SidebarLink().href("/").content("Overview"),
-                    SidebarLink().href("/billing").count(3).content("Billing"),
+                SidebarBody().content(
+                    SidebarSection().content(
+                        SidebarItem().href("/").content("Home"),
+                        SidebarItem().href("/events").content("Events"),
+                    )
                 )
             )
         )
 
-    def brand(self, value: str) -> Self:
-        self._props["brand"] = value
-        return self
-
     def current(self, value: str) -> Self:
         """
-        The path of the page you are on. A link whose href matches it is
-        marked as the current page.
+        The path of the page you are on. The item whose href matches it is
+        marked, so a consumer sets this once rather than per item.
         """
         self._props["current"] = value
         return self
@@ -69,47 +64,49 @@ class Sidebar(ChainableComponent):
     def label(self, value: str) -> Self:
         """
         What this navigation is, for a page with more than one. "Main" by
-        default, which is what a screen reader reads before the links.
+        default, which a screen reader reads before the links.
         """
         self._props["label"] = value
         return self
 
-    def footer(self, *values: ComponentType) -> Self:
-        self._props["footer"] = values
-        return self
-
     def _render(self, context: HueContext) -> Component:
         current: str | None = self._get_prop("current")
-        footer: tuple[ComponentType, ...] = self._get_prop("footer", ())
-
         for child in self._children:
-            if isinstance(child, SidebarGroup):
-                child._mark(current)
-            elif isinstance(child, SidebarLink):
-                child._mark(current)
+            if isinstance(child, ChainableComponent):
+                _mark(child, current)
 
-        return html.nav(
-            render_if(self._get_prop("brand"), _brand),
-            html.div(
-                *self._children,
-                class_="flex-1 overflow-y-auto px-2 pt-2 pb-4 [&>*+*]:mt-5",
-            ),
-            render_when(
-                bool(footer),
-                html.div(*footer, class_="flex-none border-t border-border p-2"),
-            ),
-            aria_label=self._get_prop("label", "Main"),
+        return html.div(
+            *self._children,
             class_=classnames(
-                "flex w-61 flex-none flex-col border-e border-border bg-canvas-subtle",
+                "flex h-full min-h-0 w-64 flex-none flex-col",
+                "border-e border-border bg-canvas-subtle",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
         )
 
 
-class SidebarGroup(ChainableComponent):
+class SidebarHeader(ChainableComponent):
     """
-    A run of links under a heading.
+    What sits above the navigation and stays there: the workspace, a search.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.div(
+            *self._children,
+            class_=classnames(
+                "flex flex-none flex-col gap-2 border-b border-border p-4",
+                self._get_prop("class_"),
+            ),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarBody(ChainableComponent):
+    """
+    The navigation itself, and the only part that scrolls.
     """
 
     category = None
@@ -118,33 +115,108 @@ class SidebarGroup(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _mark(self, current: str | None) -> None:
-        for child in self._children:
-            if isinstance(child, SidebarLink):
-                child._mark(current)
-
     def _render(self, context: HueContext) -> Component:
-        return html.div(
-            render_if(
-                self._get_prop("label"),
-                lambda text: html.div(
-                    text,
-                    class_="px-2 pb-1.5 font-ui text-2xs font-bold uppercase "
-                    "tracking-[0.05em] text-fg-subtle",
-                ),
-            ),
+        return html.nav(
             *self._children,
-            class_=self._get_prop("class_"),
+            aria_label=self._get_prop("label", "Main"),
+            class_=classnames(
+                "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4",
+                self._get_prop("class_"),
+            ),
             **self._get_base_html_attrs(),
         )
 
 
-class SidebarLink(ChainableComponent):
+class SidebarFooter(ChainableComponent):
     """
-    One destination.
+    What sits below the navigation and stays there, usually the account.
+    """
 
-    A real link, so middle-click and "open in a new tab" work - a div with a
-    router push breaks both.
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.div(
+            *self._children,
+            class_=classnames(
+                "flex flex-none flex-col border-t border-border p-4",
+                self._get_prop("class_"),
+            ),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarSection(ChainableComponent):
+    """
+    A run of items that belong together.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.div(
+            *self._children,
+            class_=classnames("flex flex-col gap-0.5", self._get_prop("class_")),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarHeading(ChainableComponent):
+    """
+    What a section is called.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.div(
+            *self._children,
+            class_=classnames(
+                "mb-1 px-2 font-ui text-2xs font-bold uppercase "
+                "tracking-[0.05em] text-fg-subtle",
+                self._get_prop("class_"),
+            ),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarDivider(ChainableComponent):
+    """
+    A rule between two runs of navigation.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.hr(
+            class_=classnames("my-4 h-px border-0 bg-border", self._get_prop("class_")),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarSpacer(ChainableComponent):
+    """
+    Everything after this goes to the bottom.
+
+    Which is how a section sits down there without being pinned: it is still
+    in the scroll, just pushed as far as the room allows.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.div(
+            class_=classnames("mt-8 flex-1", self._get_prop("class_")),
+            **self._get_base_html_attrs(),
+        )
+
+
+class SidebarItem(Clickable):
+    """
+    One destination, or one action.
+
+    With href it is a real link, so middle-click and "open in a new tab"
+    work - a div with a router push breaks both. Without one it is a button,
+    for the rows that open something instead of going somewhere.
     """
 
     category = None
@@ -157,57 +229,76 @@ class SidebarLink(ChainableComponent):
         self._props["icon"] = value
         return self
 
-    def count(self, value: int) -> Self:
+    def current(self, value: bool = True) -> Self:
         """
-        A number at the end of the row, such as how many are waiting.
+        Mark this as the page you are on, where the sidebar's own current()
+        cannot tell - a row that stands for several paths, say.
         """
-        self._props["count"] = value
+        self._props["current"] = value
         return self
-
-    def _mark(self, current: str | None) -> None:
-        if current is not None and self._get_prop("href") == current:
-            self._props["current"] = True
 
     def _render(self, context: HueContext) -> Component:
         current: bool = self._get_prop("current", False)
+        href: str | None = self._get_prop("href")
 
-        return html.a(
+        children = (
+            render_when(current, _indicator()),
             render_if(self._get_prop("icon"), lambda icon: icon),
             *self._children,
-            render_if(
-                self._get_prop("count"),
-                lambda count: html.span(
-                    str(count),
-                    class_="ms-auto text-xs tabular-nums text-fg-subtle",
-                ),
-            ),
-            href=self._get_prop("href", "#"),
-            aria_current="page" if current else None,
-            class_=classnames(
-                _LINK,
-                _CURRENT if current else _IDLE,
-                FOCUS_RING,
-                self._get_prop("class_"),
-            ),
+        )
+        classes = classnames(
+            _ITEM,
+            _CURRENT if current else _IDLE,
+            FOCUS_RING,
+            self._get_prop("class_"),
+        )
+        attrs = {
+            "aria_current": "page" if current and href is not None else None,
+            **self._get_base_html_attrs(),
+        }
+
+        if href is None:
+            return html.button(*children, type="button", class_=classes, **attrs)
+        return html.a(*children, href=href, class_=classes, **attrs)
+
+
+class SidebarLabel(ChainableComponent):
+    """
+    An item's text, where something else has to sit beside it - a count, a
+    chevron - and needs the row's spare width to push against.
+    """
+
+    category = None
+
+    def _render(self, context: HueContext) -> Component:
+        return html.span(
+            *self._children,
+            class_=classnames("truncate", self._get_prop("class_")),
             **self._get_base_html_attrs(),
         )
 
 
-def _brand(name: str) -> ComponentType:
+def _indicator() -> ComponentType:
     """
-    The app's name, with its initial in a tile - the one other place the
-    accent is allowed, since it is not navigation.
+    The bar in the gutter beside the current item. A real element rather than
+    a pseudo, so nothing depends on a content quirk to be visible.
     """
-    return html.div(
-        html.span(
-            name[:1].upper(),
-            aria_hidden="true",
-            class_="grid size-6.5 place-content-center rounded-sm bg-accent "
-            "font-ui text-sm font-bold text-accent-fg",
-        ),
-        html.span(
-            name,
-            class_="font-ui text-md font-bold tracking-[-0.015em]",
-        ),
-        class_="flex h-14 flex-none items-center gap-2 px-4",
+    return html.span(
+        aria_hidden="true",
+        class_="absolute inset-y-2 -start-2 w-0.5 rounded-full bg-accent",
     )
+
+
+def _mark(component: ChainableComponent, current: str | None) -> None:
+    """
+    Walk the tree marking the item whose href is the page you are on.
+    """
+    if current is None:
+        return
+    if isinstance(component, SidebarItem):
+        if component._get_prop("href") == current:
+            component._props["current"] = True
+        return
+    for child in component._children:
+        if isinstance(child, ChainableComponent):
+            _mark(child, current)
