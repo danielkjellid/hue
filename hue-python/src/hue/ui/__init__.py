@@ -27,6 +27,7 @@ from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.text import Label, Text
 from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.button_group import ButtonGroup
 from hue.ui.molecules.card import (
@@ -66,6 +67,8 @@ from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
 
 __all__ = [
+    "Accordion",
+    "AccordionItem",
     "Alert",
     "Avatar",
     "AvatarGroup",
