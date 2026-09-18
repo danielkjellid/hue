@@ -22,7 +22,7 @@ _HEADER = (
 )
 
 _CHEVRON = (
-    "ms-auto size-3 flex-none text-fg-subtle transition-transform "
+    "ms-auto size-4 flex-none text-fg-subtle transition-transform "
     "duration-150 [[aria-expanded=true]>&]:rotate-180"
 )
 
