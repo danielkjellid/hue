@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from htmy import html
 from typing_extensions import Self
 
@@ -12,8 +10,6 @@ from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
-
-type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
 
 # A band rather than a row: the header is a tinted strip and what it opens
 # sits under it at full width, which is what makes this a section of a page
@@ -33,6 +29,8 @@ _CHEVRON = (
 class Disclosure(ChainableComponent):
     """
     A section of a page that can be folded away.
+
+    The title sits in an h3, which is how a screen reader finds the section.
 
     One heading and what it opens, answering to nothing else on the page -
     where an Accordion is a set of these that agree on how many stay open.
@@ -57,15 +55,6 @@ class Disclosure(ChainableComponent):
         self._props["title"] = value
         return self
 
-    def heading(self, value: HeadingLevel) -> Self:
-        """
-        The heading level the trigger sits in, which is how a screen reader
-        finds the section. h3 by default, since a section usually follows the
-        page's own h2.
-        """
-        self._props["heading"] = value
-        return self
-
     def open(self, value: bool = True) -> Self:
         """
         Start it open.
@@ -74,7 +63,6 @@ class Disclosure(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
-        heading: HeadingLevel = self._get_prop("heading", "h3")
         starts_open: bool = self._get_prop("open", False)
 
         trigger = html.button(
@@ -91,7 +79,7 @@ class Disclosure(ChainableComponent):
         )
 
         return html.div(
-            getattr(html, heading)(trigger),
+            html.h3(trigger),
             html.div(
                 *self._children,
                 # Named by the heading that opens it, so a screen reader

@@ -65,20 +65,3 @@ class TestDisclosure:
             context_args=context_args,
         )
         assert_attr(html, "[x-data]", "x-data", "{ open: false }")
-
-    # heading(): both branches
-    @pytest.mark.asyncio
-    async def test_the_heading_level_can_be_set(self, context_args):
-        html = await render_tree(
-            Disclosure().title("General").heading("h2").content("Fields"),
-            context_args=context_args,
-        )
-        assert_selector(html, "h2 > button")
-
-    @pytest.mark.asyncio
-    async def test_it_is_an_h3_by_default(self, context_args):
-        html = await render_tree(
-            Disclosure().title("General").content("Fields"),
-            context_args=context_args,
-        )
-        assert_selector(html, "h3 > button")
