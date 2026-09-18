@@ -81,7 +81,7 @@ class TestAccordion:
         assert "open: []" in str(html)
 
     @pytest.mark.asyncio
-    async def test_single_keeps_one_however_many_asked(self, context_args):
+    async def test_one_at_a_time_keeps_one_however_many_asked(self, context_args):
         html = await render_tree(
             _accordion(
                 AccordionItem().title("First").open().content("One"),
@@ -98,7 +98,7 @@ class TestAccordion:
             _accordion(
                 AccordionItem().title("First").open().content("One"),
                 AccordionItem().title("Second").open().content("Two"),
-                mode="multiple",
+                multiple=True,
             ),
             context_args=context_args,
         )

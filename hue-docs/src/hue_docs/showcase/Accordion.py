@@ -25,7 +25,6 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Accordion()
-                    .mode("single")
                     .content(
                         AccordionItem()
                         .title("How is usage calculated?")
@@ -58,7 +57,7 @@ SHOWCASES: list[Showcase] = [
                 (
                     Accordion()
                     .variant("boxed")
-                    .mode("multiple")
+                    .multiple()
                     .content(
                         AccordionItem()
                         .title("Request headers")

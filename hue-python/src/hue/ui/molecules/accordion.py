@@ -14,7 +14,6 @@ from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
 type AccordionVariant = Literal["plain", "boxed"]
-type AccordionMode = Literal["single", "multiple"]
 type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
 
 _VARIANTS: dict[AccordionVariant, str] = {
@@ -46,9 +45,9 @@ class Accordion(ChainableComponent):
     """
     Sections that open one at a time, for content nobody needs all of.
 
-    mode() decides whether opening one closes the last. If every panel has to
-    be opened to finish the task, the content wants a page rather than an
-    accordion.
+    Opening one closes the last, unless multiple() says otherwise. If every
+    panel has to be opened to finish the task, the content wants a page
+    rather than an accordion.
     """
 
     category = "Navigation"
@@ -69,16 +68,17 @@ class Accordion(ChainableComponent):
         self._props["variant"] = value
         return self
 
-    def mode(self, value: AccordionMode) -> Self:
+    def multiple(self, value: bool = True) -> Self:
         """
-        Whether opening one section closes the one before it.
+        Let any number of sections stay open at once, rather than the one
+        most recently opened.
         """
-        self._props["mode"] = value
+        self._props["multiple"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
         variant: AccordionVariant = self._get_prop("variant", "plain")
-        mode: AccordionMode = self._get_prop("mode", "single")
+        multiple: bool = self._get_prop("multiple", False)
 
         # The items are numbered here rather than numbering themselves, since
         # what a section has to know about is the ones beside it.
@@ -90,11 +90,11 @@ class Accordion(ChainableComponent):
             if item._get_prop("open", False):
                 opened.append(index)
 
-        # single keeps at most one, whatever the items asked for.
-        if mode == "single":
+        # One at a time keeps at most one, whatever the items asked for.
+        if not multiple:
             opened = opened[:1]
 
-        single = str(mode == "single").lower()
+        single = str(not multiple).lower()
         state = (
             f"{{ open: {opened}, single: {single}, "
             "shown(index) { return this.open.includes(index) }, "
