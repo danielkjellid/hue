@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hue import html
+from hue.js import unsafe
 from hue.types.core import ComponentType
 
 from hue_docs.models import NavGroup
@@ -53,5 +54,5 @@ def sidebar(groups: list[NavGroup], active_href: str) -> ComponentType:
         )
         # Hidden on small screens unless the mobile menu is open (navOpen lives
         # on the page wrapper's x-data scope).
-        .x_bind("class", "navOpen ? '' : 'max-lg:hidden'")
+        .x_bind("class", unsafe("navOpen ? '' : 'max-lg:hidden'"))
     )

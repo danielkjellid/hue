@@ -6,6 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
     CONTROL_SIZES,
@@ -363,7 +364,7 @@ class PasswordInput(_BaseInput):
         if self._get_prop("revealable", False):
             # The input's own type has to give way to the binding, so the
             # toggle has something to change.
-            self.x_bind("type", "shown ? 'text' : 'password'")
+            self.x_bind("type", unsafe("shown ? 'text' : 'password'"))
             self._props.setdefault(
                 "action",
                 Button()
@@ -371,11 +372,11 @@ class PasswordInput(_BaseInput):
                 .size("sm")
                 .icon_only("Show password")
                 .aria_pressed("false")
-                .x_on("click", "shown = !shown")
-                .x_bind("aria-pressed", "shown")
+                .x_on("click", unsafe("shown = !shown"))
+                .x_bind("aria-pressed", unsafe("shown"))
                 .content(
-                    HueIcon("eye").x_show("!shown"),
-                    HueIcon("eye-off").x_show("shown").x_cloak(),
+                    HueIcon("eye").x_show(unsafe("!shown")),
+                    HueIcon("eye-off").x_show(unsafe("shown")).x_cloak(),
                 ),
             )
         return super()._render(context)

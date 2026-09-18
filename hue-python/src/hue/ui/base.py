@@ -7,6 +7,7 @@ from htmy import Context
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import Expression, expect
 from hue.types.core import Component, ComponentType
 from hue.types.html import AriaAtomic, AriaLive, AriaRole
 from hue.utils import classnames
@@ -125,32 +126,33 @@ class ChainableComponent(ABC):
         self._attrs["x-data"] = value
         return self
 
-    def x_init(self, value: str) -> Self:
+    def x_init(self, value: Expression) -> Self:
         """
         Run an expression when the component initialises.
         """
-        self._attrs["x-init"] = value
+        self._attrs["x-init"] = expect(value, modifier="x_init()")
         return self
 
-    def x_show(self, value: str) -> Self:
+    def x_show(self, value: Expression) -> Self:
         """
         Toggle element visibility.
         """
-        self._attrs["x-show"] = value
+        self._attrs["x-show"] = expect(value, modifier="x_show()")
         return self
 
-    def x_text(self, value: str) -> Self:
+    def x_text(self, value: Expression) -> Self:
         """
         Set the element's text content.
         """
-        self._attrs["x-text"] = value
+        self._attrs["x-text"] = expect(value, modifier="x_text()")
         return self
 
-    def x_html(self, value: str) -> Self:
+    def x_html(self, value: Expression) -> Self:
         """
-        Set the element's inner HTML.
+        Set the element's inner HTML, which Alpine writes without escaping -
+        so what the expression returns matters as much as the expression.
         """
-        self._attrs["x-html"] = value
+        self._attrs["x-html"] = expect(value, modifier="x_html()")
         return self
 
     def x_ref(self, value: str) -> Self:
@@ -160,11 +162,11 @@ class ChainableComponent(ABC):
         self._attrs["x-ref"] = value
         return self
 
-    def x_effect(self, value: str) -> Self:
+    def x_effect(self, value: Expression) -> Self:
         """
         Run an expression reactively when its dependencies change.
         """
-        self._attrs["x-effect"] = value
+        self._attrs["x-effect"] = expect(value, modifier="x_effect()")
         return self
 
     def x_cloak(self) -> Self:
@@ -188,18 +190,29 @@ class ChainableComponent(ABC):
         self._attrs["x-id"] = value
         return self
 
-    def x_on(self, event: str, expression: str) -> Self:
+    def x_on(self, event: str, expression: Expression) -> Self:
         """
         Listen for a browser event (@event).
         """
-        self._attrs[f"@{event}"] = expression
+        self._attrs[f"@{event}"] = expect(expression, modifier="x_on()")
         return self
 
-    def x_bind(self, attr: str, expression: str) -> Self:
+    def on_click(self, *expressions: Expression) -> Self:
+        """
+        What pressing this does, as one or more expressions run in order.
+
+            Button().content("Send").on_click(call("sendInvoice", invoice.id))
+        """
+        joined = "; ".join(
+            expect(expression, modifier="on_click()") for expression in expressions
+        )
+        return self.x_on("click", Expression(joined))
+
+    def x_bind(self, attr: str, expression: Expression) -> Self:
         """
         Dynamically bind an HTML attribute (:attr).
         """
-        self._attrs[f":{attr}"] = expression
+        self._attrs[f":{attr}"] = expect(expression, modifier="x_bind()")
         return self
 
     # ------------------------------------------------------------------
@@ -236,7 +249,7 @@ class ChainableComponent(ABC):
 
     def x_trap(
         self,
-        expression: str,
+        expression: Expression,
         *,
         inert: bool = False,
         noscroll: bool = False,
@@ -259,12 +272,12 @@ class ChainableComponent(ABC):
             )
             if enabled
         )
-        self._attrs[f"x-trap{modifiers}"] = expression
+        self._attrs[f"x-trap{modifiers}"] = expect(expression, modifier="x_trap()")
         return self
 
     def x_anchor(
         self,
-        expression: str,
+        expression: Expression,
         placement: AlpinePlacement | None = None,
         *,
         offset: int | None = None,
@@ -275,14 +288,14 @@ class ChainableComponent(ABC):
         The placement is a preference, not a promise: the plugin flips and
         shifts the panel to keep it inside the viewport.
 
-            Popover().x_anchor("$refs.trigger", "bottom-start", offset=6)
+            panel.x_anchor(unsafe("$refs.trigger"), "bottom-start", offset=6)
         """
         key = "x-anchor"
         if placement is not None:
             key += f".{placement}"
         if offset is not None:
             key += f".offset.{offset}"
-        self._attrs[key] = expression
+        self._attrs[key] = expect(expression, modifier="x_anchor()")
         return self
 
     # ------------------------------------------------------------------

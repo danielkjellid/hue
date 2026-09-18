@@ -6,6 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
@@ -101,11 +102,11 @@ class DropdownMenu(ChainableComponent):
         if trigger is not None:
             (
                 trigger.x_ref("trigger")
-                .x_on("click", "open = !open")
+                .x_on("click", unsafe("open = !open"))
                 # Down opens it as well as clicking, which is how a menu
                 # button is expected to behave from the keyboard.
-                .x_on("keydown.down.prevent", "open = true")
-                .x_bind("aria-expanded", "open")
+                .x_on("keydown.down.prevent", unsafe("open = true"))
+                .x_bind("aria-expanded", unsafe("open"))
             )
             trigger._attrs.setdefault("aria_haspopup", "menu")
 

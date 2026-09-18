@@ -50,14 +50,14 @@ def _build() -> ComponentType:
             "Use it for things the server never hears about - a copy to the "
             "clipboard, going offline, a confirmation that costs nothing to "
             "produce - where a round trip would exist only to make a sentence "
-            "appear. toast.js builds the expression to hand to x_on:"
+            "appear. toast.js builds the expression to hand to on_click:"
         ),
         pr.code(
             "from hue import toast\n"
             "from hue.ui import Button\n\n"
             "(\n"
             '    Button().content("Copy link")\n'
-            '    .x_on("click", toast.js.success("Copied to clipboard"))\n'
+            '    .on_click(toast.js.success("Copied to clipboard"))\n'
             ")"
         ),
         pr.p(
@@ -86,9 +86,9 @@ def _build() -> ComponentType:
             "Titles, descriptions and action labels are quoted for you and "
             "written into the page as text, so building them from user input "
             "is fine. The second half of action is not: it is spliced into "
-            "an Alpine expression and evaluated, exactly like anything passed "
-            "to x_on. Never build it out of user input. Note too that the "
-            "region accepts toasts from any response carrying its id, which "
+            "an Alpine expression and evaluated, exactly like anything you "
+            "wrap in unsafe(). Never build it out of user input. Note too "
+            "that the region accepts toasts from any response carrying its id, which "
             "is what makes server-raised toasts work without wiring - so "
             "fetch fragments only from your own app."
         ),

@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from hue import html as hue_html
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
@@ -79,10 +80,12 @@ class Kbd(ChainableComponent):
             .class_(_KEY_CLASSES)
             .x_data(f"{{ apple: {_IS_APPLE} }}")
             .content(
-                hue_html.span("⌘").aria_hidden("true").x_text("apple ? '⌘' : 'Ctrl'"),
+                hue_html.span("⌘")
+                .aria_hidden("true")
+                .x_text(unsafe("apple ? '⌘' : 'Ctrl'")),
                 hue_html.span("Command")
                 .class_("sr-only")
-                .x_text("apple ? 'Command' : 'Control'"),
+                .x_text(unsafe("apple ? 'Command' : 'Control'")),
             )
         )
 

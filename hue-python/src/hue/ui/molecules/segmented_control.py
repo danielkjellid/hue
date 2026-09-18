@@ -6,6 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent
@@ -83,8 +84,8 @@ class SegmentedOption(ChainableComponent):
         # control never fights a binding of their own.
         if interactive and ":aria-pressed" not in self._attrs:
             value = self._get_prop("value")
-            self.x_on("click", f"selected = {value!r}")
-            self.x_bind("aria-pressed", f"selected === {value!r}")
+            self.x_on("click", unsafe(f"selected = {value!r}"))
+            self.x_bind("aria-pressed", unsafe(f"selected === {value!r}"))
 
     def _render(self, context: HueContext) -> Component:
         size: SegmentedSize = self._get_prop("size", "md")

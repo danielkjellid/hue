@@ -64,7 +64,7 @@ SHOWCASES: list[Showcase] = [
                         Button()
                         .variant("link")
                         .content("Read the full definition")
-                        .x_on("click", "close()")
+                        .on_click(close())
                     )
                 )
                 """,

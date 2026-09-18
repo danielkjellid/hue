@@ -8,6 +8,7 @@ import pytest
 from htmy import Renderer
 
 from hue.exceptions import MissingHueContextError
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button
 
@@ -64,45 +65,53 @@ class TestAlpinePluginModifiers:
     """x-trap and x-anchor build their modifiers into the attribute name."""
 
     def test_trap_without_modifiers(self):
-        attrs = Button().x_trap("open")._get_base_html_attrs()
+        attrs = Button().x_trap(unsafe("open"))._get_base_html_attrs()
         assert attrs == {"x-trap": "open"}
 
     def test_trap_with_modifiers_keeps_alpine_order(self):
         attrs = (
-            Button().x_trap("open", noscroll=True, inert=True)._get_base_html_attrs()
+            Button()
+            .x_trap(unsafe("open"), noscroll=True, inert=True)
+            ._get_base_html_attrs()
         )
         assert attrs == {"x-trap.inert.noscroll": "open"}
 
     def test_trap_omits_modifiers_left_off(self):
-        attrs = Button().x_trap("open", noreturn=True)._get_base_html_attrs()
+        attrs = Button().x_trap(unsafe("open"), noreturn=True)._get_base_html_attrs()
         assert attrs == {"x-trap.noreturn": "open"}
 
     def test_anchor_without_placement_or_offset(self):
-        attrs = Button().x_anchor("$refs.trigger")._get_base_html_attrs()
+        attrs = Button().x_anchor(unsafe("$refs.trigger"))._get_base_html_attrs()
         assert attrs == {"x-anchor": "$refs.trigger"}
 
     def test_anchor_with_placement(self):
         attrs = (
-            Button().x_anchor("$refs.trigger", "bottom-start")._get_base_html_attrs()
+            Button()
+            .x_anchor(unsafe("$refs.trigger"), "bottom-start")
+            ._get_base_html_attrs()
         )
         assert attrs == {"x-anchor.bottom-start": "$refs.trigger"}
 
     def test_anchor_with_placement_and_offset(self):
         attrs = (
             Button()
-            .x_anchor("$refs.trigger", "top-end", offset=6)
+            .x_anchor(unsafe("$refs.trigger"), "top-end", offset=6)
             ._get_base_html_attrs()
         )
         assert attrs == {"x-anchor.top-end.offset.6": "$refs.trigger"}
 
     def test_anchor_offset_without_placement(self):
-        attrs = Button().x_anchor("$refs.trigger", offset=0)._get_base_html_attrs()
+        attrs = (
+            Button().x_anchor(unsafe("$refs.trigger"), offset=0)._get_base_html_attrs()
+        )
         assert attrs == {"x-anchor.offset.0": "$refs.trigger"}
 
     @pytest.mark.asyncio
     async def test_modifiers_survive_rendering(self, context_args):
         html = await render_tree(
-            Button().x_trap("open", inert=True).x_anchor("$refs.t", "bottom"),
+            Button()
+            .x_trap(unsafe("open"), inert=True)
+            .x_anchor(unsafe("$refs.t"), "bottom"),
             context_args=context_args,
         )
         assert 'x-trap.inert="open"' in html
