@@ -29,6 +29,7 @@ from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
+from hue.ui.molecules.breadcrumbs import Breadcrumbs
 from hue.ui.molecules.button_group import ButtonGroup
 from hue.ui.molecules.card import (
     Card,
@@ -75,6 +76,7 @@ __all__ = [
     "AvatarGroup",
     "Badge",
     "Banner",
+    "Breadcrumbs",
     "Button",
     "ButtonGroup",
     "Card",
