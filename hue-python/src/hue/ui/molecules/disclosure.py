@@ -16,7 +16,7 @@ from hue.utils import classnames, render_if
 # rather than an item in a list.
 _HEADER = (
     "flex w-full cursor-pointer items-center gap-2 rounded-md border-none "
-    "bg-canvas-subtle px-4 py-1.5 text-start font-ui text-base font-medium "
+    "h-5 bg-canvas-subtle px-4 text-start font-ui text-base font-medium "
     "text-fg hover:bg-surface-hover"
 )
 
@@ -95,8 +95,10 @@ class Disclosure(ChainableComponent):
                 },
             ),
             # A section spans its column: the header is a band across the
-            # content it folds, not a chip the width of its own title.
-            class_=classnames("w-full h-5", self._get_prop("class_")),
+            # content it folds, not a chip the width of its own title. The
+            # band carries its own height; on the wrapper it would clamp the
+            # section and leave the panel hanging over whatever follows.
+            class_=classnames("w-full", self._get_prop("class_")),
             **{
                 "x-data": f"{{ open: {str(starts_open).lower()} }}",
                 "x-id": "['hue-disclosure-title', 'hue-disclosure-panel']",
