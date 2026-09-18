@@ -15,7 +15,9 @@ SHOWCASES: list[Showcase] = [
         layout="stack",
         description=(
             "Each one answers to nothing else on the page, so any number can "
-            "be open at once - that is the difference from an Accordion, "
+            "be open at once, and open is where they start: a section of a "
+            "form is there to be filled in. That independence is the "
+            "difference from an Accordion, "
             "which exists to agree on how many stay open. The trigger is a "
             "button inside a heading rather than a link: a link that toggles "
             "something tells a screen reader the wrong thing about what "
@@ -28,7 +30,6 @@ SHOWCASES: list[Showcase] = [
                 Stack().spacing("lg").align_items("items-stretch").content(
                     Disclosure()
                     .title("General")
-                    .open()
                     .content(
                         Stack().spacing("md").align_items("items-stretch").content(
                             TextInput()
@@ -45,6 +46,7 @@ SHOWCASES: list[Showcase] = [
                     ),
                     Disclosure()
                     .title("Pricing")
+                    .closed()
                     .content(
                         Stack().spacing("md").align_items("items-stretch").content(
                             NumberInput()
@@ -60,6 +62,7 @@ SHOWCASES: list[Showcase] = [
                     ),
                     Disclosure()
                     .title("Search engines")
+                    .closed()
                     .content(
                         TextInput()
                         .name("slug")

@@ -42,26 +42,31 @@ class TestDisclosure:
 
     @pytest.mark.asyncio
     async def test_it_answers_to_nothing_else_on_the_page(self, context_args):
-        # Its own scope, which is the whole difference from an accordion.
+        # One scope of its own, holding the only state there is: no index, no
+        # neighbours, nothing to coordinate. That is the whole difference
+        # from an accordion.
         html = await render_tree(
             Disclosure().title("General").content("Fields"),
             context_args=context_args,
         )
-        assert_attr(html, "[x-data]", "x-data", "{ open: false }")
+        assert_selector(html, "[x-data]", count=1)
+        assert_attr(html, "[x-data]", "x-id")
 
-    # open(): both branches
+    # closed(): both branches
     @pytest.mark.asyncio
-    async def test_it_can_start_open(self, context_args):
+    async def test_it_starts_open(self, context_args):
+        # A section of a form is there to be filled in, so the fields are
+        # what the page shows first.
         html = await render_tree(
-            Disclosure().title("General").open().content("Fields"),
+            Disclosure().title("General").content("Fields"),
             context_args=context_args,
         )
         assert_attr(html, "[x-data]", "x-data", "{ open: true }")
 
     @pytest.mark.asyncio
-    async def test_it_starts_closed(self, context_args):
+    async def test_it_can_start_folded_away(self, context_args):
         html = await render_tree(
-            Disclosure().title("General").content("Fields"),
+            Disclosure().title("General").closed().content("Fields"),
             context_args=context_args,
         )
         assert_attr(html, "[x-data]", "x-data", "{ open: false }")

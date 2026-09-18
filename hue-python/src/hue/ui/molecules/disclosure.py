@@ -37,33 +37,32 @@ class Disclosure(ChainableComponent):
     Reach for this to group a long form; reach for that when the point is
     that only one section is open at a time.
 
-        Disclosure().title("General").open().content(fields)
+        Disclosure().title("General").content(fields)
     """
 
     category = "Layout"
 
     @classmethod
     def example(cls) -> Self:
-        return (
-            cls()
-            .title("General")
-            .open()
-            .content("Everything about the product itself.")
-        )
+        return cls().title("General").content("Everything about the product itself.")
 
     def title(self, value: str) -> Self:
         self._props["title"] = value
         return self
 
-    def open(self, value: bool = True) -> Self:
+    def closed(self, value: bool = True) -> Self:
         """
-        Start it open.
+        Start it folded away.
+
+        Open is the default: a section of a form is there to be filled in,
+        and one that hides its fields until asked is one the reader has to
+        open before they can see what the page even wants.
         """
-        self._props["open"] = value
+        self._props["closed"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
-        starts_open: bool = self._get_prop("open", False)
+        starts_open = not self._get_prop("closed", False)
 
         trigger = html.button(
             render_if(self._get_prop("title"), lambda text: text),
