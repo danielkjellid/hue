@@ -227,9 +227,10 @@ class Pagination(ChainableComponent):
             .hidden_label()
             .size("sm")
             .value(str(self._get_prop("page_size", 10)))
-            .options([(str(option), str(option)) for option in options])
-            .class_("w-auto"),
-            class_="flex items-center gap-2",
+            .options([(str(option), str(option)) for option in options]),
+            # The select fills its box, so the box is what sets the width - a
+            # w-auto on the control itself would just fight its own w-full.
+            class_="flex items-center gap-2 [&_select]:w-20",
         )
 
     def _step(self, number: int, label: str, icon: str, enabled: bool) -> ComponentType:
