@@ -140,8 +140,14 @@ class Field(ChainableComponent):
         trailing: tuple[ComponentType, ...] = self._get_prop("trailing", ())
         horizontal = layout == "horizontal"
 
+        # A hidden label is still a label, but it is not a row: sr-only takes
+        # it out of the flow, so leaving it in the header would leave the gap
+        # above the control that the header's own height no longer justifies.
+        hidden_label: bool = self._get_prop("hidden_label", False)
+        headless = hidden_label and not trailing and not (horizontal and hint)
+
         header: list[ComponentType] = [
-            render_if(label, self._label),
+            render_if(None if headless else label, self._label),
             # Laid beside the control, the hint belongs with the label: under a
             # 180px column it reads as part of the question, where under the
             # control it would sit in the next row's space.
@@ -153,6 +159,7 @@ class Field(ChainableComponent):
         # supporting text under one control is one more than anyone reads. In
         # the horizontal layout the hint has already gone up beside the label.
         control: list[ComponentType] = [
+            render_if(label if headless else None, self._label),
             *self._children,
             render_if(
                 error,
