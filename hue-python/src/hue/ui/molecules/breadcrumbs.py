@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from htmy import html
 from typing_extensions import Self
 
@@ -12,8 +14,17 @@ from hue.ui.base import ChainableComponent
 from hue.ui.molecules.popover import Popover
 from hue.utils import classnames, render_when
 
-# A step and where it goes. None is the page you are on, which is not a link.
-type Crumb = tuple[str | None, str]
+
+class Crumb(NamedTuple):
+    """
+    A step and where it goes. No href is the page you are on, which is not a
+    link - and the fields have names, so a trail reads as a trail rather than
+    as a list of pairs.
+    """
+
+    href: str | None
+    label: str
+
 
 _LINK = (
     "rounded-xs px-1.5 py-[3px] text-fg-muted no-underline "
@@ -40,9 +51,11 @@ class Breadcrumbs(ChainableComponent):
     def example(cls) -> Self:
         return cls().items([("/", "Home"), ("/billing", "Billing"), (None, "INV-2048")])
 
-    def items(self, value: list[Crumb]) -> Self:
+    def items(self, value: list[Crumb] | list[tuple[str | None, str]]) -> Self:
         """
         The trail, root first. A step with no href is the current page.
+
+        Crumb(href, label), or the plain pair it unpacks from.
         """
         self._props["items"] = value
         return self
@@ -58,7 +71,7 @@ class Breadcrumbs(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
-        items: list[Crumb] = self._get_prop("items", [])
+        items = [Crumb(*item) for item in self._get_prop("items", [])]
         limit: int | None = self._get_prop("collapse_after")
         hidden: list[Crumb] = []
 
@@ -68,10 +81,12 @@ class Breadcrumbs(ChainableComponent):
             items = [items[0], *items[-2:]]
 
         steps: list[ComponentType] = []
-        for index, (href, label) in enumerate(items):
+        for index, crumb in enumerate(items):
             if index == 1 and hidden:
                 steps.append(self._ellipsis(hidden))
-            steps.append(self._step(href, label, last=index == len(items) - 1))
+            steps.append(
+                self._step(crumb.href, crumb.label, last=index == len(items) - 1)
+            )
 
         return html.nav(
             html.ol(
@@ -124,8 +139,8 @@ class Breadcrumbs(ChainableComponent):
                     *(
                         html.li(
                             html.a(
-                                label,
-                                href=href or "#",
+                                crumb.label,
+                                href=crumb.href or "#",
                                 class_=classnames(
                                     "block rounded-sm px-2 py-[7px] text-base "
                                     "text-fg no-underline hover:bg-surface-hover",
@@ -133,7 +148,7 @@ class Breadcrumbs(ChainableComponent):
                                 ),
                             )
                         )
-                        for href, label in hidden
+                        for crumb in hidden
                     ),
                     class_="flex min-w-40 flex-col list-none p-0 m-0",
                 )

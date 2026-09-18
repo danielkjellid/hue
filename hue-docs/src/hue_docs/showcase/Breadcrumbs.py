@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from hue_docs.showcase import Showcase, variant
 
+# Ids rather than paths: a docs page has nowhere to send you, and a trail
+# that navigates away from the example it is demonstrating is a broken demo.
 _TRAIL = (
-    '[("/", "Home"), ("/billing", "Billing"), '
-    '("/billing/invoices", "Invoices"), (None, "INV-2048")]'
+    '[Crumb("#home", "Home"), Crumb("#billing", "Billing"), '
+    'Crumb("#invoices", "Invoices"), Crumb(None, "INV-2048")]'
 )
 
 SHOWCASES: list[Showcase] = [

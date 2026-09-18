@@ -2,17 +2,28 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Breadcrumbs
+from hue.ui.molecules.breadcrumbs import Crumb
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 _TRAIL = [
-    ("/", "Home"),
-    ("/billing", "Billing"),
-    ("/billing/invoices", "Invoices"),
-    (None, "INV-2048"),
+    Crumb("/", "Home"),
+    Crumb("/billing", "Billing"),
+    Crumb("/billing/invoices", "Invoices"),
+    Crumb(None, "INV-2048"),
 ]
 
 
 class TestBreadcrumbs:
+    @pytest.mark.asyncio
+    async def test_a_plain_pair_is_a_crumb_too(self, context_args):
+        # The names are for reading; the pair still unpacks.
+        html = await render_tree(
+            Breadcrumbs().items([("/", "Home"), (None, "Here")]),
+            context_args=context_args,
+        )
+        assert_selector(html, 'a[href="/"]')
+        assert_selector(html, '[aria-current="page"]')
+
     @pytest.mark.asyncio
     async def test_it_is_a_named_nav_around_an_ordered_list(self, context_args):
         # Ordered, because the steps are a hierarchy rather than a set.
