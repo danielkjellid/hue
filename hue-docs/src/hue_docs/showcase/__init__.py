@@ -29,6 +29,7 @@ from hue import toast, ui
 from hue.js import call, close, unsafe
 from hue.types.core import ComponentType
 from hue.ui.atoms.icon import HueIcon
+from hue.ui.molecules.breadcrumbs import Crumb
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.registry import Showcase, Variant
@@ -40,6 +41,8 @@ _NS["html"] = html
 # plus hue's own icon set, which the components that need a glyph use in their
 # example() too (see the Icon page).
 _NS["HueIcon"] = HueIcon
+# and the named tuple a breadcrumb trail is made of.
+_NS["Crumb"] = Crumb
 # and the way a snippet raises a toast from the browser.
 _NS["toast"] = toast
 # and the expression builders, since a snippet that wires an action uses them.

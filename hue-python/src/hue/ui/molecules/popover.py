@@ -48,6 +48,16 @@ class Popover(ChainableComponent):
         self._props["description"] = value
         return self
 
+    def fit(self, value: bool = True) -> Self:
+        """
+        Size the panel to what is in it, rather than the standard width.
+
+        For the short ones - a handful of links, a line of help - where a
+        280px card around two words is mostly card.
+        """
+        self._props["fit"] = value
+        return self
+
     def placement(self, value: PopoverPlacement) -> Self:
         """
         Which corner of the trigger it hangs off. A preference rather than a
@@ -111,8 +121,11 @@ class Popover(ChainableComponent):
             ),
             role="dialog",
             class_=classnames(
-                "z-70 w-70 max-w-[calc(100vw-2rem)] rounded-lg border border-border",
-                "bg-surface-raised p-4 text-base shadow-raised",
+                "z-70 max-w-[calc(100vw-2rem)] rounded-lg border border-border",
+                "bg-surface-raised text-base shadow-raised",
+                # Picked rather than layered: two width utilities would
+                # resolve by stylesheet order.
+                "w-auto p-1" if self._get_prop("fit", False) else "w-70 p-4",
             ),
             **{
                 ":id": panel_id,
