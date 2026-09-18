@@ -13,6 +13,7 @@ from hue.html.element import (
     SelectElement,
     TextareaElement,
 )
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, Stack, Text, TextInput
 
@@ -308,7 +309,7 @@ class TestAlpineCoreDirectives:
     @pytest.mark.asyncio
     async def test_x_show(self):
         result = await render_tree(
-            html.div().x_show("open").content("Visible"),
+            html.div().x_show(unsafe("open")).content("Visible"),
             context_args=_context_args(),
         )
         assert 'x-show="open"' in result
@@ -318,7 +319,7 @@ class TestAlpineCoreDirectives:
         result = await render_tree(
             html.button()
             .type("button")
-            .x_on("click", "open = !open")
+            .x_on("click", unsafe("open = !open"))
             .content("Toggle"),
             context_args=_context_args(),
         )
@@ -327,7 +328,7 @@ class TestAlpineCoreDirectives:
     @pytest.mark.asyncio
     async def test_x_on_with_modifier(self):
         result = await render_tree(
-            html.div().x_on("click.outside", "open = false"),
+            html.div().x_on("click.outside", unsafe("open = false")),
             context_args=_context_args(),
         )
         assert '@click.outside="open = false"' in result
@@ -335,7 +336,7 @@ class TestAlpineCoreDirectives:
     @pytest.mark.asyncio
     async def test_x_bind(self):
         result = await render_tree(
-            html.div().x_bind("class", "{'active': open}"),
+            html.div().x_bind("class", unsafe("{'active': open}")),
             context_args=_context_args(),
         )
         assert ':class="' in result
@@ -344,7 +345,7 @@ class TestAlpineCoreDirectives:
     async def test_x_transition(self):
         result = await render_tree(
             html.div()
-            .x_show("open")
+            .x_show(unsafe("open"))
             .x_transition_enter("transition ease-out")
             .x_transition_leave("transition ease-in"),
             context_args=_context_args(),
@@ -364,7 +365,7 @@ class TestAlpineCoreDirectives:
     @pytest.mark.asyncio
     async def test_x_init(self):
         result = await render_tree(
-            html.div().x_init("console.log('init')"),
+            html.div().x_init(unsafe("console.log('init')")),
             context_args=_context_args(),
         )
         assert "x-init" in result
@@ -373,7 +374,10 @@ class TestAlpineCoreDirectives:
     async def test_alpine_on_v2_component(self):
         """Core Alpine directives work on v2 components too."""
         result = await render_tree(
-            Button().variant("primary").x_on("click", "handleClick()").content("Click"),
+            Button()
+            .variant("primary")
+            .x_on("click", unsafe("handleClick()"))
+            .content("Click"),
             context_args=_context_args(),
         )
         assert '@click="handleClick()"' in result

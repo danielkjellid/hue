@@ -26,6 +26,7 @@ from typing import Any, Callable
 
 from htmy import html
 from hue import toast, ui
+from hue.js import call, close, unsafe
 from hue.types.core import ComponentType
 from hue.ui.atoms.icon import HueIcon
 
@@ -41,6 +42,10 @@ _NS["html"] = html
 _NS["HueIcon"] = HueIcon
 # and the way a snippet raises a toast from the browser.
 _NS["toast"] = toast
+# and the expression builders, since a snippet that wires an action uses them.
+_NS["call"] = call
+_NS["close"] = close
+_NS["unsafe"] = unsafe
 
 
 def builder(

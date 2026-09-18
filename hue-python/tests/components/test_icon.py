@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import create_icon_base
 from hue.ui.atoms.icon import _format_attr_name
@@ -116,7 +117,9 @@ class TestIcon:
         # they must not be rewritten the way aria_* keys are (see the contract
         # test below for why).
         html = await render_tree(
-            _icon_base()("box").x_data("{ open: false }").x_on("click", "open = true"),
+            _icon_base()("box")
+            .x_data("{ open: false }")
+            .x_on("click", unsafe("open = true")),
             context_args=context_args,
         )
         assert_attr(html, "svg", "x-data", "{ open: false }")

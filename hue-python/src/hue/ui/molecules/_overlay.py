@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from htmy import html
 
+from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
@@ -49,7 +50,7 @@ def open_on_click(trigger: ChainableComponent) -> None:
     """
     Wire a control to open the overlay it belongs to.
     """
-    trigger.x_on("click", "open = true").x_bind("aria-expanded", "open")
+    trigger.x_on("click", unsafe("open = true")).x_bind("aria-expanded", unsafe("open"))
     trigger._attrs.setdefault("aria_haspopup", "dialog")
 
 

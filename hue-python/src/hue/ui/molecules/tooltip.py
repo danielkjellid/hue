@@ -6,6 +6,7 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
@@ -90,7 +91,7 @@ class Tooltip(ChainableComponent):
         # around it - the only element a screen reader will read it from.
         bubble_id = "$id('hue-tooltip')"
         if trigger is not None:
-            trigger.x_bind("aria-describedby", bubble_id)
+            trigger.x_bind("aria-describedby", unsafe(bubble_id))
 
         bubble = html.div(
             *self._children,

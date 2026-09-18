@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hue import html
+from hue.js import unsafe
 from hue.types.core import ComponentType
 
 from hue_docs.layout.highlight import highlight_code
@@ -24,10 +25,12 @@ def code_block(source: str, *, language: str = "python") -> ComponentType:
             )
             .x_on(
                 "click",
-                "navigator.clipboard.writeText($refs.code.textContent);"
-                " copied = true; setTimeout(() => copied = false, 1200)",
+                unsafe(
+                    "navigator.clipboard.writeText($refs.code.textContent);"
+                    " copied = true; setTimeout(() => copied = false, 1200)"
+                ),
             )
-            .x_text("copied ? 'Copied' : 'Copy'"),
+            .x_text(unsafe("copied ? 'Copied' : 'Copy'")),
             html.pre(
                 # The plain source stays in x-ref so the copy button grabs the
                 # un-highlighted text; the visible code is the highlighted HTML.

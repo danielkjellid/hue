@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 from typing import Final
 
+from hue.js import Expression
+
 # A label and the expression the button runs, e.g. ("Retry", "$ajax('/send/')").
 type ToastAction = tuple[str, str]
 
@@ -36,7 +38,7 @@ def _expression(
     description: str | None,
     duration: _Duration,
     action: ToastAction | None,
-) -> str:
+) -> Expression:
     options: list[str] = []
     if description is not None:
         options.append(f"description: {json.dumps(description)}")
@@ -51,13 +53,13 @@ def _expression(
     arguments = json.dumps(title)
     if options:
         arguments += ", { " + ", ".join(options) + " }"
-    return f"$toast.{variant}({arguments})"
+    return Expression(f"$toast.{variant}({arguments})")
 
 
 class _Js:
     """
     The browser half of toast: one method per variant, each returning the
-    expression that raises it.
+    Expression that raises it, which on_click and x_on take as they are.
 
         Button().content("Copy").x_on("click", toast.js.success("Copied"))
 
@@ -73,7 +75,7 @@ class _Js:
         description: str | None = None,
         duration: _Duration = _INHERIT,
         action: ToastAction | None = None,
-    ) -> str:
+    ) -> Expression:
         return _expression("success", title, description, duration, action)
 
     def danger(
@@ -83,7 +85,7 @@ class _Js:
         description: str | None = None,
         duration: _Duration = _INHERIT,
         action: ToastAction | None = None,
-    ) -> str:
+    ) -> Expression:
         return _expression("danger", title, description, duration, action)
 
     def warning(
@@ -93,7 +95,7 @@ class _Js:
         description: str | None = None,
         duration: _Duration = _INHERIT,
         action: ToastAction | None = None,
-    ) -> str:
+    ) -> Expression:
         return _expression("warning", title, description, duration, action)
 
     def info(
@@ -103,7 +105,7 @@ class _Js:
         description: str | None = None,
         duration: _Duration = _INHERIT,
         action: ToastAction | None = None,
-    ) -> str:
+    ) -> Expression:
         return _expression("info", title, description, duration, action)
 
     def loading(
@@ -113,7 +115,7 @@ class _Js:
         description: str | None = None,
         duration: _Duration = _INHERIT,
         action: ToastAction | None = None,
-    ) -> str:
+    ) -> Expression:
         return _expression("loading", title, description, duration, action)
 
 

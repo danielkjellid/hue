@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hue import html
+from hue.js import unsafe
 from hue.pages import BasePage, create_page_base
 from hue.types.core import ComponentType
 from hue.ui import ThemeSwitcher, ToastRegion
@@ -28,8 +29,8 @@ def _menu_button() -> ComponentType:
         )
         .aria_label("Toggle navigation")
         .aria_controls("docs-sidebar")
-        .x_bind("aria-expanded", "navOpen")
-        .x_on("click", "navOpen = !navOpen")
+        .x_bind("aria-expanded", unsafe("navOpen"))
+        .x_on("click", unsafe("navOpen = !navOpen"))
     )
 
 

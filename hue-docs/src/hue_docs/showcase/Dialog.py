@@ -41,8 +41,8 @@ SHOWCASES: list[Showcase] = [
                         Button()
                         .variant("ghost")
                         .content("Cancel")
-                        .x_on("click", "close()"),
-                        Button().content("Send invites").x_on("click", "close()"),
+                        .on_click(close()),
+                        Button().content("Send invites").on_click(close()),
                     )
                 )
                 """,
@@ -61,11 +61,11 @@ SHOWCASES: list[Showcase] = [
                         Button()
                         .variant("ghost")
                         .content("Keep it")
-                        .x_on("click", "close()"),
+                        .on_click(close()),
                         Button()
                         .variant("danger")
                         .content("Delete")
-                        .x_on("click", "close()"),
+                        .on_click(close()),
                     )
                 )
                 """,
@@ -80,7 +80,7 @@ SHOWCASES: list[Showcase] = [
                     .title("Accept the new terms")
                     .description("You need to accept these before continuing.")
                     .trigger(Button().variant("outline").content("Review terms"))
-                    .footer(Button().content("Accept").x_on("click", "close()"))
+                    .footer(Button().content("Accept").on_click(close()))
                 )
                 """,
             ),

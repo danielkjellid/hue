@@ -5,6 +5,7 @@ from typing import Literal, NamedTuple
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
@@ -56,8 +57,10 @@ class ThemeSwitcher(ChainableComponent):
         segment = (
             SegmentedOption()
             .value(option.choice)
-            .x_on("click", f"$store.theme.select('{option.choice}')")
-            .x_bind("aria-pressed", f"$store.theme.choice === '{option.choice}'")
+            .x_on("click", unsafe(f"$store.theme.select('{option.choice}')"))
+            .x_bind(
+                "aria-pressed", unsafe(f"$store.theme.choice === '{option.choice}'")
+            )
         )
 
         icon = HueIcon(option.icon)

@@ -66,7 +66,7 @@ SHOWCASES: list[Showcase] = [
                         Button().variant("ghost").content("Reset all"),
                         Button()
                         .content("Show 148 records")
-                        .x_on("click", "close()"),
+                        .on_click(close()),
                     )
                 )
                 """,
@@ -104,7 +104,7 @@ SHOWCASES: list[Showcase] = [
                         Button()
                         .variant("outline")
                         .content("Close")
-                        .x_on("click", "close()"),
+                        .on_click(close()),
                         Button().content("Download PDF"),
                     )
                 )

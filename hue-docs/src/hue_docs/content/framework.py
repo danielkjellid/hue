@@ -39,6 +39,42 @@ def _build() -> ComponentType:
             "exchanges aren't wired to a backend here — interactive examples "
             "are shown as code."
         ),
+        pr.h2("Expressions"),
+        pr.p(
+            "Everything Alpine evaluates is code: a click handler, a binding, "
+            "a condition. There is no escaping that makes code safe, so the "
+            "modifiers that evaluate their argument do not take a string. "
+            "They take an Expression, and hue gives you three ways to build "
+            "one — a helper that returns one, such as toast.js; call(), which "
+            "quotes its arguments; and unsafe(), which vouches for source as "
+            "written."
+        ),
+        pr.code(
+            "from hue.js import call, close, unsafe\n\n"
+            "# quoted for you\n"
+            'Button().content("Send").on_click(call("sendInvoice", invoice.id))\n\n'
+            "# the overlay's own way out\n"
+            'Button().content("Cancel").on_click(close())\n\n'
+            "# code you wrote, and said so\n"
+            'Button().content("More").x_on("click", unsafe("open = !open"))'
+        ),
+        pr.p(
+            "on_click() is on the components a browser already treats as a "
+            "control - Button, MenuItem, SegmentedOption - and not on "
+            "everything. A click handler on a div cannot be reached by "
+            "keyboard and is announced as nothing in particular, so if some "
+            "other element really has to answer a click, it says so with "
+            "x_on(), where it reads as the raw handler it is."
+        ),
+        pr.p(
+            "The name is the whole mechanism. unsafe() escapes nothing and "
+            "checks nothing, so never build one out of anything a user typed "
+            "— and every place that decision was made answers to one grep. "
+            "Note the limit: this covers hue's own modifiers. An expression "
+            "written straight into an htmy attribute, such as "
+            'html.button(**{"@click": ...}), goes around it, as does '
+            "anything a template renders itself."
+        ),
         pr.h2("Static assets"),
         pr.p(
             "The Tailwind stylesheet and Alpine bundle live inside the hue "
