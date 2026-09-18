@@ -96,7 +96,7 @@ class Disclosure(ChainableComponent):
             ),
             # A section spans its column: the header is a band across the
             # content it folds, not a chip the width of its own title.
-            class_=classnames("w-full", self._get_prop("class_")),
+            class_=classnames("w-full h-5", self._get_prop("class_")),
             **{
                 "x-data": f"{{ open: {str(starts_open).lower()} }}",
                 "x-id": "['hue-disclosure-title', 'hue-disclosure-panel']",
