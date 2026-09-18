@@ -12,18 +12,25 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
+# What every step is, minus anything its state decides. The three states
+# below each name a border colour, a text colour and a cursor, so no two
+# classes are left competing for the same property.
 _ITEM = (
     "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
-    "justify-center rounded-md border border-transparent px-2 font-ui "
-    "text-sm font-medium tabular-nums text-fg-muted no-underline "
-    "hover:bg-surface-hover hover:text-fg cursor-pointer"
+    "justify-center rounded-md border px-2 font-ui text-sm font-medium "
+    "tabular-nums no-underline"
 )
 
-_CURRENT = "bg-accent-subtle border-accent-border text-accent-text"
+_IDLE = (
+    "border-transparent text-fg-muted cursor-pointer "
+    "hover:bg-surface-hover hover:text-fg"
+)
+
+_CURRENT = "bg-accent-subtle border-accent-border text-accent-text cursor-pointer"
 
 # A step with nowhere to go stays in the row and stays announced: a control
 # that disappears at the ends teaches nobody where the ends are.
-_SPENT = "text-fg-disabled cursor-not-allowed pointer-events-none"
+_SPENT = "border-transparent text-fg-disabled cursor-not-allowed pointer-events-none"
 
 
 class Pagination(ChainableComponent):
@@ -138,7 +145,7 @@ class Pagination(ChainableComponent):
         return items
 
     def _number(self, number: int, *, current: bool) -> ComponentType:
-        classes = classnames(_ITEM, _CURRENT if current else "", FOCUS_RING)
+        classes = classnames(_ITEM, _CURRENT if current else _IDLE, FOCUS_RING)
         href = self._get_prop("href")
         if href is None:
             return html.button(
@@ -172,13 +179,13 @@ class Pagination(ChainableComponent):
                 glyph,
                 type="button",
                 aria_label=label,
-                class_=classnames(_ITEM, FOCUS_RING),
+                class_=classnames(_ITEM, _IDLE, FOCUS_RING),
             )
         return html.a(
             glyph,
             href=href(number),
             aria_label=label,
-            class_=classnames(_ITEM, FOCUS_RING),
+            class_=classnames(_ITEM, _IDLE, FOCUS_RING),
         )
 
 
