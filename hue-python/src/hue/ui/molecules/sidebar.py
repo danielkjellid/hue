@@ -292,14 +292,12 @@ def _indicator() -> ComponentType:
     The bar beside the current item, and the only thing marking it.
 
     -start-4 cancels the body's own padding, so it hugs the sidebar's edge
-    rather than floating in the gutter. Four pixels wide rather than two,
-    because a rounded cap on a two-pixel bar is a one-pixel curve nobody can
-    see. A real element rather than a pseudo, so nothing depends on a content
-    quirk to be visible.
+    rather than floating in the gutter. A real element rather than a pseudo,
+    so nothing depends on a content quirk to be visible.
     """
     return html.span(
         aria_hidden="true",
-        class_="absolute inset-y-1.5 -start-4 w-1 rounded-full bg-accent",
+        class_="absolute inset-y-2 -start-4 w-0.5 rounded-full bg-accent",
     )
 
 
