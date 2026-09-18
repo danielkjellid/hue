@@ -16,25 +16,38 @@ class TestToast:
             Toast().variant("success").title("Invoice sent"),
             context_args=context_args,
         )
-        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 0)")
+        assert_attr(
+            html, "[x-data]", "x-init", "ms = $data.hueToastDuration ?? 0; start(ms)"
+        )
         assert_attr(html, "[x-data]", "x-on:mouseenter", "stop()")
-        assert_attr(html, "[x-data]", "x-on:mouseleave", "start(2600)")
+        assert_attr(html, "[x-data]", "x-on:mouseleave", "resume()")
         assert_attr(html, "[x-data]", "x-on:focusin", "stop()")
 
     # duration(): both branches
+    @pytest.mark.asyncio
+    async def test_a_toast_that_was_staying_does_not_leave_after_a_hover(
+        self, context_args
+    ):
+        # resume() checks the number the toast was given; without that, the
+        # hover is what starts a sticky toast counting down.
+        html = await render_tree(
+            Toast().title("Exporting").duration(None), context_args=context_args
+        )
+        assert "resume() { if (this.ms) this.start(2600) }" in str(html)
+
     @pytest.mark.asyncio
     async def test_a_duration_is_milliseconds(self, context_args):
         html = await render_tree(
             Toast().title("Saved").duration(2000), context_args=context_args
         )
-        assert_attr(html, "[x-data]", "x-init", "start(2000)")
+        assert_attr(html, "[x-data]", "x-init", "ms = 2000; start(ms)")
 
     @pytest.mark.asyncio
     async def test_no_duration_is_a_toast_that_stays(self, context_args):
         html = await render_tree(
             Toast().title("Exporting").duration(None), context_args=context_args
         )
-        assert_attr(html, "[x-data]", "x-init", "start(0)")
+        assert_attr(html, "[x-data]", "x-init", "ms = 0; start(ms)")
 
     # variant(): the failure is the one that is announced assertively
     @pytest.mark.asyncio
@@ -50,7 +63,7 @@ class TestToast:
             html,
             "[x-data]",
             "x-init",
-            "start($data.hueToastDuration ?? 0); "
+            "ms = $data.hueToastDuration ?? 0; start(ms); "
             "$data.announce?.($el.innerText.trim())",
         )
 
@@ -59,7 +72,9 @@ class TestToast:
         html = await render_tree(
             Toast().variant("success").title("Invoice sent"), context_args=context_args
         )
-        assert_attr(html, "[x-data]", "x-init", "start($data.hueToastDuration ?? 0)")
+        assert_attr(
+            html, "[x-data]", "x-init", "ms = $data.hueToastDuration ?? 0; start(ms)"
+        )
 
     @pytest.mark.asyncio
     async def test_the_loading_variant_spins_instead_of_an_icon(self, context_args):

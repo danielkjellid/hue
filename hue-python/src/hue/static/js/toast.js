@@ -44,10 +44,12 @@ function raise(variant, title, options = {}) {
 		action.remove();
 	}
 
-	// undefined keeps the region's default; null is a toast that stays.
+	// undefined keeps the region's default; null is a toast that stays. The
+	// number goes in the same place the server puts it, so resume() after a
+	// hover knows whether this toast was leaving at all.
 	if (options.duration !== undefined) {
 		const ms = options.duration === null ? 0 : options.duration;
-		const init = toast.getAttribute("x-init").replace(/start\([^)]*\)/, `start(${ms})`);
+		const init = toast.getAttribute("x-init").replace(/ms = [^;]+;/, `ms = ${ms};`);
 		toast.setAttribute("x-init", init);
 	}
 

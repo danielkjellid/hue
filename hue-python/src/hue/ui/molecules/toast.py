@@ -51,10 +51,13 @@ _TONES: dict[ToastVariant, str] = {
 # own. Pausing on hover and on focus is WCAG 2.2.1: an auto-dismissing
 # message has to be stoppable by whoever is still reading it.
 _TIMER = (
-    "{ timer: null, "
+    "{ ms: 0, timer: null, "
     "start(ms) { this.stop(); "
     "if (ms) this.timer = setTimeout(() => this.dismiss(), ms) }, "
-    "stop() { clearTimeout(this.timer) }, "
+    "stop() { clearTimeout(this.timer); this.timer = null }, "
+    # Only a toast that was leaving resumes. Without the guard, hovering one
+    # that was going to stay is what starts it counting down.
+    f"resume() {{ if (this.ms) this.start({_RESUME_MS}) }}, "
     "dismiss() { this.stop(); "
     "$el.classList.add('animate-toast-out'); "
     "setTimeout(() => $el.remove(), 180) } }"
@@ -133,7 +136,7 @@ class Toast(ChainableComponent):
             html.span(
                 icon,
                 aria_hidden="true",
-                class_=classnames("mt-px flex-none", _TONES[variant]),
+                class_=classnames("mt-0.5 flex-none", _TONES[variant]),
             ),
             html.div(
                 render_if(
@@ -183,11 +186,9 @@ class Toast(ChainableComponent):
                 "x-data": _TIMER,
                 "x-init": _init(self, variant),
                 "x-on:mouseenter": "stop()",
-                "x-on:mouseleave": f"start({_RESUME_MS})",
+                "x-on:mouseleave": "resume()",
                 "x-on:focusin": "stop()",
-                "x-on:focusout": (
-                    f"if (!$el.contains($event.relatedTarget)) start({_RESUME_MS})"
-                ),
+                "x-on:focusout": ("if (!$el.contains($event.relatedTarget)) resume()"),
                 **self._get_base_html_attrs(),
             },
         )
@@ -208,10 +209,10 @@ def _init(toast: Toast, variant: ToastVariant) -> str:
     # timer at all, because the region is what times a toast. A specimen on a
     # page is then a card that stays put rather than one that quietly leaves.
     if "duration" not in toast._props:
-        start = f"start($data.{_DEFAULT} ?? 0)"
+        start = f"ms = $data.{_DEFAULT} ?? 0; start(ms)"
     else:
         duration: int | None = toast._get_prop("duration")
-        start = f"start({duration if duration is not None else 0})"
+        start = f"ms = {duration if duration is not None else 0}; start(ms)"
     if variant != "danger":
         return start
     return f"{start}; $data.announce?.($el.innerText.trim())"
