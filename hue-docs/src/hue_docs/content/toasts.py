@@ -125,11 +125,11 @@ def _build() -> ComponentType:
             "takes to read two short lines twice. The number lives on the "
             "region, because the region is what times a toast - one rendered "
             "on its own, as a specimen in a page, has no timer and stays. "
-            "Set the page-wide number there, and override it on a toast that "
-            "needs longer or should not leave at all:"
+            "Set the page-wide number with default_duration(), and override "
+            "it on a toast that needs longer or should not leave at all:"
         ),
         pr.code(
-            "ToastRegion().duration(8000)\n\n"
+            "ToastRegion().default_duration(8000)\n\n"
             'Toast().variant("info").title("Back online").duration(2000)\n'
             'Toast().variant("loading").title("Exporting").duration(None)'
         ),

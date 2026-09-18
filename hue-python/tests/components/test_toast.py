@@ -129,10 +129,10 @@ class TestToastRegion:
         assert_attr(html, "#hue-toasts", "x-merge", "append")
 
     @pytest.mark.asyncio
-    async def test_the_region_sets_how_long_a_toast_stays(self, context_args):
+    async def test_the_region_sets_the_default_a_toast_takes(self, context_args):
         # Toasts inside it inherit the number through the Alpine scope.
         html = await render_tree(
-            ToastRegion().duration(8000), context_args=context_args
+            ToastRegion().default_duration(8000), context_args=context_args
         )
         assert "hueToastDuration: 8000" in str(html)
 

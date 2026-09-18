@@ -225,18 +225,18 @@ class ToastRegion(ChainableComponent):
     A live region that exists before anything is in it, because one created
     together with its content is never read out. Toasts sent from the server
     are merged into it by their id, and $toast() builds one from the
-    templates it carries. duration() sets how long they stay.
+    templates it carries. default_duration() sets how long they stay.
     """
 
     category = None
 
-    def duration(self, value: int) -> Self:
+    def default_duration(self, value: int) -> Self:
         """
         Milliseconds a toast in this region stays, for the ones that do not
         set their own. 5200 by default, which is the time it takes to read
         two short lines twice.
         """
-        self._props["duration"] = value
+        self._props["default_duration"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
@@ -266,7 +266,7 @@ class ToastRegion(ChainableComponent):
             class_=self._get_prop("class_"),
             **{
                 "x-data": f"{{ {_DEFAULT}: "
-                f"{self._get_prop('duration', _DURATION_MS)}, "
+                f"{self._get_prop('default_duration', _DURATION_MS)}, "
                 "announce(text) { "
                 "this.$refs.announcer.textContent = ''; "
                 "this.$refs.announcer.textContent = text } }",
