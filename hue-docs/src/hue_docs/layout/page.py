@@ -5,7 +5,7 @@ from __future__ import annotations
 from hue import html
 from hue.pages import BasePage, create_page_base
 from hue.types.core import ComponentType
-from hue.ui import ThemeSwitcher
+from hue.ui import ThemeSwitcher, ToastRegion
 
 from hue_docs.layout.sidebar import sidebar
 from hue_docs.models import NavGroup
@@ -64,6 +64,9 @@ def build_page(
                 sidebar(nav, active_href),
                 html.main(main).class_("min-w-0 flex-1 px-6 py-10 lg:px-10"),
             ).class_("mx-auto flex w-full max-w-7xl"),
+            # One per site, which is the rule: toasts arrive in the same
+            # corner on every page or the reflex to look there never forms.
+            ToastRegion(),
         )
     )
     return _Page(title=title, body=body)
