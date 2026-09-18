@@ -48,6 +48,7 @@ from hue.ui.molecules.menu import (
     MenuLabel,
     MenuSeparator,
 )
+from hue.ui.molecules.pagination import Pagination
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
@@ -102,6 +103,7 @@ __all__ = [
     "MenuSeparator",
     "NativeSelect",
     "NumberInput",
+    "Pagination",
     "Panel",
     "PasswordInput",
     "Popover",
