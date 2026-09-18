@@ -17,6 +17,7 @@ from hue.utils import classnames, render_if
 _HEADER = (
     "flex w-full cursor-pointer items-center gap-2 rounded-md border-none "
     "h-5 bg-canvas-subtle px-4 text-start font-ui text-base font-medium "
+    "leading-none "
     "text-fg hover:bg-surface-hover"
 )
 
