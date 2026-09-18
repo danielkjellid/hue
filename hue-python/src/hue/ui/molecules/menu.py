@@ -11,7 +11,7 @@ from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
+from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classes_if, classnames, render_if, render_when
 
 type MenuPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
@@ -155,7 +155,7 @@ class DropdownMenu(ChainableComponent):
         )
 
 
-class MenuItem(ChainableComponent):
+class MenuItem(Clickable):
     """
     One action in a menu, rendered as a button or, given href, a link.
 

@@ -1,7 +1,7 @@
 import pytest
 
 from hue.js import Expression, call, close, unsafe
-from hue.ui import Button
+from hue.ui import Button, Card, MenuItem, Stack
 
 
 class TestExpressions:
@@ -57,6 +57,14 @@ class TestModifiersRefuseStrings:
 
 
 class TestOnClick:
+    def test_it_is_only_on_what_a_browser_treats_as_a_control(self):
+        # A click handler on a div is not reachable by keyboard and is
+        # announced as nothing in particular, so the sugar is not there.
+        assert hasattr(Button(), "on_click")
+        assert hasattr(MenuItem(), "on_click")
+        assert not hasattr(Card(), "on_click")
+        assert not hasattr(Stack(), "on_click")
+
     def test_it_is_a_click_handler(self):
         attrs = Button().on_click(call("send", 1))._get_base_html_attrs()
         assert attrs["@click"] == "send(1)"

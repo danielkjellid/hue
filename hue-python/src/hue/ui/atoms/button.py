@@ -9,7 +9,7 @@ from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import ChainableComponent
+from hue.ui.base import Clickable
 from hue.utils import classnames
 
 type ButtonVariant = Literal[
@@ -101,7 +101,7 @@ _SHAPE_CLASSES: dict[ButtonShape, str] = {
 }
 
 
-class Button(ChainableComponent):
+class Button(Clickable):
     """
     A clickable button.
 

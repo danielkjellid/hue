@@ -197,17 +197,6 @@ class ChainableComponent(ABC):
         self._attrs[f"@{event}"] = expect(expression, modifier="x_on()")
         return self
 
-    def on_click(self, *expressions: Expression) -> Self:
-        """
-        What pressing this does, as one or more expressions run in order.
-
-            Button().content("Send").on_click(call("sendInvoice", invoice.id))
-        """
-        joined = "; ".join(
-            expect(expression, modifier="on_click()") for expression in expressions
-        )
-        return self.x_on("click", Expression(joined))
-
     def x_bind(self, attr: str, expression: Expression) -> Self:
         """
         Dynamically bind an HTML attribute (:attr).
@@ -416,3 +405,26 @@ class AlpineModelMixin:
         """
         self._attrs["x-model"] = value
         return self
+
+
+class Clickable(ChainableComponent):
+    """
+    A component that renders something a browser already treats as a control -
+    a button or a link.
+
+    on_click lives here rather than on every component, because a click
+    handler on a div is not reachable by keyboard and is announced as nothing
+    in particular. Anything else that really has to answer a click says so
+    with x_on, where it reads as the raw handler it is.
+    """
+
+    def on_click(self, *expressions: Expression) -> Self:
+        """
+        What pressing this does, as one or more expressions run in order.
+
+            Button().content("Send").on_click(call("sendInvoice", invoice.id))
+        """
+        joined = "; ".join(
+            expect(expression, modifier="on_click()") for expression in expressions
+        )
+        return self.x_on("click", Expression(joined))

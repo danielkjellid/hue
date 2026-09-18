@@ -59,6 +59,14 @@ def _build() -> ComponentType:
             'Button().content("More").x_on("click", unsafe("open = !open"))'
         ),
         pr.p(
+            "on_click() is on the components a browser already treats as a "
+            "control - Button, MenuItem, SegmentedOption - and not on "
+            "everything. A click handler on a div cannot be reached by "
+            "keyboard and is announced as nothing in particular, so if some "
+            "other element really has to answer a click, it says so with "
+            "x_on(), where it reads as the raw handler it is."
+        ),
+        pr.p(
             "The name is the whole mechanism. unsafe() escapes nothing and "
             "checks nothing, so never build one out of anything a user typed "
             "— and every place that decision was made answers to one grep. "

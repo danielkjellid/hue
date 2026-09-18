@@ -9,7 +9,7 @@ from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import ChainableComponent
+from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classnames
 
 type SegmentedSize = Literal["sm", "md", "lg"]
@@ -36,7 +36,7 @@ _OPTION_TEXT: dict[SegmentedSize, str] = {
 }
 
 
-class SegmentedOption(ChainableComponent):
+class SegmentedOption(Clickable):
     """
     One option in a SegmentedControl.
 
