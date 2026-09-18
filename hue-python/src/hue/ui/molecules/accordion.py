@@ -105,7 +105,10 @@ class Accordion(ChainableComponent):
 
         return html.div(
             *self._children,
-            class_=classnames(_VARIANTS[variant], self._get_prop("class_")),
+            # w-full, or the accordion is as wide as whichever panel happens
+            # to be open and the whole thing jumps every time one is. The
+            # panel keeps its own reading width instead.
+            class_=classnames("w-full", _VARIANTS[variant], self._get_prop("class_")),
             **{"x-data": state, **self._get_base_html_attrs()},
         )
 

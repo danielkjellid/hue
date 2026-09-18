@@ -105,6 +105,13 @@ class TestAccordion:
         assert "open: [0, 1]" in str(html)
         assert "single: false" in str(html)
 
+    @pytest.mark.asyncio
+    async def test_it_is_as_wide_as_its_column(self, context_args):
+        # Not as wide as whichever panel is open, or opening one moves the
+        # whole accordion.
+        html = await render_tree(_accordion(), context_args=context_args)
+        assert_selector(html, "div.w-full.border-t")
+
     # variant(): both branches
     @pytest.mark.asyncio
     async def test_plain_is_a_stack_of_rules(self, context_args):
