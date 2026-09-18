@@ -25,8 +25,11 @@ _UNDERLINE_TAB = (
     "relative cursor-pointer rounded-t-sm border-none bg-transparent "
     "px-[11px] pt-[9px] pb-[11px] font-ui text-base font-medium text-fg-muted "
     "hover:bg-surface-hover hover:text-fg aria-selected:text-fg "
+    # Tailwind gives any after: utility a content of its own, so the bar is
+    # drawn under every tab unless this one says otherwise.
     "after:absolute after:inset-x-1.5 after:-bottom-px after:h-0.5 "
-    "after:rounded-t-sm after:bg-accent aria-selected:after:content-['']"
+    "after:rounded-t-sm after:bg-accent "
+    "after:content-none aria-selected:after:content-['']"
 )
 
 _SEGMENTED_TAB = (

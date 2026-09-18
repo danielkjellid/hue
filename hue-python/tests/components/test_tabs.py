@@ -75,9 +75,12 @@ class TestTabs:
     # variant(): both branches
     @pytest.mark.asyncio
     async def test_underline_draws_a_rule_under_the_selected_tab(self, context_args):
+        # And under that one only: an after: utility carries a content of its
+        # own, so the bar needs turning off for the rest.
         html = await render_tree(_tabs(), context_args=context_args)
         assert_selector(html, '[role="tablist"].border-b')
         assert_selector(html, "button[class*='after:bg-accent']")
+        assert_selector(html, "button[class*='after:content-none']")
 
     @pytest.mark.asyncio
     async def test_segmented_wears_what_the_segmented_control_wears(self, context_args):
