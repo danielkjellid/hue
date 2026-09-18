@@ -20,7 +20,7 @@ type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
 # rather than an item in a list.
 _HEADER = (
     "flex w-full cursor-pointer items-center gap-2 rounded-md border-none "
-    "bg-canvas-subtle px-2 py-1.5 text-start font-ui text-base font-medium "
+    "bg-canvas-subtle px-4 py-1.5 text-start font-ui text-base font-medium "
     "text-fg hover:bg-surface-hover"
 )
 
@@ -97,7 +97,9 @@ class Disclosure(ChainableComponent):
                 # Named by the heading that opens it, so a screen reader
                 # landing in the section knows which one it is in.
                 role="region",
-                class_="pt-4",
+                # The same inset as the header, so what the section holds
+                # starts under the word that names it.
+                class_="px-4 pt-4",
                 **{
                     ":id": "$id('hue-disclosure-panel')",
                     ":aria-labelledby": "$id('hue-disclosure-title')",
