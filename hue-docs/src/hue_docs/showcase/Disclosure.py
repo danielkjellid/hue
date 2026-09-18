@@ -27,7 +27,7 @@ SHOWCASES: list[Showcase] = [
             variant(
                 "A long form, folded",
                 """
-                Stack().spacing("lg").align_items("items-stretch").content(
+                Stack().spacing("sm").align_items("items-stretch").content(
                     Disclosure()
                     .title("General")
                     .content(
