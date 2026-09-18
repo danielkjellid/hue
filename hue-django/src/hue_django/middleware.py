@@ -7,6 +7,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.utils.cache import get_conditional_response
 from django.utils.http import quote_etag
 from hue.assets import read_css, read_js
+from hue.toast import ToastMessage, toast
 
 # URL prefix for hue's built-in asset endpoints.
 HUE_ASSETS_PREFIX = "/__hue__/"
@@ -81,3 +82,83 @@ class HueAssetsMiddleware:
 
     async def __acall__(self, request: HttpRequest) -> HttpResponseBase:
         return _asset_response(request) or await self.get_response(request)
+
+
+# Where the toasts raised before a redirect wait for the page after it.
+SESSION_KEY = "hue_toasts"
+
+
+def _load(request: HttpRequest) -> None:
+    """
+    Hand back whatever the last request left behind, oldest first.
+    """
+    session = getattr(request, "session", None)
+    if session is None:
+        return
+    stored = session.pop(SESSION_KEY, None)
+    if stored:
+        toast.restore(ToastMessage.from_dict(data) for data in stored)
+
+
+def _save(request: HttpRequest) -> None:
+    """
+    Keep what nothing rendered, for the next request to show.
+
+    A page empties the queue through its region and a fragment through the
+    router, so what is left here was raised by something that returned no
+    markup at all - a redirect, most often.
+    """
+    pending = toast.drain()
+    session = getattr(request, "session", None)
+    if not pending or session is None:
+        return
+    session[SESSION_KEY] = [message.as_dict() for message in pending]
+
+
+class HueToastMiddleware:
+    """
+    Carry toasts across a redirect.
+
+    Without it, toast.success() works for anything that renders - a page or a
+    fragment carries its own. With it, one raised by a view that redirects
+    waits in the session and arrives with the page after it.
+
+    It also opens the queue for the whole request, so toast.success() works in
+    a plain Django view, not only inside a hue router.
+
+        MIDDLEWARE = [
+            "django.contrib.sessions.middleware.SessionMiddleware",
+            "hue_django.middleware.HueToastMiddleware",
+            ...
+        ]
+    """
+
+    sync_capable = True
+    async_capable = True
+
+    def __init__(self, get_response: Callable[[HttpRequest], Any]) -> None:
+        self.get_response = get_response
+        if iscoroutinefunction(get_response):
+            markcoroutinefunction(self)
+
+    def __call__(self, request: HttpRequest) -> Any:
+        if iscoroutinefunction(self):
+            return self.__acall__(request)
+        token = toast.open()
+        try:
+            _load(request)
+            response = self.get_response(request)
+        finally:
+            _save(request)
+            toast.close(token)
+        return response
+
+    async def __acall__(self, request: HttpRequest) -> HttpResponseBase:
+        token = toast.open()
+        try:
+            _load(request)
+            response = await self.get_response(request)
+        finally:
+            _save(request)
+            toast.close(token)
+        return response

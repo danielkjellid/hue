@@ -18,6 +18,7 @@ word rather than a syntax error in someone's page.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -83,6 +84,42 @@ class ToastMessage:
     duration: Duration = field(default=INHERIT)
     dismissible: bool = True
     action: Any = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """
+        The message as plain data, for a store that has to outlive the
+        request - a session, between a redirect and the page after it.
+
+        An action is a component, which is not data, so one cannot be stored.
+        Saying so beats a toast that quietly loses its button on the way.
+        """
+        if self.action is not None:
+            raise TypeError(
+                "A toast with an action cannot be stored between requests: "
+                "its action is a component. Raise this one from the handler "
+                "that renders the page, or leave the action off."
+            )
+        return {
+            "variant": self.variant,
+            "title": self.title,
+            "description": self.description,
+            "duration": None if self.duration is INHERIT else self.duration,
+            "inherit": self.duration is INHERIT,
+            "dismissible": self.dismissible,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToastMessage:
+        """
+        A message read back out of a store.
+        """
+        return cls(
+            variant=data["variant"],
+            title=data["title"],
+            description=data.get("description"),
+            duration=INHERIT if data.get("inherit") else data.get("duration"),
+            dismissible=data.get("dismissible", True),
+        )
 
 
 # One list per request. A ContextVar rather than something handed around, so
@@ -249,18 +286,40 @@ class _Toast:
                 "render a Toast yourself.".format(variant)
             ) from None
 
-    def open(self) -> Token[list[ToastMessage]]:
+    def open(self) -> Token[list[ToastMessage]] | None:
         """
-        Start a request's queue. The router calls this; hand the token back to
-        close() when the request is done.
-        """
-        return _QUEUE.set([])
+        Start a request's queue, unless one is already open.
 
-    def close(self, token: Token[list[ToastMessage]]) -> None:
+        None means somebody outside already opened it - a middleware that
+        carries toasts across a redirect, say - and it is theirs to close. The
+        router calls this either way and hands whatever it gets to close().
         """
-        End a request's queue, whatever happened in it.
+        try:
+            _QUEUE.get()
+        except LookupError:
+            return _QUEUE.set([])
+        return None
+
+    def close(self, token: Token[list[ToastMessage]] | None) -> None:
         """
-        _QUEUE.reset(token)
+        End a request's queue, whatever happened in it. A None token is one
+        somebody else opened, so it is left alone.
+        """
+        if token is not None:
+            _QUEUE.reset(token)
+
+    def restore(self, messages: Iterable[ToastMessage]) -> None:
+        """
+        Put messages back at the front of the queue, for a store handing back
+        what was raised before a redirect.
+        """
+        try:
+            queued = _QUEUE.get()
+        except LookupError:
+            raise RuntimeError(
+                "Toasts can only be restored inside a request. Open the queue first."
+            ) from None
+        queued[:0] = messages
 
     def drain(self) -> list[ToastMessage]:
         """
