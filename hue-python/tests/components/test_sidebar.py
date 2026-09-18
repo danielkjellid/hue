@@ -66,9 +66,10 @@ class TestSidebar:
     async def test_the_sidebar_marks_the_page_you_are_on(self, context_args):
         html = await render_tree(_sidebar(), context_args=context_args)
         assert_attr(html, '[aria-current="page"]', "href", "/events")
-        # Twice: a tint for the eye and a bar in the gutter for the glance.
-        assert_selector(html, '[aria-current="page"].bg-accent-subtle')
-        assert_selector(html, '[aria-current="page"] span[aria-hidden="true"]')
+        # Twice over: the row is filled, and the accent bar beside it says
+        # which kind of filled - hover fills a row too.
+        assert_selector(html, '[aria-current="page"].bg-surface-active')
+        assert_selector(html, '[aria-current="page"] span.bg-accent')
 
     @pytest.mark.asyncio
     async def test_an_item_can_say_so_itself(self, context_args):
@@ -83,7 +84,7 @@ class TestSidebar:
     async def test_nothing_is_marked_without_a_current_path(self, context_args):
         html = await render_tree(_sidebar(current=None), context_args=context_args)
         assert_no_selector(html, "[aria-current]")
-        assert_no_selector(html, ".bg-accent-subtle")
+        assert_no_selector(html, "span.bg-accent")
 
     @pytest.mark.asyncio
     async def test_a_spacer_pushes_what_follows_to_the_bottom(self, context_args):

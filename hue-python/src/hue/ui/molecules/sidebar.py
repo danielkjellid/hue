@@ -20,10 +20,12 @@ _IDLE = (
     "hover:bg-surface-hover hover:text-fg [&:hover_svg]:text-fg-muted"
 )
 
-# The page you are on, marked twice: a tint for the eye and a bar in the
-# gutter for the glance. The accent is spent here and nowhere else in the
-# sidebar, so "where am I" survives a squint.
-_CURRENT = "bg-accent-subtle text-accent-text [&_svg]:text-accent-text"
+# The page you are on, marked twice over: the row is filled, and the accent
+# bar in the gutter beside it says which kind of filled. Hover fills a row
+# too, so a tint alone would be the same signal in a different hue - the bar
+# is what makes "you are here" a different statement from "your pointer is
+# here". The accent is spent on that bar and nowhere else in the sidebar.
+_CURRENT = "bg-surface-active text-fg [&_svg]:text-fg"
 
 
 class Sidebar(ChainableComponent):
