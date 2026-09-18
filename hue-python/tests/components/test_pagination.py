@@ -76,14 +76,60 @@ class TestPagination:
 
     # The one-page case
     @pytest.mark.asyncio
-    async def test_one_page_is_a_count_and_nothing_else(self, context_args):
-        # A full control that cannot move is worse than no control.
+    async def test_one_page_keeps_the_control_and_makes_it_inert(self, context_args):
+        # A row that vanishes when a filter narrows the list to one page
+        # reads as something breaking.
         html = await render_tree(
             Pagination().page(1).total_pages(1).total_records(10),
             context_args=context_args,
         )
-        assert "Showing" in str(html)
-        assert_no_selector(html, "nav")
+        assert_attr(html, "nav", "aria-label", "Pagination, single page")
+        assert_no_selector(html, "nav button")
+        assert_no_selector(html, "nav a")
+        assert_selector(html, 'nav [aria-disabled="true"]', count=2)
+        assert_selector(html, 'nav [aria-current="page"]')
+
+    # cursor(): the other way to page
+    @pytest.mark.asyncio
+    async def test_a_cursor_knows_only_which_ways_it_can_go(self, context_args):
+        html = await render_tree(
+            Pagination().total_records(2481).cursor(previous=False, next=True),
+            context_args=context_args,
+        )
+        steps = select(html, "nav button")
+        assert [step.get_text().strip() for step in steps] == ["Previous", "Next"]
+        assert steps[0].has_attr("disabled")
+        assert not steps[1].has_attr("disabled")
+        assert_no_selector(html, '[aria-current="page"]')
+
+    @pytest.mark.asyncio
+    async def test_rows_per_page_names_itself_once(self, context_args):
+        # The select carries the name; the words beside it are the same
+        # words, marked as decoration so they are not read twice.
+        html = await render_tree(
+            Pagination()
+            .total_records(2481)
+            .page_size(25)
+            .page_sizes([10, 25, 50])
+            .cursor(previous=False, next=True),
+            context_args=context_args,
+        )
+        assert_selector(html, "select")
+        assert_selector(html, "option[selected]")
+        # One name, from the select's own label; the words beside it are
+        # marked as decoration rather than announced a second time.
+        assert_selector(html, 'label[for="page_size"]')
+        assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
+
+    @pytest.mark.asyncio
+    async def test_a_cursor_counts_rather_than_ranges(self, context_args):
+        # There is no page number to take a range from.
+        html = await render_tree(
+            Pagination().total_records(2481).cursor(previous=True, next=True),
+            context_args=context_args,
+        )
+        assert "2,481 records" in str(html)
+        assert "Showing" not in str(html)
 
     @pytest.mark.asyncio
     async def test_the_count_is_optional(self, context_args):

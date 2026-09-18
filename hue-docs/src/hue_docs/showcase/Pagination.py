@@ -18,30 +18,40 @@ SHOWCASES: list[Showcase] = [
             'records" leaves nobody able to tell whether their filter did '
             "anything. A step with nowhere to go stays in the row and stays "
             "announced, because a control that disappears at the ends teaches "
-            "nobody where the ends are."
+            "nobody where the ends are. A single page keeps the control and "
+            "makes all of it inert, because a row that vanishes when a filter "
+            "narrows the list reads as something breaking. A list too long or "
+            "too live to count pages through steps by cursor instead: the "
+            "same bar, two steps, and no claim about how many pages there are."
         ),
         variants=[
             variant(
-                "In the middle",
-                "Pagination().page(8).total_pages(15).total_records(148)",
-            ),
-            variant(
-                "At the start",
-                "Pagination().page(1).total_pages(15).total_records(148)",
-            ),
-            variant(
-                "As links",
+                "Numbered",
                 "(\n"
                 "    Pagination()\n"
-                "    .page(3)\n"
-                "    .total_pages(7)\n"
-                "    .total_records(68)\n"
-                '    .href(lambda page: f"?page={page}")\n'
+                "    .page(8)\n"
+                "    .total_pages(15)\n"
+                "    .total_records(148)\n"
+                '    .href(lambda page: f"#page-{page}")\n'
                 ")",
             ),
             variant(
-                "One page",
+                "At the first page",
+                "Pagination().page(1).total_pages(15).total_records(148)",
+            ),
+            variant(
+                "A single page",
                 "Pagination().page(1).total_pages(1).total_records(10)",
+            ),
+            variant(
+                "By cursor",
+                "(\n"
+                "    Pagination()\n"
+                "    .total_records(2481)\n"
+                "    .page_size(25)\n"
+                "    .page_sizes([10, 25, 50, 100])\n"
+                "    .cursor(previous=False, next=True)\n"
+                ")",
             ),
         ],
     ),
