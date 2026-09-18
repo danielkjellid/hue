@@ -5,7 +5,7 @@ from htmy import html
 
 from hue.context import HueContext
 from hue.renderer import render_tree
-from hue.toast import INHERIT, toast
+from hue.toast import INHERIT, ToastMessage, toast
 from hue.types.core import Component
 from hue.ui import ToastRegion
 from tests.conftest import MockRequest, MockRouter
@@ -54,6 +54,64 @@ class TestQueue:
             assert toast.drain() == []
         finally:
             toast.close(second)
+
+
+class TestStoring:
+    def test_a_message_survives_a_round_trip_as_data(self):
+        token = toast.open()
+        try:
+            toast.info("Saved", description="Three fields changed")
+            toast.warning("Careful", duration=2000, dismissible=False)
+            stored = [message.as_dict() for message in toast.drain()]
+        finally:
+            toast.close(token)
+
+        first, second = (ToastMessage.from_dict(data) for data in stored)
+        assert (first.variant, first.title, first.description) == (
+            "info",
+            "Saved",
+            "Three fields changed",
+        )
+        # Unset stays unset rather than becoming a number of its own.
+        assert first.duration is INHERIT
+        assert (second.duration, second.dismissible) == (2000, False)
+
+    def test_an_action_cannot_be_stored(self):
+        # It is a component, not data, and losing the button quietly on the
+        # way through a redirect would be worse than saying so.
+        message = ToastMessage(variant="danger", title="Failed", action=object())
+        with pytest.raises(TypeError, match="cannot be stored"):
+            message.as_dict()
+
+    def test_restored_messages_come_before_the_ones_raised_since(self):
+        token = toast.open()
+        try:
+            toast.success("Raised now")
+            toast.restore([ToastMessage(variant="info", title="From before")])
+            assert [message.title for message in toast.drain()] == [
+                "From before",
+                "Raised now",
+            ]
+        finally:
+            toast.close(token)
+
+    def test_a_queue_that_is_already_open_is_left_to_its_owner(self):
+        # A middleware opens one for the whole request; the router nests
+        # inside it rather than shadowing it, or a flashed toast would be
+        # invisible to the page that was meant to show it.
+        outer = toast.open()
+        try:
+            toast.restore([ToastMessage(variant="info", title="From before")])
+            inner = toast.open()
+            assert inner is None
+            toast.success("Raised in the handler")
+            toast.close(inner)
+            assert [message.title for message in toast.drain()] == [
+                "From before",
+                "Raised in the handler",
+            ]
+        finally:
+            toast.close(outer)
 
 
 class TestRendering:

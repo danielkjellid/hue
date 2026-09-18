@@ -73,6 +73,31 @@ def _build() -> ComponentType:
             "surface in somebody else's response - and calling toast.success() "
             "outside a request raises rather than dropping it quietly."
         ),
+        pr.h2("Across a redirect"),
+        pr.p(
+            "A page renders its own toasts and a fragment carries its own, so "
+            "both work with nothing added. What has nowhere to go is a toast "
+            "raised by a view that then redirects: there is no markup in a "
+            "302. HueToastMiddleware keeps those in the session and hands "
+            "them to the page after it."
+        ),
+        pr.code(
+            "MIDDLEWARE = [\n"
+            '    "django.contrib.sessions.middleware.SessionMiddleware",\n'
+            '    "hue_django.middleware.HueToastMiddleware",\n'
+            "    ...\n"
+            "]",
+            language="python",
+        ),
+        pr.p(
+            "It also opens the queue for the whole request, so toast.success() "
+            "works in a plain Django view and not only inside a hue router. "
+            "Only what nothing rendered is kept - a toast a page already "
+            "showed is not shown again on the next one. An action cannot "
+            "cross, because an action is a component rather than data, and a "
+            "toast carrying one says so rather than arriving without its "
+            "button."
+        ),
         pr.h2("Raise one from the browser"),
         pr.p(
             "Use it for things the server never hears about - a copy to the "
