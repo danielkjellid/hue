@@ -147,3 +147,25 @@ class TestField:
         )
         assert "a control" in html
         assert_no_selector(html, "label")
+
+
+class TestHiddenLabel:
+    @pytest.mark.asyncio
+    async def test_a_hidden_label_leaves_no_row_above_the_control(self, context_args):
+        # sr-only takes it out of the flow, so a header holding only that is
+        # a gap above the control and nothing else - which is what pushed a
+        # bare select out of line with the buttons beside it.
+        html = await render_tree(
+            Field().label("Rows per page").hidden_label().content("control"),
+            context_args=context_args,
+        )
+        assert_selector(html, "label.sr-only")
+        assert_no_selector(html, "div.items-baseline")
+
+    @pytest.mark.asyncio
+    async def test_a_visible_label_keeps_its_row(self, context_args):
+        html = await render_tree(
+            Field().label("Rows per page").content("control"),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.items-baseline label")
