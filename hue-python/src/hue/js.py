@@ -69,6 +69,8 @@ def close() -> Expression:
 
     Dialog, Drawer, Popover and DropdownMenu all put a close() in scope, so an
     action in one of them says what it does rather than vouching for a string.
+    The nearest one wins: in a popover inside a dialog this closes the popover
+    and leaves the dialog where it is.
     """
     return Expression("close()")
 
