@@ -100,6 +100,25 @@ GROUP_ACTION = (
     "[&>button:last-child]:border-y-0 [&>button:last-child]:border-e-0"
 )
 
+#: The sunken track a run of segments sits in, and what one segment looks
+#: like before anything is selected.
+#:
+#: Shared by SegmentedControl and the segmented Tabs, which look identical and
+#: mean different things - one is a group of toggles answering to aria-pressed,
+#: the other a tablist answering to aria-selected. The three classes that mark
+#: the chosen one carry that difference, so they stay at the call sites; only
+#: what both wear is here.
+SEGMENTED_TRACK = (
+    "inline-flex gap-0.5 rounded-md border border-border bg-surface-sunken p-[3px]"
+)
+
+SEGMENTED_ITEM = (
+    "inline-flex items-center justify-center gap-1.5 rounded-sm cursor-pointer "
+    "select-none whitespace-nowrap font-ui font-semibold leading-none "
+    "transition-colors text-fg-muted hover:text-fg [&_svg]:size-3.5 "
+    "[&_svg]:shrink-0"
+)
+
 #: A word or a unit attached to the end of a group. The 7px radius is the
 #: group's inner curve at a 1px border, so the fill follows its corner.
 GROUP_ADDON = (
