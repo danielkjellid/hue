@@ -20,11 +20,11 @@ _IDLE = (
     "hover:bg-surface-hover hover:text-fg [&:hover_svg]:text-fg-muted"
 )
 
-# The page you are on, marked twice over: the row is filled, and the accent
-# bar in the gutter beside it says which kind of filled. Hover fills a row
-# too, so a tint alone would be the same signal in a different hue - the bar
-# is what makes "you are here" a different statement from "your pointer is
-# here". The accent is spent on that bar and nowhere else in the sidebar.
+# The page you are on: the row fills, and a bar hugs the sidebar's edge
+# beside it. Hover fills a row too, so the bar is what makes "you are here" a
+# different statement from "your pointer is here" - and it is drawn in the
+# foreground colour rather than the accent, because a mark this small reads
+# better as ink than as a hue.
 _CURRENT = "bg-surface-active text-fg [&_svg]:text-fg"
 
 
@@ -282,12 +282,14 @@ class SidebarLabel(ChainableComponent):
 
 def _indicator() -> ComponentType:
     """
-    The bar in the gutter beside the current item. A real element rather than
-    a pseudo, so nothing depends on a content quirk to be visible.
+    The bar beside the current item. -start-4 cancels the body's own padding,
+    so it hugs the sidebar's edge rather than floating in the gutter. A real
+    element rather than a pseudo, so nothing depends on a content quirk to be
+    visible.
     """
     return html.span(
         aria_hidden="true",
-        class_="absolute inset-y-2 -start-2 w-0.5 rounded-full bg-accent",
+        class_="absolute inset-y-2 -start-4 w-0.5 rounded-full bg-fg",
     )
 
 
