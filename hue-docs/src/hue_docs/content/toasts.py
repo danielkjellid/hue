@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hue.types.core import ComponentType
+from hue.ui import Alert
 
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
@@ -77,6 +78,19 @@ def _build() -> ComponentType:
             '    description="The mail server rejected the address.",\n'
             '    action=("Retry", "$ajax(\'/invoices/2048/send/\')"),\n'
             ")"
+        ),
+        Alert()
+        .variant("warning")
+        .title("What is safe to interpolate, and what is not")
+        .content(
+            "Titles, descriptions and action labels are quoted for you and "
+            "written into the page as text, so building them from user input "
+            "is fine. The second half of action is not: it is spliced into "
+            "an Alpine expression and evaluated, exactly like anything passed "
+            "to x_on. Never build it out of user input. Note too that the "
+            "region accepts toasts from any response carrying its id, which "
+            "is what makes server-raised toasts work without wiring - so "
+            "fetch fragments only from your own app."
         ),
         pr.p(
             "What it produces is a call to the $toast magic, which is there "
