@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Sequence
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
+from hue.toast import INHERIT, ToastMessage, ToastVariant, toast
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
@@ -13,8 +14,6 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
-
-type ToastVariant = Literal["success", "danger", "warning", "info", "loading"]
 
 #: The id the region answers to. Every toast that arrives from the server is
 #: merged into this element, so there is one per page and it is named here
@@ -240,9 +239,12 @@ class ToastRegion(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
+        # Whatever the handler queued is rendered here, which is also what
+        # keeps the router from appending it a second time.
         return html.div(
             html.div(
                 *(_template(variant) for variant in _ICONS),
+                *(from_message(message) for message in toast.drain()),
                 id=REGION_ID,
                 # x-sync puts this element in the targets of every Alpine AJAX
                 # request, so a toast raised by any handler finds its way
@@ -273,6 +275,34 @@ class ToastRegion(ChainableComponent):
                 **self._get_base_html_attrs(),
             },
         )
+
+
+def from_message(message: ToastMessage) -> Toast:
+    """
+    The component for a toast a handler queued.
+    """
+    built = (
+        Toast()
+        .variant(message.variant)
+        .title(message.title)
+        .dismissible(message.dismissible)
+    )
+    render_if(message.description, built.description)
+    render_if(message.action, built.action)
+    if message.duration is not INHERIT:
+        built.duration(message.duration)
+    return built
+
+
+def region_fragment(messages: Sequence[ToastMessage]) -> ComponentType:
+    """
+    Just the toasts, under the region's id.
+
+    Alpine AJAX merges this into the live region by that id and appends its
+    children, so a toast raised by any handler reaches the page it came from
+    without the caller targeting anything.
+    """
+    return html.div(*(from_message(message) for message in messages), id=REGION_ID)
 
 
 def _template(variant: ToastVariant) -> ComponentType:

@@ -45,6 +45,34 @@ def _build() -> ComponentType:
             "its content is never read out, so it has to be on the page "
             "before the first toast arrives."
         ),
+        pr.h2("Raise one from a handler"),
+        pr.p(
+            "toast.success() queues a toast for the request you are in. There "
+            "is no context to pass and nothing to target: whatever the "
+            "handler returns carries it. A page renders it into the region it "
+            "already has; a fragment gets the region appended behind it, and "
+            "Alpine AJAX merges it into the one on the page, because the "
+            "region carries x-sync and is therefore a target of every request "
+            "the page makes."
+        ),
+        pr.code(
+            "from hue import toast\n\n"
+            '@router.fragment_post("invoices/<int:id>/send/")\n'
+            "async def send(request, context, id: int):\n"
+            "    await send_invoice(id)\n"
+            "    toast.success(\n"
+            '        "Invoice sent",\n'
+            '        description="INV-2048 to ada@example.com",\n'
+            "    )\n"
+            "    return InvoiceRow(id)"
+        ),
+        pr.p(
+            "One method per variant, the same five as in the browser, and the "
+            "same options: description, duration, dismissible and action. The "
+            "queue lives exactly as long as the request, so a toast cannot "
+            "surface in somebody else's response - and calling toast.success() "
+            "outside a request raises rather than dropping it quietly."
+        ),
         pr.h2("Raise one from the browser"),
         pr.p(
             "Use it for things the server never hears about - a copy to the "

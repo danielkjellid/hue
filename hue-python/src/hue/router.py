@@ -12,7 +12,9 @@ from pydantic import TypeAdapter, ValidationError
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.renderer import render_tree
+from hue.toast import toast
 from hue.types.core import Component, ComponentType
+from hue.ui.molecules.toast import region_fragment
 
 DEFAULT_STATUS_CODE = HTTPStatus.OK
 
@@ -147,6 +149,19 @@ class Router[T_Request]:
             component, context_args=self._get_context_args(request)
         )
 
+    async def _render_pending_toasts(self, request: T_Request) -> str:
+        """
+        The toasts nothing has rendered yet, under the region's id.
+
+        A page renders its own in the region it already has, which empties the
+        queue; a fragment has no region, so they ride along behind whatever it
+        returned and Alpine AJAX merges them into the one on the page.
+        """
+        pending = toast.drain()
+        if not pending:
+            return ""
+        return await self.render(region_fragment(pending), request)
+
     def _is_ajax_request(self, request: T_Request) -> bool:
         """
         True when the request carries an X-Requested-With: XMLHttpRequest or an
@@ -248,21 +263,29 @@ class Router[T_Request]:
             if body_adapter is not None:
                 kwargs["body"] = self._parse_body(request, body_adapter)
 
-            context = HueContext(**self._get_context_args(request))
-            result = await self._call_view_func(
-                view_func, view_instance, request, context, **kwargs
-            )
+            # The queue lives exactly as long as the request, so toast() is a
+            # plain call from anywhere in the handler and nothing it raises
+            # can reach the next one.
+            token = toast.open()
+            try:
+                context = HueContext(**self._get_context_args(request))
+                result = await self._call_view_func(
+                    view_func, view_instance, request, context, **kwargs
+                )
 
-            if isinstance(result, HueResponse):
-                status_code = result.status_code
-            elif hasattr(result, "status_code"):
-                # Anything else with a status code is a framework response.
-                return RawResponse(response=result)
-            else:
-                status_code = DEFAULT_STATUS_CODE
+                if isinstance(result, HueResponse):
+                    status_code = result.status_code
+                elif hasattr(result, "status_code"):
+                    # Anything else with a status code is a framework response.
+                    return RawResponse(response=result)
+                else:
+                    status_code = DEFAULT_STATUS_CODE
 
-            rendered_html = await self.render(cast(ComponentType, result), request)
-            return rendered_html, status_code
+                rendered_html = await self.render(cast(ComponentType, result), request)
+                rendered_html += await self._render_pending_toasts(request)
+                return rendered_html, status_code
+            finally:
+                toast.close(token)
 
         return wrapped_view
 
