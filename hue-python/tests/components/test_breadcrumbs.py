@@ -41,9 +41,8 @@ class TestBreadcrumbs:
             Breadcrumbs().items(_TRAIL).collapse_after(3), context_args=context_args
         )
         # Where you started, where you are, and the step back between them.
-        assert_selector(html, "button")
         assert_attr(html, "button", "aria-label", "Show 1 hidden level")
-        assert_attr(html, "button", "x-show", "!expanded")
+        assert_selector(html, "nav > ol > li", count=4)
 
     @pytest.mark.asyncio
     async def test_a_trail_within_the_limit_is_left_alone(self, context_args):
@@ -59,10 +58,20 @@ class TestBreadcrumbs:
         assert_no_selector(html, "button")
 
     @pytest.mark.asyncio
-    async def test_the_hidden_steps_are_there_waiting(self, context_args):
-        # Expanding swaps the ellipsis for them in place, so they are in the
-        # page rather than fetched when asked for.
+    async def test_the_hidden_steps_are_links_in_a_panel(self, context_args):
+        # A list of links is navigation: role="menu" would announce them as
+        # commands and change what the arrow keys are expected to do.
         html = await render_tree(
             Breadcrumbs().items(_TRAIL).collapse_after(3), context_args=context_args
         )
-        assert_selector(html, '[x-show="expanded"] a[href="/billing"]')
+        assert_selector(html, '[role="dialog"] ul > li > a[href="/billing"]')
+        assert_no_selector(html, '[role="menu"]')
+
+    @pytest.mark.asyncio
+    async def test_the_panel_leaves_the_trail_one_line(self, context_args):
+        # Expanding in place would push the page around while the reader is
+        # looking at it.
+        html = await render_tree(
+            Breadcrumbs().items(_TRAIL).collapse_after(3), context_args=context_args
+        )
+        assert_attr(html, '[role="dialog"]', "x-show", "open")

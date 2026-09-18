@@ -4,11 +4,12 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
+from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.popover import Popover
 from hue.utils import classnames, render_when
 
 # A step and where it goes. None is the page you are on, which is not a link.
@@ -79,10 +80,7 @@ class Breadcrumbs(ChainableComponent):
             ),
             aria_label="Breadcrumb",
             class_=classnames("text-sm", self._get_prop("class_")),
-            **{
-                "x-data": "{ expanded: false }",
-                **self._get_base_html_attrs(),
-            },
+            **self._get_base_html_attrs(),
         )
 
     def _step(self, href: str | None, label: str, *, last: bool) -> ComponentType:
@@ -101,37 +99,46 @@ class Breadcrumbs(ChainableComponent):
 
     def _ellipsis(self, hidden: list[Crumb]) -> ComponentType:
         """
-        The folded middle: a button that swaps itself for the steps it hides,
-        rather than a link to nowhere or a menu to open.
+        The folded middle, behind a popover rather than a menu.
+
+        A list of links is navigation: role="menu" would announce them as
+        commands and change what the arrow keys are expected to do. Opening a
+        panel also leaves the trail one line, where expanding in place pushes
+        the page around while the reader is looking at it.
         """
         count = len(hidden)
+        levels = "level" if count == 1 else "levels"
         return html.li(
-            html.button(
-                "…",
-                type="button",
-                aria_label=f"Show {count} hidden {'level' if count == 1 else 'levels'}",
-                class_=classnames(
-                    "rounded-xs px-1.5 py-[3px] text-fg-muted "
-                    "hover:bg-surface-hover hover:text-fg cursor-pointer",
-                    FOCUS_RING,
-                ),
-                **{
-                    "x-show": unsafe("!expanded"),
-                    "x-on:click": unsafe("expanded = true"),
-                },
-            ),
-            *(
-                html.span(
-                    html.a(label, href=href, class_=classnames(_LINK, FOCUS_RING))
-                    if href is not None
-                    else label,
-                    _separator(),
-                    class_="flex items-center gap-0.5",
-                    **{"x-show": unsafe("expanded"), "x-cloak": True},
+            Popover()
+            .fit()
+            .placement("bottom-start")
+            .trigger(
+                Button()
+                .variant("ghost")
+                .size("xs")
+                .icon_only(f"Show {count} hidden {levels}")
+                .content("…")
+            )
+            .content(
+                html.ul(
+                    *(
+                        html.li(
+                            html.a(
+                                label,
+                                href=href or "#",
+                                class_=classnames(
+                                    "block rounded-sm px-2 py-[7px] text-base "
+                                    "text-fg no-underline hover:bg-surface-hover",
+                                    FOCUS_RING,
+                                ),
+                            )
+                        )
+                        for href, label in hidden
+                    ),
+                    class_="flex min-w-40 flex-col list-none p-0 m-0",
                 )
-                for href, label in hidden
             ),
-            render_when(bool(hidden), _separator()),
+            _separator(),
             class_="flex items-center gap-0.5",
         )
 
