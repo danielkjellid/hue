@@ -46,6 +46,23 @@ class TestSidebar:
         assert_selector(html, "div.border-t")
 
     @pytest.mark.asyncio
+    async def test_the_icon_sits_half_a_step_down(self, context_args):
+        # Where a glyph's optical centre sits against a line of text rather
+        # than against the box around it.
+        html = await render_tree(
+            SidebarItem().href("/").icon("icon").content("Home"),
+            context_args=context_args,
+        )
+        assert_selector(html, "span.mt-0\\.5")
+
+    @pytest.mark.asyncio
+    async def test_hovering_a_row_shows(self, context_args):
+        # The sidebar's ground is canvas-subtle, which is the same colour as
+        # surface-hover in light mode, so the hover has to be a step further.
+        html = await render_tree(_sidebar(), context_args=context_args)
+        assert_selector(html, "a[class*='hover:bg-surface-active']")
+
+    @pytest.mark.asyncio
     async def test_an_item_with_a_destination_is_a_real_link(self, context_args):
         # Middle-click and "open in a new tab" work; a div with a router push
         # breaks both.
@@ -66,10 +83,10 @@ class TestSidebar:
     async def test_the_sidebar_marks_the_page_you_are_on(self, context_args):
         html = await render_tree(_sidebar(), context_args=context_args)
         assert_attr(html, '[aria-current="page"]', "href", "/events")
-        # Twice over: the row fills, and a bar hugging the sidebar's edge
-        # says which kind of filled - hover fills a row too.
-        assert_selector(html, '[aria-current="page"].bg-surface-active')
-        assert_selector(html, '[aria-current="page"] span.bg-fg')
+        # The bar and nothing else: filling the row is what hover does, and
+        # a row that looks hovered when the pointer is elsewhere says nothing.
+        assert_selector(html, '[aria-current="page"] span.bg-accent')
+        assert_no_selector(html, '[aria-current="page"].bg-surface-active')
 
     @pytest.mark.asyncio
     async def test_an_item_can_say_so_itself(self, context_args):
@@ -84,7 +101,7 @@ class TestSidebar:
     async def test_nothing_is_marked_without_a_current_path(self, context_args):
         html = await render_tree(_sidebar(current=None), context_args=context_args)
         assert_no_selector(html, "[aria-current]")
-        assert_no_selector(html, "span.bg-fg")
+        assert_no_selector(html, "span.bg-accent")
 
     @pytest.mark.asyncio
     async def test_a_spacer_pushes_what_follows_to_the_bottom(self, context_args):

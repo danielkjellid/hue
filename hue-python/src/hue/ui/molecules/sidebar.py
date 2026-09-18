@@ -10,22 +10,24 @@ from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classnames, render_if, render_when
 
 _ITEM = (
-    "relative flex w-full items-center gap-3 rounded-lg px-2 py-2.5 "
+    "relative flex w-full items-center gap-3 rounded-lg px-2 py-2 "
     "text-start font-ui text-base font-medium no-underline cursor-pointer "
     "[&_svg]:size-4 [&_svg]:flex-none"
 )
 
+# surface-active rather than surface-hover: the sidebar's own ground is
+# canvas-subtle, which in light mode is the very colour surface-hover is, so
+# hovering a row would have changed nothing you could see.
 _IDLE = (
     "text-fg-muted [&_svg]:text-fg-subtle "
-    "hover:bg-surface-hover hover:text-fg [&:hover_svg]:text-fg-muted"
+    "hover:bg-surface-active hover:text-fg [&:hover_svg]:text-fg-muted"
 )
 
-# The page you are on: the row fills, and a bar hugs the sidebar's edge
-# beside it. Hover fills a row too, so the bar is what makes "you are here" a
-# different statement from "your pointer is here" - and it is drawn in the
-# foreground colour rather than the accent, because a mark this small reads
-# better as ink than as a hue.
-_CURRENT = "bg-surface-active text-fg [&_svg]:text-fg"
+# The page you are on is the bar and nothing else. Filling the row would be
+# the same thing hover does, and a row that looks hovered when the pointer is
+# elsewhere is a row that says nothing - so the fill stays with the pointer
+# and the mark stays with the page.
+_CURRENT = "text-fg [&_svg]:text-fg"
 
 
 class Sidebar(ChainableComponent):
@@ -245,7 +247,12 @@ class SidebarItem(Clickable):
 
         children = (
             render_when(current, _indicator()),
-            render_if(self._get_prop("icon"), lambda icon: icon),
+            # Half a step down, where a glyph's optical centre sits against a
+            # line of text rather than against the box around it.
+            render_if(
+                self._get_prop("icon"),
+                lambda icon: html.span(icon, class_="mt-0.5 flex-none"),
+            ),
             *self._children,
         )
         classes = classnames(
@@ -282,14 +289,17 @@ class SidebarLabel(ChainableComponent):
 
 def _indicator() -> ComponentType:
     """
-    The bar beside the current item. -start-4 cancels the body's own padding,
-    so it hugs the sidebar's edge rather than floating in the gutter. A real
-    element rather than a pseudo, so nothing depends on a content quirk to be
-    visible.
+    The bar beside the current item, and the only thing marking it.
+
+    -start-4 cancels the body's own padding, so it hugs the sidebar's edge
+    rather than floating in the gutter. Four pixels wide rather than two,
+    because a rounded cap on a two-pixel bar is a one-pixel curve nobody can
+    see. A real element rather than a pseudo, so nothing depends on a content
+    quirk to be visible.
     """
     return html.span(
         aria_hidden="true",
-        class_="absolute inset-y-2 -start-4 w-0.5 rounded-full bg-fg",
+        class_="absolute inset-y-1.5 -start-4 w-1 rounded-full bg-accent",
     )
 
 
