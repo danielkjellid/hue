@@ -49,7 +49,9 @@ class Breadcrumbs(ChainableComponent):
 
     @classmethod
     def example(cls) -> Self:
-        return cls().items([("/", "Home"), ("/billing", "Billing"), (None, "INV-2048")])
+        return cls().items(
+            [Crumb("/", "Home"), Crumb("/billing", "Billing"), Crumb(None, "INV-2048")]
+        )
 
     def items(self, value: list[Crumb] | list[tuple[str | None, str]]) -> Self:
         """
