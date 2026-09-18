@@ -25,7 +25,7 @@ import textwrap
 from typing import Any, Callable
 
 from htmy import html
-from hue import ui
+from hue import toast, ui
 from hue.types.core import ComponentType
 from hue.ui.atoms.icon import HueIcon
 
@@ -39,6 +39,8 @@ _NS["html"] = html
 # plus hue's own icon set, which the components that need a glyph use in their
 # example() too (see the Icon page).
 _NS["HueIcon"] = HueIcon
+# and the way a snippet raises a toast from the browser.
+_NS["toast"] = toast
 
 
 def builder(

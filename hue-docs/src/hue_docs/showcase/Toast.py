@@ -14,7 +14,7 @@ SHOWCASES: list[Showcase] = [
         title="Raise one",
         layout="row",
         description=(
-            "These call $toast in the browser, which is the trigger for "
+            "These call toast.js in the browser, which is the trigger for "
             "things the server never hears about. Hover a toast to pause its "
             "timer, which WCAG 2.2.1 asks for: a message that leaves on its "
             "own has to be stoppable by whoever is still reading it. From "
@@ -31,8 +31,10 @@ SHOWCASES: list[Showcase] = [
                     .content("Invoice sent")
                     .x_on(
                         "click",
-                        "$toast.success('Invoice sent', "
-                        "{ description: 'INV-2048 sent to ada@example.com' })",
+                        toast.js.success(
+                            "Invoice sent",
+                            description="INV-2048 sent to ada@example.com",
+                        ),
                     )
                 )
                 """,
@@ -46,8 +48,10 @@ SHOWCASES: list[Showcase] = [
                     .content("Could not send")
                     .x_on(
                         "click",
-                        "$toast.danger('Could not send invoice', "
-                        "{ description: 'The mail server rejected the address.' })",
+                        toast.js.danger(
+                            "Could not send invoice",
+                            description="The mail server rejected the address.",
+                        ),
                     )
                 )
                 """,
@@ -61,10 +65,11 @@ SHOWCASES: list[Showcase] = [
                     .content("Failed, with a retry")
                     .x_on(
                         "click",
-                        "$toast.danger('Could not send invoice', { "
-                        "description: 'The mail server rejected the address.', "
-                        "action: { label: 'Retry', "
-                        "onClick: () => $toast.success('Invoice sent') } })",
+                        toast.js.danger(
+                            "Could not send invoice",
+                            description="The mail server rejected the address.",
+                            action=("Retry", toast.js.success("Invoice sent")),
+                        ),
                     )
                 )
                 """,
@@ -76,7 +81,7 @@ SHOWCASES: list[Showcase] = [
                     Button()
                     .variant("outline")
                     .content("Copied")
-                    .x_on("click", "$toast.success('Copied to clipboard')")
+                    .x_on("click", toast.js.success("Copied to clipboard"))
                 )
                 """,
             ),
@@ -89,9 +94,11 @@ SHOWCASES: list[Showcase] = [
                     .content("Exporting")
                     .x_on(
                         "click",
-                        "$toast.loading('Exporting 2,481 rows', "
-                        "{ description: 'This usually takes about a minute.', "
-                        "duration: null })",
+                        toast.js.loading(
+                            "Exporting 2,481 rows",
+                            description="This usually takes about a minute.",
+                            duration=None,
+                        ),
                     )
                 )
                 """,

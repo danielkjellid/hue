@@ -46,25 +46,41 @@ def _build() -> ComponentType:
         ),
         pr.h2("Raise one from the browser"),
         pr.p(
-            "$toast is available in any Alpine expression. Use it for things "
-            "the server never hears about - a copy to the clipboard, going "
-            "offline, a confirmation that costs nothing to produce - where a "
-            "round trip would exist only to make a sentence appear."
+            "Use it for things the server never hears about - a copy to the "
+            "clipboard, going offline, a confirmation that costs nothing to "
+            "produce - where a round trip would exist only to make a sentence "
+            "appear. toast.js builds the expression to hand to x_on:"
         ),
         pr.code(
+            "from hue import toast\n"
             "from hue.ui import Button\n\n"
             "(\n"
             '    Button().content("Copy link")\n'
-            "    .x_on(\n"
-            '        "click",\n'
-            '        "navigator.clipboard.writeText($el.dataset.url); "\n'
-            "        \"$toast.success('Copied to clipboard')\",\n"
-            "    )\n"
+            '    .x_on("click", toast.js.success("Copied to clipboard"))\n'
             ")"
         ),
         pr.p(
-            "There is one function per variant - success, danger, warning, "
-            "info and loading - each taking a title and an options object:"
+            "There is one method per variant, and the values are quoted for "
+            "you - an apostrophe in a description is a word rather than a "
+            "syntax error in your page. duration is milliseconds, None is a "
+            "toast that stays, and leaving it out takes the region's own. "
+            "action is a label and the expression its button runs:"
+        ),
+        pr.code(
+            "toast.js.loading(\n"
+            '    "Exporting 2,481 rows",\n'
+            '    description="This usually takes about a minute.",\n'
+            "    duration=None,\n"
+            ")\n\n"
+            "toast.js.danger(\n"
+            '    "Could not send invoice",\n'
+            '    description="The mail server rejected the address.",\n'
+            '    action=("Retry", "$ajax(\'/invoices/2048/send/\')"),\n'
+            ")"
+        ),
+        pr.p(
+            "What it produces is a call to the $toast magic, which is there "
+            "in any Alpine expression if you would rather write it out:"
         ),
         pr.code(
             "$toast.success('Invoice sent', {\n"
