@@ -27,14 +27,17 @@ class ScrollArea(ChainableComponent):
         return (
             cls()
             .label("Release notes")
-            .max_height("max-h-40")
+            .max_height("max-h-32")
             .fade()
             .content(
-                html.p("4.2.0 - Usage-based billing is available on Pro and Scale."),
+                html.p("4.2.0 - Usage-based billing on Pro and Scale."),
                 html.p("4.1.3 - Fixed a rounding error in multi-currency invoices."),
                 html.p("4.1.0 - Cursor pagination on the transactions endpoint."),
                 html.p("4.0.1 - Webhook retries now back off exponentially."),
                 html.p("4.0.0 - Bearer tokens replace the key-and-secret pair."),
+                html.p("3.9.2 - Rate limits are reported in the response headers."),
+                html.p("3.9.0 - Idempotency keys on every write endpoint."),
+                html.p("3.8.4 - Timestamps are ISO 8601 with an explicit offset."),
             )
         )
 
