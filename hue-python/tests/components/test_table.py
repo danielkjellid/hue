@@ -82,24 +82,22 @@ class TestTable:
         assert_attr(html, "table", "aria-label", "Users")
         assert_selector(html, "table.custom-class")
 
-    # density(): both values
+    # compact(): both branches
     @pytest.mark.asyncio
-    async def test_density_sets_the_padding_for_every_cell_at_once(self, context_args):
+    async def test_compact_sets_the_padding_for_every_cell_at_once(self, context_args):
         # On the table rather than on the cells, so one class sets the rhythm
         # and no two cells can disagree.
         comfortable = await render_tree(Table(), context_args=context_args)
-        compact = await render_tree(
-            Table().density("compact"), context_args=context_args
-        )
+        compact = await render_tree(Table().compact(), context_args=context_args)
         assert "[&_td]:py-[11px]" in select(comfortable, "table")[0]["class"]
         assert "[&_td]:py-[7px]" in select(compact, "table")[0]["class"]
 
     @pytest.mark.asyncio
-    async def test_what_goes_below_stays_inside_the_frame(self, context_args):
+    async def test_the_footer_stays_inside_the_frame(self, context_args):
         # Which is where an empty state belongs: a full-width message is not
         # a cell, and a header with nothing under it is still a table.
         html = await render_tree(
-            Table().below(Empty().title("No invoices")), context_args=context_args
+            Table().footer(Empty().title("No invoices")), context_args=context_args
         )
         assert_selector(html, "div > table + div")
         assert "No invoices" in html
@@ -128,13 +126,11 @@ class TestTable:
         html = await render_tree(TableRow(), context_args=context_args)
         assert_no_selector(html, "[aria-selected]")
 
-    # numeric(): both branches, on the cell that carries the figures
+    # align(): the end of a column, and the start of one
     @pytest.mark.asyncio
-    async def test_a_numeric_cell_ends_itself_and_lines_its_digits_up(
-        self, context_args
-    ):
+    async def test_ending_a_cell_lines_its_digits_up_as_well(self, context_args):
         html = await render_tree(
-            TableCell().numeric().content("2190.00"), context_args=context_args
+            TableCell().align("end").content("2190.00"), context_args=context_args
         )
         assert_selector(html, "td.text-end.tabular-nums")
 

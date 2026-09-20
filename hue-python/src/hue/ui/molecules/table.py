@@ -11,26 +11,30 @@ from hue.types.core import Component, ComponentType
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.empty import Empty
-from hue.utils import classnames, render_if
+from hue.utils import classes_if_else, classnames, render_if
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
-type TableDensity = Literal["comfortable", "compact"]
 
+# Ending a column and lining its digits up are one decision, not two: the
+# only thing that wants to sit against the right edge is a number, and
+# without tabular figures the decimal points drift and the column stops
+# being scannable. Tabular figures do nothing to text with no digits in it,
+# so anything else ending a column pays nothing for them.
 _ALIGN_CLASSES: dict[CellAlign, str] = {
     "start": "text-start",
     "center": "text-center",
-    "end": "text-end",
+    "end": "text-end tabular-nums",
 }
 
 # The cells carry no padding of their own: it lives here, on the table, so
 # one class sets the rhythm of every row and a cell cannot disagree with its
-# neighbour. Compact tightens the rows only - the columns keep their gutters,
-# because narrowing those is what makes a dense table unreadable.
-_DENSITY_CLASSES: dict[TableDensity, str] = {
-    "comfortable": "[&_th]:px-4 [&_th]:py-[9px] [&_td]:px-4 [&_td]:py-[11px]",
-    "compact": "[&_th]:px-4 [&_th]:py-[7px] [&_td]:px-4 [&_td]:py-[7px]",
-}
+# neighbour. The gutters are the same either way - narrowing those is what
+# makes a dense table unreadable - so compact is the row height and nothing
+# else.
+_GUTTERS = "[&_th]:px-4 [&_td]:px-4"
+_ROW_HEIGHT = ["[&_th]:py-[9px]", "[&_td]:py-[11px]"]
+_ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 
 _FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
 
@@ -40,8 +44,8 @@ class Table(ChainableComponent):
     A table, built from the parts a table is made of.
 
     TableCaption, TableHeader, TableBody, TableFooter, TableRow, TableHead
-    and TableCell mirror the HTML elements one for one. density() sets the
-    padding for every cell at once, and below() is where an empty or error
+    and TableCell mirror the HTML elements one for one. compact() sets the
+    padding for every cell at once, and footer() is where an empty or error
     state goes - inside the frame, under the header.
 
     For a list of records, reach for DataTable, which builds all of this from
@@ -71,21 +75,22 @@ class Table(ChainableComponent):
             ),
         )
 
-    def density(self, value: TableDensity) -> Self:
+    def compact(self, value: bool = True) -> Self:
         """
-        How much room a row gets. Compact fits about a third more on screen,
-        for a table someone scans rather than reads.
+        Tighten the rows, for a table someone scans rather than reads. About
+        a third more of it fits on screen.
         """
-        self._props["density"] = value
+        self._props["compact"] = value
         return self
 
-    def below(self, *values: ComponentType) -> Self:
+    def footer(self, *values: ComponentType) -> Self:
         """
         What sits under the table inside the same frame, which is where an
         empty or an error state goes: a full-width message is not a cell, and
-        a table with a header and no rows is still a table.
+        a table with a header and no rows is still a table. Not the same
+        thing as TableFooter, which is a row of the table itself.
         """
-        self._props["below"] = values
+        self._props["footer"] = values
         return self
 
     def busy(self, value: bool = True) -> Self:
@@ -97,7 +102,6 @@ class Table(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
-        density: TableDensity = self._get_prop("density", "comfortable")
         busy: bool = self._get_prop("busy", False)
 
         return html.div(
@@ -105,7 +109,12 @@ class Table(ChainableComponent):
                 *self._children,
                 class_=classnames(
                     "w-full border-collapse text-base",
-                    _DENSITY_CLASSES[density],
+                    _GUTTERS,
+                    classes_if_else(
+                        self._get_prop("compact", False),
+                        _ROW_HEIGHT_COMPACT,
+                        _ROW_HEIGHT,
+                    ),
                     self._get_prop("class_"),
                 ),
                 **{
@@ -113,7 +122,7 @@ class Table(ChainableComponent):
                     **self._get_base_html_attrs(),
                 },
             ),
-            *self._get_prop("below", ()),
+            *self._get_prop("footer", ()),
             class_=_FRAME,
         )
 
@@ -205,8 +214,8 @@ class TableHead(ChainableComponent):
     """
     A th header cell, scoped to its column unless scope() says otherwise.
 
-    numeric() ends the column and lines its digits up; align() is for the
-    columns that are neither text nor numbers.
+    align("end") is what a column of numbers wants: it puts the header over
+    the figures and lines the digits up under it.
     """
 
     category: ClassVar[str | None] = None
@@ -219,10 +228,6 @@ class TableHead(ChainableComponent):
         self._props["align"] = value
         return self
 
-    def numeric(self, value: bool = True) -> Self:
-        self._props["numeric"] = value
-        return self
-
     def colspan(self, value: int) -> Self:
         self._props["colspan"] = value
         return self
@@ -233,7 +238,7 @@ class TableHead(ChainableComponent):
             class_=classnames(
                 "border-b border-border bg-surface-sunken font-ui text-xs "
                 "font-bold tracking-[0.02em] whitespace-nowrap text-fg-muted",
-                _cell_align(self),
+                _ALIGN_CLASSES[self._get_prop("align", "start")],
                 self._get_prop("class_"),
             ),
             scope=self._get_prop("scope", "col"),
@@ -246,19 +251,16 @@ class TableCell(ChainableComponent):
     """
     A td data cell.
 
-    numeric() right-aligns it and switches the digits to tabular figures, so
-    the decimal points line up down the column. Cells wrap rather than
-    truncate: a reference cut off without saying so is worse than a tall row.
+    align("end") switches the digits to tabular figures along with the
+    alignment, so the decimal points line up down the column. Cells wrap
+    rather than truncate: a reference cut off without saying so is worse
+    than a tall row.
     """
 
     category: ClassVar[str | None] = None
 
     def align(self, value: CellAlign) -> Self:
         self._props["align"] = value
-        return self
-
-    def numeric(self, value: bool = True) -> Self:
-        self._props["numeric"] = value
         return self
 
     def colspan(self, value: int) -> Self:
@@ -270,7 +272,7 @@ class TableCell(ChainableComponent):
             *self._children,
             class_=classnames(
                 "border-b border-border align-middle text-fg",
-                _cell_align(self),
+                _ALIGN_CLASSES[self._get_prop("align", "start")],
                 self._get_prop("class_"),
             ),
             colspan=self._get_prop("colspan"),
@@ -299,18 +301,6 @@ class TableCaption(ChainableComponent):
         )
 
 
-def _cell_align(cell: ChainableComponent) -> str:
-    """
-    The one text-align a cell gets, and the figures to go with it.
-
-    A numeric column ends itself unless it was told otherwise, so the common
-    case is numeric() and nothing else.
-    """
-    numeric: bool = cell._get_prop("numeric", False)
-    align: CellAlign = cell._get_prop("align") or ("end" if numeric else "start")
-    return classnames(_ALIGN_CLASSES[align], "tabular-nums" if numeric else None)
-
-
 @dataclass(frozen=True)
 class Column:
     """
@@ -319,14 +309,14 @@ class Column:
     key resolves a row's value - a key, a dotted path into a nested record,
     or a callable given the row. render takes the row instead and returns
     whatever the cell should hold, for the columns that are a badge or a
-    button rather than a value. numeric ends the column and lines up its
-    digits; align is for the columns that are neither text nor numbers.
+    button rather than a value. align is where the value sits in the cell,
+    and align="end" is what a column of numbers wants: it lines the digits
+    up as well as the edge.
     """
 
     key: str | Callable[[Mapping[str, Any]], Any]
     label: str
-    align: CellAlign | None = None
-    numeric: bool = False
+    align: CellAlign = "start"
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
@@ -376,7 +366,7 @@ class DataTable(ChainableComponent):
     columns() and rows() are the shape of it; everything else is a state it
     can be in instead. loading() puts placeholder rows under the header,
     empty() and error() replace the rows with a message under it, and
-    density() sets how much room a row gets.
+    compact() tightens the rows.
     """
 
     category = "Data"
@@ -394,7 +384,7 @@ class DataTable(ChainableComponent):
                 [
                     Column("invoice", "Invoice"),
                     Column("customer", "Customer"),
-                    Column("amount", "Amount", numeric=True),
+                    Column("amount", "Amount", align="end"),
                 ]
             )
             .rows(
@@ -420,8 +410,11 @@ class DataTable(ChainableComponent):
         self._props["caption"] = value
         return self
 
-    def density(self, value: TableDensity) -> Self:
-        self._props["density"] = value
+    def compact(self, value: bool = True) -> Self:
+        """
+        Tighten the rows, for a table someone scans rather than reads.
+        """
+        self._props["compact"] = value
         return self
 
     def loading(self, value: bool = True) -> Self:
@@ -457,7 +450,7 @@ class DataTable(ChainableComponent):
 
         table = (
             Table()
-            .density(self._get_prop("density", "comfortable"))
+            .compact(self._get_prop("compact", False))
             .busy(loading)
             .content(
                 render_if(
@@ -469,9 +462,9 @@ class DataTable(ChainableComponent):
         )
 
         if error is not None:
-            table.below(error)
+            table.footer(error)
         elif not loading and not self._rows:
-            table.below(self._get_prop("empty") or _default_empty())
+            table.footer(self._get_prop("empty") or _default_empty())
 
         if class_ := self._get_prop("class_"):
             table.class_(class_)
@@ -484,10 +477,7 @@ class DataTable(ChainableComponent):
         )
 
     def _header_cell(self, column: Column) -> ComponentType:
-        head = TableHead().numeric(column.numeric)
-        if column.align is not None:
-            head.align(column.align)
-        return head.content(column.label)
+        return TableHead().align(column.align).content(column.label)
 
     def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
         """
@@ -524,7 +514,7 @@ class DataTable(ChainableComponent):
                     TableRow().content(
                         *[
                             TableCell()
-                            .numeric(column.numeric)
+                            .align(column.align)
                             .content(Skeleton().width(_placeholder_width(index)))
                             for index, column in enumerate(self._columns)
                         ]
@@ -540,10 +530,7 @@ class DataTable(ChainableComponent):
             if column.render is not None
             else _stringify(_resolve(row, column.key))
         )
-        cell = TableCell().numeric(column.numeric)
-        if column.align is not None:
-            cell.align(column.align)
-        return cell.content(content)
+        return TableCell().align(column.align).content(content)
 
 
 def _placeholder_width(index: int) -> str:

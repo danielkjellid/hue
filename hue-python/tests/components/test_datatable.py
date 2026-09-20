@@ -6,7 +6,7 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _COLUMNS = [
     Column("invoice", "Invoice"),
-    Column("amount", "Amount", numeric=True),
+    Column("amount", "Amount", align="end"),
 ]
 _ROWS = [
     {"invoice": "INV-2050", "amount": "2190"},
@@ -25,9 +25,11 @@ class TestDataTable:
         assert "INV-2050" in html
 
     @pytest.mark.asyncio
-    async def test_a_numeric_column_lines_its_digits_up(self, context_args):
-        # Without tabular figures the decimal points drift and a column of
-        # money stops being something you can scan.
+    async def test_ending_a_column_lines_its_digits_up(self, context_args):
+        # Ending a column and lining its digits up are one decision: the only
+        # thing that wants the right edge is a number, and without tabular
+        # figures the decimal points drift and the column stops being
+        # something you can scan.
         html = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
         )
@@ -181,12 +183,12 @@ class TestDataTable:
         assert "Invoices, September" in html
 
     @pytest.mark.asyncio
-    async def test_density_changes_the_room_a_row_gets(self, context_args):
+    async def test_compact_tightens_the_rows(self, context_args):
         comfortable = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
         )
         compact = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).density("compact"),
+            DataTable().columns(_COLUMNS).rows(_ROWS).compact(),
             context_args=context_args,
         )
         assert "[&_td]:py-[11px]" in select(comfortable, "table")[0]["class"]

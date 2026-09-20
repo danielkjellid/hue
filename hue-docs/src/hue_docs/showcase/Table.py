@@ -9,10 +9,10 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "Compose a table from its primitives. numeric() ends a column "
+            "Compose a table from its primitives. align(\"end\") ends a column "
             "and lines its digits up, colspan() spans cells, and "
             "TableCaption / TableFooter add a caption and a totals row. "
-            "density() sets the padding for every cell at once, from the "
+            "compact() sets the padding for every cell at once, from the "
             "table, so no two cells can disagree about it."
         ),
         variants=[
@@ -71,7 +71,7 @@ SHOWCASES: list[Showcase] = [
                             TableHead().content("Invoice"),
                             TableHead().content("Status"),
                             TableHead().content("Method"),
-                            TableHead().numeric().content("Amount"),
+                            TableHead().align("end").content("Amount"),
                         ),
                     ),
                     TableBody().content(
@@ -79,25 +79,25 @@ SHOWCASES: list[Showcase] = [
                             TableCell().content("INV001"),
                             TableCell().content("Paid"),
                             TableCell().content("Credit Card"),
-                            TableCell().numeric().content("$250.00"),
+                            TableCell().align("end").content("$250.00"),
                         ),
                         TableRow().content(
                             TableCell().content("INV002"),
                             TableCell().content("Pending"),
                             TableCell().content("PayPal"),
-                            TableCell().numeric().content("$150.00"),
+                            TableCell().align("end").content("$150.00"),
                         ),
                         TableRow().content(
                             TableCell().content("INV003"),
                             TableCell().content("Unpaid"),
                             TableCell().content("Bank Transfer"),
-                            TableCell().numeric().content("$350.00"),
+                            TableCell().align("end").content("$350.00"),
                         ),
                     ),
                     TableFooter().content(
                         TableRow().content(
                             TableCell().colspan(3).content("Total"),
-                            TableCell().numeric().content("$750.00"),
+                            TableCell().align("end").content("$750.00"),
                         ),
                     ),
                 )

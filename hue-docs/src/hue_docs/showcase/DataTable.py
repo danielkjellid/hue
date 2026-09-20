@@ -1,7 +1,7 @@
 """
 Curated showcases for the DataTable molecule.
 
-The auto-grid can toggle density and loading, but the states worth seeing -
+The auto-grid can toggle compact and loading, but the states worth seeing -
 nothing to show, and nothing fetched - need rows to be absent, which no axis
 can arrange.
 """
@@ -13,7 +13,7 @@ from hue_docs.showcase import Showcase, variant
 _COLUMNS = """
                     Column("invoice", "Invoice"),
                     Column("customer", "Customer"),
-                    Column("amount", "Amount", numeric=True),
+                    Column("amount", "Amount", align="end"),
                     Column(
                         "status",
                         "Status",
@@ -50,7 +50,7 @@ _ROWS = """
 
 _PLAIN = """
                     Column("invoice", "Invoice"),
-                    Column("amount", "Amount", numeric=True),
+                    Column("amount", "Amount", align="end"),
 """
 
 SHOWCASES: list[Showcase] = [
@@ -83,7 +83,7 @@ SHOWCASES: list[Showcase] = [
             variant(
                 "Compact",
                 f"""
-                DataTable().density("compact").columns(
+                DataTable().compact().columns(
                     [{_COLUMNS}                ]
                 ).rows(
                     [{_ROWS}                ]
