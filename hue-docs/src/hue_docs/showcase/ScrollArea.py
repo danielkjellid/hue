@@ -35,8 +35,7 @@ _NOTES = [
     "pagination is deprecated above 10,000 records.",
     "4.0.1 — Webhook retries now use exponential backoff instead of a fixed "
     "60-second interval.",
-    "4.0.0 — New API version. Bearer tokens replace the legacy key-and-secret "
-    "pair.",
+    "4.0.0 — New API version. Bearer tokens replace the legacy key-and-secret pair.",
 ]
 
 _PROSE = ", ".join(f'html.p("{note}")' for note in _NOTES)
