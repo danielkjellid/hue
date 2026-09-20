@@ -9,7 +9,7 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "Compose a table from its primitives. align(\"end\") ends a column "
+            'Compose a table from its primitives. align("end") ends a column '
             "and lines its digits up, colspan() spans cells, and "
             "TableCaption / TableFooter add a caption and a totals row. "
             "compact() sets the padding for every cell at once, from the "
