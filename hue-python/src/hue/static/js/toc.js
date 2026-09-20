@@ -105,17 +105,48 @@ function curveLength(p0, p1, p2, p3, samples = 24) {
 }
 
 /**
+ * What the content scrolls inside, where that is not the page.
+ *
+ * A table of contents beside a panel is reading something whose top is not
+ * the top of the window, and every measurement here is taken from it.
+ */
+function scrollerOf(element) {
+	// From the element itself: the container the headings are in is very
+	// often the thing that scrolls them.
+	for (let node = element; node; node = node.parentElement) {
+		const overflow = getComputedStyle(node).overflowY;
+		if (overflow !== "auto" && overflow !== "scroll") continue;
+		if (node.scrollHeight > node.clientHeight) return node;
+	}
+	return null;
+}
+
+/**
  * Where a heading sits relative to the line it is reached at.
  *
- * That line is the top of the viewport, less the scroll-margin the page
- * keeps clear for whatever it holds up there - which is to say, exactly
- * where clicking the entry would put the heading. Measuring from anywhere
- * further down the screen makes a short section unreachable: click its
- * entry, and the next heading would already have crossed the line.
+ * That line is the top of whatever the content scrolls inside, less the
+ * scroll-margin the page keeps clear for what it holds up there - which is
+ * to say, exactly where clicking the entry would put the heading.
+ * Measuring from anywhere further down makes a short section unreachable:
+ * click its entry, and the next heading would already have crossed the line.
  */
-function distanceToLine(element) {
+function distanceToLine(element, top) {
 	const margin = parseFloat(getComputedStyle(element).scrollMarginTop) || 0;
-	return element.getBoundingClientRect().top - margin;
+	return element.getBoundingClientRect().top - margin - top;
+}
+
+/**
+ * Whether there is nothing left to scroll.
+ *
+ * The last section is often too short to fill the screen, so the scroll
+ * stops before its heading ever reaches the line. Once it can go no
+ * further, that heading is what is being looked at.
+ */
+function atEnd(scroller) {
+	if (scroller) {
+		return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+	}
+	return window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
 }
 
 export function registerTocData(Alpine) {
@@ -125,15 +156,28 @@ export function registerTocData(Alpine) {
 		reach: [],
 		length: 0,
 
+		// Declared, every one of them, because Alpine writes a property its
+		// data object never mentioned to the outermost scope on the page
+		// instead of to this component - where the next table of contents
+		// would find it and take it for its own.
+		container: null,
+		onMove: null,
+		onContent: null,
+		onSettle: null,
+		sizes: null,
+		content: null,
+
 		init() {
 			this.build();
 
 			this.onMove = throttle(() => this.read());
-			this.onResize = throttle(() => {
+			this.onContent = throttle(() => this.build());
+			// Not throttled: what calls it is already batched to once a
+			// frame, and drawing changes nothing that could call it back.
+			this.onSettle = () => {
 				this.draw();
 				this.read();
-			});
-			this.onContent = throttle(() => this.build());
+			};
 
 			// Capturing, so a page that scrolls inside a container rather
 			// than the window is heard too. Scroll events do not bubble.
@@ -141,27 +185,35 @@ export function registerTocData(Alpine) {
 			window.addEventListener("resize", this.onMove);
 
 			// The nav's own width decides where the labels wrap, which is
-			// what the rail is drawn from.
-			this.sizes = new ResizeObserver(this.onResize);
+			// what the rail is drawn from. It fires once on observe too,
+			// which is the pass that corrects whatever init measured before
+			// the stylesheets had arrived.
+			this.sizes = new ResizeObserver(this.onSettle);
 			this.sizes.observe(this.$root);
 
 			// Content replaced by a fragment is a different set of headings.
 			// Attributes are not watched, or setting an id would call this
 			// straight back.
-			const container = document.querySelector(of);
-			if (container) {
+			if (this.container) {
 				this.content = new MutationObserver(this.onContent);
-				this.content.observe(container, { childList: true, subtree: true });
+				this.content.observe(this.container, { childList: true, subtree: true });
+			}
+
+			// The stylesheets in the head may not have arrived when Alpine
+			// started, and until they have there is nothing to measure.
+			if (document.readyState !== "complete") {
+				window.addEventListener("load", this.onSettle, { once: true });
 			}
 
 			// Text moves when the real typeface arrives, and every number
 			// here came from where the text was.
-			document.fonts?.ready.then(() => this.onResize());
+			document.fonts?.ready.then(() => this.onSettle());
 		},
 
 		destroy() {
 			document.removeEventListener("scroll", this.onMove, true);
 			window.removeEventListener("resize", this.onMove);
+			window.removeEventListener("load", this.onSettle);
 			this.sizes?.disconnect();
 			this.content?.disconnect();
 		},
@@ -179,6 +231,8 @@ export function registerTocData(Alpine) {
 			const taken = new Set(
 				[...document.querySelectorAll("[id]")].map((element) => element.id),
 			);
+
+			this.container = container;
 
 			this.entries = found.map((element, index) => ({
 				element,
@@ -285,21 +339,23 @@ export function registerTocData(Alpine) {
 			const entries = this.entries;
 			if (entries.length === 0) return;
 
-			// The last section is often too short to fill the screen, so the
-			// page stops scrolling before its heading ever reaches the line.
-			// Once it can go no further, that heading is what is being
-			// looked at.
-			const bottom = window.innerHeight + window.scrollY;
-			if (bottom >= document.documentElement.scrollHeight - 2) {
+			// Looked for every time rather than remembered: a panel only
+			// starts scrolling once it has enough in it, which can be long
+			// after this was set up, and a short walk up the ancestors costs
+			// less than being wrong about it.
+			const scroller = scrollerOf(this.container);
+			if (atEnd(scroller)) {
 				this.select(entries.length - 1);
 				return;
 			}
+
+			const top = scroller ? scroller.getBoundingClientRect().top : 0;
 
 			// The first heading stands for everything above it, including
 			// whatever comes before it on the page.
 			let active = 0;
 			entries.forEach((entry, index) => {
-				if (distanceToLine(entry.target) <= SLACK) active = index;
+				if (distanceToLine(entry.target, top) <= SLACK) active = index;
 			});
 			this.select(active);
 		},

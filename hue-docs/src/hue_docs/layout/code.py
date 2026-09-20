@@ -32,10 +32,13 @@ def code_block(source: str, *, language: str = "python") -> ComponentType:
             )
             .x_text(unsafe("copied ? 'Copied' : 'Copy'")),
             html.pre(
-                # The plain source stays in x-ref so the copy button grabs the
-                # un-highlighted text; the visible code is the highlighted HTML.
-                html.span(source).x_ref("code").class_("hidden"),
-                html.code(highlight_code(source, language)),
+                # The copy button reads the highlighted element's own text,
+                # which is the source with the markup stripped back off. A
+                # second, hidden copy of it would be the same page weight
+                # twice - and a snippet that mentions an id would put that id
+                # on the page as text, where anything reading the document
+                # for real ones finds it.
+                html.code(highlight_code(source, language)).x_ref("code"),
             ).class_(
                 "highlight overflow-x-auto rounded-lg border border-surface-200 "
                 "bg-surface-50 p-4 text-sm leading-6 "

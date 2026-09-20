@@ -55,10 +55,14 @@ def builder(
     code: str, namespace: dict[str, Any] | None = None
 ) -> Callable[[], ComponentType]:
     """
-    A zero-arg factory that evaluates code against the public component names
-    (or the given namespace).
+    A zero-arg factory that evaluates code against the public component names,
+    plus anything the caller adds.
+
+    Added rather than swapped in: a snippet that needs a name of its own - a
+    demo icon base, a class list too long to repeat down a page - still needs
+    every component name as well.
     """
-    names = _NS if namespace is None else namespace
+    names = {**_NS, **(namespace or {})}
 
     def build() -> ComponentType:
         return eval(code, dict(names))
