@@ -2,6 +2,7 @@ import anchor from "@alpinejs/anchor";
 import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
+import { registerScrollAreaData } from "./scroll-area.js";
 import { registerThemeStore } from "./theme.js";
 import { registerToastMagic } from "./toast.js";
 
@@ -30,6 +31,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 		},
 	});
 
+	registerScrollAreaData(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
 

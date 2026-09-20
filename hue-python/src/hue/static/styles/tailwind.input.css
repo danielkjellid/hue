@@ -707,3 +707,60 @@
 @utility checkmark {
   clip-path: polygon(14% 45%, 0 60%, 39% 100%, 100% 22%, 85% 8%, 38% 71%);
 }
+
+/* A scrollbar that belongs to the page rather than to the operating system.
+   Thin where a platform offers thin, and everywhere else a rounded thumb
+   inside a transparent track - the 3px border with background-clip is how a
+   10px-wide scrollbar carries a 4px thumb with room around it. Nothing here
+   replaces the scrolling itself: a scrollbar written in JavaScript loses the
+   momentum, the conventions and the accessibility of the real one. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: var(--radius-full);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-fg-subtle);
+    background-clip: content-box;
+  }
+}
+
+/* Content going soft at the cut edge, which says it continues past it. A
+   shadow there would say the opposite - that the content sits on an edge and
+   stops. The two ends are separate, and each is 0 until there is something
+   that way to continue into: a permanent fade at the top dims the first line
+   of a list that has nothing above it. */
+@utility scroll-fade {
+  --hue-fade-top: 0px;
+  --hue-fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--hue-fade-top),
+    #000 calc(100% - var(--hue-fade-bottom)),
+    transparent 100%
+  );
+
+  &[data-scroll-above] {
+    --hue-fade-top: 20px;
+  }
+
+  &[data-scroll-below] {
+    --hue-fade-bottom: 20px;
+  }
+}
