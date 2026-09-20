@@ -1,61 +1,57 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, ClassVar, Literal, Mapping, Sequence
 
 from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.text import Text
+from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.empty import Empty
 from hue.utils import classnames, render_if
 
-type CellAlign = Literal["left", "center", "right"]
+type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
+type TableDensity = Literal["comfortable", "compact"]
 
 _ALIGN_CLASSES: dict[CellAlign, str] = {
-    "left": "text-left",
+    "start": "text-start",
     "center": "text-center",
-    "right": "text-right",
+    "end": "text-end",
 }
+
+# The cells carry no padding of their own: it lives here, on the table, so
+# one class sets the rhythm of every row and a cell cannot disagree with its
+# neighbour. Compact tightens the rows only - the columns keep their gutters,
+# because narrowing those is what makes a dense table unreadable.
+_DENSITY_CLASSES: dict[TableDensity, str] = {
+    "comfortable": "[&_th]:px-4 [&_th]:py-[9px] [&_td]:px-4 [&_td]:py-[11px]",
+    "compact": "[&_th]:px-4 [&_th]:py-[7px] [&_td]:px-4 [&_td]:py-[7px]",
+}
+
+_FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
 
 
 class Table(ChainableComponent):
     """
-    An accessible data table styled with the design system.
+    A table, built from the parts a table is made of.
 
-    Composed from subcomponents — TableHeader, TableBody,
-    TableFooter, TableRow, TableHead, TableCell, and
-    TableCaption — that mirror the native HTML table elements. The
-    <table> is wrapped in a horizontally scrollable container, and .id()
-    / .class_() / the ARIA and Alpine modifiers target the table itself.
+    TableCaption, TableHeader, TableBody, TableFooter, TableRow, TableHead
+    and TableCell mirror the HTML elements one for one. density() sets the
+    padding for every cell at once, and below() is where an empty or error
+    state goes - inside the frame, under the header.
 
-    For the common case of rendering a list of records, reach for DataTable,
-    which builds these primitives from a column definition and your data.
-
-        Table().content(
-            TableHeader().content(
-                TableRow().content(
-                    TableHead().content("Name"),
-                    TableHead().content("Email"),
-                ),
-            ),
-            TableBody().content(
-                TableRow().content(
-                    TableCell().content("Ada Lovelace"),
-                    TableCell().content("ada@example.com"),
-                ),
-            ),
-        )
+    For a list of records, reach for DataTable, which builds all of this from
+    a column definition and your rows.
     """
 
     category = "Data"
 
     @classmethod
     def example(cls) -> Self:
-        """A representative instance, used by the docs site for previews."""
         return cls().content(
             TableHeader().content(
                 TableRow().content(
@@ -75,106 +71,145 @@ class Table(ChainableComponent):
             ),
         )
 
+    def density(self, value: TableDensity) -> Self:
+        """
+        How much room a row gets. Compact fits about a third more on screen,
+        for a table someone scans rather than reads.
+        """
+        self._props["density"] = value
+        return self
+
+    def below(self, *values: ComponentType) -> Self:
+        """
+        What sits under the table inside the same frame, which is where an
+        empty or an error state goes: a full-width message is not a cell, and
+        a table with a header and no rows is still a table.
+        """
+        self._props["below"] = values
+        return self
+
+    def busy(self, value: bool = True) -> Self:
+        """
+        Say the contents are being replaced, so a screen reader is told the
+        table is mid-update rather than reading out placeholder rows.
+        """
+        self._props["busy"] = value
+        return self
+
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "w-full caption-bottom text-sm",
-            self._get_prop("class_"),
-        )
+        density: TableDensity = self._get_prop("density", "comfortable")
+        busy: bool = self._get_prop("busy", False)
+
         return html.div(
             html.table(
                 *self._children,
-                class_=classes,
-                **self._get_base_html_attrs(),
+                class_=classnames(
+                    "w-full border-collapse text-base",
+                    _DENSITY_CLASSES[density],
+                    self._get_prop("class_"),
+                ),
+                **{
+                    "aria_busy": "true" if busy else None,
+                    **self._get_base_html_attrs(),
+                },
             ),
-            class_="relative w-full overflow-x-auto",
+            *self._get_prop("below", ()),
+            class_=_FRAME,
         )
 
 
 class TableHeader(ChainableComponent):
-    """The <thead> group of a Table."""
+    """
+    The thead group of a Table.
+    """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "[&_tr]:border-b [&_tr]:border-surface-200",
-            self._get_prop("class_"),
-        )
         return html.thead(
             *self._children,
-            class_=classes,
+            class_=classnames(self._get_prop("class_")),
             **self._get_base_html_attrs(),
         )
 
 
 class TableBody(ChainableComponent):
-    """The <tbody> group of a Table."""
+    """
+    The tbody group of a Table.
+    """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "[&_tr:last-child]:border-0",
-            self._get_prop("class_"),
-        )
         return html.tbody(
             *self._children,
-            class_=classes,
+            # The frame already draws the line under the last row.
+            class_=classnames(
+                "[&_tr:last-child_td]:border-b-0", self._get_prop("class_")
+            ),
             **self._get_base_html_attrs(),
         )
 
 
 class TableFooter(ChainableComponent):
-    """The <tfoot> group of a Table."""
+    """
+    The tfoot group of a Table, for a total or a summary of the rows above.
+    """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "border-t border-surface-200 bg-surface-50 font-medium",
-            self._get_prop("class_"),
-        )
         return html.tfoot(
             *self._children,
-            class_=classes,
+            class_=classnames(
+                "border-t border-border bg-surface-sunken font-ui text-sm "
+                "font-medium [&_td]:border-b-0",
+                self._get_prop("class_"),
+            ),
             **self._get_base_html_attrs(),
         )
 
 
 class TableRow(ChainableComponent):
     """
-    A <tr> row.
+    A tr row.
 
-    Carries the hover style and a data-[state=selected] hook: a future
-    selection feature can bind data-state (via Alpine) to highlight selected
-    rows without changing this markup.
+    Selected rows are marked with aria-selected, which is both what a screen
+    reader reads and what tints the row.
     """
 
-    category = None
+    category: ClassVar[str | None] = None
+
+    def selected(self, value: bool = True) -> Self:
+        self._props["selected"] = value
+        return self
 
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "border-b border-surface-200 transition-colors",
-            "hover:bg-surface-50 data-[state=selected]:bg-surface-100",
-            self._get_prop("class_"),
-        )
+        selected: bool = self._get_prop("selected", False)
+
         return html.tr(
             *self._children,
-            class_=classes,
-            **self._get_base_html_attrs(),
+            class_=classnames(
+                "transition-colors hover:bg-surface-hover",
+                "aria-[selected=true]:bg-accent-subtle",
+                self._get_prop("class_"),
+            ),
+            **{
+                "aria_selected": "true" if selected else None,
+                **self._get_base_html_attrs(),
+            },
         )
 
 
 class TableHead(ChainableComponent):
     """
-    A <th> header cell.
+    A th header cell, scoped to its column unless scope() says otherwise.
 
-    Defaults to scope="col" for accessibility; use .scope() to mark a
-    row header instead. .align() sets text alignment and .colspan() the
-    column span.
+    numeric() ends the column and lines its digits up; align() is for the
+    columns that are neither text nor numbers.
     """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def scope(self, value: HeadScope) -> Self:
         self._props["scope"] = value
@@ -184,21 +219,23 @@ class TableHead(ChainableComponent):
         self._props["align"] = value
         return self
 
+    def numeric(self, value: bool = True) -> Self:
+        self._props["numeric"] = value
+        return self
+
     def colspan(self, value: int) -> Self:
         self._props["colspan"] = value
         return self
 
     def _render(self, context: HueContext) -> Component:
-        align: CellAlign = self._get_prop("align", "left")
-        classes = classnames(
-            "h-10 px-2 align-middle font-medium whitespace-nowrap",
-            "text-surface-900 [&:has([role=checkbox])]:pr-0",
-            _ALIGN_CLASSES[align],
-            self._get_prop("class_"),
-        )
         return html.th(
             *self._children,
-            class_=classes,
+            class_=classnames(
+                "border-b border-border bg-surface-sunken font-ui text-xs "
+                "font-bold tracking-[0.02em] whitespace-nowrap text-fg-muted",
+                _cell_align(self),
+                self._get_prop("class_"),
+            ),
             scope=self._get_prop("scope", "col"),
             colspan=self._get_prop("colspan"),
             **self._get_base_html_attrs(),
@@ -207,15 +244,21 @@ class TableHead(ChainableComponent):
 
 class TableCell(ChainableComponent):
     """
-    A <td> data cell.
+    A td data cell.
 
-    .align() sets text alignment and .colspan() the column span.
+    numeric() right-aligns it and switches the digits to tabular figures, so
+    the decimal points line up down the column. Cells wrap rather than
+    truncate: a reference cut off without saying so is worse than a tall row.
     """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def align(self, value: CellAlign) -> Self:
         self._props["align"] = value
+        return self
+
+    def numeric(self, value: bool = True) -> Self:
+        self._props["numeric"] = value
         return self
 
     def colspan(self, value: int) -> Self:
@@ -223,16 +266,13 @@ class TableCell(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
-        align: CellAlign = self._get_prop("align", "left")
-        classes = classnames(
-            "p-2 align-middle whitespace-nowrap",
-            "text-surface-900 [&:has([role=checkbox])]:pr-0",
-            _ALIGN_CLASSES[align],
-            self._get_prop("class_"),
-        )
         return html.td(
             *self._children,
-            class_=classes,
+            class_=classnames(
+                "border-b border-border align-middle text-fg",
+                _cell_align(self),
+                self._get_prop("class_"),
+            ),
             colspan=self._get_prop("colspan"),
             **self._get_base_html_attrs(),
         )
@@ -240,104 +280,103 @@ class TableCell(ChainableComponent):
 
 class TableCaption(ChainableComponent):
     """
-    The table caption. Placed first in the markup as HTML requires, and displayed
-    below the table by the caption-bottom class on Table.
+    What the table is, read before it and shown above it.
+
+    Above rather than below, because a caption is the thing that tells you
+    what you are about to read - "Invoices, September 2026, 4 of 148".
     """
 
-    category = None
+    category: ClassVar[str | None] = None
 
     def _render(self, context: HueContext) -> Component:
-        classes = classnames(
-            "mt-4 text-sm text-surface-500",
-            self._get_prop("class_"),
-        )
         return html.caption(
             *self._children,
-            class_=classes,
+            class_=classnames(
+                "border-b border-border px-4 py-3 text-start text-sm text-fg-muted",
+                self._get_prop("class_"),
+            ),
             **self._get_base_html_attrs(),
         )
+
+
+def _cell_align(cell: ChainableComponent) -> str:
+    """
+    The one text-align a cell gets, and the figures to go with it.
+
+    A numeric column ends itself unless it was told otherwise, so the common
+    case is numeric() and nothing else.
+    """
+    numeric: bool = cell._get_prop("numeric", False)
+    align: CellAlign = cell._get_prop("align") or ("end" if numeric else "start")
+    return classnames(_ALIGN_CLASSES[align], "tabular-nums" if numeric else None)
 
 
 @dataclass(frozen=True)
 class Column:
     """
-    A column definition for DataTable.
+    One column of a DataTable: where its value comes from, and how it reads.
 
-    accessor resolves a row's value: either a key / dotted path into the
-    (possibly nested) record (e.g. "address.city"), or a callable taking the
-    row and returning a value. cell optionally renders custom cell content
-    from the row instead of the resolved value. align sets the text
-    alignment of both the header and body cells.
+    key resolves a row's value - a key, a dotted path into a nested record,
+    or a callable given the row. render takes the row instead and returns
+    whatever the cell should hold, for the columns that are a badge or a
+    button rather than a value. numeric ends the column and lines up its
+    digits; align is for the columns that are neither text nor numbers.
     """
 
-    header: str
-    accessor: str | Callable[[Mapping[str, Any]], Any] | None = None
-    cell: Callable[[Mapping[str, Any]], ComponentType] | None = None
-    align: CellAlign = "left"
-
-    def __post_init__(self) -> None:
-        if self.accessor is None and self.cell is None:
-            raise ValueError(f"Column {self.header!r} needs an accessor or a cell.")
+    key: str | Callable[[Mapping[str, Any]], Any]
+    label: str
+    align: CellAlign | None = None
+    numeric: bool = False
+    render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
 def _resolve(
     row: Mapping[str, Any],
-    accessor: str | Callable[[Mapping[str, Any]], Any],
+    key: str | Callable[[Mapping[str, Any]], Any],
 ) -> Any:
-    """Resolve a column's value from a row via a callable or (dotted) key path."""
-    if callable(accessor):
-        return accessor(row)
+    """
+    A row's value for one column, by callable or by (dotted) key path.
+    """
+    if callable(key):
+        return key(row)
 
     value: Any = row
-    for part in accessor.split("."):
+    for part in key.split("."):
         if not isinstance(value, Mapping) or part not in value:
             raise ValueError(
-                f"Cannot resolve accessor {accessor!r}: {part!r} is not a key of "
-                f"{value!r}."
+                f"Cannot resolve key {key!r}: {part!r} is not a key of {value!r}."
             )
         value = value[part]
     return value
 
 
 def _stringify(value: Any) -> str:
-    """Render a resolved scalar value as text, erroring on complex values."""
+    """
+    A resolved scalar as text. Anything else is a render() the column is
+    missing, rather than something to guess at.
+    """
     if value is None:
         return ""
     if isinstance(value, (str, int, float, bool)):
         return str(value)
     raise ValueError(
-        f"Column value {value!r} is not a scalar — provide a `cell` render function."
+        f"Column value {value!r} is not a scalar - give the column a render()."
     )
+
+
+# Enough rows to read as a table that is filling in, and few enough that the
+# wait does not look longer than it is.
+_PLACEHOLDER_ROWS = 3
 
 
 class DataTable(ChainableComponent):
     """
     A Table built from a column definition and a list of records.
 
-    Pass .columns() (a list of Column) and .data() (a sequence of
-    mappings); DataTable emits the Table primitives, one body row per
-    record. A column's value comes from its cell render function when set,
-    otherwise from its accessor. When data is empty an accessible
-    empty-state row is shown. .caption() adds a caption below the table.
-
-    Note: row selection and pagination are intentionally not implemented yet.
-    The primitives already carry the hooks for them — the data-[state=selected]
-    style and [role=checkbox] cell padding on TableRow / TableCell
-    support a future Alpine-tracked selection column, and pagination is intended
-    to fetch pages server-side via Alpine AJAX (x-merge swapping the
-    <tbody>).
-
-        DataTable().columns(
-            [
-                Column("Name", accessor="name"),
-                Column("Email", accessor="email"),
-            ]
-        ).data(
-            [
-                {"name": "Ada Lovelace", "email": "ada@example.com"},
-                {"name": "Alan Turing", "email": "alan@example.com"},
-            ]
-        )
+    columns() and rows() are the shape of it; everything else is a state it
+    can be in instead. loading() puts placeholder rows under the header,
+    empty() and error() replace the rows with a message under it, and
+    density() sets how much room a row gets.
     """
 
     category = "Data"
@@ -345,23 +384,23 @@ class DataTable(ChainableComponent):
     def __init__(self) -> None:
         super().__init__()
         self._columns: list[Column] = []
-        self._data: Sequence[Mapping[str, Any]] = []
+        self._rows: Sequence[Mapping[str, Any]] = []
 
     @classmethod
     def example(cls) -> Self:
-        """A representative instance, used by the docs site for previews."""
         return (
             cls()
             .columns(
                 [
-                    Column("Name", accessor="name"),
-                    Column("Email", accessor="email"),
+                    Column("invoice", "Invoice"),
+                    Column("customer", "Customer"),
+                    Column("amount", "Amount", numeric=True),
                 ]
             )
-            .data(
+            .rows(
                 [
-                    {"name": "Ada Lovelace", "email": "ada@example.com"},
-                    {"name": "Alan Turing", "email": "alan@example.com"},
+                    {"invoice": "INV-2050", "customer": "Contoso", "amount": "2190"},
+                    {"invoice": "INV-2048", "customer": "Northwind", "amount": "1200"},
                 ]
             )
         )
@@ -370,62 +409,160 @@ class DataTable(ChainableComponent):
         self._columns = value
         return self
 
-    def data(self, value: Sequence[Mapping[str, Any]]) -> Self:
-        self._data = value
+    def rows(self, value: Sequence[Mapping[str, Any]]) -> Self:
+        self._rows = value
         return self
 
     def caption(self, value: str) -> Self:
+        """
+        What the table is, read before it and shown above it.
+        """
         self._props["caption"] = value
         return self
 
-    def _render_head(self) -> ComponentType:
-        return TableHeader().content(
-            TableRow().content(
-                *[
-                    TableHead().align(column.align).content(column.header)
-                    for column in self._columns
-                ]
-            )
-        )
+    def density(self, value: TableDensity) -> Self:
+        self._props["density"] = value
+        return self
 
-    def _render_cell(self, column: Column, row: Mapping[str, Any]) -> ComponentType:
-        if column.cell is not None:
-            content: ComponentType = column.cell(row)
-        else:
-            # __post_init__ guarantees an accessor when there is no cell.
-            assert column.accessor is not None
-            content = _stringify(_resolve(row, column.accessor))
-        return TableCell().align(column.align).content(content)
+    def loading(self, value: bool = True) -> Self:
+        """
+        Placeholder rows under the header while the real ones are on their
+        way, keeping the columns where they are so the page does not jump
+        when they land.
+        """
+        self._props["loading"] = value
+        return self
 
-    def _render_body(self) -> ComponentType:
-        if not self._data:
-            return TableBody().content(
-                TableRow().content(
-                    TableCell()
-                    .colspan(len(self._columns))
-                    .align("center")
-                    .content(Text("No results.").muted().role("status"))
-                )
-            )
+    def empty(self, value: ComponentType) -> Self:
+        """
+        What to show in place of the rows when there are none. An Empty that
+        says why there is nothing here and what to do about it beats the
+        default, which can only say that there is nothing.
+        """
+        self._props["empty"] = value
+        return self
 
-        return TableBody().content(
-            *[
-                TableRow().content(
-                    *[self._render_cell(column, row) for column in self._columns]
-                )
-                for row in self._data
-            ]
-        )
+    def error(self, value: ComponentType) -> Self:
+        """
+        What to show when the rows could not be fetched at all. Set, it
+        replaces them whatever else is going on - there is nothing to say
+        about rows nobody has.
+        """
+        self._props["error"] = value
+        return self
 
     def _render(self, context: HueContext) -> Component:
-        # The caption must be the first child of a table; caption-bottom on the
-        # Table handles where it is displayed.
-        table = Table().content(
-            render_if(self._get_prop("caption"), lambda c: TableCaption().content(c)),
-            self._render_head(),
-            self._render_body(),
+        error: ComponentType | None = self._get_prop("error")
+        loading: bool = self._get_prop("loading", False)
+
+        table = (
+            Table()
+            .density(self._get_prop("density", "comfortable"))
+            .busy(loading)
+            .content(
+                render_if(
+                    self._get_prop("caption"), lambda c: TableCaption().content(c)
+                ),
+                self._head(),
+                *self._body(loading=loading, failed=error is not None),
+            )
         )
+
+        if error is not None:
+            table.below(error)
+        elif not loading and not self._rows:
+            table.below(self._get_prop("empty") or _default_empty())
+
         if class_ := self._get_prop("class_"):
             table.class_(class_)
         table._attrs.update(self._attrs)
         return table
+
+    def _head(self) -> ComponentType:
+        return TableHeader().content(
+            TableRow().content(*[self._header_cell(column) for column in self._columns])
+        )
+
+    def _header_cell(self, column: Column) -> ComponentType:
+        head = TableHead().numeric(column.numeric)
+        if column.align is not None:
+            head.align(column.align)
+        return head.content(column.label)
+
+    def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
+        """
+        The rows, the placeholders that stand in for them, or nothing at all -
+        a header with a message under it, which is what empty and error are.
+        """
+        if failed or (not loading and not self._rows):
+            return ()
+        if loading:
+            return (self._placeholders(),)
+        return (
+            TableBody().content(
+                *[
+                    TableRow().content(
+                        *[self._cell(column, row) for column in self._columns]
+                    )
+                    for row in self._rows
+                ]
+            ),
+        )
+
+    def _placeholders(self) -> ComponentType:
+        """
+        Bars where the values will be, as many rows as are already there so
+        the table keeps its height, and hidden from the screen reader that is
+        already being told the table is busy.
+        """
+        count = len(self._rows) or _PLACEHOLDER_ROWS
+        return (
+            TableBody()
+            .aria_hidden("true")
+            .content(
+                *[
+                    TableRow().content(
+                        *[
+                            TableCell()
+                            .numeric(column.numeric)
+                            .content(Skeleton().width(_placeholder_width(index)))
+                            for index, column in enumerate(self._columns)
+                        ]
+                    )
+                    for _ in range(count)
+                ]
+            )
+        )
+
+    def _cell(self, column: Column, row: Mapping[str, Any]) -> ComponentType:
+        content = (
+            column.render(row)
+            if column.render is not None
+            else _stringify(_resolve(row, column.key))
+        )
+        cell = TableCell().numeric(column.numeric)
+        if column.align is not None:
+            cell.align(column.align)
+        return cell.content(content)
+
+
+def _placeholder_width(index: int) -> str:
+    """
+    Uneven widths down the row, so a loading table reads as content on its
+    way rather than as a grid of identical grey boxes.
+    """
+    return ("w-24", "w-32", "w-20", "w-28")[index % 4]
+
+
+def _default_empty() -> ComponentType:
+    """
+    All an empty table can say without being told anything: that it is empty.
+    Built fresh each time, because a component carries state a shared one
+    would carry between tables.
+    """
+    return (
+        Empty()
+        .compact()
+        .title("Nothing here yet")
+        .description("There are no records to show.")
+    )

@@ -2,6 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import (
+    Empty,
     Table,
     TableBody,
     TableCaption,
@@ -10,7 +11,7 @@ from hue.ui import (
     TableHeader,
     TableRow,
 )
-from tests._a11y import assert_attr, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestTable:
@@ -80,3 +81,69 @@ class TestTable:
         assert_attr(html, "table", "id", "users")
         assert_attr(html, "table", "aria-label", "Users")
         assert_selector(html, "table.custom-class")
+
+    # density(): both values
+    @pytest.mark.asyncio
+    async def test_density_sets_the_padding_for_every_cell_at_once(self, context_args):
+        # On the table rather than on the cells, so one class sets the rhythm
+        # and no two cells can disagree.
+        comfortable = await render_tree(Table(), context_args=context_args)
+        compact = await render_tree(
+            Table().density("compact"), context_args=context_args
+        )
+        assert "[&_td]:py-[11px]" in select(comfortable, "table")[0]["class"]
+        assert "[&_td]:py-[7px]" in select(compact, "table")[0]["class"]
+
+    @pytest.mark.asyncio
+    async def test_what_goes_below_stays_inside_the_frame(self, context_args):
+        # Which is where an empty state belongs: a full-width message is not
+        # a cell, and a header with nothing under it is still a table.
+        html = await render_tree(
+            Table().below(Empty().title("No invoices")), context_args=context_args
+        )
+        assert_selector(html, "div > table + div")
+        assert "No invoices" in html
+
+    # busy(): both branches
+    @pytest.mark.asyncio
+    async def test_a_busy_table_says_it_is_mid_update(self, context_args):
+        html = await render_tree(Table().busy(), context_args=context_args)
+        assert_attr(html, "table", "aria-busy", "true")
+
+    @pytest.mark.asyncio
+    async def test_a_settled_table_says_nothing_about_it(self, context_args):
+        html = await render_tree(Table(), context_args=context_args)
+        assert_no_selector(html, "[aria-busy]")
+
+    # TableRow selected(): both branches
+    @pytest.mark.asyncio
+    async def test_a_selected_row_is_marked_for_the_screen_reader_too(
+        self, context_args
+    ):
+        html = await render_tree(TableRow().selected(), context_args=context_args)
+        assert_attr(html, "tr", "aria-selected", "true")
+
+    @pytest.mark.asyncio
+    async def test_an_unselected_row_carries_no_state(self, context_args):
+        html = await render_tree(TableRow(), context_args=context_args)
+        assert_no_selector(html, "[aria-selected]")
+
+    # numeric(): both branches, on the cell that carries the figures
+    @pytest.mark.asyncio
+    async def test_a_numeric_cell_ends_itself_and_lines_its_digits_up(
+        self, context_args
+    ):
+        html = await render_tree(
+            TableCell().numeric().content("2190.00"), context_args=context_args
+        )
+        assert_selector(html, "td.text-end.tabular-nums")
+
+    @pytest.mark.asyncio
+    async def test_a_text_cell_starts_and_keeps_proportional_figures(
+        self, context_args
+    ):
+        html = await render_tree(
+            TableCell().content("Contoso"), context_args=context_args
+        )
+        assert_selector(html, "td.text-start")
+        assert_no_selector(html, ".tabular-nums")
