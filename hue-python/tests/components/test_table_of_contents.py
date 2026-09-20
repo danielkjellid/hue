@@ -87,3 +87,15 @@ class TestTableOfContents:
         rail = select(html, "svg[x-ref=rail]")[0]
         assert "width" not in rail.attrs
         assert [path.get("d") for path in rail.find_all("path")] == [None, None]
+
+    @pytest.mark.asyncio
+    async def test_a_page_can_keep_a_heading_out_of_its_own_contents(
+        self, context_args
+    ):
+        # headings is a selector rather than a list of levels, so leaving a
+        # section out needs nothing here that is not already there.
+        html = await render_tree(
+            TableOfContents().of("main", headings="h2:not([data-toc-skip]), h3"),
+            context_args=context_args,
+        )
+        assert "h2:not([data-toc-skip]), h3" in select(html, "nav")[0]["x-data"]

@@ -45,6 +45,19 @@ function slugify(text, taken) {
 }
 
 /**
+ * What an entry is called.
+ *
+ * The heading's own words, unless it says otherwise: data-toc on the
+ * heading renames it in the contents without renaming it on the page,
+ * which is what a heading too long for a list down a side needs. It sits on
+ * the heading rather than in a list somewhere else, so there is still only
+ * one place to change when the section changes.
+ */
+function labelFor(heading) {
+	return (heading.dataset.toc || heading.textContent).trim();
+}
+
+/**
  * The element an entry links to, and is measured from.
  *
  * The heading's own id where it has one. Failing that, the nearest ancestor
@@ -183,7 +196,7 @@ export function registerTocData(Alpine) {
 				const row = this.$refs.row.content.firstElementChild.cloneNode(true);
 				entry.link = row.querySelector("a");
 				entry.link.href = `#${entry.target.id}`;
-				entry.link.firstElementChild.textContent = entry.element.textContent.trim();
+				entry.link.firstElementChild.textContent = labelFor(entry.element);
 				entry.link.style.paddingInlineStart = `${RAIL_X + entry.depth * INDENT + GAP}px`;
 				list.append(row);
 			}

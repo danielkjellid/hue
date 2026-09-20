@@ -51,8 +51,14 @@ class TableOfContents(ChainableComponent):
         headings says which of them count, as a selector of its own. h2 and
         h3 by default: an h1 is the page's own title rather than a section of
         it, and a fourth level is more shape than a list down a side can
-        carry. Levels nest by their own number, so a page whose headings
-        start at h3 is not a page indented by one.
+        carry. Being a selector, it is also how a page keeps a heading out of
+        its own contents - headings="h2:not([data-toc-skip]), h3". Levels
+        nest by their own number, so a page whose headings start at h3 is not
+        a page indented by one.
+
+        A heading too long to read down a side can say what it would rather
+        be called with data-toc on the heading itself, which renames it here
+        without renaming it on the page.
         """
         self._props["of"] = value
         self._props["headings"] = headings
