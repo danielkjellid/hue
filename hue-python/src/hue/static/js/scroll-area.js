@@ -10,6 +10,11 @@ export function registerScrollAreaData(Alpine) {
 	Alpine.data("hueScrollArea", () => ({
 		above: false,
 		below: false,
+		// Declared rather than assigned in init(): Alpine writes a property
+		// its data object never mentioned to the outermost scope on the page
+		// instead of to this component, and the next scroll area would then
+		// disconnect this one's observer as its own.
+		sizes: null,
 
 		init() {
 			this.edges();
