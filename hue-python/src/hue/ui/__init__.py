@@ -18,6 +18,7 @@ from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.progress import Progress, ProgressRing
 from hue.ui.atoms.radio import Radio, RadioGroup
+from hue.ui.atoms.scroll_area import ScrollArea
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.atoms.slider import Slider
 from hue.ui.atoms.spacer import Spacer
@@ -126,6 +127,7 @@ __all__ = [
     "ProgressRing",
     "Radio",
     "RadioGroup",
+    "ScrollArea",
     "SegmentedControl",
     "SegmentedOption",
     "Sidebar",
