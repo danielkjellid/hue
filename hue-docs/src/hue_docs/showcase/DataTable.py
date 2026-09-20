@@ -104,7 +104,7 @@ SHOWCASES: list[Showcase] = [
         variants=[
             variant(
                 "Loading",
-                f'DataTable().loading().columns([{_PLAIN}                ])',
+                f"DataTable().loading().columns([{_PLAIN}                ])",
             ),
             variant(
                 "Empty",
