@@ -114,7 +114,7 @@ class Textarea(FieldControl):
         required: bool = self._get_prop("required", False)
         limit: int | None = self._get_prop("max_length")
         autosize: bool = self._get_prop("autosize", False)
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         value: str = self._get_prop("value", "")
         control_id = self._input_id()
 
@@ -128,6 +128,7 @@ class Textarea(FieldControl):
         on_input = "; ".join(steps)
 
         textarea_attrs = self._control_attrs(
+            context,
             name=name,
             id=control_id,
             class_=classnames(_TEXTAREA_CLASSES, self._get_prop("class_")),
@@ -137,7 +138,9 @@ class Textarea(FieldControl):
             required=required or None,
             readonly=self._get_prop("readonly", False) or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(),
+            aria_describedby=self._describedby(
+                context,
+            ),
             **(
                 {":aria-invalid": f"count > {limit} ? 'true' : null"}
                 if limit is not None and error is None
@@ -147,7 +150,7 @@ class Textarea(FieldControl):
             **({"x-init": _AUTOSIZE} if autosize else {}),
         )
 
-        field = self._field(_Textarea(value, **textarea_attrs))
+        field = self._field(context, _Textarea(value, **textarea_attrs))
         if limit is not None:
             field.x_data({"count": len(value)}).trailing(
                 html.span(

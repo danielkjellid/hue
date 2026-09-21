@@ -270,13 +270,14 @@ class _BaseInput(FieldControl):
         required: bool = self._get_prop("required", False)
         readonly: bool = self._get_prop("readonly", False)
         autocomplete: Autocomplete = self._get_prop("autocomplete", "off")
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         input_id = self._input_id()
 
         # The visible <label for> supplies the accessible name, so no aria-label.
         # Native disabled/required/readonly carry their own ARIA semantics;
         # aria-invalid is what the shell keys its error border off.
         input_attrs = self._control_attrs(
+            context,
             type=self._input_type,
             name=name,
             id=input_id,
@@ -293,11 +294,13 @@ class _BaseInput(FieldControl):
             required=required or None,
             readonly=readonly or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(),
+            aria_describedby=self._describedby(
+                context,
+            ),
             **self._get_extra_input_attrs(),
         )
 
-        return self._field(self._control(input_attrs, size))
+        return self._field(context, self._control(input_attrs, size))
 
 
 class TextInput(_BaseInput):

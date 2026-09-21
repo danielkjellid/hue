@@ -86,7 +86,7 @@ class NativeSelect(FieldControl):
         options: list[tuple[str, str]] = self._get_prop("options", [])
         selected: str | None = self._get_prop("value")
         placeholder: str | None = self._get_prop("placeholder")
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         control_id = self._input_id()
 
         children: list[ComponentType] = [
@@ -112,6 +112,7 @@ class NativeSelect(FieldControl):
         ]
 
         select_attrs = self._control_attrs(
+            context,
             name=name,
             id=control_id,
             class_=classnames(
@@ -120,7 +121,9 @@ class NativeSelect(FieldControl):
             disabled=disabled or None,
             required=required or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(),
+            aria_describedby=self._describedby(
+                context,
+            ),
         )
 
-        return self._field(html.select(*children, **select_attrs))
+        return self._field(context, html.select(*children, **select_attrs))

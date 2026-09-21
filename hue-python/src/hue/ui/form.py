@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from htmy import Context
 from typing_extensions import Self
 
 from hue.types.core import ComponentType
 from hue.ui.base import AlpineModelMixin, ChainableComponent
 from hue.ui.molecules.field import Field, error_id, hint_id
+from hue.ui.molecules.form import FormErrors
 from hue.utils import classnames
 
 
@@ -60,7 +62,21 @@ class FormControl(AlpineModelMixin, ChainableComponent):
     def _input_id(self) -> str:
         return self._attrs.get("id") or self._require_name()
 
-    def _describedby(self, *extra: str | None) -> str | None:
+    def _error(self, context: Context) -> str | None:
+        """
+        What is wrong with this control: what it was told, or failing
+        that what the form around it knows about a control of this name.
+
+        Looked up rather than handed down, because a control nested
+        inside somebody else's layout is somewhere nothing above it can
+        reach.
+        """
+        own: str | None = self._get_prop("error")
+        if own is not None:
+            return own
+        return FormErrors.from_context(context).of(self._name)
+
+    def _describedby(self, context: Context, *extra: str | None) -> str | None:
         """
         Every id describing this control, plus anything the caller added
         through aria_describedby.
@@ -73,13 +89,13 @@ class FormControl(AlpineModelMixin, ChainableComponent):
             classnames(
                 *extra,
                 hint_id(control_id) if self._get_prop("hint") else None,
-                error_id(control_id) if self._get_prop("error") else None,
+                error_id(control_id) if self._error(context) else None,
                 self._attrs.get("aria_describedby"),
             )
             or None
         )
 
-    def _control_attrs(self, **own: object) -> dict[str, object]:
+    def _control_attrs(self, context: Context, **own: object) -> dict[str, object]:
         """
         Merge the caller's base attrs (id, ARIA, Alpine) with the control's own,
         where the control's own win and None values are dropped.
@@ -105,7 +121,7 @@ class FieldControl(FormControl):
         self._props["hint"] = value
         return self
 
-    def _field(self, control: ComponentType) -> Field:
+    def _field(self, context: Context, control: ComponentType) -> Field:
         """
         The Field every named control renders into, filled from its own props.
 
@@ -122,6 +138,6 @@ class FieldControl(FormControl):
             .disabled(self._get_prop("disabled", False))
             .hidden_label(self._get_prop("hidden_label", False))
             .hint(self._get_prop("hint"))
-            .error(self._get_prop("error"))
+            .error(self._error(context))
             .content(control)
         )
