@@ -41,6 +41,13 @@ _ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 
 _FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
 
+# The bar over a table with rows picked in it. accent-subtle so the whole
+# frame says something is selected, not just the rows.
+_BULK_BAR = (
+    "flex items-center justify-between gap-4 border-b border-border "
+    "bg-accent-subtle px-4 py-2"
+)
+
 # A checkbox column is as wide as a checkbox and no wider. Only the margin
 # centres it: the box is a grid, which is what puts the tick in the middle
 # of it, and telling it to be a block instead takes the tick away.
@@ -93,6 +100,15 @@ class Table(ChainableComponent):
         self._props["compact"] = value
         return self
 
+    def toolbar(self, *values: ComponentType) -> Self:
+        """
+        What sits above the table inside the same frame - a bar of things to
+        do with the rows, say. Not a row of the table: it is not part of the
+        grid and nothing in it lines up with a column.
+        """
+        self._props["toolbar"] = values
+        return self
+
     def footer(self, *values: ComponentType) -> Self:
         """
         What sits under the table inside the same frame, which is where an
@@ -105,6 +121,7 @@ class Table(ChainableComponent):
 
     def _render(self, context: HueContext) -> Component:
         return html.div(
+            *self._get_prop("toolbar", ()),
             html.table(
                 *self._children,
                 class_=classnames(
@@ -450,6 +467,19 @@ class DataTable(ChainableComponent):
         self._props["selectable"] = key
         return self
 
+    def bulk_actions(self, *values: ComponentType) -> Self:
+        """
+        What to do with the rows that are picked, in a bar above them that
+        is there only once at least one is.
+
+        They render inside the table's own Alpine scope, so an expression in
+        one can read selected - the list of values the checkboxes carry:
+
+            Button().content("Delete").on_click(call("remove", unsafe("selected")))
+        """
+        self._props["bulk_actions"] = values
+        return self
+
     def name(self, value: str) -> Self:
         """
         What the row checkboxes are called when the form around the table is
@@ -481,6 +511,8 @@ class DataTable(ChainableComponent):
 
         if (values := self._selection_values()) is not None:
             table.x_data(f"hueTableSelection({json.dumps(values)})")
+            if (bar := self._bulk_bar()) is not None:
+                table.toolbar(bar)
 
         if error is not None:
             table.footer(error)
@@ -502,6 +534,30 @@ class DataTable(ChainableComponent):
 
     def _header_cell(self, column: Column) -> ComponentType:
         return TableHead().align(column.align).content(column.label)
+
+    def _bulk_bar(self) -> ComponentType | None:
+        """
+        The count and the things to do with what is counted.
+
+        role="status" so the bar announces itself: controls appearing after
+        a checkbox is ticked are a change a screen reader has no other way
+        of hearing about. It stays in the markup either way, because a live
+        region added to the page at the moment it has something to say is
+        never read out.
+        """
+        actions: tuple[ComponentType, ...] = self._get_prop("bulk_actions", ())
+        if not actions:
+            return None
+        return html.div(
+            html.span(
+                role="status",
+                class_="font-ui text-sm font-medium text-accent-text",
+                **{"x-text": "selected.length + ' selected'"},
+            ),
+            html.div(*actions, class_="flex flex-wrap items-center gap-2"),
+            class_=_BULK_BAR,
+            **{"x-show": "selected.length > 0", "x-cloak": True},
+        )
 
     def _select_all(self) -> ComponentType:
         """

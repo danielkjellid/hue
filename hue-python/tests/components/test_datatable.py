@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Badge, Column, DataTable, Empty
+from hue.ui import Badge, Button, Column, DataTable, Empty
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _COLUMNS = [
@@ -275,3 +275,43 @@ class TestDataTable:
         )
         assert_no_selector(html, "input[type=checkbox]")
         assert_no_selector(html, "[x-data]")
+
+    # bulk_actions(): both branches
+    @pytest.mark.asyncio
+    async def test_what_to_do_with_the_picked_rows_sits_above_them(self, context_args):
+        # Inside the table's own Alpine scope, so an expression in an action
+        # can read the list of values the checkboxes carry.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            .selectable("invoice")
+            .bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.bg-accent-subtle button")
+        assert_selector(html, "div.bg-accent-subtle + table[x-data]")
+        assert_attr(html, "div.bg-accent-subtle", "x-show", "selected.length > 0")
+
+    @pytest.mark.asyncio
+    async def test_the_count_announces_itself(self, context_args):
+        # Controls appearing after a checkbox is ticked are a change a
+        # screen reader has no other way of hearing about.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            .selectable("invoice")
+            .bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_attr(html, "[role=status]", "x-text", "selected.length + ' selected'")
+
+    @pytest.mark.asyncio
+    async def test_no_actions_means_no_bar(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, ".bg-accent-subtle")
+        assert_no_selector(html, "[role=status]")
