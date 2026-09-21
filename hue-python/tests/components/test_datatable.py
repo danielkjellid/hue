@@ -112,11 +112,13 @@ class TestDataTable:
         assert_selector(html, "tbody tr", count=len(_ROWS))
 
     @pytest.mark.asyncio
-    async def test_not_loading_says_nothing_about_being_busy(self, context_args):
+    async def test_a_table_that_has_finished_says_so(self, context_args):
+        # Not merely the absence of aria-busy: a swap that leaves the table
+        # element in place would leave a stale "true" on it for good.
         html = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
         )
-        assert_no_selector(html, "[aria-busy]")
+        assert_attr(html, "table", "aria-busy", "false")
 
     # empty(): given, defaulted, and not reached at all
     @pytest.mark.asyncio

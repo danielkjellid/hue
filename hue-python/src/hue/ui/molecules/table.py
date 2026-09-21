@@ -449,10 +449,10 @@ class DataTable(ChainableComponent):
             )
         )
 
-        if loading:
-            # One statement, once: the placeholders are already hidden from
-            # the screen reader, and this is what tells it why.
-            table.aria_busy("true")
+        # Stated either way rather than only while it is true: a swap that
+        # leaves the table element in place and rewrites what is around it
+        # would otherwise leave a finished table busy for good.
+        table.aria_busy("true" if loading else "false")
 
         if error is not None:
             table.footer(error)
