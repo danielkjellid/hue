@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent, Clickable
+from hue.ui.navigation import CurrentPage
 from hue.utils import classnames, render_if, render_when
 
 _ITEM = (
@@ -31,23 +30,6 @@ _IDLE = (
 _CURRENT = "text-fg [&_svg]:text-fg"
 
 
-@dataclass(frozen=True, slots=True)
-class CurrentPage:
-    """
-    The path the sidebar was told it is on, offered to everything inside
-    it. An item reads it and marks itself rather than being marked from
-    above, which is the difference between a component that knows a thing
-    and a component that was reached into.
-    """
-
-    path: str | None
-
-    @classmethod
-    def from_context(cls, context: Context) -> CurrentPage:
-        found = context.get(cls)
-        return found if isinstance(found, cls) else cls(None)
-
-
 class Sidebar(ChainableComponent):
     """
     The app's navigation, down the side, in three parts.
@@ -55,7 +37,8 @@ class Sidebar(ChainableComponent):
     A header that stays, a body that scrolls, a footer that stays - built
     from SidebarSection, SidebarHeading, SidebarDivider and SidebarSpacer,
     which is what lets a section sit at the bottom without being pinned
-    there. current() marks the link whose href matches the page you are on.
+    there. current() marks the link that leads to the page you are on -
+    including the one that leads to the section it is in.
     """
 
     category = "Navigation"
@@ -77,8 +60,13 @@ class Sidebar(ChainableComponent):
 
     def current(self, value: str) -> Self:
         """
-        The path of the page you are on. The item whose href matches it is
-        marked, so a consumer sets this once rather than per item.
+        The path of the page you are on, set once rather than per item.
+
+        An item is marked by its own href: the one that matches, and the
+        one that leads to the section this page is inside - /events stays
+        marked on /events/2050, because the row you followed to get here
+        should not go dark when you arrive. SidebarItem.exact() opts a
+        row out of that, for one whose subpaths have rows of their own.
         """
         self._props["current"] = value
         return self
@@ -255,17 +243,30 @@ class SidebarItem(Clickable):
     def current(self, value: bool = True) -> Self:
         """
         Mark this as the page you are on, where the sidebar's own current()
-        cannot tell - a row that stands for several paths, say.
+        cannot tell - a row that stands for a path of its own, say.
         """
         self._props["current"] = value
+        return self
+
+    def exact(self, value: bool = True) -> Self:
+        """
+        Mark this only on its own path, not on the pages under it.
+
+        For the row that has rows beneath it: a Settings that sits above
+        Settings / Billing would otherwise light up alongside it, and two
+        rows marked as the page you are on is one too many.
+        """
+        self._props["exact"] = value
         return self
 
     def _render(self, context: Context) -> Component:
         href: str | None = self._get_prop("href")
         # Marked by its own href against the page the sidebar named, or
-        # by hand where a row stands for several paths.
-        here = CurrentPage.from_context(context).path
-        current: bool = self._get_prop("current", href is not None and href == here)
+        # by hand where a row stands for a path of its own.
+        page = CurrentPage.from_context(context)
+        current: bool = self._get_prop(
+            "current", page.marks(href, exact=self._get_prop("exact", False))
+        )
 
         children = (
             render_when(current, _indicator()),

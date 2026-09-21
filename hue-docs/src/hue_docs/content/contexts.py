@@ -5,9 +5,8 @@ from hue.types.core import ComponentType
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
 
-_PROBLEM = '''class Nav(ChainableComponent):
-    """A bit of navigation, assembled somewhere else."""
-
+_PROBLEM = """# A component of your own, which happens to build sidebar rows.
+class Workspace(ChainableComponent):
     def _render(self, context):
         return SidebarSection().content(
             SidebarItem().href("/").content("Home"),
@@ -15,7 +14,8 @@ _PROBLEM = '''class Nav(ChainableComponent):
         )
 
 
-Sidebar().current("/events").content(SidebarBody().content(Nav()))'''
+# The sidebar is told the page, and can reach none of the rows on it.
+Sidebar().current("/events").content(SidebarBody().content(Workspace()))"""
 
 _CONTRACT = """@dataclass(frozen=True, slots=True)
 class CurrentPage:
@@ -44,8 +44,8 @@ def from_context(cls, context: Context) -> TabsState:
     if isinstance(found, cls):
         return found
     raise ValueError(
-        "A Tab, TabList or TabPanel only means something inside Tabs, "
-        "which is what says which of them is showing."
+        "A Tab only means something inside Tabs, which is what says "
+        "how the row is drawn and which of them you are on."
     )
 
 
@@ -55,11 +55,16 @@ def from_context(cls, context: Context) -> FormErrors:
     found = context.get(cls)
     return found if isinstance(found, cls) else cls()"""
 
-_NESTING = """Tabs().variant("underline").content(
-    TabPanel().content(
-        # A row inside a panel. Everything in here reads "segmented";
-        # everything outside it still reads "underline".
-        Tabs().variant("segmented").content(...),
+_REQUEST = """class WhoIsHere(ChainableComponent):
+    def _render(self, context: Context) -> Component:
+        user = HueContext.from_context(context).request.user
+        return html.span(user.get_full_name())"""
+
+_NESTING = """Sidebar().current(request.path).content(
+    SidebarBody().content(
+        # A section that knows a path of its own. Everything in here
+        # reads that one; everything outside it reads the page's.
+        Sidebar().current("/events/2050").content(...),
     ),
 )"""
 
@@ -83,12 +88,12 @@ def _build() -> ComponentType:
         ),
         pr.code(_PROBLEM),
         pr.p(
-            "The sidebar's children are one SidebarBody holding one Nav. The "
-            "items do not exist yet, and when they do it is Nav that makes "
-            "them, which knows nothing about the current page. A prop cannot "
-            "cross that, and neither can a walk over the tree: the children "
-            "of a component are what was attached to it, not what it will "
-            "eventually render."
+            "The sidebar's children are one SidebarBody holding one "
+            "Workspace. The rows do not exist yet, and when they do it is "
+            "Workspace that makes them, which knows nothing about the "
+            "current page. A prop cannot cross that, and neither can a walk "
+            "over the tree: the children of a component are what was "
+            "attached to it, not what it will eventually render."
         ),
         pr.p(
             "A context goes the other way. Instead of the sidebar reaching "
@@ -143,16 +148,22 @@ def _build() -> ComponentType:
                     "by render_tree. Every component looks it up and throws "
                     "it away, so a tree rendered outside one fails at the "
                     "first component rather than at whichever one later "
-                    "wants a token."
+                    "wants a token. A component that wants it reads it the "
+                    "same way anything else in the context is read, out of "
+                    "the context its own _render was handed."
                 ),
                 pr.p(
-                    "CurrentPage - the path Sidebar was told it is on. A "
-                    "SidebarItem whose href matches marks itself."
+                    "CurrentPage - the path a set of links was told it is "
+                    "on. Offered by Sidebar and by Tabs, because they are "
+                    "the same question asked twice: of these links, which "
+                    "one leads here? A link reads it and marks itself, on "
+                    "its own path and on the pages inside it."
                 ),
                 pr.p(
-                    "TabsState - how a row of tabs is drawn. TabList, Tab "
-                    "and TabPanel all read it, and all three raise without "
-                    "it."
+                    "TabsState - how a row of tabs is drawn and where a "
+                    "tab lands. A Tab reads it, and raises without it; the "
+                    "row offers CurrentPage alongside, so the two between "
+                    "them are the whole of what a tab needs."
                 ),
                 pr.p(
                     "FormErrors - what came back wrong, by control name. "
@@ -162,6 +173,7 @@ def _build() -> ComponentType:
                 ),
             ]
         ),
+        pr.code(_REQUEST),
         pr.h2("When not to reach for one"),
         pr.p(
             "Hue is declarative on purpose: a call site should say what it "

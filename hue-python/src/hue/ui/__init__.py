@@ -79,10 +79,11 @@ from hue.ui.molecules.table import (
     TableHeader,
     TableRow,
 )
-from hue.ui.molecules.tabs import Tab, TabList, TabPanel, Tabs
+from hue.ui.molecules.tabs import Tab, Tabs
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
+from hue.ui.navigation import CurrentPage
 
 __all__ = [
     "Accordion",
@@ -103,6 +104,7 @@ __all__ = [
     "ChainableComponent",
     "Checkbox",
     "Column",
+    "CurrentPage",
     "DataTable",
     "Dialog",
     "Disclosure",
@@ -150,8 +152,6 @@ __all__ = [
     "Stack",
     "Switch",
     "Tab",
-    "TabList",
-    "TabPanel",
     "Table",
     "TableBody",
     "TableCaption",

@@ -1,57 +1,67 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import ClassVar
 
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.ui.base import ChainableComponent
+from hue.ui.navigation import CurrentPage
 from hue.utils import classnames, render_if
 
-type TabsVariant = Literal["underline", "segmented"]
+# Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
+# a second line stops reading as one row of choices, and every tab stays a
+# real link either way.
+_ROW = "flex gap-1 overflow-x-auto border-b border-border"
+_ROW_SEGMENTED = f"{SEGMENTED_TRACK} overflow-x-auto"
 
-_LISTS: dict[TabsVariant, str] = {
-    "underline": "flex gap-1 border-b border-border",
-    "segmented": SEGMENTED_TRACK,
-}
+# What an underline tab is, laid out. The segmented track says all of
+# this for its own items already, so only one of the two is ever applied.
+_TAB = "inline-flex items-center gap-1.5 whitespace-nowrap"
 
-# The selected tab is marked by a rule under it, drawn on the list's own
+# The tab you are on is marked by a rule under it, drawn on the row's own
 # border so the two line up rather than stack.
 _UNDERLINE_TAB = (
-    "relative cursor-pointer rounded-t-sm border-none bg-transparent "
-    "px-[11px] pt-[9px] pb-[11px] font-ui text-base font-medium text-fg-muted "
-    "hover:bg-surface-hover hover:text-fg aria-selected:text-fg "
+    "relative rounded-t-sm px-[11px] pt-[9px] pb-[11px] "
+    "font-ui text-base font-medium hover:bg-surface-hover "
+    "aria-[current=page]:text-fg "
     # Tailwind gives any after: utility a content of its own, so the bar is
-    # drawn under every tab unless this one says otherwise.
-    "after:absolute after:inset-x-1.5 after:-bottom-px after:h-0.5 "
+    # drawn under every tab unless this one says otherwise. Inside the tab
+    # rather than a pixel below it: the row scrolls sideways, and a box
+    # that scrolls on one axis scrolls on both - one pixel of overflow is
+    # a scrollbar down the side of the row.
+    "after:absolute after:inset-x-1.5 after:bottom-0 after:h-0.5 "
     "after:rounded-t-sm after:bg-accent "
-    "after:content-none aria-selected:after:content-['']"
+    "after:content-none aria-[current=page]:after:content-['']"
 )
 
 _SEGMENTED_TAB = (
-    "h-7 px-2.5 text-sm aria-selected:bg-surface aria-selected:text-fg "
-    "aria-selected:shadow-segment"
+    "h-7 px-2.5 text-sm aria-[current=page]:bg-surface "
+    "aria-[current=page]:text-fg aria-[current=page]:shadow-segment"
 )
 
-_DISABLED = (
-    "disabled:cursor-not-allowed disabled:text-fg-disabled "
-    "disabled:hover:bg-transparent disabled:hover:text-fg-disabled"
-)
+# The colour of a tab at rest, which the segmented track already sets for
+# its own items - so it is said once here and once there, never twice on
+# the same element.
+_IDLE = "text-fg-muted hover:text-fg"
+
+# Not a link, so there is nothing to disable - it is text that says so.
+_UNREACHABLE = "cursor-not-allowed text-fg-disabled hover:bg-transparent"
 
 
 @dataclass(frozen=True, slots=True)
 class TabsState:
     """
-    Which tab is showing and how the row is drawn, offered to everything
-    inside. A tab reads it and draws itself, so it does not have to be a
+    How the row is drawn and where a tab lands, offered to every tab in
+    it. A tab reads it and draws itself, so it does not have to be a
     child of the row to belong to it.
     """
 
-    variant: TabsVariant = "underline"
+    segmented: bool = False
+    target: str | None = None
 
     @classmethod
     def from_context(cls, context: Context) -> TabsState:
@@ -59,24 +69,25 @@ class TabsState:
         if isinstance(found, cls):
             return found
         raise ValueError(
-            "A Tab, TabList or TabPanel only means something inside Tabs, "
-            "which is what says which of them is showing."
+            "A Tab only means something inside Tabs, which is what says "
+            "how the row is drawn and which of them you are on."
         )
 
 
 class Tabs(ChainableComponent):
     """
-    One panel at a time, with a row of tabs to pick it.
+    A row of links to the sections of one thing, and which of them you
+    are on.
 
-    A TabList of Tabs, and a TabPanel for each of them - which can be laid
-    out wherever the page wants, because a panel finds the row by being
-    inside it rather than by being a child of it.
+    Navigation rather than a widget: a tab is a real link to a real URL,
+    so it opens in a new tab, sends to somebody and answers the back
+    button - and what it shows is whatever the page renders, rather than
+    a panel the row has to carry around. current() is the path you are
+    on, and the tab that leads there marks itself.
 
-    value() is the tab that starts selected. The arrow keys move along the
-    row and the panel follows, which is what the tab role promises; Tab
-    itself carries its label and its panel.
-
-        Tabs().value("overview").content(Tab().value("overview").label("Overview"))
+        Tabs().label("Settings").current(request.path).content(
+            Tab().href("/settings/account").content("Account"),
+        )
     """
 
     category = "Navigation"
@@ -85,28 +96,32 @@ class Tabs(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .value("overview")
+            .label("Settings")
+            .current("/settings/team")
             .content(
-                TabList()
-                .label("Report")
-                .content(
-                    Tab().value("overview").label("Overview"),
-                    Tab().value("activity").label("Activity"),
-                ),
-                TabPanel().value("overview").content("What happened."),
-                TabPanel().value("activity").content("Who did what."),
+                Tab().href("/settings/account").content("My Account"),
+                Tab().href("/settings/team").content("Team Members"),
+                Tab().href("/settings/billing").content("Billing"),
             )
         )
 
-    def variant(self, value: TabsVariant) -> Self:
-        self._props["variant"] = value
+    def segmented(self, value: bool = True) -> Self:
+        """
+        Wear the segmented track instead of the rule: a row of places
+        that sits inside something rather than heading it.
+        """
+        self._props["segmented"] = value
         return self
 
-    def value(self, value: str) -> Self:
+    def current(self, value: str) -> Self:
         """
-        Which tab starts selected. The first one, unset.
+        The path of the page you are on, set once rather than per tab.
+
+        A tab is marked by its own href: the one that matches, and the
+        one that leads to the section this page is inside. Tab.exact()
+        opts a tab out of that.
         """
-        self._props["value"] = value
+        self._props["current"] = value
         return self
 
     def label(self, value: str) -> Self:
@@ -117,146 +132,125 @@ class Tabs(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def htmy_context(self) -> Context:
-        return {TabsState: TabsState(self._get_prop("variant", "underline"))}
-
-    def _render(self, context: Context) -> Component:
-        return html.div(
-            *self._children,
-            # w-full, or the rule under the row is as wide as the widest
-            # panel and moves every time the panel does.
-            class_=classnames("w-full", self._get_prop("class_")),
-            **{
-                "x-data": f"{{ selected: {self._get_prop('value', '')!r} }}",
-                "x-id": "['hue-tab', 'hue-tabpanel']",
-                **self._get_base_html_attrs(),
-            },
-        )
-
-
-class TabList(ChainableComponent):
-    """
-    The row the tabs sit in, and the arrow keys that walk it.
-    """
-
-    category = None
-
-    def label(self, value: str) -> Self:
+    def target(self, value: str) -> Self:
         """
-        What this set of tabs is for, for a page with more than one.
+        The id a tab's section lands in. Given one, the browser fetches
+        the section and swaps that element; without one it follows the
+        link the long way round.
         """
-        self._props["label"] = value
+        self._props["target"] = value
         return self
 
+    def htmy_context(self) -> Context:
+        return {
+            CurrentPage: CurrentPage(self._get_prop("current")),
+            TabsState: TabsState(
+                self._get_prop("segmented", False), self._get_prop("target")
+            ),
+        }
+
     def _render(self, context: Context) -> Component:
-        return html.div(
+        return html.nav(
             *self._children,
-            role="tablist",
             aria_label=self._get_prop("label"),
-            class_=_LISTS[TabsState.from_context(context).variant],
-            **{
-                # Arrows walk the row and the panel follows the focus,
-                # which is the automatic activation the role implies.
-                "x-on:keydown.right.prevent": "$focus.wrap().next()",
-                "x-on:keydown.left.prevent": "$focus.wrap().previous()",
-                "x-on:keydown.home.prevent": "$focus.first()",
-                "x-on:keydown.end.prevent": "$focus.last()",
-                **self._get_base_html_attrs(),
-            },
+            class_=classnames(
+                _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW,
+                self._get_prop("class_"),
+            ),
+            **self._get_base_html_attrs(),
         )
 
 
 class Tab(ChainableComponent):
     """
-    One tab in the row. What it shows is a TabPanel with the same value.
+    One tab: a link to one section, and a count or a state after its name.
     """
 
-    category = None
+    category: ClassVar[str | None] = None
 
-    def value(self, value: str) -> Self:
-        self._props["value"] = value
-        return self
-
-    def label(self, value: str) -> Self:
-        self._props["label"] = value
+    def href(self, value: str) -> Self:
+        self._props["href"] = value
         return self
 
     def badge(self, value: ComponentType) -> Self:
         """
-        A count or a state after the label, such as how many rows the panel
-        holds.
+        A count or a state after the name, such as how many rows the
+        section holds.
         """
         self._props["badge"] = value
         return self
 
+    def current(self, value: bool = True) -> Self:
+        """
+        Mark this as the page you are on, where the row's own current()
+        cannot tell - a tab that stands for a path of its own, say.
+        """
+        self._props["current"] = value
+        return self
+
+    def exact(self, value: bool = True) -> Self:
+        """
+        Mark this only on its own path, not on the pages under it.
+        """
+        self._props["exact"] = value
+        return self
+
     def disabled(self, value: bool = True) -> Self:
+        """
+        A section there is nothing in yet.
+
+        Rendered as text rather than as a link, because a link that goes
+        nowhere is one a keyboard still lands on and a screen reader
+        still offers.
+        """
         self._props["disabled"] = value
         return self
 
     def _render(self, context: Context) -> Component:
-        value: str = self._get_prop("value", "")
-        variant: TabsVariant = TabsState.from_context(context).variant
-        chosen = unsafe(f"selected === {value!r}")
-
-        return html.button(
-            render_if(self._get_prop("label"), lambda text: text),
-            render_if(self._get_prop("badge"), lambda badge: badge),
-            type="button",
-            role="tab",
-            disabled=self._get_prop("disabled", False) or None,
-            class_=classnames(
-                SEGMENTED_ITEM if variant == "segmented" else "",
-                _SEGMENTED_TAB if variant == "segmented" else _UNDERLINE_TAB,
-                _DISABLED,
-                FOCUS_RING,
+        state = TabsState.from_context(context)
+        href: str | None = self._get_prop("href")
+        unreachable: bool = self._get_prop("disabled", False) or href is None
+        current: bool = self._get_prop(
+            "current",
+            CurrentPage.from_context(context).marks(
+                href, exact=self._get_prop("exact", False)
             ),
-            **{
-                ":id": f"$id('hue-tab', {value!r})",
-                ":aria-controls": f"$id('hue-tabpanel', {value!r})",
-                ":aria-selected": chosen,
-                # Roving: only the selected tab is a tab stop, so Tab moves
-                # past the row rather than through it.
-                ":tabindex": f"{chosen} ? 0 : -1",
-                # The first tab in the row claims the selection if nothing
-                # else has: whichever initialises first is the first in the
-                # document, which is what "the first one" meant back when
-                # the row could see its own children.
-                "x-init": f"selected = selected || {value!r}",
-                "x-on:click": unsafe(f"selected = {value!r}"),
-                # Selection follows focus, so the arrows show as they go.
-                "x-on:focus": unsafe(f"selected = {value!r}"),
-            },
+        )
+        segmented = state.segmented
+        classes = classnames(
+            # A link, and never underlined: the rule under the tab you are
+            # on is the mark, and a second one under the words is noise.
+            "no-underline",
+            SEGMENTED_ITEM if segmented else _TAB,
+            _SEGMENTED_TAB if segmented else _UNDERLINE_TAB,
+            # Picked rather than layered: the track already colours its own
+            # items, and two colours on one element resolve by stylesheet
+            # order rather than by intent.
+            _UNREACHABLE if unreachable else "" if segmented else _IDLE,
+            FOCUS_RING,
+        )
+        children = (
+            *self._children,
+            render_if(self._get_prop("badge"), lambda badge: badge),
         )
 
+        if unreachable:
+            return html.span(
+                *children,
+                aria_disabled="true",
+                class_=classes,
+                **self._get_base_html_attrs(),
+            )
 
-class TabPanel(ChainableComponent):
-    """
-    What one tab shows, wherever it happens to be laid out.
-    """
-
-    category = None
-
-    def value(self, value: str) -> Self:
-        """
-        The tab this belongs to.
-        """
-        self._props["value"] = value
-        return self
-
-    def _render(self, context: Context) -> Component:
-        TabsState.from_context(context)
-        value: str = self._get_prop("value", "")
-        return html.div(
-            *self._children,
-            role="tabpanel",
-            # Focusable, because a panel of text has nothing else to land on.
-            tabindex="0",
-            class_=classnames("pt-5", self._get_prop("class_")),
+        return html.a(
+            *children,
+            href=href,
+            aria_current="page" if current else None,
+            class_=classes,
             **{
-                ":id": f"$id('hue-tabpanel', {value!r})",
-                ":aria-labelledby": f"$id('hue-tab', {value!r})",
-                "x-show": unsafe(f"selected === {value!r}"),
-                "x-cloak": True,
+                # push, so a section is a place: the URL says which one and
+                # the back button goes to the last.
+                **({"x-target.push": state.target} if state.target else {}),
                 **self._get_base_html_attrs(),
             },
         )
