@@ -27,6 +27,14 @@ def _build() -> ComponentType:
             "tree to htmy's renderer. Components read what they need from the "
             "context during render."
         ),
+        pr.p(
+            "The context is open: a component can offer values of its own to "
+            "everything rendered inside it, which is how a sidebar tells its "
+            "links which page they are on and a form tells its controls what "
+            "is wrong with them. See ",
+            pr.link("Contexts", "/contexts/"),
+            " for the contract and when to reach for it.",
+        ),
         pr.h2("Router and Alpine AJAX"),
         pr.p(
             "Hue is AJAX-first. A framework-agnostic Router registers routes "
