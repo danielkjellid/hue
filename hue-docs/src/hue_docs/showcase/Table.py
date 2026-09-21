@@ -9,9 +9,11 @@ SHOWCASES: list[Showcase] = [
         title="Examples",
         layout="stack",
         description=(
-            "Compose a table from its primitives. Use .align() for numeric "
-            "columns, .colspan() to span cells, and TableCaption / TableFooter "
-            "for a caption and a totals row."
+            'Compose a table from its primitives. align("end") ends a column '
+            "and lines its digits up, colspan() spans cells, and "
+            "TableCaption / TableFooter add a caption and a totals row. "
+            "compact() sets the padding for every cell at once, from the "
+            "table, so no two cells can disagree about it."
         ),
         variants=[
             variant(
@@ -22,19 +24,19 @@ SHOWCASES: list[Showcase] = [
                         TableRow().content(
                             TableHead().content("Name"),
                             TableHead().content("Email"),
-                            TableHead().align("right").content("Role"),
+                            TableHead().align("end").content("Role"),
                         ),
                     ),
                     TableBody().content(
                         TableRow().content(
                             TableCell().content("Ada Lovelace"),
                             TableCell().content("ada@example.com"),
-                            TableCell().align("right").content("Admin"),
+                            TableCell().align("end").content("Admin"),
                         ),
                         TableRow().content(
                             TableCell().content("Alan Turing"),
                             TableCell().content("alan@example.com"),
-                            TableCell().align("right").content("Member"),
+                            TableCell().align("end").content("Member"),
                         ),
                     ),
                 )
@@ -69,7 +71,7 @@ SHOWCASES: list[Showcase] = [
                             TableHead().content("Invoice"),
                             TableHead().content("Status"),
                             TableHead().content("Method"),
-                            TableHead().align("right").content("Amount"),
+                            TableHead().align("end").content("Amount"),
                         ),
                     ),
                     TableBody().content(
@@ -77,25 +79,25 @@ SHOWCASES: list[Showcase] = [
                             TableCell().content("INV001"),
                             TableCell().content("Paid"),
                             TableCell().content("Credit Card"),
-                            TableCell().align("right").content("$250.00"),
+                            TableCell().align("end").content("$250.00"),
                         ),
                         TableRow().content(
                             TableCell().content("INV002"),
                             TableCell().content("Pending"),
                             TableCell().content("PayPal"),
-                            TableCell().align("right").content("$150.00"),
+                            TableCell().align("end").content("$150.00"),
                         ),
                         TableRow().content(
                             TableCell().content("INV003"),
                             TableCell().content("Unpaid"),
                             TableCell().content("Bank Transfer"),
-                            TableCell().align("right").content("$350.00"),
+                            TableCell().align("end").content("$350.00"),
                         ),
                     ),
                     TableFooter().content(
                         TableRow().content(
                             TableCell().colspan(3).content("Total"),
-                            TableCell().align("right").content("$750.00"),
+                            TableCell().align("end").content("$750.00"),
                         ),
                     ),
                 )

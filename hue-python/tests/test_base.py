@@ -42,6 +42,7 @@ class TestChainableComponent:
             .aria_hidden("true")
             .aria_expanded("false")
             .aria_controls("panel-1")
+            .aria_busy("true")
             .role("dialog")
         )
         attrs = btn._get_base_html_attrs()
@@ -49,6 +50,7 @@ class TestChainableComponent:
         assert attrs["aria_hidden"] == "true"
         assert attrs["aria_expanded"] == "false"
         assert attrs["aria_controls"] == "panel-1"
+        assert attrs["aria_busy"] == "true"
         assert attrs["role"] == "dialog"
 
     def test_base_html_attrs_omits_none(self):
