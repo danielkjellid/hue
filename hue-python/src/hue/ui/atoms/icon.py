@@ -5,10 +5,9 @@ from functools import lru_cache
 from typing import Callable, ClassVar, cast, override
 from xml.etree import ElementTree as ET
 
-from htmy import Formatter, Properties, PropertyValue, SafeStr, html
+from htmy import Context, Formatter, Properties, PropertyValue, SafeStr, html
 
 from hue.assets import icons_path
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
@@ -180,7 +179,7 @@ class Icon(ChainableComponent):
         )
 
     @override
-    def _render(self, context: HueContext[object]) -> Component:
+    def _render(self, context: Context) -> Component:
         if not self._name:
             return ""
 

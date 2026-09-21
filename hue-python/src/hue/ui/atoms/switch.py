@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms._choice import (
@@ -172,7 +171,7 @@ class Switch(FormControl):
             **settling,
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         size: SwitchSize = self._get_prop("size", "md")
         layout: ChoiceLayout = self._get_prop("layout", "inline")

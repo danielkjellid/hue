@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label
@@ -132,7 +131,7 @@ class Field(ChainableComponent):
         self._props["hidden_label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         layout: FieldLayout = self._get_prop("layout", "stacked")
         label: str | None = self._get_prop("label")
         hint: str | None = self._get_prop("hint")

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
@@ -86,7 +85,7 @@ class Tabs(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: TabsVariant = self._get_prop("variant", "underline")
         tabs = [child for child in self._children if isinstance(child, Tab)]
         selected: str = self._get_prop("value") or (
@@ -196,7 +195,7 @@ class Tab(ChainableComponent):
             },
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         # Tabs takes a Tab apart and renders the trigger and the panel in
         # their own places. One on its own has no row to belong to and no
         # scope to ask whether it is selected, so it is just its content.

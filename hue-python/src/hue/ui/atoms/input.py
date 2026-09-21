@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal, override
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -264,7 +263,7 @@ class _BaseInput(FieldControl):
             **self._get_group_attrs(),
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
@@ -360,7 +359,7 @@ class PasswordInput(_BaseInput):
         return {"x-data": '{"shown": false}'}
 
     @override
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         if self._get_prop("revealable", False):
             # The input's own type has to give way to the binding, so the
             # toggle has something to change.

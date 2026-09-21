@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
@@ -138,7 +137,7 @@ class Alert(ChainableComponent):
         self._props["dismissible"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: AlertVariant = self._get_prop("variant", "neutral")
         title: str | None = self._get_prop("title")
         actions: tuple[ComponentType, ...] = self._get_prop("actions", ())

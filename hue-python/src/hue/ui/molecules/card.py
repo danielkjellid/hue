@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent
@@ -68,7 +67,7 @@ class Card(ChainableComponent):
         self._props["interactive"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: CardVariant = self._get_prop("variant", "bordered")
         href: str | None = self._get_prop("href")
         interactive: bool = self._get_prop("interactive", False)
@@ -106,7 +105,7 @@ class CardMedia(ChainableComponent):
     def example(cls) -> Self:
         return cls().content(html.img(src="/assets/cover.svg", alt=""))
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -139,7 +138,7 @@ class CardHeader(ChainableComponent):
         self._props["description"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
 
@@ -183,7 +182,7 @@ class CardBody(ChainableComponent):
     def example(cls) -> Self:
         return cls().content("Card content")
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -205,7 +204,7 @@ class CardFooter(ChainableComponent):
     def example(cls) -> Self:
         return cls().content("Footer")
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
