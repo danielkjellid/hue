@@ -12,7 +12,8 @@ from hue_docs.showcase import Showcase, variant
 
 _COLUMNS = """
                     Column("invoice", "Invoice"),
-                    Column("customer", "Customer"),
+                    Column("customer.name", "Customer"),
+                    Column("customer.plan", "Plan"),
                     Column("amount", "Amount", align="end"),
                     Column(
                         "status",
@@ -27,21 +28,21 @@ _COLUMNS = """
 _ROWS = """
                     {
                         "invoice": "INV-2050",
-                        "customer": "Contoso Ltd",
+                        "customer": {"name": "Contoso Ltd", "plan": "Scale"},
                         "amount": "$2,190.00",
                         "status": "Pending",
                         "tone": "warning",
                     },
                     {
                         "invoice": "INV-2048",
-                        "customer": "Northwind Traders",
+                        "customer": {"name": "Northwind Traders", "plan": "Pro"},
                         "amount": "$1,200.00",
                         "status": "Paid",
                         "tone": "success",
                     },
                     {
                         "invoice": "INV-2049",
-                        "customer": "Fabrikam Inc",
+                        "customer": {"name": "Fabrikam Inc", "plan": "Free"},
                         "amount": "$840.00",
                         "status": "Declined",
                         "tone": "danger",
@@ -60,8 +61,10 @@ SHOWCASES: list[Showcase] = [
         description=(
             "Columns and rows, and everything else is a state the table can "
             "be in instead. A column's value comes from a key, a dotted path "
-            "or a callable; render() takes the row and returns whatever the "
-            "cell should hold. Numeric columns end themselves and switch to "
+            "into a nested record - customer.name and customer.plan below "
+            "are two columns out of one - or a callable given the row. "
+            "render() takes the row instead and returns whatever the cell "
+            "should hold. Numeric columns end themselves and switch to "
             "tabular figures, because without them the decimal points drift "
             "and the column stops being scannable. Cells wrap rather than "
             "truncate: an invoice reference cut off without saying so is "
