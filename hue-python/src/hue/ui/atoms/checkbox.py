@@ -8,7 +8,6 @@ from typing_extensions import Self
 from hue.types.core import Component
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
-    ChoiceVariant,
     choice_row,
     description_id,
     label_id,
@@ -79,8 +78,12 @@ class Checkbox(FormControl):
         self._props["description"] = value
         return self
 
-    def variant(self, value: ChoiceVariant) -> Self:
-        self._props["variant"] = value
+    def card(self, value: bool = True) -> Self:
+        """
+        Give the row a box of its own, for a checkbox that carries a
+        description rather than a word.
+        """
+        self._props["card"] = value
         return self
 
     def hidden_label(self, value: bool = True) -> Self:
@@ -102,7 +105,7 @@ class Checkbox(FormControl):
         error: str | None = self._error(context)
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
-        variant: ChoiceVariant = self._get_prop("variant", "inline")
+        card: bool = self._get_prop("card", False)
         hidden_label: bool = self._get_prop("hidden_label", False)
         input_id = self._input_id()
         box_classes = classnames(CHOICE_BOX, "rounded-xs", _TICK, _DASH)
@@ -151,7 +154,7 @@ class Checkbox(FormControl):
             label=label,
             description=description,
             disabled=disabled,
-            variant=variant,
+            card=card,
             messages=(render_if(error, lambda text: error_component(text, input_id)),),
             class_=self._get_prop("class_"),
         )

@@ -69,9 +69,9 @@ class TestAvatar:
         assert_selector(html, "span.rounded-full")
 
     @pytest.mark.asyncio
-    async def test_square_shape(self, context_args):
+    async def test_a_square_avatar_rounds_its_corners(self, context_args):
         html = await render_tree(
-            Avatar().name("Ada").shape("square"), context_args=context_args
+            Avatar().name("Ada").square(), context_args=context_args
         )
         assert_selector(html, "span.rounded-md")
         assert_no_selector(html, 'span[role="img"].rounded-full')

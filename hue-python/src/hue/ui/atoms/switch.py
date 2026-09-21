@@ -8,7 +8,6 @@ from typing_extensions import Self
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms._choice import (
-    ChoiceLayout,
     choice_row,
     description_id,
     label_id,
@@ -100,14 +99,14 @@ class Switch(FormControl):
         self._props["size"] = value
         return self
 
-    def layout(self, value: ChoiceLayout) -> Self:
+    def horizontal(self, value: bool = True) -> Self:
         """
         Put the text first and the switch at the far end of the row.
 
         The arrangement a settings list wants: what can I change, then the
         thing that changes it.
         """
-        self._props["layout"] = value
+        self._props["horizontal"] = value
         return self
 
     def description(self, value: str) -> Self:
@@ -174,7 +173,7 @@ class Switch(FormControl):
     def _render(self, context: Context) -> Component:
         name = self._require_name()
         size: SwitchSize = self._get_prop("size", "md")
-        layout: ChoiceLayout = self._get_prop("layout", "inline")
+        horizontal: bool = self._get_prop("horizontal", False)
         state: SubmissionState = self._get_prop("submission_state", "none")
         disabled: bool = self._get_prop("disabled", False) or state == "pending"
         error: str | None = self._error(context)
@@ -196,7 +195,7 @@ class Switch(FormControl):
                     _SIZES[size],
                     # Centred against the whole block in the horizontal row,
                     # where there is no first line to line up with.
-                    _ALIGNMENT[size] if layout == "inline" else None,
+                    None if horizontal else _ALIGNMENT[size],
                     self._get_prop("class_"),
                 ),
                 checked=self._get_prop("checked", False) or None,
@@ -219,8 +218,8 @@ class Switch(FormControl):
             label=label,
             description=description,
             disabled=disabled,
-            variant="inline",
-            layout=layout,
+            card=False,
+            horizontal=horizontal,
             status=UNDEFINED if state == "none" else self._indicator(state),
             messages=(render_if(error, lambda text: error_component(text, input_id)),),
         )

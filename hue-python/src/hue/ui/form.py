@@ -133,7 +133,7 @@ class FieldControl(FormControl):
             Field()
             .label(self._get_prop("label") or self._require_name())
             .html_for(self._input_id())
-            .layout(self._get_prop("layout", "stacked"))
+            .horizontal(self._get_prop("horizontal", False))
             .required(self._get_prop("required", False))
             .disabled(self._get_prop("disabled", False))
             .hidden_label(self._get_prop("hidden_label", False))

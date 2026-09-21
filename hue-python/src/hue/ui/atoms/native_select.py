@@ -6,7 +6,6 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.form import FieldControl
-from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames, render_if
 
 _SELECT_CLASSES = classnames(
@@ -74,8 +73,12 @@ class NativeSelect(FieldControl):
         self._props["hidden_label"] = value
         return self
 
-    def layout(self, value: FieldLayout) -> Self:
-        self._props["layout"] = value
+    def horizontal(self, value: bool = True) -> Self:
+        """
+        Put the label beside the control rather than above it, for a
+        settings page where every row shares one edge.
+        """
+        self._props["horizontal"] = value
         return self
 
     def _render(self, context: Context) -> Component:

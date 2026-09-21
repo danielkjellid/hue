@@ -8,7 +8,6 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
-    ChoiceVariant,
     choice_row,
     description_id,
     label_id,
@@ -64,7 +63,7 @@ class Radio(ChainableComponent):
         *,
         name: str,
         selected: str | None,
-        variant: ChoiceVariant,
+        card: bool,
         disabled: bool,
         required: bool,
     ) -> None:
@@ -73,7 +72,7 @@ class Radio(ChainableComponent):
         siblings.
         """
         self._props["name"] = name
-        self._props["variant"] = variant
+        self._props["card"] = card
         self._props["checked"] = self._get_prop("value") == selected
         # Required goes on the options rather than the fieldset, which has no
         # such attribute - one marked radio makes the whole name required.
@@ -85,7 +84,7 @@ class Radio(ChainableComponent):
         value: str = self._get_prop("value", "")
         name: str = self._get_prop("name", "")
         disabled: bool = self._get_prop("disabled", False)
-        variant: ChoiceVariant = self._get_prop("variant", "inline")
+        card: bool = self._get_prop("card", False)
         input_id = f"{name}-{value}"
 
         label: str | None = self._get_prop("label")
@@ -113,7 +112,7 @@ class Radio(ChainableComponent):
             label=label,
             description=description,
             disabled=disabled,
-            variant=variant,
+            card=card,
         )
 
 
@@ -157,14 +156,18 @@ class RadioGroup(FieldControl):
         self._props["value"] = value
         return self
 
-    def variant(self, value: ChoiceVariant) -> Self:
-        self._props["variant"] = value
+    def card(self, value: bool = True) -> Self:
+        """
+        Give every option a box of its own, for a choice whose options
+        carry a description rather than a word.
+        """
+        self._props["card"] = value
         return self
 
     def _render(self, context: Context) -> Component:
         name = self._require_name()
         legend: str | None = self._get_prop("legend") or self._get_prop("label")
-        variant: ChoiceVariant = self._get_prop("variant", "inline")
+        card: bool = self._get_prop("card", False)
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
         error: str | None = self._error(context)
@@ -176,7 +179,7 @@ class RadioGroup(FieldControl):
                 child._apply_group(
                     name=name,
                     selected=self._get_prop("value"),
-                    variant=variant,
+                    card=card,
                     disabled=disabled,
                     required=required,
                 )
@@ -204,7 +207,7 @@ class RadioGroup(FieldControl):
                 *options,
                 class_=classnames(
                     "flex flex-col",
-                    "gap-2" if variant == "card" else "gap-3",
+                    "gap-2" if card else "gap-3",
                 ),
             ),
             render_if(hint, lambda text: hint_component(text, name)),

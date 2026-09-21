@@ -47,7 +47,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Stack()
-                    .direction("horizontal")
+                    .horizontal()
                     .spacing("sm")
                     .align_items("items-center")
                     .content(

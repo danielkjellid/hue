@@ -73,7 +73,7 @@ class TestField:
             .label("Region")
             .html_for("region")
             .hint("Where data lives.")
-            .layout("horizontal")
+            .horizontal()
             .content("a control"),
             context_args=context_args,
         )
@@ -89,7 +89,7 @@ class TestField:
             Field()
             .label("Region")
             .html_for("region")
-            .layout("horizontal")
+            .horizontal()
             .content("a control"),
             context_args=context_args,
         )
@@ -104,7 +104,7 @@ class TestField:
             .label("Region")
             .html_for("region")
             .hint("Where data lives.")
-            .layout("horizontal"),
+            .horizontal(),
             context_args=context_args,
         )
         assert_selector(html, "div.flex-row.items-start")
@@ -116,7 +116,7 @@ class TestField:
             .label("Region")
             .html_for("region")
             .error("Pick one.")
-            .layout("horizontal")
+            .horizontal()
             .content("a control"),
             context_args=context_args,
         )

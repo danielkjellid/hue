@@ -182,7 +182,7 @@ class TestCheckbox:
         # The fill follows :checked through :has, so nothing has to be
         # mirrored in Alpine to keep the surface in step with the box.
         html = await render_tree(
-            Checkbox().name("plan").label("Pro").variant("card"),
+            Checkbox().name("plan").label("Pro").card(),
             context_args=context_args,
         )
         assert_selector(html, "label.has-\\[\\:checked\\]\\:bg-accent-subtle")

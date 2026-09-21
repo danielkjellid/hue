@@ -65,7 +65,7 @@ class TestRadioGroup:
     # variant(): both branches, and it reaches the options
     @pytest.mark.asyncio
     async def test_cards_react_to_their_own_control(self, context_args):
-        html = await render_tree(_group().variant("card"), context_args=context_args)
+        html = await render_tree(_group().card(), context_args=context_args)
         assert_selector(html, "label.has-\\[\\:checked\\]\\:bg-accent-subtle", count=2)
 
     @pytest.mark.asyncio

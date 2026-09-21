@@ -21,7 +21,6 @@ type ButtonVariant = Literal[
     "danger-outline",
 ]
 type ButtonSize = Literal["xs", "sm", "md", "lg"]
-type ButtonShape = Literal["rounded", "pill"]
 type ButtonType = Literal["button", "submit", "reset"]
 
 # Keyed by the Literal so mypy keeps the maps exhaustive when a value is added.
@@ -94,17 +93,12 @@ _PADDING_CLASSES: dict[ButtonSize, str] = {
     "lg": "px-5",
 }
 
-_SHAPE_CLASSES: dict[ButtonShape, str] = {
-    "rounded": "rounded-md",
-    "pill": "rounded-full",
-}
-
 
 class Button(Clickable):
     """
     A clickable button.
 
-    variant() picks the role, size() the height, and shape() the corners.
+    variant() picks the role, size() the height, and pill() the corners.
     icon_only() makes it square and names it, fluid() fills the width, and
     loading() marks work in flight. Children become the button's content.
 
@@ -125,8 +119,12 @@ class Button(Clickable):
         self._props["size"] = value
         return self
 
-    def shape(self, value: ButtonShape) -> Self:
-        self._props["shape"] = value
+    def pill(self, value: bool = True) -> Self:
+        """
+        Round the ends fully rather than the corners, for a button that
+        floats over content rather than sitting in a row of fields.
+        """
+        self._props["pill"] = value
         return self
 
     def fluid(self, value: bool = True) -> Self:
@@ -187,7 +185,7 @@ class Button(Clickable):
     def _render(self, context: Context) -> Component:
         variant: ButtonVariant = self._get_prop("variant", "primary")
         size: ButtonSize = self._get_prop("size", "md")
-        shape: ButtonShape = self._get_prop("shape", "rounded")
+        pill: bool = self._get_prop("pill", False)
         fluid: bool = self._get_prop("fluid", False)
         disabled: bool = self._get_prop("disabled", False)
         loading: bool = self._get_prop("loading", False)
@@ -200,7 +198,7 @@ class Button(Clickable):
             "[&_svg]:size-4 [&_svg]:shrink-0",
             "disabled:pointer-events-none",
             FOCUS_RING,
-            _SHAPE_CLASSES[shape],
+            "rounded-full" if pill else "rounded-md",
             _FONT_CLASSES[size],
             _GAP_CLASSES[size],
             _VARIANT_CLASSES[variant],

@@ -22,3 +22,8 @@ hue-python/src/hue/static/styles/tailwind.css
 Hue-Component-Library-Design-System/
 
 .DS_Store
+
+# A page for trying TableOfContents by hand, and the script that writes it.
+# Local toys rather than part of the docs; see the docstring in toc-demo.py.
+toc-demo.html
+toc-demo.py

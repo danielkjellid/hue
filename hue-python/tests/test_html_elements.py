@@ -276,7 +276,6 @@ class TestElementWithV2Components:
             .class_("w-full")
             .content(
                 Stack()
-                .direction("vertical")
                 .spacing("sm")
                 .content(
                     Text("Sign in").variant("title-3"),

@@ -17,7 +17,7 @@ class TestStack:
     @pytest.mark.asyncio
     async def test_horizontal(self, context_args):
         html = await render_tree(
-            Stack().direction("horizontal").content("X"), context_args=context_args
+            Stack().horizontal().content("X"), context_args=context_args
         )
         assert_selector(html, "div.flex-row")
 

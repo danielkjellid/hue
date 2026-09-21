@@ -20,7 +20,6 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
-from hue.ui.molecules.field import FieldLayout
 from hue.utils import classnames
 
 type Autocomplete = Literal[
@@ -160,12 +159,12 @@ class _BaseInput(FieldControl):
         self._props["hidden_label"] = value
         return self
 
-    def layout(self, value: FieldLayout) -> Self:
+    def horizontal(self, value: bool = True) -> Self:
         """
-        Put the label beside the input rather than above it, for a settings
-        page where every row shares one edge.
+        Put the label beside the control rather than above it, for a
+        settings page where every row shares one edge.
         """
-        self._props["layout"] = value
+        self._props["horizontal"] = value
         return self
 
     def autocomplete(self, value: Autocomplete) -> Self:

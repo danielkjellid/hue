@@ -73,6 +73,18 @@ canonical templates. The shape:
   `self._get_prop(key, default)`, splat shared attrs with `self._get_base_html_attrs()`, and
   return an `htmy.html.*` tree.
 - Variants/sizes/shapes are PEP 695 type aliases: `type ButtonVariant = Literal[...]`.
+- **Three values or more for a `Literal`, or it is a boolean modifier named after the
+  one thing that is not the default.** An axis with exactly two values makes a caller
+  say the default out loud to discover there was one, and the default's name is then a
+  string nobody ever writes: `Tabs().segmented()`, `Badge().pill()`, `Avatar().square()`,
+  `Stack().horizontal()`, and a row that is not segmented says nothing at all. Two axes
+  stay a `Literal` however short they are, because they are shared vocabulary rather
+  than one component's own choice:
+  - **Tone** (`neutral | info | success | warning | danger`), which is always spelled
+    `variant()`. `Empty` offers two of them and `MenuItem` two, and both keep
+    `variant("danger")` so that one name means the same thing everywhere it appears.
+  - **Size** (`xs | sm | md | lg`), which is a scale. One that happens to be two steps
+    long today (`BadgeSize`) still reads as a step rather than a flag.
 - `category: ClassVar[str | None]` sets the docs sidebar group (e.g. `"Actions"`,
   `"Feedback"`). Set it to `None` for composition-only parts (e.g. `TableRow`) that are
   exported but should not get their own docs page.

@@ -11,6 +11,7 @@ import {
 } from "./table.js";
 import { registerThemeStore } from "./theme.js";
 import { registerToastMagic } from "./toast.js";
+import { registerTocData } from "./toc.js";
 
 // Make Alpine available globally
 window.Alpine = Alpine;
@@ -44,6 +45,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerTableColumns(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
+	registerTocData(Alpine);
 
 	Alpine.start();
 

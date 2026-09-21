@@ -110,9 +110,9 @@ class TestButton:
         assert_selector(html, "button.rounded-md")
 
     @pytest.mark.asyncio
-    async def test_pill_shape(self, context_args):
+    async def test_a_pill_rounds_the_ends(self, context_args):
         html = await render_tree(
-            Button().shape("pill").content("Go"), context_args=context_args
+            Button().pill().content("Go"), context_args=context_args
         )
         assert_selector(html, "button.rounded-full")
         assert_no_selector(html, "button.rounded-md")
