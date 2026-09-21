@@ -213,6 +213,21 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _url_for(self, request: T_Request, name: str, **params: Any) -> str:
+        """
+        Where one of this router's own routes lives, for this request.
+
+        A route's path is written relative to wherever the view ends up
+        mounted, so nothing here can spell the whole URL - only the
+        framework knows what the view was included under. The request is
+        passed because the answer depends on it: the same view mounted
+        twice has two URLs, and the one you want is the one the reader is
+        already browsing.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
     async def _call_view_func(
         self,
         view_func: ViewFunc,

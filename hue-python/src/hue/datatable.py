@@ -187,6 +187,22 @@ def bound_or_raise(state: Any, component: str) -> BoundTable:
 
 
 @dataclass(frozen=True, slots=True)
+class TableUrls:
+    """
+    Where this table's two routes live, for one request.
+
+    Resolved when the table is bound rather than spelled by hand, because
+    a path written into a link is right until the first include() moves
+    the view under a prefix. The routes are registered by name and looked
+    up by the same name, so there is one spelling of each and the
+    framework fills in the rest.
+    """
+
+    read: str
+    act: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
 class BoundTable:
     """
     One table, for one request: what was asked, what answers it, and the
@@ -200,21 +216,18 @@ class BoundTable:
     state: TableState
     page: Rows
     total: int
+    urls: TableUrls
 
     @property
     def key(self) -> str:
         return self.declaration.key
-
-    @property
-    def root(self) -> str:
-        return self.declaration.root
 
     def href(self, **changes: Any) -> str:
         """
         This table with one thing changed, which is every link on it.
         """
         asked = self.state.replace(**changes).params()
-        return self.root + (f"?{urlencode(asked)}" if asked else "")
+        return self.urls.read + (f"?{urlencode(asked)}" if asked else "")
 
     def build_into(self, into: DataTable) -> DataTable:
         """
@@ -259,7 +272,7 @@ class BoundTable:
         the table as it was and not the first page of an unsorted one.
         """
         asked = self.state.params()
-        return f"{self.root}{name}/" + (f"?{urlencode(asked)}" if asked else "")
+        return self.urls.act[name] + (f"?{urlencode(asked)}" if asked else "")
 
 
 class Datatable:
@@ -292,16 +305,18 @@ class Datatable:
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
+        # One spelling of each route name, used to register them and to
+        # find them again. Two tables on one view would otherwise both
+        # call their routes "read" and "act", since the router takes a
+        # route's name off the handler's __name__ as it decorates.
+        self._read_route = f"{key}_read"
+        self._act_route = f"{key}_act"
         if self.actions and identifier is None:
             raise ValueError(
                 f"{key} has actions but no identifier, so there is nothing "
                 f"to hand them. Name the property a row is known by."
             )
         self._register()
-
-    @property
-    def root(self) -> str:
-        return f"/{self.key}/"
 
     def build_into(self, into: DataTable) -> DataTable:
         """
@@ -323,7 +338,22 @@ class Datatable:
         start = (asked.page - 1) * self.page_size
         page = list(matching[start : start + self.page_size])
         self._check_identifier(page)
-        return BoundTable(self, asked, page, total)
+        return BoundTable(self, asked, page, total, self._urls_for(request))
+
+    def _urls_for(self, request: Any) -> TableUrls:
+        """
+        Both routes, reversed for this request.
+
+        Once per binding rather than once per link: every href on the
+        table is one of these two with a different query string on it.
+        """
+        return TableUrls(
+            read=self._router._url_for(request, self._read_route),
+            act={
+                name: self._router._url_for(request, self._act_route, action=name)
+                for name in self.actions
+            },
+        )
 
     def state_of(self, request: Any) -> TableState:
         asked = self._router._get_query_params(request)
@@ -397,11 +427,10 @@ class Datatable:
             # Bound after, because the rows have just changed under it.
             return DataTable.from_state(self.bind(request))
 
-        # Named before they are registered, not after: the router takes a
-        # route's name off __name__ as it decorates, so two tables on one
-        # view would otherwise both call their routes "read" and "act".
-        read.__name__ = f"{self.key}_read"
-        act.__name__ = f"{self.key}_act"
+        # Named before they are registered, not after: the router takes
+        # a route's name off __name__ as it decorates.
+        read.__name__ = self._read_route
+        act.__name__ = self._act_route
         self._router.fragment_get(f"{self.key}/")(read)
         self._router.fragment_post(f"{self.key}/<str:action>/")(act)
 
@@ -533,7 +562,7 @@ def _search_form(bound: BoundTable) -> ComponentType:
             if name not in (QUERY, PAGE)
         ),
         method="get",
-        action=bound.root,
+        action=bound.urls.read,
         **{
             "x-target": bound.key,
             f"@input.debounce.{SEARCH_DELAY}": "$el.requestSubmit()",

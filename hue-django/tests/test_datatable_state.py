@@ -11,13 +11,16 @@ import re
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from django.http import HttpRequest
+from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
 from hue.context import HueContextArgs
 from hue.datatable import BulkAction, TablePagination, TableSearch, datatable
 from hue.renderer import render_tree
 from hue.ui.molecules.table import Column, DataTable
 
 from hue_django.router import Router
+from hue_django.views import HueView
 
 # A pk nobody displays, which is the point of naming the identifier apart
 # from the columns.
@@ -47,8 +50,11 @@ def _matching(request: Any, asked: Any) -> Any:
 def _view(page_size: int = 25) -> Any:
     _ARCHIVED.clear()
 
-    class InvoicesView:
+    class InvoicesView(HueView):
         router = Router[HttpRequest]()
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
 
         invoices = datatable(
             router,
@@ -72,9 +78,35 @@ def _view(page_size: int = 25) -> Any:
     return InvoicesView()
 
 
-def _request(**params: str) -> Any:
+MOUNT = "billing/"
+
+
+@pytest.fixture
+def mounted(urlpatterns_: list[Any]) -> Any:
+    """
+    A view with a table on it, mounted under a prefix.
+
+    Under a prefix on purpose: a table that spells its own path is right
+    until the first include(), and nothing about that shows up when
+    everything sits at the root.
+    """
+
+    def build(page_size: int = 25, at: str = MOUNT) -> Any:
+        view = _view(page_size)
+        urlpatterns_.append(path(at, include(type(view).urls)))
+        clear_url_caches()
+        return view
+
+    return build
+
+
+def _request(at: str | None = MOUNT, **params: str) -> Any:
     request = MagicMock()
     request.GET.dict.return_value = params
+    # What Django puts on the request before the view runs, and what the
+    # namespace of every URL the table builds comes from. None for the
+    # tests that never get as far as building one.
+    request.resolver_match = resolve(f"/{at}") if at else None
     return request
 
 
@@ -105,8 +137,8 @@ def test_the_routes_are_named_after_the_table():
     ]
 
 
-def test_rows_is_handed_what_was_asked_for():
-    bound = _view().invoices.bind(_request(sort="-amount", q="n"))
+def test_rows_is_handed_what_was_asked_for(mounted):
+    bound = mounted().invoices.bind(_request(sort="-amount", q="n"))
     assert bound.state.sort == "-amount"
     assert bound.state.query == "n"
     # Contoso has an n in it too; descending by amount is the order asked.
@@ -117,53 +149,87 @@ def test_rows_is_handed_what_was_asked_for():
     ]
 
 
-def test_a_sort_link_keeps_the_search():
-    bound = _view().invoices.bind(_request(sort="amount", q="contoso"))
+def test_a_sort_link_keeps_the_search(mounted):
+    bound = mounted().invoices.bind(_request(sort="amount", q="contoso"))
     html = _render(DataTable.from_state(bound))
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
-    assert "/invoices/?sort=-amount&amp;q=contoso" in hrefs
+    assert "/billing/invoices/?sort=-amount&amp;q=contoso" in hrefs
 
 
-def test_a_search_keeps_the_order_and_drops_the_page():
+def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
-    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", page="2"))
+    bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", page="2"))
     html = _render(TableSearch.from_state(bound))
     hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     assert hidden == [("sort", "-amount")]
 
 
-def test_the_page_is_a_slice_and_the_count_is_everything():
-    bound = _view(page_size=2).invoices.bind(_request(page="2"))
+def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
+    bound = mounted(page_size=2).invoices.bind(_request(page="2"))
     assert bound.total == 4
     assert [row["pk"] for row in bound.page] == ["23", "58"]
 
 
-def test_pagination_links_keep_the_rest_of_the_state():
-    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", q="n"))
+def test_pagination_links_keep_the_rest_of_the_state(mounted):
+    bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", q="n"))
     html = _render(TablePagination.from_state(bound))
     hrefs = re.findall(r'href="([^"]*)"', html)
-    assert "/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
+    assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
 
-def test_an_action_posts_to_a_url_that_remembers_the_state():
+def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
     # Otherwise archiving on page two of a sorted table answers with the
     # first page of an unsorted one.
-    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", q="n", page="2"))
+    bound = mounted(page_size=2).invoices.bind(
+        _request(sort="-amount", q="n", page="2")
+    )
     html = _render(DataTable.from_state(bound))
     assert re.search(
-        r'formaction="/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"', html
+        r'formaction="/billing/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"',
+        html,
     )
 
 
-def test_the_checkboxes_carry_the_identifier_not_the_columns():
-    bound = _view().invoices.bind(_request())
+def test_every_url_follows_the_mount_point(mounted):
+    # The same declaration, included somewhere else. Nothing about the
+    # table changed; where it lives did.
+    bound = mounted(at="admin/reports/").invoices.bind(_request(at="admin/reports/"))
+    assert bound.urls.read == "/admin/reports/invoices/"
+    assert bound.urls.act == {"archive": "/admin/reports/invoices/archive/"}
+
+
+def test_the_search_form_posts_back_to_the_mounted_table(mounted):
+    bound = mounted().invoices.bind(_request())
+    html = _render(TableSearch.from_state(bound))
+    assert 'action="/billing/invoices/"' in html
+
+
+def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
+    # Reversed through the namespace the request came in on, so a table
+    # drawn from somewhere else has no URL to build - which is worth
+    # saying rather than leaving as a bare NoReverseMatch.
+    view = mounted()
+    elsewhere = _request()
+    elsewhere.resolver_match.namespace = "somebodyelse"
+
+    try:
+        view.invoices.bind(elsewhere)
+    except NoReverseMatch as error:
+        assert "somebodyelse:invoices_read" in str(error)
+        assert "its own fragments" in str(error)
+    else:  # pragma: no cover - the raise is the behaviour under test
+        raise AssertionError("expected a NoReverseMatch")
+
+
+def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
+    bound = mounted().invoices.bind(_request())
     html = _render(DataTable.from_state(bound))
     picked = re.findall(r'name="selected" value="(\d+)"', html)
     assert picked == ["41", "17", "23", "58"]
 
 
-def test_the_search_box_submits_itself_after_a_pause():
-    bound = _view().invoices.bind(_request())
+def test_the_search_box_submits_itself_after_a_pause(mounted):
+    bound = mounted().invoices.bind(_request())
     html = _render(TableSearch.from_state(bound))
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
     assert re.search(r'x-target="invoices"', html)
@@ -194,7 +260,7 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
     )
 
     try:
-        bare.bind(_request())
+        bare.bind(_request(at=None))
     except ValueError as error:
         assert "identified by 'pk'" in str(error)
         assert "['invoice']" in str(error)

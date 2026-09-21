@@ -5,6 +5,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
+from django.urls import NoReverseMatch, reverse
 from hue.context import HueContext, HueContextArgs
 from hue.router import HueResponse, PathParseResult, ViewFunc
 from hue.router import Router as HueRouter
@@ -58,6 +59,31 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
 
     def _get_query_params(self, request: T_Request) -> dict[str, str]:
         return request.GET.dict()
+
+    def _url_for(self, request: T_Request, name: str, **params: Any) -> str:
+        """
+        Reverse one of this router's routes, in the namespace the request
+        came in through.
+
+        The namespace rather than the view's app_name, because that is
+        what survives being mounted: include() under a prefix, include()
+        with a namespace of the caller's choosing, an include() inside
+        another one, or the same view mounted twice - in which case the
+        reader gets links back into the mount they are already in.
+        """
+        match = request.resolver_match
+        namespace = match.namespace if match else ""
+        target = f"{namespace}:{name}" if namespace else name
+        try:
+            return reverse(target, kwargs=params)
+        except NoReverseMatch:
+            raise NoReverseMatch(
+                f"Django knows no route called {target!r}. A fragment's URL "
+                f"is reversed through the namespace the request arrived in "
+                f"({namespace or 'none'}), so a view can only build the URLs "
+                f"of its own fragments, and only while it is the one serving "
+                f"the request."
+            ) from None
 
     async def _call_view_func(
         self,

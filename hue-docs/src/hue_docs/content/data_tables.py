@@ -53,6 +53,12 @@ class _Router:
     def _get_query_params(self, request: Any) -> dict[str, str]:
         return dict(request.params)
 
+    def _url_for(self, request: Any, name: str, **params: Any) -> str:
+        # Django reverses these against the URLconf. Here they are spelled
+        # out, since there is nothing to reverse against.
+        action = params.get("action")
+        return f"/invoices/{action}/" if action else "/invoices/"
+
 
 def _archive(request: Any, ids: list[str]) -> None:
     """A service function, which is all an action ever is."""
@@ -238,6 +244,28 @@ def _build() -> ComponentType:
             language="html",
         ),
         pr.p(
+            "None of those URLs is spelled by hand. The key names the two "
+            "routes, and binding the table reverses them through the "
+            "namespace the request came in on - so a view included under a "
+            "prefix, included with a namespace of its own, or mounted twice "
+            "builds links back into the mount the reader is actually in. A "
+            "path written into a link would be right until the first "
+            "include() moved it."
+        ),
+        pr.code(
+            'urlpatterns = [path("billing/", include(InvoicesView.urls))]\n'
+            "\n"
+            "# /billing/invoices/?sort=-amount\n"
+            "# /billing/invoices/archive/?sort=-amount",
+            language="python",
+        ),
+        pr.p(
+            "The other side of that: a table can only build its URLs while "
+            "the view that declared it is the one serving the request. "
+            "Rendering one from somebody else's page raises rather than "
+            "quietly linking into the wrong namespace."
+        ),
+        pr.p(
             "The selection posts through a real form around real checkboxes, "
             "so what is ticked is submitted by the browser and not read off "
             "the page by anything. x-target is the only part of it that "
@@ -308,19 +336,23 @@ def _build() -> ComponentType:
                 pr.p(
                     "The rows carry the identifier, whether or not a column shows it."
                 ),
+                pr.p(
+                    "The view that declares a table is the one that draws "
+                    "it. Its URLs are reversed through the namespace of the "
+                    "request being served, which is what makes them follow "
+                    "the mount point instead of assuming the site root."
+                ),
             ]
         ),
         Alert()
         .variant("warning")
         .title("What is not done yet")
         .content(
-            "The URLs a declaration builds are rooted at /, so a view mounted "
-            "under a prefix by include() will build the wrong ones - they "
-            "need to go through reverse(). And the no-JavaScript fallback "
-            "for an action will be refused by Django's CSRF middleware, "
-            "because the form carries no hidden token; the AJAX path is fine, "
-            "since the bundle sends the header. Both are integration work "
-            "rather than anything about the shape above."
+            "The no-JavaScript fallback for an action will be refused by "
+            "Django's CSRF middleware, because the form carries no hidden "
+            "token; the AJAX path is fine, since the bundle sends the header "
+            "the middleware reads. Integration work rather than anything "
+            "about the shape above."
         ),
     )
 
