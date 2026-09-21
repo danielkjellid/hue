@@ -74,7 +74,7 @@ SHOWCASES: list[Showcase] = [
                         "border border-border bg-canvas-subtle px-5 py-4",
                     ),
                     html.div(
-                        TableOfContents().of("#toc-article", headings="h4, h5"),
+                        TableOfContents().of("#toc-article", headings="h4, h5").label("Documentation"),
                         class_="w-56 flex-none",
                     ),
                     class_="flex w-full gap-10",
@@ -82,17 +82,6 @@ SHOWCASES: list[Showcase] = [
                 """
                 % _ARTICLE.lstrip("\n"),
                 _NS,
-            ),
-            variant(
-                "This page, under another name",
-                """
-                (
-                    TableOfContents()
-                    .of("main")
-                    .title("Contents")
-                    .class_("max-w-60")
-                )
-                """,
             ),
         ],
     ),
