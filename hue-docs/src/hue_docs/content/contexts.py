@@ -5,7 +5,7 @@ from hue.types.core import ComponentType
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
 
-_PROBLEM = '''# A component of your own, which happens to build sidebar rows.
+_PROBLEM = """# A component of your own, which happens to build sidebar rows.
 class Workspace(ChainableComponent):
     def _render(self, context):
         return SidebarSection().content(
@@ -15,7 +15,7 @@ class Workspace(ChainableComponent):
 
 
 # The sidebar is told the page, and can reach none of the rows on it.
-Sidebar().current("/events").content(SidebarBody().content(Workspace()))'''
+Sidebar().current("/events").content(SidebarBody().content(Workspace()))"""
 
 _CONTRACT = """@dataclass(frozen=True, slots=True)
 class CurrentPage:
