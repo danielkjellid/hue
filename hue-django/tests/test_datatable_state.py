@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 from django.http import HttpRequest
 from hue.context import HueContextArgs
-from hue.datatable import BulkAction, TablePagination, TableSearch, datatable, table
+from hue.datatable import BulkAction, TablePagination, TableSearch, datatable
 from hue.renderer import render_tree
 from hue.ui.molecules.table import Column, DataTable
 
@@ -31,40 +31,43 @@ _INVOICES: list[dict[str, Any]] = [
 _ARCHIVED: list[str] = []
 
 
+def _matching(request: Any, asked: Any) -> Any:
+    """
+    The only part of a table that is not fixed: which rows answer it.
+    """
+    found = [
+        row for row in _INVOICES if asked.query.lower() in str(row["customer"]).lower()
+    ]
+    if asked.sort:
+        field = asked.sort.lstrip("-")
+        found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
+    return found
+
+
 def _view(page_size: int = 25) -> Any:
     _ARCHIVED.clear()
 
     class InvoicesView:
         router = Router[HttpRequest]()
 
-        @datatable(router, "invoices")
-        def invoices(self, request: Any, asked: Any) -> Any:
-            found = [
-                row
-                for row in _INVOICES
-                if asked.query.lower() in str(row["customer"]).lower()
-            ]
-            if asked.sort:
-                field = asked.sort.lstrip("-")
-                found.sort(
-                    key=lambda row: row[field], reverse=asked.sort.startswith("-")
+        invoices = datatable(
+            router,
+            key="invoices",
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("customer", "Customer", sort="customer"),
+                Column("amount", "Amount", align="end", sort="amount"),
+            ],
+            rows=_matching,
+            identifier="pk",
+            search="Search customers",
+            actions={
+                "archive": BulkAction(
+                    "Archive", lambda request, ids: _ARCHIVED.extend(ids)
                 )
-            return table(
-                columns=[
-                    Column("invoice", "Invoice"),
-                    Column("customer", "Customer", sort="customer"),
-                    Column("amount", "Amount", align="end", sort="amount"),
-                ],
-                rows=found,
-                identifier="pk",
-                search="Search customers",
-                actions={
-                    "archive": BulkAction(
-                        "Archive", lambda request, ids: _ARCHIVED.extend(ids)
-                    )
-                },
-                page_size=page_size,
-            )
+            },
+            page_size=page_size,
+        )
 
     return InvoicesView()
 
@@ -84,7 +87,7 @@ def _render(component: Any) -> str:
     )
 
 
-def test_the_decorator_registers_a_route_to_read_and_one_to_act():
+def test_the_declaration_registers_a_route_to_read_and_one_to_act():
     view = _view()
     assert [(route.method, route.path) for route in type(view).router.routes] == [
         ("GET", "invoices/"),
@@ -102,8 +105,8 @@ def test_the_routes_are_named_after_the_table():
     ]
 
 
-def test_the_described_method_is_handed_what_was_asked_for():
-    bound = _view().invoices(_request(sort="-amount", q="n"))
+def test_rows_is_handed_what_was_asked_for():
+    bound = _view().invoices.bind(_request(sort="-amount", q="n"))
     assert bound.state.sort == "-amount"
     assert bound.state.query == "n"
     # Contoso has an n in it too; descending by amount is the order asked.
@@ -115,7 +118,7 @@ def test_the_described_method_is_handed_what_was_asked_for():
 
 
 def test_a_sort_link_keeps_the_search():
-    bound = _view().invoices(_request(sort="amount", q="contoso"))
+    bound = _view().invoices.bind(_request(sort="amount", q="contoso"))
     html = _render(DataTable.from_state(bound))
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
     assert "/invoices/?sort=-amount&amp;q=contoso" in hrefs
@@ -123,20 +126,20 @@ def test_a_sort_link_keeps_the_search():
 
 def test_a_search_keeps_the_order_and_drops_the_page():
     # Page four of a different search is not a page anybody asked for.
-    bound = _view(page_size=2).invoices(_request(sort="-amount", page="2"))
+    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", page="2"))
     html = _render(TableSearch.from_state(bound))
     hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     assert hidden == [("sort", "-amount")]
 
 
 def test_the_page_is_a_slice_and_the_count_is_everything():
-    bound = _view(page_size=2).invoices(_request(page="2"))
+    bound = _view(page_size=2).invoices.bind(_request(page="2"))
     assert bound.total == 4
     assert [row["pk"] for row in bound.page] == ["23", "58"]
 
 
 def test_pagination_links_keep_the_rest_of_the_state():
-    bound = _view(page_size=2).invoices(_request(sort="-amount", q="n"))
+    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", q="n"))
     html = _render(TablePagination.from_state(bound))
     hrefs = re.findall(r'href="([^"]*)"', html)
     assert "/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
@@ -145,7 +148,7 @@ def test_pagination_links_keep_the_rest_of_the_state():
 def test_an_action_posts_to_a_url_that_remembers_the_state():
     # Otherwise archiving on page two of a sorted table answers with the
     # first page of an unsorted one.
-    bound = _view(page_size=2).invoices(_request(sort="-amount", q="n", page="2"))
+    bound = _view(page_size=2).invoices.bind(_request(sort="-amount", q="n", page="2"))
     html = _render(DataTable.from_state(bound))
     assert re.search(
         r'formaction="/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"', html
@@ -153,14 +156,14 @@ def test_an_action_posts_to_a_url_that_remembers_the_state():
 
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns():
-    bound = _view().invoices(_request())
+    bound = _view().invoices.bind(_request())
     html = _render(DataTable.from_state(bound))
     picked = re.findall(r'name="selected" value="(\d+)"', html)
     assert picked == ["41", "17", "23", "58"]
 
 
 def test_the_search_box_submits_itself_after_a_pause():
-    bound = _view().invoices(_request())
+    bound = _view().invoices.bind(_request())
     html = _render(TableSearch.from_state(bound))
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
     assert re.search(r'x-target="invoices"', html)
@@ -168,9 +171,11 @@ def test_the_search_box_submits_itself_after_a_pause():
 
 def test_actions_with_nothing_to_hand_them_are_refused():
     try:
-        table(
+        datatable(
+            Router[HttpRequest](),
+            key="nothing",
             columns=[Column("invoice", "Invoice")],
-            rows=_INVOICES,
+            rows=lambda request, asked: _INVOICES,
             actions={"archive": BulkAction("Archive", lambda request, ids: None)},
         )
     except ValueError as error:
@@ -180,19 +185,16 @@ def test_actions_with_nothing_to_hand_them_are_refused():
 
 
 def test_rows_that_do_not_carry_the_identifier_are_refused():
-    class Bare:
-        router = Router[HttpRequest]()
-
-        @datatable(router, "bare")
-        def bare(self, request: Any, asked: Any) -> Any:
-            return table(
-                columns=[Column("invoice", "Invoice")],
-                rows=[{"invoice": "INV-2050"}],
-                identifier="pk",
-            )
+    bare = datatable(
+        Router[HttpRequest](),
+        key="bare",
+        columns=[Column("invoice", "Invoice")],
+        rows=lambda request, asked: [{"invoice": "INV-2050"}],
+        identifier="pk",
+    )
 
     try:
-        Bare().bare(_request())
+        bare.bind(_request())
     except ValueError as error:
         assert "identified by 'pk'" in str(error)
         assert "['invoice']" in str(error)

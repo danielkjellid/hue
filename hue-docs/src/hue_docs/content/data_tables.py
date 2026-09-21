@@ -8,7 +8,6 @@ from hue.datatable import (
     TableSearch,
     TableState,
     datatable,
-    table,
 )
 from hue.types.core import ComponentType
 from hue.ui import Alert, Column, DataTable
@@ -59,38 +58,37 @@ def _archive(request: Any, ids: list[str]) -> None:
     """A service function, which is all an action ever is."""
 
 
-class _Invoices:
-    router = _Router()
-
-    @datatable(router, "invoices")  # type: ignore[arg-type]
-    def invoices(self, request: Any, asked: TableState) -> Any:
-        found = [
-            row
-            for row in _INVOICES
-            if asked.query.lower() in str(row["customer"]).lower()
-        ]
-        if asked.sort:
-            field = asked.sort.lstrip("-")
-            found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
-        return table(
-            columns=[
-                Column("invoice", "Invoice"),
-                Column("customer", "Customer", sort="customer"),
-                Column("amount", "Amount", align="end", sort="amount"),
-            ],
-            rows=found,
-            identifier="pk",
-            search="Search customers",
-            actions={"archive": BulkAction("Archive", _archive)},
-            page_size=3,
-        )
+def _matching(request: Any, asked: TableState) -> Any:
+    """
+    The one part of a table that is not fixed: which rows answer it.
+    """
+    found = [
+        row for row in _INVOICES if asked.query.lower() in str(row["customer"]).lower()
+    ]
+    if asked.sort:
+        field = asked.sort.lstrip("-")
+        found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
+    return found
 
 
-_VIEW = _Invoices()
+_TABLE = datatable(
+    _Router(),  # type: ignore[arg-type]
+    key="invoices",
+    columns=[
+        Column("invoice", "Invoice"),
+        Column("customer", "Customer", sort="customer"),
+        Column("amount", "Amount", align="end", sort="amount"),
+    ],
+    rows=_matching,
+    identifier="pk",
+    search="Search customers",
+    actions={"archive": BulkAction("Archive", _archive)},
+    page_size=3,
+)
 
 
 def _specimen(**params: str) -> ComponentType:
-    bound = _VIEW.invoices(_Request(**params))
+    bound = _TABLE.bind(_Request(**params))
     return pr.section(
         TableSearch.from_state(bound),
         DataTable.from_state(bound),
@@ -98,27 +96,32 @@ def _specimen(**params: str) -> ComponentType:
     )
 
 
-_DECLARATION = """class InvoicesView(HueView):
+_DECLARATION = """def invoices_for(request, asked):
+    \"\"\"The one part of a table that is not fixed: which rows answer it.\"\"\"
+    return Invoice.objects.filter(
+        customer__name__icontains=asked.query
+    ).order_by(asked.sort or "reference")
+
+
+class InvoicesView(HueView):
     router = Router[HttpRequest]()
 
-    @datatable(router, "invoices")
-    def invoices(self, request, asked):
-        return table(
-            columns=[
-                Column("invoice", "Invoice"),
-                Column("customer", "Customer", sort="customer__name"),
-                Column("amount", "Amount", align="end", sort="amount"),
-            ],
-            rows=Invoice.objects.filter(
-                customer__name__icontains=asked.query
-            ).order_by(asked.sort or "reference"),
-            identifier="pk",
-            search="Search customers",
-            actions={"archive": BulkAction("Archive", archive_invoices)},
-        )
+    invoices = datatable(
+        router,
+        key="invoices",
+        columns=[
+            Column("invoice", "Invoice"),
+            Column("customer", "Customer", sort="customer__name"),
+            Column("amount", "Amount", align="end", sort="amount"),
+        ],
+        rows=invoices_for,
+        identifier="pk",
+        search="Search customers",
+        actions={"archive": BulkAction("Archive", archive_invoices)},
+    )
 
     async def index(self, request, context):
-        invoices = self.invoices(request)
+        invoices = self.invoices.bind(request)
         return Page(
             title="Invoices",
             body=Stack().content(
@@ -183,8 +186,8 @@ def _build() -> ComponentType:
             "doing something with them is. So actions are named, they post, "
             "and they are handed the ids of what was ticked. Reads and "
             "writes split the way HTTP already splits them, and the two "
-            "routes the decorator registers are exactly that pair - and "
-            "both go through the described method, so an action answers "
+            "routes the declaration registers are exactly that pair - and "
+            "both go through the same rows(), so an action answers "
             "with the table in the state it was done in rather than the "
             "first page of an unsorted one."
         ),
@@ -284,12 +287,12 @@ def _build() -> ComponentType:
         pr.bullets(
             [
                 pr.p(
-                    "The described method is declared at class scope and "
-                    "called per request. Routes can only be registered while "
-                    "the class body runs, and the rows can only be known once "
-                    "there is a request - the decorator is what lets both be "
-                    "true at once, and why the table is not built inline in "
-                    "index()."
+                    "The declaration lives at class scope, because that is "
+                    "the only time a route can be registered. Everything "
+                    "about a table is fixed except which rows answer it, so "
+                    "everything but rows is stated once and rows is the one "
+                    "part that is a function - called for the page, and "
+                    "called again by the routes the declaration registered."
                 ),
                 pr.p(
                     "Every state that matters is in the URL. That is what "

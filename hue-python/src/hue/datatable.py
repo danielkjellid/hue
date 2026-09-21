@@ -7,30 +7,35 @@ with them, and you wire the four of those together yourself. Every one of
 them is a separate contract, none of them is checkable, and a table that
 sorts but forgets what was searched for is what you get when one is wrong.
 
-This is the other way round. One method describes the table, and is given
-the request and what the request asked for:
+This is the other way round. One declaration says everything a table is,
+and the one part of it that is not fixed - which rows answer it - is the
+one part that is a function:
+
+    def invoices_for(request, asked):
+        return Invoice.objects.filter(
+            customer__name__icontains=asked.query
+        ).order_by(asked.sort or "reference")
+
 
     class InvoicesView(HueView):
         router = Router[HttpRequest]()
 
-        @datatable(router, "invoices")
-        def invoices(self, request, asked):
-            return table(
-                columns=[
-                    Column("invoice", "Invoice"),
-                    Column("customer", "Customer", sort="customer__name"),
-                    Column("amount", "Amount", align="end", sort="amount"),
-                ],
-                rows=Invoice.objects.filter(
-                    customer__name__icontains=asked.query
-                ).order_by(asked.sort or "reference"),
-                identifier="pk",
-                search="Search customers",
-                actions={"archive": BulkAction("Archive", archive_invoices)},
-            )
+        invoices = datatable(
+            router,
+            key="invoices",
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("customer", "Customer", sort="customer__name"),
+                Column("amount", "Amount", align="end", sort="amount"),
+            ],
+            rows=invoices_for,
+            identifier="pk",
+            search="Search customers",
+            actions={"archive": BulkAction("Archive", archive_invoices)},
+        )
 
         async def index(self, request, context):
-            invoices = self.invoices(request)
+            invoices = self.invoices.bind(request)
             return Page(
                 title="Invoices",
                 body=Stack().content(
@@ -40,21 +45,22 @@ the request and what the request asked for:
                 ),
             )
 
-The decorator is what holds the rest together. Routes can only be
-registered while the class body runs, and the rows can only be known once
-there is a request - so the method is declared at class scope and called
-at request time, and the routes it registers call it too. Every way in
-goes through the same method, which is why a sort, a search, a page and an
-action all come back with the table in the state it was in.
+It is declared at class scope because that is the only time a route can
+be registered, and the routes it registers call rows() the same way the
+page does. Every way in - the page, a sort, a search, a page number, an
+action - goes through that one function, which is what keeps all five
+answering with the table in the state it was in. Action URLs carry the
+state, so archiving on page two of a sorted table comes back to page two
+of a sorted table.
 
-rows is everything that matches, not the page of it. The page is taken
-here, so a paginated table is a count and a slice rather than a queryset
-walked to find out how long it is.
+rows is everything that matches, not the page of it. The page is sliced
+afterwards, so a paginated table is a count and a slice rather than a
+queryset walked to find out how long it is.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Mapping, Sequence
 from urllib.parse import urlencode
@@ -91,7 +97,8 @@ DEFAULT_PAGE_SIZE = 25
 
 type Rows = Sequence[Mapping[str, Any]]
 type ActionHandler = Callable[[Any, list[str]], Any]
-type Describe = Callable[[Any, Any, "TableState"], "TableSpec"]
+# Given the request and what it asked for, everything that matches.
+type RowsFor = Callable[[Any, "TableState"], Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,58 +148,6 @@ class BulkAction:
     variant: ButtonVariant = "outline"
 
 
-@dataclass(frozen=True, slots=True)
-class TableSpec:
-    """
-    What one table is, for one request. What the described method returns.
-    """
-
-    columns: list[Column]
-    rows: Any
-    identifier: str | None = None
-    search: str | None = None
-    actions: Mapping[str, BulkAction] = field(default_factory=dict)
-    page_size: int = DEFAULT_PAGE_SIZE
-
-    def __post_init__(self) -> None:
-        if self.actions and self.identifier is None:
-            raise ValueError(
-                "This table has actions but no identifier, so there is "
-                "nothing to hand them. Name the property a row is known by."
-            )
-
-
-def table(
-    *,
-    columns: list[Column],
-    rows: Any,
-    identifier: str | None = None,
-    search: str | None = None,
-    actions: Mapping[str, BulkAction] | None = None,
-    page_size: int = DEFAULT_PAGE_SIZE,
-) -> TableSpec:
-    """
-    Describe a table for the request being answered.
-
-    rows is everything that matches - the whole filtered, ordered set. The
-    page is taken from it afterwards, so a queryset stays lazy and gets
-    counted rather than walked.
-
-    identifier names the property a row is known by. Giving one is what
-    puts a checkbox in every row, and it is those values an action is
-    handed. It is not one of the columns, because a row is usually known
-    by something nobody wants to see.
-    """
-    return TableSpec(
-        columns=columns,
-        rows=rows,
-        identifier=identifier,
-        search=search,
-        actions=dict(actions or {}),
-        page_size=page_size,
-    )
-
-
 def _total(rows: Any) -> int:
     """
     How many rows match, without walking them.
@@ -217,12 +172,18 @@ class BoundTable:
     none of them reaches for the request or works out a URL of its own.
     """
 
-    key: str
-    root: str
+    declaration: Datatable
     state: TableState
-    spec: TableSpec
     page: Rows
     total: int
+
+    @property
+    def key(self) -> str:
+        return self.declaration.key
+
+    @property
+    def root(self) -> str:
+        return self.declaration.root
 
     def href(self, **changes: Any) -> str:
         """
@@ -239,16 +200,16 @@ class BoundTable:
         imports: table.py knowing about this module would be a circle, and
         what is being asked here is what the bound state is for.
         """
-        spec = self.spec
-        into.id(self.key).columns(spec.columns).rows(self.page).sorted(
+        declared = self.declaration
+        into.id(self.key).columns(declared.columns).rows(self.page).sorted(
             self.state.sort
         ).sort_href(lambda order: self.href(sort=order))
 
-        if spec.identifier is None:
+        if declared.identifier is None:
             return into
 
-        into.selectable(spec.identifier).name(SELECTED)
-        if not spec.actions:
+        into.selectable(declared.identifier).name(SELECTED)
+        if not declared.actions:
             return into
 
         into.bulk_actions(
@@ -259,14 +220,14 @@ class BoundTable:
                 .type("submit")
                 .content(action.label)
                 .attr("formaction", self.action_url(name))
-                for name, action in spec.actions.items()
+                for name, action in declared.actions.items()
             )
         )
         # A real form around real checkboxes, inside the frame so the
         # table is still the outermost thing and still what a response is
         # swapped into. Every button names its own action, so the form's
         # own is only a fallback for a browser that ignores formaction.
-        return into.form(self.action_url(next(iter(spec.actions))))
+        return into.form(self.action_url(next(iter(declared.actions))))
 
     def action_url(self, name: str) -> str:
         """
@@ -279,43 +240,56 @@ class BoundTable:
 
 class Datatable:
     """
-    A described table and the two routes that serve it.
+    One table's declaration, and the two routes that serve it.
 
-    Built by the decorator while the class body runs, which is the only
-    time a route can be registered - and it calls the method it decorates
-    at request time, which is the only time the rows can be known.
+    Everything about a table is fixed except which rows answer it, so
+    everything but rows is stated here once and rows is a function called
+    per request. Declared at class scope, because that is the only time a
+    route can be registered.
     """
 
-    def __init__(self, router: Router[Any], key: str, describe: Describe) -> None:
+    def __init__(
+        self,
+        router: Router[Any],
+        *,
+        key: str,
+        columns: list[Column],
+        rows: RowsFor,
+        identifier: str | None = None,
+        search: str | None = None,
+        actions: Mapping[str, BulkAction] | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> None:
         self.key = key
-        self.describe = describe
+        self.columns = columns
+        self.rows = rows
+        self.identifier = identifier
+        self.search = search
+        self.actions = dict(actions or {})
+        self.page_size = page_size
         self._router = router
+        if self.actions and identifier is None:
+            raise ValueError(
+                f"{key} has actions but no identifier, so there is nothing "
+                f"to hand them. Name the property a row is known by."
+            )
         self._register()
 
     @property
     def root(self) -> str:
         return f"/{self.key}/"
 
-    def __get__(self, view: Any, owner: type | None = None) -> Any:
-        """
-        self.invoices(request) on the view, and the Datatable itself off
-        the class - so the routes can reach it without an instance.
-        """
-        if view is None:
-            return self
-        return lambda request: self.bind(view, request)
-
-    def bind(self, view: Any, request: Any) -> BoundTable:
+    def bind(self, request: Any) -> BoundTable:
         """
         Everything one request needs, in one value.
         """
         asked = self.state_of(request)
-        spec = self.describe(view, request, asked)
-        total = _total(spec.rows)
-        start = (asked.page - 1) * spec.page_size
-        page = list(spec.rows[start : start + spec.page_size])
-        self._check_identifier(spec, page)
-        return BoundTable(self.key, self.root, asked, spec, page, total)
+        matching = self.rows(request, asked)
+        total = _total(matching)
+        start = (asked.page - 1) * self.page_size
+        page = list(matching[start : start + self.page_size])
+        self._check_identifier(page)
+        return BoundTable(self, asked, page, total)
 
     def state_of(self, request: Any) -> TableState:
         asked = self._router._get_query_params(request)
@@ -327,20 +301,20 @@ class Datatable:
             sort=asked.get(SORT) or None, query=asked.get(QUERY, ""), page=page
         )
 
-    def render(self, view: Any, request: Any) -> ComponentType:
+    def render(self, request: Any) -> ComponentType:
         """
         All of it, for a view that wants the table and no say in how it is
         arranged.
         """
-        bound = self.bind(view, request)
+        bound = self.bind(request)
         return html.div(
-            *((TableSearch.from_state(bound),) if bound.spec.search else ()),
+            *((TableSearch.from_state(bound),) if self.search else ()),
             DataTable.from_state(bound),
             TablePagination.from_state(bound),
             class_="flex flex-col gap-3",
         )
 
-    def _check_identifier(self, spec: TableSpec, page: Rows) -> None:
+    def _check_identifier(self, page: Rows) -> None:
         """
         Every row has to carry what it is known by.
 
@@ -350,13 +324,13 @@ class Datatable:
         missing posts an empty selection to an action that then does
         nothing to nothing.
         """
-        if spec.identifier is None or not page:
+        if self.identifier is None or not page:
             return
         try:
-            resolve_value(page[0], spec.identifier)
+            resolve_value(page[0], self.identifier)
         except ValueError:
             raise ValueError(
-                f"{self.key} is identified by {spec.identifier!r}, and its "
+                f"{self.key} is identified by {self.identifier!r}, and its "
                 f"rows do not carry it - they have {sorted(page[0])}. Every "
                 f"row needs the property it is known by, whether or not a "
                 f"column shows it: it is what a checkbox submits and what "
@@ -374,21 +348,20 @@ class Datatable:
         """
 
         async def read(view: Any, request: Any, context: Any) -> ComponentType:
-            return DataTable.from_state(self.bind(view, request))
+            return DataTable.from_state(self.bind(request))
 
         async def act(
             view: Any, request: Any, context: Any, action: str
         ) -> ComponentType:
-            chosen = self.bind(view, request).spec.actions.get(action)
+            chosen = self.actions.get(action)
             if chosen is None:
-                known = sorted(self.bind(view, request).spec.actions)
                 raise ValueError(
                     f"{self.key} has no action called {action!r}. It has "
-                    f"{known or 'none at all'}."
+                    f"{sorted(self.actions) or 'none at all'}."
                 )
             chosen.handler(request, self._router._get_form_list(request, SELECTED))
-            # Bound again, because the rows have just changed under it.
-            return DataTable.from_state(self.bind(view, request))
+            # Bound after, because the rows have just changed under it.
+            return DataTable.from_state(self.bind(request))
 
         # Named before they are registered, not after: the router takes a
         # route's name off __name__ as it decorates, so two tables on one
@@ -399,25 +372,46 @@ class Datatable:
         self._router.fragment_post(f"{self.key}/<str:action>/")(act)
 
 
-def datatable(router: Router[Any], key: str) -> Callable[[Describe], Datatable]:
+def datatable(
+    router: Router[Any],
+    *,
+    key: str,
+    columns: list[Column],
+    rows: RowsFor,
+    identifier: str | None = None,
+    search: str | None = None,
+    actions: Mapping[str, BulkAction] | None = None,
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> Datatable:
     """
-    Declare a table, and the routes that serve it, from the method that
-    describes it.
+    Declare a table and the two routes that serve it.
 
     key names the fragment path and the element every response is swapped
     into, so it has to be unique on the page - and it is the whole of the
     wiring, since every URL the table builds comes off it.
 
-    The method is given the view, the request and the state that was asked
-    for, and returns table(). It runs for the page, for a sort, for a
-    search, for a page and for an action, which is what keeps all five
-    answering with the table in the state it was in.
+    rows is the only part of a table that is not fixed, so it is the only
+    part that is a function. It is handed the request and the state that
+    was asked for, and returns everything that matches - the whole
+    filtered, ordered set, not the page of it. The page is sliced
+    afterwards, so a queryset stays lazy and gets counted rather than
+    walked.
+
+    identifier names the property a row is known by. Giving one is what
+    puts a checkbox in every row, and it is those values an action is
+    handed. It is not one of the columns, because a row is usually known
+    by something nobody wants to see.
     """
-
-    def decorate(describe: Describe) -> Datatable:
-        return Datatable(router, key, describe)
-
-    return decorate
+    return Datatable(
+        router,
+        key=key,
+        columns=columns,
+        rows=rows,
+        identifier=identifier,
+        search=search,
+        actions=actions,
+        page_size=page_size,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -459,7 +453,7 @@ class TablePagination(ChainableComponent):
 
     @classmethod
     def from_state(cls, state: BoundTable) -> Self:
-        size = state.spec.page_size
+        size = state.declaration.page_size
         return cls().content(
             Pagination()
             .page(state.state.page)
@@ -490,9 +484,9 @@ def _search_form(bound: BoundTable) -> ComponentType:
         TextInput()
         .name(QUERY)
         .attr("type", "search")
-        .label(bound.spec.search or "")
+        .label(bound.declaration.search or "")
         .hidden_label()
-        .placeholder(bound.spec.search or "")
+        .placeholder(bound.declaration.search or "")
         .value(bound.state.query)
         .leading_icon(HueIcon("search")),
         # The order rides along, so searching keeps the order it was in.
