@@ -126,3 +126,54 @@ def test_a_flat_form_dict_would_have_kept_only_the_last_one():
 
     assert router._get_form_data(request)["selected"] == "INV-2048"
     assert router._get_form_list(request, "selected") == ["INV-2050", "INV-2048"]
+
+
+def _searchable(rows_seen: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
+    router = Router[HttpRequest]()
+    state = datatable(
+        router,
+        key="invoices",
+        columns=[Column("invoice", "Invoice")],
+        rows=lambda asked: (
+            rows_seen.append(asked.query)
+            or [row for row in _INVOICES if asked.query in row["invoice"]]
+        ),
+        search="Search invoices",
+    )
+    return router, state
+
+
+def test_the_search_box_submits_itself_after_a_pause():
+    # Debounced so a word typed at speed is one request rather than five,
+    # and a form so Enter already works without any of this.
+    _, state = _searchable([])
+    html = _render(state.build(TableState()))
+    assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
+    assert re.search(r'<form method="get" action="/invoices/"[^>]*x-target="invoices"', html)
+
+
+def test_the_box_sits_outside_what_gets_replaced():
+    # A box swapped out from under the person typing in it loses the caret.
+    _, state = _searchable([])
+    html = _render(state.build(TableState()))
+    form_at = html.index("<form")
+    frame_at = html.index('id="invoices"')
+    assert form_at < frame_at
+    assert html.index("</form>") < frame_at
+
+
+def test_what_was_searched_for_reaches_rows_and_comes_back_in_the_box():
+    seen: list[str] = []
+    _, state = _searchable(seen)
+    html = _render(state.build(TableState(query="2050")))
+    assert seen == ["2050"]
+    assert "INV-2050" in html
+    assert "INV-2048" not in html
+    assert re.search(r'value="2050"', html)
+
+
+def test_a_search_keeps_the_order_it_was_already_in():
+    _, state = _build([])
+    assert state.href(TableState(sort="-amount", query="acme")) == (
+        "/invoices/?sort=-amount&q=acme"
+    )

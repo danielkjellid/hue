@@ -49,6 +49,8 @@ from htmy import html
 
 from hue.types.core import ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
+from hue.ui.atoms.icon import HueIcon
+from hue.ui.atoms.input import TextInput
 from hue.ui.molecules.table import Column, DataTable
 
 if TYPE_CHECKING:
@@ -56,6 +58,13 @@ if TYPE_CHECKING:
 
 # The name every row checkbox is submitted under.
 SELECTED = "selected"
+
+# What the search box is called in the query string.
+QUERY = "q"
+
+# Long enough that a word typed at speed is one request rather than five,
+# short enough that the table has moved by the time you stop to look at it.
+SEARCH_DELAY = "300ms"
 
 type Rows = Sequence[Mapping[str, Any]]
 type RowsFor = Callable[["TableState"], Rows]
@@ -73,6 +82,7 @@ class TableState:
     """
 
     sort: str | None = None
+    query: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,11 +114,13 @@ class DataTableState:
         rows: RowsFor,
         select: str | None = None,
         actions: Mapping[str, BulkAction] | None = None,
+        search: str | None = None,
     ) -> None:
         self.key = key
         self.columns = columns
         self.rows = rows
         self.select = select
+        self.search = search
         self.actions = dict(actions or {})
         self._router = router
         self._register()
@@ -125,11 +137,16 @@ class DataTableState:
         The URL for a state, which is the same URL whichever side asks for
         it: the header link, and the action that re-renders afterwards.
         """
-        query = {"sort": state.sort} if state.sort else {}
-        return f"/{self.path()}" + (f"?{urlencode(query)}" if query else "")
+        asked = {
+            name: value
+            for name, value in (("sort", state.sort), (QUERY, state.query))
+            if value
+        }
+        return f"/{self.path()}" + (f"?{urlencode(asked)}" if asked else "")
 
     def state_of(self, request: Any) -> TableState:
-        return TableState(sort=self._router._get_query_params(request).get("sort"))
+        asked = self._router._get_query_params(request)
+        return TableState(sort=asked.get("sort"), query=asked.get(QUERY, ""))
 
     # ------------------------------------------------------------------
     # Rendering
@@ -142,6 +159,46 @@ class DataTableState:
         return self.build(self.state_of(request))
 
     def build(self, state: TableState) -> ComponentType:
+        return html.div(
+            *((self._search(state),) if self.search is not None else ()),
+            self._table(state),
+            class_="flex flex-col gap-3",
+        )
+
+    def _search(self, state: TableState) -> ComponentType:
+        """
+        A GET form of its own, above the frame and outside it.
+
+        Outside because the frame is what gets replaced: a box swapped out
+        from under the person typing in it loses the caret and the focus
+        along with it. A form because that is what Enter already does, and
+        x-target only changes it from a navigation into a swap.
+        """
+        return html.form(
+            TextInput()
+            .name(QUERY)
+            .attr("type", "search")
+            .label(self.search or "")
+            .hidden_label()
+            .placeholder(self.search or "")
+            .value(state.query)
+            .leading_icon(HueIcon("search")),
+            # The sort survives a search because it is still in the form.
+            *(
+                (html.input_(type="hidden", name="sort", value=state.sort),)
+                if state.sort
+                else ()
+            ),
+            method="get",
+            action=f"/{self.path()}",
+            class_="max-w-xs",
+            **{
+                "x-target": self.key,
+                f"@input.debounce.{SEARCH_DELAY}": "$el.requestSubmit()",
+            },
+        )
+
+    def _table(self, state: TableState) -> ComponentType:
         table = (
             DataTable()
             .id(self.key)
@@ -224,6 +281,7 @@ def datatable(
     rows: RowsFor,
     select: str | None = None,
     actions: Mapping[str, BulkAction] | None = None,
+    search: str | None = None,
 ) -> DataTableState:
     """
     Declare a table and the routes that serve it.
@@ -232,7 +290,10 @@ def datatable(
     into, so it has to be unique on the page. rows is given the state that
     was asked for and returns the rows for it - not a callback that fires
     when something is sorted, because a sort is a question and rows() is
-    already the answer to it.
+    already the answer to it, and so is a search.
+
+    search is the placeholder for a box above the table, and having one is
+    what puts a box there at all.
     """
     return DataTableState(
         router,
@@ -241,4 +302,5 @@ def datatable(
         rows=rows,
         select=select,
         actions=actions,
+        search=search,
     )
