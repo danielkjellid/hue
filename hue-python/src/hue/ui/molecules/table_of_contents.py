@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 
-from htmy import SafeStr, html
+from htmy import Context, SafeStr, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
@@ -72,7 +71,7 @@ class TableOfContents(ChainableComponent):
         self._props["title"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         title: str = self._get_prop("title", "On this page")
         title_id = "$id('hue-toc-title')"
         options = json.dumps(
