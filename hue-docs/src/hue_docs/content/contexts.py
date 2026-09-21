@@ -5,9 +5,8 @@ from hue.types.core import ComponentType
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
 
-_PROBLEM = '''class Nav(ChainableComponent):
-    """A bit of navigation, assembled somewhere else."""
-
+_PROBLEM = '''# A component of your own, which happens to build sidebar rows.
+class Workspace(ChainableComponent):
     def _render(self, context):
         return SidebarSection().content(
             SidebarItem().href("/").content("Home"),
@@ -15,7 +14,8 @@ _PROBLEM = '''class Nav(ChainableComponent):
         )
 
 
-Sidebar().current("/events").content(SidebarBody().content(Nav()))'''
+# The sidebar is told the page, and can reach none of the rows on it.
+Sidebar().current("/events").content(SidebarBody().content(Workspace()))'''
 
 _CONTRACT = """@dataclass(frozen=True, slots=True)
 class CurrentPage:
@@ -55,6 +55,11 @@ def from_context(cls, context: Context) -> FormErrors:
     found = context.get(cls)
     return found if isinstance(found, cls) else cls()"""
 
+_REQUEST = """class WhoIsHere(ChainableComponent):
+    def _render(self, context: Context) -> Component:
+        user = HueContext.from_context(context).request.user
+        return html.span(user.get_full_name())"""
+
 _NESTING = """Tabs().variant("underline").content(
     TabPanel().content(
         # A row inside a panel. Everything in here reads "segmented";
@@ -83,12 +88,12 @@ def _build() -> ComponentType:
         ),
         pr.code(_PROBLEM),
         pr.p(
-            "The sidebar's children are one SidebarBody holding one Nav. The "
-            "items do not exist yet, and when they do it is Nav that makes "
-            "them, which knows nothing about the current page. A prop cannot "
-            "cross that, and neither can a walk over the tree: the children "
-            "of a component are what was attached to it, not what it will "
-            "eventually render."
+            "The sidebar's children are one SidebarBody holding one "
+            "Workspace. The rows do not exist yet, and when they do it is "
+            "Workspace that makes them, which knows nothing about the "
+            "current page. A prop cannot cross that, and neither can a walk "
+            "over the tree: the children of a component are what was "
+            "attached to it, not what it will eventually render."
         ),
         pr.p(
             "A context goes the other way. Instead of the sidebar reaching "
@@ -143,7 +148,9 @@ def _build() -> ComponentType:
                     "by render_tree. Every component looks it up and throws "
                     "it away, so a tree rendered outside one fails at the "
                     "first component rather than at whichever one later "
-                    "wants a token."
+                    "wants a token. A component that wants it reads it the "
+                    "same way anything else in the context is read, out of "
+                    "the context its own _render was handed."
                 ),
                 pr.p(
                     "CurrentPage - the path Sidebar was told it is on. A "
@@ -162,6 +169,7 @@ def _build() -> ComponentType:
                 ),
             ]
         ),
+        pr.code(_REQUEST),
         pr.h2("When not to reach for one"),
         pr.p(
             "Hue is declarative on purpose: a call site should say what it "
