@@ -52,9 +52,9 @@ class TestBadge:
         assert_selector(html, "span.px-\\[7px\\]")
 
     @pytest.mark.asyncio
-    async def test_pill_shape_overrides_the_size_padding(self, context_args):
+    async def test_a_pill_overrides_the_size_padding(self, context_args):
         html = await render_tree(
-            Badge().shape("pill").content("Draft"), context_args=context_args
+            Badge().pill().content("Draft"), context_args=context_args
         )
         assert_selector(html, "span.rounded-full")
         assert_no_selector(html, "span.rounded-sm")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import ClassVar
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -10,8 +10,6 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
-
-type FieldLayout = Literal["stacked", "horizontal"]
 
 # The label column in the horizontal layout. Wide enough for two or three
 # words, so a settings page keeps one edge down the middle of the form.
@@ -72,7 +70,7 @@ class Field(ChainableComponent):
 
     Not documented on its own and not something to reach for directly: the
     controls build one for themselves, and their own modifiers - label(),
-    hint(), error(), layout() - are the API. This is where those land.
+    hint(), error(), horizontal() - are the API. This is where those land.
     """
 
     category: ClassVar[str | None] = None
@@ -111,8 +109,12 @@ class Field(ChainableComponent):
         self._props["trailing"] = values
         return self
 
-    def layout(self, value: FieldLayout) -> Self:
-        self._props["layout"] = value
+    def horizontal(self, value: bool = True) -> Self:
+        """
+        Put the label beside the control rather than above it, for a
+        settings page where every row shares one edge.
+        """
+        self._props["horizontal"] = value
         return self
 
     def required(self, value: bool = True) -> Self:
@@ -132,12 +134,11 @@ class Field(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        layout: FieldLayout = self._get_prop("layout", "stacked")
         label: str | None = self._get_prop("label")
         hint: str | None = self._get_prop("hint")
         error: str | None = self._get_prop("error")
         trailing: tuple[ComponentType, ...] = self._get_prop("trailing", ())
-        horizontal = layout == "horizontal"
+        horizontal: bool = self._get_prop("horizontal", False)
 
         # A hidden label is still a label, but it is not a row: sr-only takes
         # it out of the flow, so leaving it in the header would leave the gap

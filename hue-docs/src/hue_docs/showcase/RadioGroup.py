@@ -61,7 +61,7 @@ SHOWCASES: list[Showcase] = [
                 (
                     RadioGroup().name("plan_card")
                     .legend("Plan")
-                    .variant("card")
+                    .card()
                     .value("team")
                     .content(
                         Radio()

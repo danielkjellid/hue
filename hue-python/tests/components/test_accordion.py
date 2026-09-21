@@ -112,7 +112,7 @@ class TestAccordion:
         html = await render_tree(_accordion(), context_args=context_args)
         assert_selector(html, "div.w-full.border-t")
 
-    # variant(): both branches
+    # boxed(): both branches
     @pytest.mark.asyncio
     async def test_plain_is_a_stack_of_rules(self, context_args):
         html = await render_tree(_accordion(), context_args=context_args)
@@ -120,5 +120,5 @@ class TestAccordion:
 
     @pytest.mark.asyncio
     async def test_boxed_is_a_stack_of_cards(self, context_args):
-        html = await render_tree(_accordion(variant="boxed"), context_args=context_args)
+        html = await render_tree(_accordion(boxed=True), context_args=context_args)
         assert_selector(html, "div.flex.flex-col.gap-2")

@@ -56,7 +56,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Accordion()
-                    .variant("boxed")
+                    .boxed()
                     .multiple()
                     .content(
                         AccordionItem()

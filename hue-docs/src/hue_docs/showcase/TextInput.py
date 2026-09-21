@@ -78,7 +78,7 @@ SHOWCASES: list[Showcase] = [
                     .label("Workspace URL")
                     .hint("Used in every share link.")
                     .value("northwind")
-                    .layout("horizontal")
+                    .horizontal()
                 )
                 """,
             ),

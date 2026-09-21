@@ -62,7 +62,7 @@ SHOWCASES: list[Showcase] = [
                     .name("sso")
                     .label("Enforce SSO")
                     .description("Members sign in through your identity provider.")
-                    .variant("card")
+                    .card()
                     .checked()
                 )
                 """,

@@ -12,17 +12,15 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
-type AccordionVariant = Literal["plain", "boxed"]
 type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
 
-_VARIANTS: dict[AccordionVariant, str] = {
-    "plain": "border-t border-border [&>*]:border-b [&>*]:border-border",
-    "boxed": (
-        "flex flex-col gap-2 "
-        "[&>*]:rounded-md [&>*]:border [&>*]:border-border "
-        "[&>*]:bg-surface [&>*]:px-4"
-    ),
-}
+# Ruled off from each other, or each in a box of its own.
+_PLAIN = "border-t border-border [&>*]:border-b [&>*]:border-border"
+_BOXED = (
+    "flex flex-col gap-2 "
+    "[&>*]:rounded-md [&>*]:border [&>*]:border-border "
+    "[&>*]:bg-surface [&>*]:px-4"
+)
 
 _TRIGGER = (
     "flex w-full cursor-pointer items-center justify-between gap-4 rounded-sm "
@@ -63,8 +61,12 @@ class Accordion(ChainableComponent):
             .content("Upgrades take effect immediately and are prorated."),
         )
 
-    def variant(self, value: AccordionVariant) -> Self:
-        self._props["variant"] = value
+    def boxed(self, value: bool = True) -> Self:
+        """
+        Put a border and a radius around the whole set, for a list that
+        stands on its own rather than one inside something already ruled.
+        """
+        self._props["boxed"] = value
         return self
 
     def multiple(self, value: bool = True) -> Self:
@@ -76,7 +78,7 @@ class Accordion(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        variant: AccordionVariant = self._get_prop("variant", "plain")
+        boxed: bool = self._get_prop("boxed", False)
         multiple: bool = self._get_prop("multiple", False)
 
         # The items are numbered here rather than numbering themselves, since
@@ -107,7 +109,11 @@ class Accordion(ChainableComponent):
             # w-full, or the accordion is as wide as whichever panel happens
             # to be open and the whole thing jumps every time one is. The
             # panel keeps its own reading width instead.
-            class_=classnames("w-full", _VARIANTS[variant], self._get_prop("class_")),
+            class_=classnames(
+                "w-full",
+                _BOXED if boxed else _PLAIN,
+                self._get_prop("class_"),
+            ),
             **{"x-data": state, **self._get_base_html_attrs()},
         )
 

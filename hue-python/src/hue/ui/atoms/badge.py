@@ -19,7 +19,6 @@ type BadgeVariant = Literal[
     "solid",
 ]
 type BadgeSize = Literal["md", "lg"]
-type BadgeShape = Literal["rounded", "pill"]
 
 # Keyed by the Literal so mypy keeps the map exhaustive when a variant is added.
 _VARIANT_CLASSES: dict[BadgeVariant, str] = {
@@ -61,8 +60,12 @@ class Badge(ChainableComponent):
         self._props["size"] = value
         return self
 
-    def shape(self, value: BadgeShape) -> Self:
-        self._props["shape"] = value
+    def pill(self, value: bool = True) -> Self:
+        """
+        Round the ends fully, which is what a count wants: a number in a
+        box reads as a field, a number in a pill reads as a tally.
+        """
+        self._props["pill"] = value
         return self
 
     def dot(self, value: bool = True) -> Self:
@@ -82,7 +85,7 @@ class Badge(ChainableComponent):
     def _render(self, context: Context) -> Component:
         variant: BadgeVariant = self._get_prop("variant", "neutral")
         size: BadgeSize = self._get_prop("size", "md")
-        shape: BadgeShape = self._get_prop("shape", "rounded")
+        pill: bool = self._get_prop("pill", False)
         dot: bool = self._get_prop("dot", False)
         numeric: bool = self._get_prop("numeric", False)
 
@@ -107,8 +110,8 @@ class Badge(ChainableComponent):
                 _VARIANT_CLASSES[variant],
                 # A pill's wider padding wins over the size's, so the two are
                 # picked here rather than left to fight in the class list.
-                "rounded-full px-[9px]" if shape == "pill" else "rounded-sm",
-                "" if shape == "pill" else _PADDING_CLASSES[size],
+                "rounded-full px-[9px]" if pill else "rounded-sm",
+                "" if pill else _PADDING_CLASSES[size],
                 "tabular-nums" if numeric else "",
                 self._get_prop("class_"),
             ),

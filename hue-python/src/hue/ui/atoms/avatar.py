@@ -10,7 +10,6 @@ from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
 type AvatarSize = Literal["xs", "sm", "md", "lg", "xl"]
-type AvatarShape = Literal["circle", "square"]
 type AvatarStatus = Literal["online", "away", "busy", "offline"]
 
 _BOX_CLASSES: dict[AvatarSize, str] = {
@@ -94,8 +93,12 @@ class Avatar(ChainableComponent):
         """
         self._props.setdefault("size", value)
 
-    def shape(self, value: AvatarShape) -> Self:
-        self._props["shape"] = value
+    def square(self, value: bool = True) -> Self:
+        """
+        Round the corners instead of the whole thing, which is what a
+        logo or a product wants - a circle crops one.
+        """
+        self._props["square"] = value
         return self
 
     def status(self, value: AvatarStatus) -> Self:
@@ -104,7 +107,7 @@ class Avatar(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         size: AvatarSize = self._get_prop("size", "md")
-        shape: AvatarShape = self._get_prop("shape", "circle")
+        square: bool = self._get_prop("square", False)
         name: str | None = self._get_prop("name")
         src: str | None = self._get_prop("src")
         status: AvatarStatus | None = self._get_prop("status")
@@ -132,7 +135,7 @@ class Avatar(ChainableComponent):
             # an icon.
             body = self._children
 
-        radius = "rounded-md" if shape == "square" else "rounded-full"
+        radius = "rounded-md" if square else "rounded-full"
 
         return html.span(
             # The picture is clipped to the shape here rather than on the root,
