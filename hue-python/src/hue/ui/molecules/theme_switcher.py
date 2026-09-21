@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
+from htmy import Context
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
@@ -70,7 +70,7 @@ class ThemeSwitcher(ChainableComponent):
             return segment.content(icon, option.text)
         return segment.icon_only(option.description).content(icon)
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: ThemeSwitcherVariant = self._get_prop("variant", "icons")
         labelled = variant == "labelled"
 

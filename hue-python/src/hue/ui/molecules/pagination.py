@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
@@ -107,7 +106,7 @@ class Pagination(ChainableComponent):
         self._props["href"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         page: int = self._get_prop("page", 1)
         total_pages: int = self._get_prop("total_pages", 1)
         total_records: int | None = self._get_prop("total_records")

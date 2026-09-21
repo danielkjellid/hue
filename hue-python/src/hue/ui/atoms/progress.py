@@ -3,10 +3,9 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from htmy import SafeStr, html
+from htmy import Context, SafeStr, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
@@ -91,7 +90,7 @@ class Progress(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         size: ProgressSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
@@ -187,7 +186,7 @@ class ProgressRing(ChainableComponent):
         self._props["show_value"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         label: str | None = self._get_prop("label")
         show_value: bool = self._get_prop("show_value", False)

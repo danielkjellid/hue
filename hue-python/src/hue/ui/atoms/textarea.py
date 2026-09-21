@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import override
 
-from htmy import html
+from htmy import Context, html
 from htmy.core import TagConfig
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import FIELD_SHELL
 from hue.ui.form import FieldControl
@@ -109,7 +108,7 @@ class Textarea(FieldControl):
         self._props["layout"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)

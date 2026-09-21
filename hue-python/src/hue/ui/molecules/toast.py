@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.toast import INHERIT, ToastMessage, ToastVariant, toast
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
@@ -118,7 +117,7 @@ class Toast(ChainableComponent):
         self._props["dismissible"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: ToastVariant = self._get_prop("variant", "info")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
@@ -238,7 +237,7 @@ class ToastRegion(ChainableComponent):
         self._props["default_duration"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         # Whatever the handler queued is rendered here, which is also what
         # keeps the router from appending it a second time.
         return html.div(

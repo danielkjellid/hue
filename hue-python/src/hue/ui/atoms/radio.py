@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
@@ -82,7 +81,7 @@ class Radio(ChainableComponent):
         if disabled:
             self._props["disabled"] = True
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         value: str = self._get_prop("value", "")
         name: str = self._get_prop("name", "")
         disabled: bool = self._get_prop("disabled", False)
@@ -162,7 +161,7 @@ class RadioGroup(FieldControl):
         self._props["variant"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         legend: str | None = self._get_prop("legend") or self._get_prop("label")
         variant: ChoiceVariant = self._get_prop("variant", "inline")

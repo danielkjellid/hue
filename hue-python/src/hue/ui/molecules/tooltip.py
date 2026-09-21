@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button
@@ -82,7 +81,7 @@ class Tooltip(ChainableComponent):
         self._props["shortcut"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         placement: TooltipPlacement = self._get_prop("placement", "top")
         trigger: ChainableComponent | None = self._get_prop("trigger")
 

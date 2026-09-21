@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
@@ -84,7 +83,7 @@ class Checkbox(FormControl):
         self._props["variant"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)

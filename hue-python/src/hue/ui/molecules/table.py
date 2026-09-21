@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Literal, Mapping, Sequence
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.text import Text
 from hue.ui.base import ChainableComponent
@@ -75,7 +74,7 @@ class Table(ChainableComponent):
             ),
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "w-full caption-bottom text-sm",
             self._get_prop("class_"),
@@ -95,7 +94,7 @@ class TableHeader(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "[&_tr]:border-b [&_tr]:border-surface-200",
             self._get_prop("class_"),
@@ -112,7 +111,7 @@ class TableBody(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "[&_tr:last-child]:border-0",
             self._get_prop("class_"),
@@ -129,7 +128,7 @@ class TableFooter(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "border-t border-surface-200 bg-surface-50 font-medium",
             self._get_prop("class_"),
@@ -152,7 +151,7 @@ class TableRow(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "border-b border-surface-200 transition-colors",
             "hover:bg-surface-50 data-[state=selected]:bg-surface-100",
@@ -188,7 +187,7 @@ class TableHead(ChainableComponent):
         self._props["colspan"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         align: CellAlign = self._get_prop("align", "left")
         classes = classnames(
             "h-10 px-2 align-middle font-medium whitespace-nowrap",
@@ -222,7 +221,7 @@ class TableCell(ChainableComponent):
         self._props["colspan"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         align: CellAlign = self._get_prop("align", "left")
         classes = classnames(
             "p-2 align-middle whitespace-nowrap",
@@ -246,7 +245,7 @@ class TableCaption(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         classes = classnames(
             "mt-4 text-sm text-surface-500",
             self._get_prop("class_"),
@@ -417,7 +416,7 @@ class DataTable(ChainableComponent):
             ]
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         # The caption must be the first child of a table; caption-bottom on the
         # Table handles where it is displayed.
         table = Table().content(

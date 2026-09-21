@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from htmy import html
+from dataclasses import dataclass
+
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent, Clickable
@@ -28,6 +29,23 @@ _IDLE = (
 # elsewhere is a row that says nothing - so the fill stays with the pointer
 # and the mark stays with the page.
 _CURRENT = "text-fg [&_svg]:text-fg"
+
+
+@dataclass(frozen=True, slots=True)
+class CurrentPage:
+    """
+    The path the sidebar was told it is on, offered to everything inside
+    it. An item reads it and marks itself rather than being marked from
+    above, which is the difference between a component that knows a thing
+    and a component that was reached into.
+    """
+
+    path: str | None
+
+    @classmethod
+    def from_context(cls, context: Context) -> CurrentPage:
+        found = context.get(cls)
+        return found if isinstance(found, cls) else cls(None)
 
 
 class Sidebar(ChainableComponent):
@@ -73,12 +91,13 @@ class Sidebar(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
-        current: str | None = self._get_prop("current")
-        for child in self._children:
-            if isinstance(child, ChainableComponent):
-                _mark(child, current)
+    def htmy_context(self) -> Context:
+        """
+        What the page you are on is, for everything below to read.
+        """
+        return {CurrentPage: CurrentPage(self._get_prop("current"))}
 
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -97,7 +116,7 @@ class SidebarHeader(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -119,7 +138,7 @@ class SidebarBody(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.nav(
             *self._children,
             aria_label=self._get_prop("label", "Main"),
@@ -138,7 +157,7 @@ class SidebarFooter(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -156,7 +175,7 @@ class SidebarSection(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames("flex flex-col gap-0.5", self._get_prop("class_")),
@@ -171,7 +190,7 @@ class SidebarHeading(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -190,7 +209,7 @@ class SidebarDivider(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.hr(
             class_=classnames("my-4 h-px border-0 bg-border", self._get_prop("class_")),
             **self._get_base_html_attrs(),
@@ -207,7 +226,7 @@ class SidebarSpacer(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             class_=classnames("mt-8 flex-1", self._get_prop("class_")),
             **self._get_base_html_attrs(),
@@ -241,9 +260,12 @@ class SidebarItem(Clickable):
         self._props["current"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
-        current: bool = self._get_prop("current", False)
+    def _render(self, context: Context) -> Component:
         href: str | None = self._get_prop("href")
+        # Marked by its own href against the page the sidebar named, or
+        # by hand where a row stands for several paths.
+        here = CurrentPage.from_context(context).path
+        current: bool = self._get_prop("current", href is not None and href == here)
 
         children = (
             render_when(current, _indicator()),
@@ -279,7 +301,7 @@ class SidebarLabel(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.span(
             *self._children,
             class_=classnames("truncate", self._get_prop("class_")),
@@ -299,18 +321,3 @@ def _indicator() -> ComponentType:
         aria_hidden="true",
         class_="absolute inset-y-2 -start-4 w-0.5 rounded-full bg-accent",
     )
-
-
-def _mark(component: ChainableComponent, current: str | None) -> None:
-    """
-    Walk the tree marking the item whose href is the page you are on.
-    """
-    if current is None:
-        return
-    if isinstance(component, SidebarItem):
-        if component._get_prop("href") == current:
-            component._props["current"] = True
-        return
-    for child in component._children:
-        if isinstance(child, ChainableComponent):
-            _mark(child, current)

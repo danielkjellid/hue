@@ -3,10 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
@@ -88,7 +87,7 @@ class Empty(ChainableComponent):
         self._props["actions"] = values
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: EmptyVariant = self._get_prop("variant", "neutral")
         compact: bool = self._get_prop("compact", False)
         icon: ComponentType | None = self._get_prop("icon")

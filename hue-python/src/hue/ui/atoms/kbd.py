@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
 from hue import html as hue_html
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
@@ -104,7 +103,7 @@ class Kbd(ChainableComponent):
             class_=_KEY_CLASSES,
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         # Always wrapped, even for one key, so the caller's class_ and
         # attributes have a single predictable home.
         return html.span(
