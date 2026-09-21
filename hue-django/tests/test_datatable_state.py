@@ -216,3 +216,23 @@ def test_actions_with_nothing_to_hand_them_are_refused():
         assert "identifier" in str(error)
     else:  # pragma: no cover - the raise is the behaviour under test
         raise AssertionError("expected a ValueError")
+
+
+def test_rows_that_do_not_carry_the_identifier_are_refused():
+    # Otherwise the first checkbox raises about a missing dict key, and a
+    # table whose ids are quietly absent posts an empty selection.
+    router = Router[HttpRequest]()
+    state = datatable(
+        router,
+        key="invoices",
+        columns=[Column("invoice", "Invoice")],
+        rows=lambda asked: [{"invoice": "INV-2050"}],
+        identifier="pk",
+    )
+    try:
+        _render(_bound(state, TableState()))
+    except ValueError as error:
+        assert "identified by 'pk'" in str(error)
+        assert "['invoice']" in str(error)
+    else:  # pragma: no cover - the raise is the behaviour under test
+        raise AssertionError("expected a ValueError")

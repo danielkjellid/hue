@@ -73,7 +73,7 @@ from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import TextInput
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.table import Column, DataTable
+from hue.ui.molecules.table import Column, DataTable, _resolve
 from hue.utils import classnames
 
 if TYPE_CHECKING:
@@ -253,11 +253,13 @@ class DataTableState:
         )
 
     def apply(self, table: DataTable, state: TableState) -> DataTable:
+        rows = self.rows(state)
+        self._check_identifier(rows)
         table = (
             DataTable()
             .id(self.key)
             .columns(self.columns)
-            .rows(self.rows(state))
+            .rows(rows)
             .sorted(state.sort)
             .sort_href(lambda order: self.href(TableState(sort=order)))
         )
@@ -282,6 +284,29 @@ class DataTableState:
         # A real form around real checkboxes, inside the frame so the
         # table is still the outermost thing and still what gets swapped.
         return table.form(f"/{self.path()}")
+
+    def _check_identifier(self, rows: Rows) -> None:
+        """
+        Every row has to carry what it is known by.
+
+        Checked here rather than left to the first checkbox, because the
+        error that would come out of that names a key and a dict and not
+        the reason either of them matters - and because a table whose ids
+        are silently missing posts an empty selection to an action that
+        then does nothing to nothing.
+        """
+        if self.identifier is None or not rows:
+            return
+        try:
+            _resolve(rows[0], self.identifier)
+        except ValueError:
+            raise ValueError(
+                f"{self.key} is identified by {self.identifier!r}, and its "
+                f"rows do not carry it - they have "
+                f"{sorted(rows[0])}. Every row needs the property it is "
+                f"known by, whether or not a column shows it: it is what a "
+                f"checkbox submits and what an action is handed."
+            ) from None
 
     # ------------------------------------------------------------------
     # The routes
