@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Literal, Mapping, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Literal,
+    Mapping,
+    Sequence,
+    cast,
+)
 
 from htmy import html
 from typing_extensions import Self
@@ -17,6 +26,9 @@ from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.empty import Empty
 from hue.utils import classes_if_else, classnames, render_if
+
+if TYPE_CHECKING:
+    from hue.datatable import BoundTable
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
@@ -115,6 +127,17 @@ class Table(ChainableComponent):
         self._props["compact"] = value
         return self
 
+    def form(self, action: str) -> Self:
+        """
+        Post what is inside the table to this URL.
+
+        The form goes inside the frame rather than around it, so the table
+        is still the outermost thing and still what a response is swapped
+        into - and the checkboxes in the rows are inside it either way.
+        """
+        self._props["form"] = action
+        return self
+
     def toolbar(self, *values: ComponentType) -> Self:
         """
         What sits above the table inside the same frame - a bar of things to
@@ -141,7 +164,7 @@ class Table(ChainableComponent):
         # an empty state left under it would still be there.
         frame_id = attrs.pop("id", None)
 
-        return html.div(
+        inside: list[ComponentType] = [
             *self._get_prop("toolbar", ()),
             html.table(
                 *self._children,
@@ -158,9 +181,21 @@ class Table(ChainableComponent):
                 **attrs,
             ),
             *self._get_prop("footer", ()),
-            id=frame_id,
-            class_=_FRAME,
-        )
+        ]
+        action: str | None = self._get_prop("form")
+        if action is not None:
+            # Swapping the frame it sits in, which is the same thing the
+            # sort links swap, so there is one answer to every request.
+            inside = [
+                html.form(
+                    *inside,
+                    method="post",
+                    action=action,
+                    **({"x-target": frame_id} if frame_id else {}),
+                )
+            ]
+
+        return html.div(*inside, id=frame_id, class_=_FRAME)
 
 
 class TableHeader(ChainableComponent):
@@ -362,13 +397,16 @@ class Column:
     and align="end" is what a column of numbers wants: it lines the digits
     up as well as the edge. sort is what the server orders by, which is
     often not what the value is read from - give it one and the header
-    becomes a link to the rows in that order.
+    becomes a link to the rows in that order. identifies marks the column a
+    row is known by, which is what a checkbox in that row is worth and what
+    an action on it is given.
     """
 
     key: str | Callable[[Mapping[str, Any]], Any]
     label: str
     align: CellAlign = "start"
     sort: str | None = None
+    identifies: bool = False
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
@@ -431,6 +469,17 @@ class DataTable(ChainableComponent):
         self._rows: Sequence[Mapping[str, Any]] = []
 
     @classmethod
+    def from_state(cls, state: BoundTable) -> Self:
+        """
+        The table a bound state describes: its columns, the rows it was
+        asked for, the order they are in and where the next one lives.
+
+        Everything about it was decided by the declaration, so this is a
+        component like any other and goes wherever one goes.
+        """
+        return cast("Self", state.table(cls()))
+
+    @classmethod
     def example(cls) -> Self:
         return (
             cls()
@@ -469,6 +518,14 @@ class DataTable(ChainableComponent):
         Tighten the rows, for a table someone scans rather than reads.
         """
         self._props["compact"] = value
+        return self
+
+    def form(self, action: str) -> Self:
+        """
+        Post what is inside the table to this URL - which is how the rows
+        that are ticked are submitted. See Table.form().
+        """
+        self._props["form"] = action
         return self
 
     def loading(self, value: bool = True) -> Self:
@@ -573,6 +630,9 @@ class DataTable(ChainableComponent):
         # leaves the table element in place and rewrites what is around it
         # would otherwise leave a finished table busy for good.
         table.aria_busy("true" if loading else "false")
+
+        if (action := self._get_prop("form")) is not None:
+            table.form(action)
 
         if (values := self._selection_values()) is not None:
             table.x_data(f"hueTableSelection({json.dumps(values)})")

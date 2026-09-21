@@ -12,10 +12,18 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from django.http import HttpRequest
+from htmy import html
 from hue.context import HueContextArgs
-from hue.datatable import BulkAction, DataTableState, TableState, datatable
+from hue.datatable import (
+    BoundTable,
+    BulkAction,
+    DataTableState,
+    TableSearch,
+    TableState,
+    datatable,
+)
 from hue.renderer import render_tree
-from hue.ui.molecules.table import Column
+from hue.ui.molecules.table import Column, DataTable
 
 from hue_django.router import Router
 
@@ -31,7 +39,7 @@ def _build(archived: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
         router,
         key="invoices",
         columns=[
-            Column("invoice", "Invoice"),
+            Column("invoice", "Invoice", identifies=True),
             Column("amount", "Amount", align="end", sort="amount"),
         ],
         # The whole read path: given the order that was asked for, the rows
@@ -41,12 +49,24 @@ def _build(archived: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
             key=lambda row: row["amount"],
             reverse=(asked.sort or "").startswith("-"),
         ),
-        select="invoice",
         actions={
             "archive": BulkAction("Archive", lambda request, ids: archived.extend(ids))
         },
     )
     return router, state
+
+
+def _bound(state: DataTableState, asked: TableState) -> Any:
+    """
+    The two components a bound state gives you, as one tree.
+    """
+
+    bound = BoundTable(state, asked)
+    parts: list[Any] = []
+    if state.search is not None:
+        parts.append(TableSearch.from_state(bound))
+    parts.append(DataTable.from_state(bound))
+    return html.div(*parts)
 
 
 def _render(component: Any) -> str:
@@ -75,7 +95,7 @@ def test_the_routes_are_named_after_the_table():
 
 def test_the_header_links_to_its_own_route_and_swaps_itself():
     _, state = _build([])
-    html = _render(state.build(TableState()))
+    html = _render(_bound(state, TableState()))
     link = re.search(r'<th[^>]*>\s*<a href="([^"]*)"[^>]*x-target="([^"]*)"', html)
     assert link is not None
     assert link.group(1) == "/invoices/?sort=amount"
@@ -84,7 +104,7 @@ def test_the_header_links_to_its_own_route_and_swaps_itself():
 
 def test_the_order_asked_for_is_the_order_the_rows_come_back_in():
     _, state = _build([])
-    descending = _render(state.build(TableState(sort="-amount")))
+    descending = _render(_bound(state, TableState(sort="-amount")))
     first = re.search(r"<tbody.*?INV-(\d+)", descending, re.S)
     assert first is not None
     assert first.group(1) == "2050"
@@ -92,7 +112,7 @@ def test_the_order_asked_for_is_the_order_the_rows_come_back_in():
 
 def test_the_selection_posts_through_a_real_form():
     _, state = _build([])
-    html = _render(state.build(TableState()))
+    html = _render(_bound(state, TableState()))
     assert re.search(
         r'<form method="post" action="/invoices/" x-target="invoices"', html
     )
@@ -133,7 +153,7 @@ def _searchable(rows_seen: list[str]) -> tuple[Router[HttpRequest], DataTableSta
     state = datatable(
         router,
         key="invoices",
-        columns=[Column("invoice", "Invoice")],
+        columns=[Column("invoice", "Invoice", identifies=True)],
         rows=lambda asked: (
             rows_seen.append(asked.query)
             or [row for row in _INVOICES if asked.query in row["invoice"]]
@@ -147,15 +167,17 @@ def test_the_search_box_submits_itself_after_a_pause():
     # Debounced so a word typed at speed is one request rather than five,
     # and a form so Enter already works without any of this.
     _, state = _searchable([])
-    html = _render(state.build(TableState()))
+    html = _render(_bound(state, TableState()))
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
-    assert re.search(r'<form method="get" action="/invoices/"[^>]*x-target="invoices"', html)
+    assert re.search(
+        r'<form method="get" action="/invoices/"[^>]*x-target="invoices"', html
+    )
 
 
 def test_the_box_sits_outside_what_gets_replaced():
     # A box swapped out from under the person typing in it loses the caret.
     _, state = _searchable([])
-    html = _render(state.build(TableState()))
+    html = _render(_bound(state, TableState()))
     form_at = html.index("<form")
     frame_at = html.index('id="invoices"')
     assert form_at < frame_at
@@ -165,7 +187,7 @@ def test_the_box_sits_outside_what_gets_replaced():
 def test_what_was_searched_for_reaches_rows_and_comes_back_in_the_box():
     seen: list[str] = []
     _, state = _searchable(seen)
-    html = _render(state.build(TableState(query="2050")))
+    html = _render(_bound(state, TableState(query="2050")))
     assert seen == ["2050"]
     assert "INV-2050" in html
     assert "INV-2048" not in html
