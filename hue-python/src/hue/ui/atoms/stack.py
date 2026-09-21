@@ -11,7 +11,6 @@ from hue.types.css import AlignItems, JustifyContent
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
-type StackDirection = Literal["horizontal", "vertical"]
 type StackPosition = Literal["relative", "absolute", "fixed", "sticky"]
 
 
@@ -19,11 +18,11 @@ class Stack(ChainableComponent):
     """
     A flex container that lays its children out in a row or column.
 
-    direction() picks the axis, spacing() the gap between items,
-    justify_content() and align_items() the alignment along each axis, and
-    position() the CSS position.
+    A column unless horizontal() says otherwise. spacing() sets the gap
+    between items, justify_content() and align_items() the alignment along
+    each axis, and position() the CSS position.
 
-        Stack().direction("horizontal").spacing("md").align_items("items-center")
+        Stack().horizontal().spacing("md").align_items("items-center")
     """
 
     category = "Layout"
@@ -32,7 +31,7 @@ class Stack(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .direction("horizontal")
+            .horizontal()
             .content(
                 html.div("1", class_="size-10 rounded-md bg-primary p-2 text-white"),
                 html.div("2", class_="size-10 rounded-md bg-primary p-2 text-white"),
@@ -40,8 +39,11 @@ class Stack(ChainableComponent):
             )
         )
 
-    def direction(self, value: StackDirection) -> Self:
-        self._props["direction"] = value
+    def horizontal(self, value: bool = True) -> Self:
+        """
+        Lay the children out in a row instead of a column.
+        """
+        self._props["horizontal"] = value
         return self
 
     def spacing(self, value: Size) -> Self:
@@ -61,13 +63,12 @@ class Stack(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        direction: StackDirection = self._get_prop("direction", "vertical")
+        vertical: bool = not self._get_prop("horizontal", False)
         spacing: Size = self._get_prop("spacing", "sm")
         justify: JustifyContent = self._get_prop("justify_content", "justify-start")
         align: AlignItems = self._get_prop("align_items", "items-start")
         position: StackPosition = self._get_prop("position", "relative")
 
-        vertical = direction == "vertical"
         spacing_x, spacing_y = SPACE_BETWEEN[spacing]
 
         classes = classnames(

@@ -62,7 +62,7 @@ SHOWCASES: list[Showcase] = [
                     .title("Two invoices are overdue")
                     .content(
                         Stack()
-                        .direction("horizontal")
+                        .horizontal()
                         .justify_content("justify-between")
                         .align_items("items-center")
                         .content(

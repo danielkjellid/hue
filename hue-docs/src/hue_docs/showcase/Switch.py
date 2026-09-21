@@ -86,7 +86,7 @@ SHOWCASES: list[Showcase] = [
                     .description(
                         "Require a code from your authenticator at every sign-in."
                     )
-                    .layout("horizontal")
+                    .horizontal()
                     .checked()
                 )
                 """,

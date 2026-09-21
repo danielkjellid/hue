@@ -153,7 +153,7 @@ class TestSwitch:
             Switch("n")
             .label("Two-factor")
             .description("A code every time.")
-            .layout("horizontal"),
+            .horizontal(),
             context_args=context_args,
         )
         assert_selector(html, "label.justify-between")

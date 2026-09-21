@@ -7,30 +7,22 @@ line of description under that. Only the control differs, so it is passed in.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from htmy import html
 
 from hue.types.core import UNDEFINED, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.utils import classnames, render_if
 
-type ChoiceVariant = Literal["inline", "card"]
-
-#: Which side the control sits on. "inline" leads with it, the way a checkbox
-#: in a form does; "horizontal" puts the text first and pushes the control to
-#: the far end, which is the scanning order a settings list wants - what can I
+#: Which side the control sits on. Leading with it is what a checkbox in a
+#: form does; horizontal puts the text first and pushes the control to the
+#: far end, which is the scanning order a settings list wants - what can I
 #: change, then the thing that changes it.
-type ChoiceLayout = Literal["inline", "horizontal"]
-
-_ROW: dict[ChoiceLayout, str] = {
-    # Top-aligned, because a two-line label would otherwise push the control
-    # down to the middle of its own text.
-    "inline": "flex items-start gap-3",
-    # Centred, because the control is opposite the whole block rather than
-    # beside its first line.
-    "horizontal": "flex items-center justify-between gap-6",
-}
+# Top-aligned, because a two-line label would otherwise push the control
+# down to the middle of its own text.
+_ROW = "flex items-start gap-3"
+# Centred, because the control is opposite the whole block rather than
+# beside its first line.
+_ROW_HORIZONTAL = "flex items-center justify-between gap-6"
 _TEXT = "flex min-w-0 flex-col gap-px"
 _LABEL = "font-ui text-base font-medium leading-[1.35]"
 _DESCRIPTION = "text-sm leading-[1.45] text-fg-muted"
@@ -81,8 +73,8 @@ def choice_row(
     label: str | None,
     description: str | None,
     disabled: bool,
-    variant: ChoiceVariant,
-    layout: ChoiceLayout = "inline",
+    card: bool,
+    horizontal: bool = False,
     status: ComponentType = UNDEFINED,
     messages: tuple[ComponentType, ...] = (),
     class_: str | None = None,
@@ -101,7 +93,6 @@ def choice_row(
     points at the label for its name and at the description for its
     description instead, which is what the two of them are.
     """
-    horizontal = layout == "horizontal"
     head = render_if(
         label,
         lambda text: html.span(
@@ -131,9 +122,9 @@ def choice_row(
             *((text, control) if horizontal else (control, text)),
             for_=control_id,
             class_=classnames(
-                _ROW[layout],
+                _ROW_HORIZONTAL if horizontal else _ROW,
                 "cursor-not-allowed" if disabled else "cursor-pointer",
-                _CARD if variant == "card" else None,
+                _CARD if card else None,
             ),
         ),
         *messages,

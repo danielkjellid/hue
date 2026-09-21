@@ -15,7 +15,7 @@ class TestComposition:
             .type("button")
             .content(
                 Stack()
-                .direction("horizontal")
+                .horizontal()
                 .spacing("xs")
                 .align_items("items-center")
                 .content(Text("Sign in")),

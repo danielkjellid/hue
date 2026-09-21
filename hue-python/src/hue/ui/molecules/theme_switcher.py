@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, NamedTuple
+from typing import NamedTuple
 
 from htmy import Context
 from typing_extensions import Self
@@ -11,8 +11,6 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.utils import classnames
-
-type ThemeSwitcherVariant = Literal["icons", "labelled"]
 
 
 class _Option(NamedTuple):
@@ -45,10 +43,14 @@ class ThemeSwitcher(ChainableComponent):
 
     @classmethod
     def example(cls) -> Self:
-        return cls().variant("labelled")
+        return cls().labelled()
 
-    def variant(self, value: ThemeSwitcherVariant) -> Self:
-        self._props["variant"] = value
+    def labelled(self, value: bool = True) -> Self:
+        """
+        Write the name of each theme beside its icon, for a switcher with
+        room for it - a settings page rather than a header.
+        """
+        self._props["labelled"] = value
         return self
 
     def _option(self, option: _Option, labelled: bool) -> ComponentType:
@@ -71,8 +73,7 @@ class ThemeSwitcher(ChainableComponent):
         return segment.icon_only(option.description).content(icon)
 
     def _render(self, context: Context) -> Component:
-        variant: ThemeSwitcherVariant = self._get_prop("variant", "icons")
-        labelled = variant == "labelled"
+        labelled: bool = self._get_prop("labelled", False)
 
         control = (
             SegmentedControl()

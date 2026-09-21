@@ -25,20 +25,18 @@ class TestThemeSwitcher:
         html = await render_tree(ThemeSwitcher(), context_args=context_args)
         assert_selector(html, 'button[type="button"]', count=3)
 
-    # variant(): icon-only names the theme it selects; labelled lets the visible
+    # labelled(): icon-only names the theme it selects; labelled lets the visible
     # text do it, so an aria-label would only contradict what is on screen.
     @pytest.mark.asyncio
-    async def test_icons_variant_labels_every_button(self, context_args):
+    async def test_icons_alone_label_every_button(self, context_args):
         html = await render_tree(ThemeSwitcher(), context_args=context_args)
         assert_attr(html, "button", "aria-label", "Light theme")
         assert_selector(html, 'button[aria-label="Match system"]')
         assert "Light</button>" not in html
 
     @pytest.mark.asyncio
-    async def test_labelled_variant_shows_text_and_drops_aria_label(self, context_args):
-        html = await render_tree(
-            ThemeSwitcher().variant("labelled"), context_args=context_args
-        )
+    async def test_labelled_shows_text_and_drops_the_aria_label(self, context_args):
+        html = await render_tree(ThemeSwitcher().labelled(), context_args=context_args)
         assert_no_selector(html, "button[aria-label]")
         for text in ("Light", "Dark", "System"):
             assert text in html

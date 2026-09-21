@@ -36,7 +36,7 @@ SHOWCASES: list[Showcase] = [
         ),
         variants=[
             variant("Count", 'Badge().numeric().content("128")'),
-            variant("Pill", 'Badge().shape("pill").numeric().content("9")'),
+            variant("Pill", 'Badge().pill().numeric().content("9")'),
             variant("Large", 'Badge().size("lg").variant("accent").content("Pro")'),
             variant("Solid", 'Badge().variant("solid").content("New")'),
         ],

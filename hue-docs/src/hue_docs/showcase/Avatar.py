@@ -30,7 +30,7 @@ SHOWCASES: list[Showcase] = [
             variant("Busy", 'Avatar().name("Alan Turing").size("lg").status("busy")'),
             variant(
                 "Square",
-                'Avatar().name("Northwind Ltd").shape("square").size("lg")',
+                'Avatar().name("Northwind Ltd").square().size("lg")',
             ),
         ],
     ),
