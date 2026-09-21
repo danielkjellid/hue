@@ -10,16 +10,19 @@ import asyncio
 import re
 from typing import Any
 from unittest.mock import MagicMock
+from urllib.parse import urlencode
 
 import pytest
-from django.http import HttpRequest
+from django.http import HttpRequest, QueryDict
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
 from htmy.html import div as html_div
 from hue.context import HueContextArgs
 from hue.datatable import (
     BulkAction,
     Filter,
+    TableColumns,
     TableFilters,
+    TableOptions,
     TablePagination,
     TableSearch,
     datatable,
@@ -92,6 +95,8 @@ def _view(page_size: int = 25) -> Any:
                 Filter("status", "Status", options=_STATUS),
                 Filter("min", "Minimum amount", kind="number"),
             ],
+            hideable=["customer", "amount"],
+            density=True,
             actions={
                 "archive": BulkAction(
                     "Archive", lambda request, ids: _ARCHIVED.extend(ids)
@@ -127,7 +132,9 @@ def mounted(urlpatterns_: list[Any]) -> Any:
 
 def _request(at: str | None = MOUNT, **params: str) -> Any:
     request = MagicMock()
-    request.GET.dict.return_value = params
+    # A real QueryDict: what the table reads off it is every value under
+    # a name, which is the part a flat mapping gets wrong.
+    request.GET = QueryDict(urlencode(params, doseq=True))
     # What Django puts on the request before the view runs, and what the
     # namespace of every URL the table builds comes from. None for the
     # tests that never get as far as building one.
@@ -396,6 +403,73 @@ def test_a_filter_cannot_be_called_what_the_table_already_calls_something():
             assert taken in str(error)
         else:  # pragma: no cover - the raise is the behaviour under test
             raise AssertionError(f"a filter called {taken!r} was accepted")
+
+
+def test_a_browser_repeating_a_name_is_read_the_same_as_a_comma(mounted):
+    # A set of checkboxes sharing a name is how a browser submits a
+    # list; the links the table builds join them with commas. Both are
+    # the same question.
+    view = mounted()
+    request = MagicMock()
+    request.GET = QueryDict("status=paid&status=draft")
+    request.resolver_match = resolve(f"/{MOUNT}")
+    assert view.invoices.bind(request).state.chosen("status") == ("paid", "draft")
+
+
+def test_a_hidden_column_is_not_drawn(mounted):
+    bound = mounted().invoices.bind(_request(hide="customer"))
+    assert bound.state.hidden == ("customer",)
+    html = _render(bound)
+    assert "Northwind" not in html
+    assert "INV-2048" in html
+
+
+def test_a_column_nobody_may_hide_stays(mounted):
+    # Typed into the URL rather than clicked, which is the only way to
+    # ask for it - and the answer is no.
+    bound = mounted().invoices.bind(_request(hide="invoice"))
+    assert bound.state.hidden == ()
+    assert "INV-2048" in _render(bound)
+
+
+def test_the_panel_ticks_the_columns_that_are_showing(mounted):
+    # The way round anybody reads a list of columns, while the URL
+    # carries the ones that are hidden.
+    html = _part(mounted().invoices.bind(_request(hide="customer")), TableColumns())
+    assert 'hueTableColumns(["customer"])' in html
+    assert "x-effect=\"$el.checked = showing('customer')\"" in html
+    assert "Locked" in html
+
+
+def test_density_is_a_radio_and_a_link(mounted):
+    html = _part(mounted().invoices.bind(_request(density="compact")), TableOptions())
+    assert 'role="menuitemradio"' in html
+    assert 'aria-checked="true"' in html
+    assert "/billing/invoices/?density=compact" in html
+    # And a way back to the table as it came.
+    assert "Reset view" in html
+
+
+def test_compact_tightens_the_rows(mounted):
+    loose = _render(mounted().invoices.bind(_request()))
+    tight = _render(mounted().invoices.bind(_request(density="compact")))
+    assert "_td]:py-[11px]" in loose
+    assert "_td]:py-[7px]" in tight
+
+
+def test_hiding_a_column_nobody_declared_is_refused():
+    try:
+        datatable(
+            Router[HttpRequest](),
+            key="strangers",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda request, asked: _INVOICES,
+            hideable=["nonesuch"],
+        )
+    except ValueError as error:
+        assert "nonesuch" in str(error)
+    else:  # pragma: no cover - the raise is the behaviour under test
+        raise AssertionError("expected a ValueError")
 
 
 def test_the_whole_table_is_one_component(mounted):

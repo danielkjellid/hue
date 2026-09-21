@@ -136,3 +136,32 @@ export function registerTableFilters(Alpine) {
 		},
 	}));
 }
+
+/**
+ * hueTableColumns: which columns are put away.
+ *
+ * A box that is ticked is a column that is showing, which is the way
+ * round anybody reads a list of columns - but what the URL carries is
+ * the ones that are hidden, so that adding a column later shows it to
+ * somebody following an old link rather than hiding it from them.
+ *
+ * A checkbox can only submit itself when it is ticked, so the two cannot
+ * be the same control: the boxes are for reading and one hidden field
+ * carries the answer.
+ */
+export function registerTableColumns(Alpine) {
+	Alpine.data("hueTableColumns", (hidden = []) => ({
+		hidden,
+
+		showing(key) {
+			return !this.hidden.includes(key);
+		},
+
+		toggle(key, shown) {
+			this.hidden = shown
+				? this.hidden.filter((other) => other !== key)
+				: [...this.hidden, key];
+			this.$refs.form.requestSubmit();
+		},
+	}));
+}

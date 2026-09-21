@@ -60,6 +60,9 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     def _get_query_params(self, request: T_Request) -> dict[str, str]:
         return request.GET.dict()
 
+    def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
+        return {name: request.GET.getlist(name) for name in request.GET}
+
     def _url_for(self, request: T_Request, name: str, **params: Any) -> str:
         """
         Reverse one of this router's routes, in the namespace the request

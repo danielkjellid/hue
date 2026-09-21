@@ -213,6 +213,18 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
+        """
+        The query string with every value kept, not just the last.
+
+        A set of checkboxes sharing a name is how a browser submits a
+        list, and flattening that to a dict keeps one of them - which is
+        exactly the case a multiple-choice filter is.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
     def _url_for(self, request: T_Request, name: str, **params: Any) -> str:
         """
         Where one of this router's own routes lives, for this request.

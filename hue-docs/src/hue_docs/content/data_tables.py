@@ -81,8 +81,8 @@ class _Router:
     def fragment_post(self, path: str) -> Any:
         return lambda view_func: view_func
 
-    def _get_query_params(self, request: Any) -> dict[str, str]:
-        return dict(request.params)
+    def _get_query_values(self, request: Any) -> dict[str, list[str]]:
+        return {name: [value] for name, value in request.params.items()}
 
     def _url_for(self, request: Any, name: str, **params: Any) -> str:
         # Django reverses these against the URLconf. Here they are spelled
@@ -132,6 +132,8 @@ def _table(key: str) -> Any:
             Filter("status", "Status", options=_STATUS),
             Filter("min", "Minimum amount", kind="number", prefix="USD"),
         ],
+        hideable=["customer", "amount"],
+        density=True,
         actions={"archive": BulkAction("Archive", _archive)},
         page_size=3,
     )

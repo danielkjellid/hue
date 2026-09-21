@@ -58,6 +58,7 @@ a pagination bar can sit in a page footer far from the rows it pages.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from json import dumps
 from math import ceil
 from typing import (
     TYPE_CHECKING,
@@ -79,6 +80,12 @@ from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.menu import (
+    DropdownMenu,
+    MenuItem,
+    MenuLabel,
+    MenuSeparator,
+)
 from hue.ui.molecules.pagination import Pagination
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import (
@@ -89,7 +96,7 @@ from hue.ui.molecules.table import (
     resolve_value,
     rows_id,
 )
-from hue.utils import classnames
+from hue.utils import classnames, render_when
 
 if TYPE_CHECKING:
     from hue.router import Router
@@ -101,9 +108,11 @@ SELECTED = "selected"
 SORT = "sort"
 QUERY = "q"
 PAGE = "page"
+HIDE = "hide"
+DENSITY = "density"
 
 # What a filter cannot be called, because the table is already using it.
-RESERVED = (SORT, QUERY, PAGE)
+RESERVED = (SORT, QUERY, PAGE, HIDE, DENSITY)
 
 # Long enough that a word typed at speed is one request rather than five,
 # short enough that the table has moved by the time you look at it.
@@ -128,6 +137,7 @@ _LEGEND = (
 # The applied row: a whole line of the band, which basis-full takes.
 _APPLIED_ROW = "flex basis-full flex-wrap items-center gap-2"
 _APPLIED_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
+_LOCKED = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-subtle"
 _CHIP = (
     "inline-flex items-center gap-1.5 rounded-sm border border-border "
     "bg-canvas-subtle py-0.5 ps-2 pe-1.5 text-sm text-fg "
@@ -157,6 +167,8 @@ class TableState:
     query: str = ""
     page: int = 1
     filters: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    hidden: tuple[str, ...] = ()
+    compact: bool = False
 
     def chosen(self, name: str) -> tuple[str, ...]:
         """
@@ -184,6 +196,8 @@ class TableState:
             query=changes.get("query", self.query),
             page=changes["page"] if "page" in changes else 1,
             filters=changes.get("filters", self.filters),
+            hidden=changes.get("hidden", self.hidden),
+            compact=changes.get("compact", self.compact),
         )
 
     def without(self, name: str, value: str | None = None) -> TableState:
@@ -206,6 +220,10 @@ class TableState:
         for name, values in self.filters.items():
             if values:
                 asked[name] = ",".join(values)
+        if self.hidden:
+            asked[HIDE] = ",".join(self.hidden)
+        if self.compact:
+            asked[DENSITY] = "compact"
         if self.page > 1:
             asked[PAGE] = str(self.page)
         return {name: value for name, value in asked.items() if value}
@@ -261,6 +279,27 @@ class BulkAction:
     label: str
     handler: ActionHandler
     variant: ButtonVariant = "outline"
+
+
+def _one(asked: Mapping[str, list[str]], name: str) -> str | None:
+    """
+    The one value a parameter holds, or the last of several.
+    """
+    values = asked.get(name)
+    return values[-1] if values else None
+
+
+def _many(asked: Mapping[str, list[str]], name: str) -> tuple[str, ...]:
+    """
+    Every value a parameter holds, however it was spelled.
+
+    A browser repeats the name once per box; a link the table built
+    joins them with commas, because that is what somebody hand-editing a
+    query string would write. Both read the same.
+    """
+    return tuple(
+        part for value in asked.get(name, ()) for part in value.split(",") if part
+    )
 
 
 def _total(rows: Any) -> int:
@@ -348,9 +387,12 @@ class BoundTable(TableSource):
         what is being asked here is what the bound state is for.
         """
         declared = self.declaration
-        into.id(self.key).columns(declared.columns).rows(self.page).sorted(
-            self.state.sort
-        ).sort_href(lambda order: self.href(sort=order))
+        hidden = set(self.state.hidden)
+        into.id(self.key).columns(
+            [column for column in declared.columns if column.key not in hidden]
+        ).rows(self.page).compact(self.state.compact).sorted(self.state.sort).sort_href(
+            lambda order: self.href(sort=order)
+        )
 
         if declared.identifier is None:
             return into
@@ -396,7 +438,7 @@ class Datatable:
     route can be registered.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - the declaration, and see datatable() below
         self,
         router: Router[Any],
         *,
@@ -406,6 +448,8 @@ class Datatable:
         identifier: str | None = None,
         search: str | None = None,
         filters: Sequence[Filter] = (),
+        hideable: Sequence[str] = (),
+        density: bool = False,
         actions: Mapping[str, BulkAction] | None = None,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> None:
@@ -415,6 +459,8 @@ class Datatable:
         self.identifier = identifier
         self.search = search
         self.filters = list(filters)
+        self.hideable = list(hideable)
+        self.density = density
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
@@ -428,6 +474,12 @@ class Datatable:
             raise ValueError(
                 f"{key} has actions but no identifier, so there is nothing "
                 f"to hand them. Name the property a row is known by."
+            )
+        declared = {column.key for column in columns if isinstance(column.key, str)}
+        for stranger in [key for key in self.hideable if key not in declared]:
+            raise ValueError(
+                f"{key} says {stranger!r} can be hidden, and it has no such "
+                f"column. It has {sorted(declared)}."
             )
         for taken in [f.name for f in self.filters if f.name in RESERVED]:
             raise ValueError(
@@ -470,21 +522,29 @@ class Datatable:
         )
 
     def state_of(self, request: Any) -> TableState:
-        asked = self._router._get_query_params(request)
+        # Every value, not just the last: a set of checkboxes sharing a
+        # name is how a browser submits a list, and a flat dict keeps one
+        # of them.
+        asked = self._router._get_query_values(request)
         try:
-            page = max(1, int(asked.get(PAGE, "1")))
+            page = max(1, int(_one(asked, PAGE) or "1"))
         except ValueError:
             page = 1
+        hideable = set(self.hideable)
         return TableState(
-            sort=asked.get(SORT) or None,
-            query=asked.get(QUERY, ""),
+            sort=_one(asked, SORT) or None,
+            query=_one(asked, QUERY) or "",
             page=page,
             filters=self._filters_in(asked),
+            # Only columns that could have been hidden, so a key typed
+            # into the URL cannot take away a column nobody may hide.
+            hidden=tuple(key for key in _many(asked, HIDE) if key in hideable),
+            compact=_one(asked, DENSITY) == "compact",
         )
 
-    def _filters_in(self, asked: Mapping[str, str]) -> dict[str, tuple[str, ...]]:
+    def _filters_in(self, asked: Mapping[str, list[str]]) -> dict[str, tuple[str, ...]]:
         """
-        What each filter was told, comma-separated in one parameter.
+        What each filter was told.
 
         An answer a list-shaped filter does not offer is dropped rather
         than passed on: the query string is somewhere anybody can type,
@@ -492,8 +552,7 @@ class Datatable:
         """
         found: dict[str, tuple[str, ...]] = {}
         for declared in self.filters:
-            raw = asked.get(declared.name, "")
-            values = tuple(part for part in raw.split(",") if part)
+            values = _many(asked, declared.name)
             if declared.options:
                 offered = {option for option, _ in declared.options}
                 values = tuple(value for value in values if value in offered)
@@ -558,7 +617,7 @@ class Datatable:
         self._router.fragment_post(f"{self.key}/<str:action>/")(act)
 
 
-def datatable(
+def datatable(  # noqa: PLR0913 - see "One argument each" below
     router: Router[Any],
     *,
     key: str,
@@ -567,6 +626,8 @@ def datatable(
     identifier: str | None = None,
     search: str | None = None,
     filters: Sequence[Filter] = (),
+    hideable: Sequence[str] = (),
+    density: bool = False,
     actions: Mapping[str, BulkAction] | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> Datatable:
@@ -593,6 +654,17 @@ def datatable(
     parameter of its own in the URL, a group in the panel behind the
     Filter button, and a chip in the band under it - and its answers
     arrive in the same state rows() is already reading the search off.
+
+    hideable names the columns a reader may put away. Everything else is
+    locked, and the panel says so on the row rather than refusing the
+    click silently. density adds the choice between comfortable rows and
+    compact ones.
+
+    One argument each: search, filters, hideable and density are all the
+    same thing said four times - the ways of narrowing the table - and
+    there is a case for them being one toolbar argument instead. Left
+    apart for now, while there is still something being learned about
+    what each of them needs.
     """
     return Datatable(
         router,
@@ -602,6 +674,8 @@ def datatable(
         identifier=identifier,
         search=search,
         filters=filters,
+        hideable=hideable,
+        density=density,
         actions=actions,
         page_size=page_size,
     )
@@ -682,10 +756,17 @@ class TableView(ChainableComponent):
         band: list[ComponentType] = []
         if declared.search:
             band.append(TableSearch())
+        # After the spacer, at the end of the band: a panel anchored to a
+        # trigger near the middle opens across the rows.
+        controls: list[ComponentType] = []
         if declared.filters:
-            # After the spacer, at the end of the band: a panel anchored
-            # to a trigger near the middle opens across the rows.
-            band.extend((html.span(class_="flex-1"), TableFilters()))
+            controls.append(TableFilters())
+        if declared.hideable:
+            controls.append(TableColumns())
+        if declared.density:
+            controls.append(TableOptions())
+        if controls:
+            band.extend((html.span(class_="flex-1"), *controls))
         if band:
             table.toolbar(*band)
         return (table,)
@@ -909,6 +990,168 @@ def _applied_chips() -> ComponentType:
         .x_on("click", unsafe("clear()")),
         class_=_APPLIED_ROW,
         **{"x-show": "applied.length", "x-cloak": True},
+    )
+
+
+class TableColumns(ChainableComponent):
+    """
+    Which columns are showing, and the ones that cannot be put away.
+
+    A checkbox list behind one button, with the count in its header. A
+    ticked box is a column that is showing, which is the way round
+    anybody reads a list of columns - but the URL carries the ones that
+    are hidden, so a column added later shows itself to somebody
+    following an old link rather than hiding from them.
+
+    The columns nobody may hide are in the list too, ticked and disabled
+    and said to be locked: the affordance states the rule rather than
+    refusing the click without a word.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def _render(self, context: Context) -> Component:
+        bound = bound_from(context, "TableColumns")
+        declared = bound.declaration
+        if not declared.hideable:
+            return UNDEFINED
+
+        hideable = set(declared.hideable)
+        hidden = set(bound.state.hidden)
+        showing = sum(1 for column in declared.columns if str(column.key) not in hidden)
+        return html.div(
+            Popover()
+            .fit()
+            .placement("bottom-end")
+            .trigger(
+                Button()
+                .variant("outline")
+                .size("sm")
+                .content(HueIcon("columns-3"), "Columns")
+            )
+            .content(
+                html.div(
+                    html.span("Columns", class_=_APPLIED_LABEL),
+                    html.span(
+                        f"{showing} of {len(declared.columns)}",
+                        class_="text-2xs tabular-nums text-fg-muted",
+                    ),
+                    class_="flex items-baseline justify-between gap-3 px-2 pb-1.5 pt-1",
+                ),
+                *(
+                    _column_row(bound, column, hideable, hidden)
+                    for column in declared.columns
+                ),
+            ),
+            html.form(
+                # One field carries the answer, because a box can only
+                # submit itself while it is ticked and what the URL wants
+                # is the ones that are not.
+                html.input_(type="hidden", name=HIDE, **{":value": "hidden.join(',')"}),
+                *_carried(bound, without={PAGE, HIDE}),
+                method="get",
+                action=bound.urls.read,
+                hidden=True,
+                **{
+                    "x-ref": "form",
+                    "x-target.push": rows_id(bound.key) or bound.key,
+                },
+            ),
+            class_="contents",
+            **{"x-data": f"hueTableColumns({dumps(sorted(hidden))})"},
+        )
+
+
+def _column_row(
+    bound: BoundTable,
+    column: Column,
+    hideable: set[str],
+    hidden: set[str],
+) -> ComponentType:
+    """
+    One column in the panel. The box carries the key when the column is
+    off, so the form submits exactly the list of what is hidden.
+    """
+    key = str(column.key)
+    locked = key not in hideable
+    box = (
+        Checkbox()
+        .name(f"{bound.key}-shows-{key}")
+        .value(key)
+        .label(column.label)
+        .checked(locked or key not in hidden)
+        .disabled(locked)
+        .id(f"{bound.key}-{HIDE}-{key}")
+    )
+    if not locked:
+        # Read from the scope rather than left to the attribute, which
+        # stops meaning anything the moment somebody clicks the box.
+        box.x_effect(unsafe(f"$el.checked = showing({key!r})")).x_on(
+            "change", unsafe(f"toggle({key!r}, $event.target.checked)")
+        )
+    return html.div(
+        box,
+        render_when(locked, html.span("Locked", class_=_LOCKED)),
+        class_="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 "
+        "hover:bg-surface-hover",
+    )
+
+
+class TableOptions(ChainableComponent):
+    """
+    The rest of what can be done to a table, behind one button: how
+    tight the rows are, and a way back to the table as it was.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def _render(self, context: Context) -> Component:
+        bound = bound_from(context, "TableOptions")
+        if not bound.declaration.density:
+            return UNDEFINED
+
+        target = rows_id(bound.key) or bound.key
+        return (
+            DropdownMenu()
+            .label("More table options")
+            .placement("bottom-end")
+            .trigger(
+                Button()
+                .variant("ghost")
+                .size("sm")
+                .icon_only("More table options")
+                .content(HueIcon("ellipsis"))
+            )
+            .content(
+                MenuLabel().content("Density"),
+                *(
+                    MenuItem()
+                    .href(bound.href(compact=compact))
+                    .selected(bound.state.compact == compact)
+                    .content(label)
+                    .attr("x-target.push", target)
+                    for compact, label in ((False, "Comfortable"), (True, "Compact"))
+                ),
+                MenuSeparator(),
+                MenuItem()
+                .href(bound.urls.read)
+                .content("Reset view")
+                .attr("x-target.push", target),
+            )
+        )
+
+
+def _carried(bound: BoundTable, *, without: set[str]) -> tuple[ComponentType, ...]:
+    """
+    The rest of the state, as hidden fields.
+
+    A form narrows one thing and has to leave the others alone, so
+    everything it is not itself about rides along inside it.
+    """
+    return tuple(
+        html.input_(type="hidden", name=name, value=value)
+        for name, value in bound.state.params().items()
+        if name not in without
     )
 
 

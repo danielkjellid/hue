@@ -4,6 +4,7 @@ import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { registerScrollAreaData } from "./scroll-area.js";
 import {
+	registerTableColumns,
 	registerTableData,
 	registerTableFilters,
 	registerTableSearch,
@@ -40,6 +41,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerTableData(Alpine);
 	registerTableSearch(Alpine);
 	registerTableFilters(Alpine);
+	registerTableColumns(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
 
