@@ -397,16 +397,13 @@ class Column:
     and align="end" is what a column of numbers wants: it lines the digits
     up as well as the edge. sort is what the server orders by, which is
     often not what the value is read from - give it one and the header
-    becomes a link to the rows in that order. identifies marks the column a
-    row is known by, which is what a checkbox in that row is worth and what
-    an action on it is given.
+    becomes a link to the rows in that order.
     """
 
     key: str | Callable[[Mapping[str, Any]], Any]
     label: str
     align: CellAlign = "start"
     sort: str | None = None
-    identifies: bool = False
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 

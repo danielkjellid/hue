@@ -27,9 +27,11 @@ from hue.ui.molecules.table import Column, DataTable
 
 from hue_django.router import Router
 
+# A pk nobody displays, which is the point of naming the identifier
+# separately from the columns.
 _INVOICES = [
-    {"invoice": "INV-2050", "amount": "2190"},
-    {"invoice": "INV-2048", "amount": "1200"},
+    {"pk": "41", "invoice": "INV-2050", "amount": "2190"},
+    {"pk": "17", "invoice": "INV-2048", "amount": "1200"},
 ]
 
 
@@ -39,7 +41,7 @@ def _build(archived: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
         router,
         key="invoices",
         columns=[
-            Column("invoice", "Invoice", identifies=True),
+            Column("invoice", "Invoice"),
             Column("amount", "Amount", align="end", sort="amount"),
         ],
         # The whole read path: given the order that was asked for, the rows
@@ -49,6 +51,7 @@ def _build(archived: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
             key=lambda row: row["amount"],
             reverse=(asked.sort or "").startswith("-"),
         ),
+        identifier="pk",
         actions={
             "archive": BulkAction("Archive", lambda request, ids: archived.extend(ids))
         },
@@ -117,24 +120,22 @@ def test_the_selection_posts_through_a_real_form():
         r'<form method="post" action="/invoices/" x-target="invoices"', html
     )
     assert re.search(r'formaction="/invoices/archive/"', html)
-    # Ascending by default, which is what rows() was asked for.
-    assert re.findall(r'name="selected" value="(INV-\d+)"', html) == [
-        "INV-2048",
-        "INV-2050",
-    ]
+    # The pk, not the invoice reference: what a row is known by is not
+    # what a row shows.
+    assert re.findall(r'name="selected" value="(\d+)"', html) == ["17", "41"]
 
 
 def test_an_action_is_handed_the_ids_as_python():
     archived: list[str] = []
     router, state = _build(archived)
     request = MagicMock()
-    request.POST.getlist.return_value = ["INV-2050", "INV-2048"]
+    request.POST.getlist.return_value = ["41", "17"]
 
     state.actions["archive"].handler(
         request, router._get_form_list(request, "selected")
     )
 
-    assert archived == ["INV-2050", "INV-2048"]
+    assert archived == ["41", "17"]
 
 
 def test_a_flat_form_dict_would_have_kept_only_the_last_one():
@@ -153,7 +154,7 @@ def _searchable(rows_seen: list[str]) -> tuple[Router[HttpRequest], DataTableSta
     state = datatable(
         router,
         key="invoices",
-        columns=[Column("invoice", "Invoice", identifies=True)],
+        columns=[Column("invoice", "Invoice")],
         rows=lambda asked: (
             rows_seen.append(asked.query)
             or [row for row in _INVOICES if asked.query in row["invoice"]]
@@ -199,3 +200,19 @@ def test_a_search_keeps_the_order_it_was_already_in():
     assert state.href(TableState(sort="-amount", query="acme")) == (
         "/invoices/?sort=-amount&q=acme"
     )
+
+
+def test_actions_with_nothing_to_hand_them_are_refused():
+    router = Router[HttpRequest]()
+    try:
+        datatable(
+            router,
+            key="invoices",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda asked: _INVOICES,
+            actions={"archive": BulkAction("Archive", lambda request, ids: None)},
+        )
+    except ValueError as error:
+        assert "identifier" in str(error)
+    else:  # pragma: no cover - the raise is the behaviour under test
+        raise AssertionError("expected a ValueError")

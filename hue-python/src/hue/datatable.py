@@ -21,12 +21,13 @@ than to an expression.
             router,
             key="invoices",
             columns=[
-                Column("invoice", "Invoice", identifies=True),
+                Column("invoice", "Invoice"),
                 Column("amount", "Amount", align="end", sort="amount"),
             ],
             rows=lambda asked: Invoice.objects.filter(
                 reference__icontains=asked.query
             ).order_by(asked.sort or "reference"),
+            identifier="pk",
             search="Search invoices",
             actions={"archive": BulkAction("Archive", archive_invoices)},
         )
@@ -44,9 +45,11 @@ than to an expression.
                 ),
             )
 
-    identifies marks the column a row is known by, so archive_invoices is
-    handed the references of the ticked rows and the columns say as much
-    without anything else having to be read.
+    identifier is the property a row is known by, and archive_invoices is
+    handed those values for the rows that are ticked. It says what the ids
+    are at the point you would ask, and it is a property of the rows rather
+    than of a column, because what identifies a row is usually not
+    something anybody wants to look at.
 
 Reads and writes are split the way HTTP already splits them. An order is
 state, so it rides in the URL and rows() answers it - there is no on_sort,
@@ -116,19 +119,6 @@ class BulkAction:
     variant: ButtonVariant = "outline"
 
 
-def _key_of(column: Column) -> str:
-    """
-    The column's key as a string, which a checkbox value has to be.
-    """
-    if not isinstance(column.key, str):
-        raise ValueError(
-            f"The column marked identifies is read by a function, and a row "
-            f"has to be known by something that survives a round trip. Give "
-            f"{column.label!r} a key."
-        )
-    return column.key
-
-
 @dataclass(frozen=True, slots=True)
 class BoundTable:
     """
@@ -164,29 +154,19 @@ class DataTableState:
         key: str,
         columns: list[Column],
         rows: RowsFor,
+        identifier: str | None = None,
         actions: Mapping[str, BulkAction] | None = None,
         search: str | None = None,
     ) -> None:
         self.key = key
         self.columns = columns
         self.rows = rows
+        self.identifier = identifier
         self.search = search
-        # Which column a row is known by, read off the columns rather than
-        # named again beside them: an action is handed these values, and
-        # the only honest place to say so is the column itself.
-        identifying = [column for column in columns if column.identifies]
-        if len(identifying) > 1:
+        if actions and identifier is None:
             raise ValueError(
-                f"{key} has {len(identifying)} columns marked identifies. A "
-                f"row is known by one of them, and an action is handed that "
-                f"one's values."
-            )
-        self.identity = _key_of(identifying[0]) if identifying else None
-        if actions and self.identity is None:
-            raise ValueError(
-                f"{key} has actions but no column marked identifies, so "
-                f"there is nothing to hand them. Mark the column a row is "
-                f"known by."
+                f"{key} has actions but no identifier, so there is nothing "
+                f"to hand them. Name the property a row is known by."
             )
         self.actions = dict(actions or {})
         self._router = router
@@ -281,10 +261,10 @@ class DataTableState:
             .sorted(state.sort)
             .sort_href(lambda order: self.href(TableState(sort=order)))
         )
-        if self.identity is None:
+        if self.identifier is None:
             return table
 
-        table.selectable(self.identity).name(SELECTED)
+        table.selectable(self.identifier).name(SELECTED)
         if not self.actions:
             return table
 
@@ -372,6 +352,7 @@ def datatable(
     key: str,
     columns: list[Column],
     rows: RowsFor,
+    identifier: str | None = None,
     actions: Mapping[str, BulkAction] | None = None,
     search: str | None = None,
 ) -> DataTableState:
@@ -386,12 +367,18 @@ def datatable(
 
     search is the placeholder for a box above the table, and having one is
     what puts a box there at all.
+
+    identifier names the property a row is known by. Giving one is what
+    puts a checkbox in every row, and it is the values of that property
+    that an action is handed - it is not one of the columns, because a row
+    is usually known by something nobody wants to see.
     """
     return DataTableState(
         router,
         key=key,
         columns=columns,
         rows=rows,
+        identifier=identifier,
         actions=actions,
         search=search,
     )
