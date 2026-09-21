@@ -435,11 +435,12 @@ def _build() -> ComponentType:
         _specimen("invoices", sort="-amount"),
         pr.p(
             "Sorted by amount, descending, three to a page. And the same "
-            "table searched - which keeps the order and goes back to the "
-            "first page, because page two of a different search is not a "
-            "page anybody asked for:"
+            "table searched and filtered - which keeps the order and goes "
+            "back to the first page, because page two of a different set of "
+            "rows is not a page anybody asked for. The chips say what is on "
+            "without anybody having to open the panel to find out:"
         ),
-        _specimen("payments", q="n", sort="customer"),
+        _specimen("payments", q="n", status="paid", sort="customer"),
         pr.h2("What it assumes"),
         pr.bullets(
             [

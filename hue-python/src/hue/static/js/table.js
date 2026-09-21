@@ -40,6 +40,12 @@ export function registerTableData(Alpine) {
 export function registerTableSearch(Alpine) {
 	Alpine.data("hueTableSearch", () => ({
 		focusField(event) {
+			// A page-wide key can only belong to one thing. With two
+			// tables on the page there is no answer to which one slash
+			// means, so it means neither and stays a slash.
+			if (document.querySelectorAll("[data-hue-table-search]").length > 1) {
+				return;
+			}
 			// Ignored while focus is in a field, or slash would be
 			// untypeable everywhere else on the page.
 			const target = event.target;
@@ -133,6 +139,24 @@ export function registerTableFilters(Alpine) {
 		apply() {
 			this.read();
 			this.$refs.form.requestSubmit();
+		},
+
+		dropEmpty() {
+			// A disabled control is not submitted, so an empty field
+			// leaves no trace in a URL somebody is meant to be able to
+			// send on. Re-enabled straight after, because the form is
+			// still on the page and still the one being typed into.
+			const empty = this.controls().filter(
+				(el) => el.type !== "checkbox" && !el.value,
+			);
+			for (const el of empty) {
+				el.disabled = true;
+			}
+			queueMicrotask(() => {
+				for (const el of empty) {
+					el.disabled = false;
+				}
+			});
 		},
 	}));
 }

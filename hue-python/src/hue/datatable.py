@@ -96,7 +96,7 @@ from hue.ui.molecules.table import (
     resolve_value,
     rows_id,
 )
-from hue.utils import classnames, render_when
+from hue.utils import classes_if, classnames, render_when
 
 if TYPE_CHECKING:
     from hue.router import Router
@@ -128,14 +128,20 @@ _FILTER_COUNT = (
 )
 
 # A group of answers to one question, ruled off from the next.
-_GROUP = "border-0 p-0 [&+&]:mt-4 [&+&]:border-t [&+&]:border-border [&+&]:pt-4"
+_GROUP = "border-0 p-0"
+_GROUP_NEXT = ["border-t", "border-border", "pt-3.5"]
 _LEGEND = (
     "mb-2 block w-full p-0 font-ui text-2xs font-bold uppercase "
     "tracking-[0.05em] text-fg-muted"
 )
 
-# The applied row: a whole line of the band, which basis-full takes.
-_APPLIED_ROW = "flex basis-full flex-wrap items-center gap-2"
+# The applied row: a whole line of the band, which basis-full takes, and
+# the last of them whatever order the controls were written in -
+# otherwise a full-width row in the middle of them splits the group.
+_APPLIED_ROW = (
+    "order-last flex basis-full flex-wrap items-center gap-2 "
+    "border-t border-border pt-2"
+)
 _APPLIED_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
 _LOCKED = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-subtle"
 _CHIP = (
@@ -795,6 +801,7 @@ class TableSearch(ChainableComponent):
                 self._get_prop("class_"),
             ),
             **{
+                "data-hue-table-search": "",
                 "x-data": "hueTableSearch",
                 "x-on:keydown.window.slash": "focusField($event)",
                 **self._get_base_html_attrs(),
@@ -870,6 +877,9 @@ class TableFilters(ChainableComponent):
                     "x-ref": "form",
                     "x-target.push": rows_id(bound.key) or bound.key,
                     "@change": "apply()",
+                    # An empty field is not an answer, and a URL people
+                    # are meant to send each other should not carry one.
+                    "@submit": "dropEmpty()",
                 },
             ),
             _applied_chips(),
@@ -903,11 +913,16 @@ def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentTyp
                 ),
             )
         )
-        .content(*(_filter_group(bound, one) for one in declared))
+        .content(
+            *(
+                _filter_group(bound, one, first=index == 0)
+                for index, one in enumerate(declared)
+            )
+        )
     )
 
 
-def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
+def _filter_group(bound: BoundTable, declared: Filter, *, first: bool) -> ComponentType:
     """
     One filter, as a legended group - which is what a set of boxes that
     answer the same question is, and the only way a screen reader hears
@@ -918,7 +933,7 @@ def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
         return html.fieldset(
             html.legend(declared.label, class_=_LEGEND),
             _filter_field(bound.key, declared, picked),
-            class_=_GROUP,
+            class_=classnames(_GROUP, classes_if(not first, _GROUP_NEXT)),
         )
     return html.fieldset(
         html.legend(declared.label, class_=_LEGEND),
@@ -937,7 +952,7 @@ def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
             .attr("data-option", label)
             for option, label in declared.options
         ),
-        class_=_GROUP,
+        class_=classnames(_GROUP, classes_if(not first, _GROUP_NEXT)),
     )
 
 
@@ -1165,6 +1180,7 @@ def _search_form(bound: BoundTable) -> ComponentType:
         TextInput()
         .name(QUERY)
         .id(f"{bound.key}-{QUERY}")
+        .size("sm")
         .attr("type", "search")
         .attr("x-ref", "field")
         # Stopped, so an escape that empties the box is not also an escape

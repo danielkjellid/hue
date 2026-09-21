@@ -337,6 +337,17 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
     assert 'x-data="hueTableSearch"' in html
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
     assert 'x-on:keydown.escape="clearField($event)"' in html
+    # What the shortcut counts to decide whether it means anything: a
+    # page-wide key with two candidates belongs to neither.
+    assert "data-hue-table-search" in html
+
+
+def test_the_applied_row_comes_after_the_controls(mounted):
+    # basis-full puts it on a line of its own, and order-last keeps that
+    # line under the controls rather than splitting them.
+    html = _part(mounted().invoices.bind(_request(status="paid")), TableFilters())
+    assert "order-last" in html
+    assert "basis-full" in html
 
 
 def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
