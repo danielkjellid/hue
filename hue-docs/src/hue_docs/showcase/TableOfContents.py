@@ -74,7 +74,9 @@ SHOWCASES: list[Showcase] = [
                         "border border-border bg-canvas-subtle px-5 py-4",
                     ),
                     html.div(
-                        TableOfContents().of("#toc-article", headings="h4, h5").label("Documentation"),
+                        TableOfContents()
+                            .of("#toc-article", headings="h4, h5")
+                            .label("Documentation"),
                         class_="w-56 flex-none",
                     ),
                     class_="flex w-full gap-10",
