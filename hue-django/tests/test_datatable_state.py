@@ -200,3 +200,32 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
         assert "['invoice']" in str(error)
     else:  # pragma: no cover - the raise is the behaviour under test
         raise AssertionError("expected a ValueError")
+
+
+def test_forgetting_to_bind_says_so():
+    # The one slip this shape invites. Left alone it surfaces as a missing
+    # attribute on a class nobody was thinking about.
+    declaration = type(_view()).invoices
+
+    for component, from_state in (
+        ("DataTable", DataTable.from_state),
+        ("TableSearch", TableSearch.from_state),
+        ("TablePagination", TablePagination.from_state),
+    ):
+        try:
+            from_state(declaration)
+        except TypeError as error:
+            assert "bound to a request" in str(error)
+            assert "bind(request)" in str(error)
+            assert component in str(error)
+        else:  # pragma: no cover - the raise is the behaviour under test
+            raise AssertionError(f"{component} accepted an unbound table")
+
+
+def test_something_else_entirely_is_refused_too():
+    try:
+        DataTable.from_state("not a table")  # type: ignore[arg-type]
+    except TypeError as error:
+        assert "not str" in str(error)
+    else:  # pragma: no cover - the raise is the behaviour under test
+        raise AssertionError("expected a TypeError")

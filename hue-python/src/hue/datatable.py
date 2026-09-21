@@ -162,6 +162,30 @@ def _total(rows: Any) -> int:
         return len(rows)
 
 
+def bound_or_raise(state: Any, component: str) -> BoundTable:
+    """
+    The bound table a component was given, or an explanation.
+
+    Forgetting bind() is the one slip this shape invites, and left alone
+    it surfaces as a missing attribute on a class nobody was thinking
+    about. The declaration is a perfectly good object; it just does not
+    know which rows to draw yet.
+    """
+    if isinstance(state, BoundTable):
+        return state
+    if isinstance(state, Datatable):
+        raise TypeError(
+            f"{component}.from_state() takes a table bound to a request, and "
+            f"{state.key!r} is the declaration. Which rows answer a table "
+            f"depends on what was asked for, so bind it to the request "
+            f"first: table.bind(request)."
+        )
+    raise TypeError(
+        f"{component}.from_state() takes a table bound to a request, not "
+        f"{type(state).__name__}."
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class BoundTable:
     """
@@ -278,6 +302,16 @@ class Datatable:
     @property
     def root(self) -> str:
         return f"/{self.key}/"
+
+    def build_into(self, into: DataTable) -> DataTable:
+        """
+        Never: a declaration cannot draw itself, because it does not know
+        what was asked for. Here so that handing one to
+        DataTable.from_state() says that rather than failing on a missing
+        attribute.
+        """
+        bound_or_raise(self, "DataTable")
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def bind(self, request: Any) -> BoundTable:
         """
@@ -432,7 +466,7 @@ class TableSearch(ChainableComponent):
 
     @classmethod
     def from_state(cls, state: BoundTable) -> Self:
-        return cls().content(_search_form(state))
+        return cls().content(_search_form(bound_or_raise(state, "TableSearch")))
 
     def _render(self, context: HueContext) -> Component:
         return html.div(
@@ -453,6 +487,7 @@ class TablePagination(ChainableComponent):
 
     @classmethod
     def from_state(cls, state: BoundTable) -> Self:
+        state = bound_or_raise(state, "TablePagination")
         size = state.declaration.page_size
         return cls().content(
             Pagination()

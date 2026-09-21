@@ -474,7 +474,16 @@ class DataTable(ChainableComponent):
         Everything about it was decided by the declaration, so this is a
         component like any other and goes wherever one goes.
         """
-        return cast("Self", state.build_into(cls()))
+        # Duck-typed rather than checked against the state layer: table.py
+        # importing it would be a circle. A declaration has this method too
+        # and raises a better sentence than this one from inside it.
+        build = getattr(state, "build_into", None)
+        if build is None:
+            raise TypeError(
+                f"DataTable.from_state() takes a table bound to a request, "
+                f"not {type(state).__name__}."
+            )
+        return cast("Self", build(cls()))
 
     @classmethod
     def example(cls) -> Self:
