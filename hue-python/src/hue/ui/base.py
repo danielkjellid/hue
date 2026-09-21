@@ -119,6 +119,16 @@ class ChainableComponent(ABC):
         self._attrs["aria_describedby"] = value
         return self
 
+    def attr(self, name: str, value: Any) -> Self:
+        """
+        An HTML attribute the component has no modifier for.
+
+        The escape hatch, and deliberately plain: anything used more than
+        once deserves a name of its own rather than a string here.
+        """
+        self._attrs[name] = value
+        return self
+
     def role(self, value: AriaRole) -> Self:
         self._attrs["role"] = value
         return self

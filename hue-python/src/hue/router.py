@@ -193,6 +193,26 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _get_form_list(self, request: T_Request, name: str) -> list[str]:
+        """
+        Every value submitted under one name, which a set of checkboxes is.
+
+        Separate from _get_form_data because the flat dict that returns keeps
+        only the last of them, and the whole point of a column of checkboxes
+        is that several are ticked at once.
+        """
+        value = self._get_form_data(request).get(name)
+        return [] if value is None else [str(value)]
+
+    def _get_query_params(self, request: T_Request) -> dict[str, str]:
+        """
+        The query string, which is where the state of a page lives - the
+        order a table is in, the page of it being looked at.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
     async def _call_view_func(
         self,
         view_func: ViewFunc,

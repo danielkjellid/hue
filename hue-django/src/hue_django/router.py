@@ -53,6 +53,12 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     def _get_form_data(self, request: T_Request) -> dict[str, Any]:
         return request.POST.dict()
 
+    def _get_form_list(self, request: T_Request, name: str) -> list[str]:
+        return request.POST.getlist(name)
+
+    def _get_query_params(self, request: T_Request) -> dict[str, str]:
+        return request.GET.dict()
+
     async def _call_view_func(
         self,
         view_func: ViewFunc,
