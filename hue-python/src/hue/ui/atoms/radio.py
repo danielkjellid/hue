@@ -167,7 +167,7 @@ class RadioGroup(FieldControl):
         variant: ChoiceVariant = self._get_prop("variant", "inline")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         hint: str | None = self._get_prop("hint")
 
         options: list[ComponentType] = []
@@ -212,7 +212,9 @@ class RadioGroup(FieldControl):
             class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
             **{
                 # The legend names the group, so no aria-label as well.
-                "aria_describedby": self._describedby(),
+                "aria_describedby": self._describedby(
+                    context,
+                ),
                 "aria_invalid": "true" if error is not None else None,
                 "disabled": disabled or None,
                 **self._get_base_html_attrs(),

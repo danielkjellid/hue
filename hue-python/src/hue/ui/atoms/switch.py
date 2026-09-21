@@ -177,7 +177,7 @@ class Switch(FormControl):
         layout: ChoiceLayout = self._get_prop("layout", "inline")
         state: SubmissionState = self._get_prop("submission_state", "none")
         disabled: bool = self._get_prop("disabled", False) or state == "pending"
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
         input_id = self._input_id()
@@ -186,6 +186,7 @@ class Switch(FormControl):
         # role is what changes how it is announced.
         control = html.input_(
             **self._control_attrs(
+                context,
                 type="checkbox",
                 role="switch",
                 name=name,
@@ -206,7 +207,8 @@ class Switch(FormControl):
                 # not become part of it.
                 aria_labelledby=label_id(input_id) if label is not None else None,
                 aria_describedby=self._describedby(
-                    description_id(input_id) if description is not None else None
+                    context,
+                    description_id(input_id) if description is not None else None,
                 ),
             )
         )

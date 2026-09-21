@@ -27,27 +27,29 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Tabs()
-                    .label("Invoice sections")
                     .value("overview")
                     .content(
-                        Tab()
+                        TabList()
+                        .label("Invoice sections")
+                        .content(
+                            Tab().value("overview").label("Overview"),
+                            Tab()
+                            .value("lines")
+                            .label("Line items")
+                            .badge(Badge().content("3")),
+                            Tab().value("history").label("History"),
+                            Tab().value("disputes").label("Disputes").disabled(),
+                        ),
+                        TabPanel()
                         .value("overview")
-                        .label("Overview")
                         .content("Paid 12 Sep 2026 by Northwind Traders."),
-                        Tab()
+                        TabPanel()
                         .value("lines")
-                        .label("Line items")
-                        .badge(Badge().content("3"))
                         .content("Three lines, totalling $1,200.00."),
-                        Tab()
+                        TabPanel()
                         .value("history")
-                        .label("History")
                         .content("Sent, viewed twice, paid."),
-                        Tab()
-                        .value("disputes")
-                        .label("Disputes")
-                        .disabled()
-                        .content("Nothing to see."),
+                        TabPanel().value("disputes").content("Nothing to see."),
                     )
                 )
                 """,
@@ -58,15 +60,18 @@ SHOWCASES: list[Showcase] = [
                 (
                     Tabs()
                     .variant("segmented")
-                    .label("Date range")
                     .value("week")
                     .content(
-                        Tab().value("day").label("Day").content("Today so far."),
-                        Tab()
-                        .value("week")
-                        .label("Week")
-                        .content("The last seven days."),
-                        Tab().value("month").label("Month").content("September."),
+                        TabList()
+                        .label("Date range")
+                        .content(
+                            Tab().value("day").label("Day"),
+                            Tab().value("week").label("Week"),
+                            Tab().value("month").label("Month"),
+                        ),
+                        TabPanel().value("day").content("Today so far."),
+                        TabPanel().value("week").content("The last seven days."),
+                        TabPanel().value("month").content("September."),
                     )
                 )
                 """,

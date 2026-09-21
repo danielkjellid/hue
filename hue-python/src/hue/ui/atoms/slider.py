@@ -100,6 +100,7 @@ class Slider(FieldControl):
 
         track = html.input_(
             **self._control_attrs(
+                context,
                 type="range",
                 name=name,
                 id=control_id,
@@ -109,12 +110,15 @@ class Slider(FieldControl):
                 step=self._get_prop("step"),
                 value=current,
                 disabled=disabled or None,
-                aria_describedby=self._describedby(),
+                aria_describedby=self._describedby(
+                    context,
+                ),
                 **{"x-model.number": "value", ":style": fill},
             )
         )
 
         field = self._field(
+            context,
             html.div(
                 track,
                 render_when(
@@ -122,7 +126,7 @@ class Slider(FieldControl):
                     html.div(*(html.span(tick) for tick in ticks), class_=_TICKS),
                 ),
                 class_="flex flex-col",
-            )
+            ),
         )
 
         # The readout goes in the label row, where the guide puts it and where
