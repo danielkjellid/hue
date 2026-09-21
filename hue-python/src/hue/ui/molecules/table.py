@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Literal, Mapping, Sequence
 
@@ -7,7 +8,9 @@ from htmy import html
 from typing_extensions import Self
 
 from hue.context import HueContext
-from hue.types.core import Component, ComponentType
+from hue.js import unsafe
+from hue.types.core import UNDEFINED, Component, ComponentType
+from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.empty import Empty
@@ -37,6 +40,18 @@ _ROW_HEIGHT = ["[&_th]:py-[9px]", "[&_td]:py-[11px]"]
 _ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 
 _FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
+
+# The bar over a table with rows picked in it. accent-subtle so the whole
+# frame says something is selected, not just the rows.
+_BULK_BAR = (
+    "flex items-center justify-between gap-4 border-b border-border "
+    "bg-accent-subtle px-4 py-2"
+)
+
+# A checkbox column is as wide as a checkbox and no wider. Only the margin
+# centres it: the box is a grid, which is what puts the tick in the middle
+# of it, and telling it to be a block instead takes the tick away.
+_SELECT_COLUMN = "w-0 [&>*]:mx-auto"
 
 
 class Table(ChainableComponent):
@@ -85,6 +100,15 @@ class Table(ChainableComponent):
         self._props["compact"] = value
         return self
 
+    def toolbar(self, *values: ComponentType) -> Self:
+        """
+        What sits above the table inside the same frame - a bar of things to
+        do with the rows, say. Not a row of the table: it is not part of the
+        grid and nothing in it lines up with a column.
+        """
+        self._props["toolbar"] = values
+        return self
+
     def footer(self, *values: ComponentType) -> Self:
         """
         What sits under the table inside the same frame, which is where an
@@ -97,6 +121,7 @@ class Table(ChainableComponent):
 
     def _render(self, context: HueContext) -> Component:
         return html.div(
+            *self._get_prop("toolbar", ()),
             html.table(
                 *self._children,
                 class_=classnames(
@@ -433,6 +458,36 @@ class DataTable(ChainableComponent):
         self._props["error"] = value
         return self
 
+    def selectable(self, key: str | Callable[[Mapping[str, Any]], Any]) -> Self:
+        """
+        Put a checkbox at the start of every row, named after what key
+        resolves for it. "Select INV-2050" rather than four checkboxes all
+        announcing "Select", which gives a screen reader nothing to pick by.
+        """
+        self._props["selectable"] = key
+        return self
+
+    def bulk_actions(self, *values: ComponentType) -> Self:
+        """
+        What to do with the rows that are picked, in a bar above them that
+        is there only once at least one is.
+
+        They render inside the table's own Alpine scope, so an expression in
+        one can read selected - the list of values the checkboxes carry:
+
+            Button().content("Delete").on_click(call("remove", unsafe("selected")))
+        """
+        self._props["bulk_actions"] = values
+        return self
+
+    def name(self, value: str) -> Self:
+        """
+        What the row checkboxes are called when the form around the table is
+        submitted. "selected" unless you say otherwise.
+        """
+        self._props["name"] = value
+        return self
+
     def _render(self, context: HueContext) -> Component:
         error: ComponentType | None = self._get_prop("error")
         loading: bool = self._get_prop("loading", False)
@@ -454,6 +509,11 @@ class DataTable(ChainableComponent):
         # would otherwise leave a finished table busy for good.
         table.aria_busy("true" if loading else "false")
 
+        if (values := self._selection_values()) is not None:
+            table.x_data(f"hueTableSelection({json.dumps(values)})")
+            if (bar := self._bulk_bar()) is not None:
+                table.toolbar(bar)
+
         if error is not None:
             table.footer(error)
         elif not loading and not self._rows:
@@ -466,11 +526,87 @@ class DataTable(ChainableComponent):
 
     def _head(self) -> ComponentType:
         return TableHeader().content(
-            TableRow().content(*[self._header_cell(column) for column in self._columns])
+            TableRow().content(
+                self._select_all(),
+                *[self._header_cell(column) for column in self._columns],
+            )
         )
 
     def _header_cell(self, column: Column) -> ComponentType:
         return TableHead().align(column.align).content(column.label)
+
+    def _bulk_bar(self) -> ComponentType | None:
+        """
+        The count and the things to do with what is counted.
+
+        role="status" so the bar announces itself: controls appearing after
+        a checkbox is ticked are a change a screen reader has no other way
+        of hearing about. It stays in the markup either way, because a live
+        region added to the page at the moment it has something to say is
+        never read out.
+        """
+        actions: tuple[ComponentType, ...] = self._get_prop("bulk_actions", ())
+        if not actions:
+            return None
+        return html.div(
+            html.span(
+                role="status",
+                class_="font-ui text-sm font-medium text-accent-text",
+                **{"x-text": "selected.length + ' selected'"},
+            ),
+            html.div(*actions, class_="flex flex-wrap items-center gap-2"),
+            class_=_BULK_BAR,
+            **{"x-show": "selected.length > 0", "x-cloak": True},
+        )
+
+    def _select_all(self) -> ComponentType:
+        """
+        The checkbox above the column of checkboxes.
+
+        Both of its states are set as DOM properties rather than bound as
+        attributes: indeterminate has no attribute at all, and the checked
+        attribute stops meaning anything once a person has clicked the box.
+        """
+        if self._selection_values() is None:
+            return UNDEFINED
+        return (
+            TableHead()
+            .class_(_SELECT_COLUMN)
+            .content(
+                Checkbox()
+                .name("hue-select-all")
+                .label("Select all rows")
+                .hidden_label()
+                .x_effect(unsafe("$el.checked = all; $el.indeterminate = some"))
+                .x_on("change", unsafe("toggleAll($event.target.checked)"))
+            )
+        )
+
+    def _select_cell(self, row: Mapping[str, Any]) -> ComponentType:
+        value = str(_resolve(row, self._get_prop("selectable")))
+        return (
+            TableCell()
+            .class_(_SELECT_COLUMN)
+            .content(
+                Checkbox()
+                .name(self._get_prop("name", "selected"))
+                .value(value)
+                .label(f"Select {value}")
+                .hidden_label()
+                .x_model("selected")
+            )
+        )
+
+    def _selection_values(self) -> list[str] | None:
+        """
+        What every row would be selected as, or None when the table has no
+        checkboxes. The header needs the whole list to know what all of them
+        is.
+        """
+        key = self._get_prop("selectable")
+        if key is None:
+            return None
+        return [str(_resolve(row, key)) for row in self._rows]
 
     def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
         """
@@ -481,16 +617,19 @@ class DataTable(ChainableComponent):
             return ()
         if loading:
             return (self._placeholders(),)
-        return (
-            TableBody().content(
-                *[
-                    TableRow().content(
-                        *[self._cell(column, row) for column in self._columns]
-                    )
-                    for row in self._rows
-                ]
-            ),
+        return (TableBody().content(*[self._row(row) for row in self._rows]),)
+
+    def _row(self, row: Mapping[str, Any]) -> ComponentType:
+        line = TableRow().content(
+            self._select_cell(row)
+            if self._get_prop("selectable") is not None
+            else UNDEFINED,
+            *[self._cell(column, row) for column in self._columns],
         )
+        if (key := self._get_prop("selectable")) is not None:
+            value = json.dumps(str(_resolve(row, key)))
+            line.x_bind("aria-selected", unsafe(f"isSelected({value})"))
+        return line
 
     def _placeholders(self) -> ComponentType:
         """

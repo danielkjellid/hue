@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Badge, Column, DataTable, Empty
+from hue.ui import Badge, Button, Column, DataTable, Empty
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _COLUMNS = [
@@ -224,3 +224,94 @@ class TestDataTable:
             context_args=context_args,
         )
         assert_selector(html, "tbody td > div.mx-auto")
+
+    # selectable(): both branches
+    @pytest.mark.asyncio
+    async def test_every_row_checkbox_names_its_own_row(self, context_args):
+        # Three checkboxes all announcing "Select" gives a screen reader
+        # nothing to select by.
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            context_args=context_args,
+        )
+        boxes = select(html, "tbody input[type=checkbox]")
+        labels = [box["aria-label"] for box in boxes]
+        assert labels == ["Select INV-2050", "Select INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):
+        # A form around the table posts them without any JavaScript at all.
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice").name("ids"),
+            context_args=context_args,
+        )
+        boxes = select(html, "tbody input[type=checkbox]")
+        assert [box["name"] for box in boxes] == ["ids", "ids"]
+        assert [box["value"] for box in boxes] == ["INV-2050", "INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            context_args=context_args,
+        )
+        assert_attr(
+            html,
+            "table",
+            "x-data",
+            'hueTableSelection(["INV-2050", "INV-2048"])',
+        )
+        assert_attr(
+            html,
+            "thead input",
+            "x-effect",
+            "$el.checked = all; $el.indeterminate = some",
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
+        )
+        assert_no_selector(html, "input[type=checkbox]")
+        assert_no_selector(html, "[x-data]")
+
+    # bulk_actions(): both branches
+    @pytest.mark.asyncio
+    async def test_what_to_do_with_the_picked_rows_sits_above_them(self, context_args):
+        # Inside the table's own Alpine scope, so an expression in an action
+        # can read the list of values the checkboxes carry.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            .selectable("invoice")
+            .bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_selector(html, "div.bg-accent-subtle button")
+        assert_selector(html, "div.bg-accent-subtle + table[x-data]")
+        assert_attr(html, "div.bg-accent-subtle", "x-show", "selected.length > 0")
+
+    @pytest.mark.asyncio
+    async def test_the_count_announces_itself(self, context_args):
+        # Controls appearing after a checkbox is ticked are a change a
+        # screen reader has no other way of hearing about.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            .selectable("invoice")
+            .bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_attr(html, "[role=status]", "x-text", "selected.length + ' selected'")
+
+    @pytest.mark.asyncio
+    async def test_no_actions_means_no_bar(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, ".bg-accent-subtle")
+        assert_no_selector(html, "[role=status]")

@@ -68,7 +68,14 @@ SHOWCASES: list[Showcase] = [
             "tabular figures, because without them the decimal points drift "
             "and the column stops being scannable. Cells wrap rather than "
             "truncate: an invoice reference cut off without saying so is "
-            "worse than an uneven row."
+            "worse than an uneven row. Every row checkbox names its own row "
+            "- four all announcing 'Select' give a screen reader nothing to "
+            "pick by - and carries a name and a value, so a form around the "
+            "table posts the selection with no JavaScript at all. Tick one "
+            "and the bar above the table appears with the count and what "
+            "there is to do with them; the expressions in those buttons can "
+            "read `selected`, which is the list of values the checkboxes "
+            "carry."
         ),
         variants=[
             variant(
@@ -76,6 +83,10 @@ SHOWCASES: list[Showcase] = [
                 f"""
                 DataTable().caption(
                     "Invoices, September 2026 - 3 of 148 shown"
+                ).selectable("invoice").bulk_actions(
+                    Button().variant("outline").size("xs").content("Export"),
+                    Button().variant("danger").size("xs").content("Delete")
+                    .on_click(call("remove", unsafe("selected"))),
                 ).columns(
                     [{_COLUMNS}                ]
                 ).rows(

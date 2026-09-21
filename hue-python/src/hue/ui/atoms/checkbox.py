@@ -84,6 +84,16 @@ class Checkbox(FormControl):
         self._props["variant"] = value
         return self
 
+    def hidden_label(self, value: bool = True) -> Self:
+        """
+        Keep the label for a screen reader but take it off the screen, for a
+        checkbox whose purpose is obvious from where it sits - one per row in
+        a table, say. The name moves onto the control itself, since there is
+        no longer any text on the page to point at.
+        """
+        self._props["hidden_label"] = value
+        return self
+
     def _render(self, context: HueContext) -> Component:
         name = self._require_name()
         disabled: bool = self._get_prop("disabled", False)
@@ -94,7 +104,9 @@ class Checkbox(FormControl):
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
         variant: ChoiceVariant = self._get_prop("variant", "inline")
+        hidden_label: bool = self._get_prop("hidden_label", False)
         input_id = self._input_id()
+        box_classes = classnames(CHOICE_BOX, "rounded-xs", _TICK, _DASH)
 
         # No explicit role: a native checkbox input already carries it. Boolean
         # attributes are true by presence, so False must omit them.
@@ -103,14 +115,17 @@ class Checkbox(FormControl):
             name=name,
             id=input_id,
             value=self._get_prop("value"),
-            class_=classnames(CHOICE_BOX, "rounded-xs", _TICK, _DASH),
+            class_=box_classes,
             checked=checked or None,
             disabled=disabled or None,
             required=required or None,
             aria_invalid="true" if error is not None else None,
             # An explicit name, so the description inside the label does not
             # become part of it.
-            aria_labelledby=label_id(input_id) if label is not None else None,
+            aria_label=label if hidden_label else None,
+            aria_labelledby=(
+                label_id(input_id) if label is not None and not hidden_label else None
+            ),
             aria_describedby=self._describedby(
                 description_id(input_id) if description is not None else None
             ),
@@ -119,6 +134,16 @@ class Checkbox(FormControl):
             # The indeterminate DOM property has no HTML attribute; set it on
             # init so the CSS :indeterminate styles apply.
             input_attrs["x-init"] = "$el.indeterminate = true"
+
+        if hidden_label:
+            # No row: there is no text beside it, nothing to be the hit area,
+            # and nothing to space the box away from. The id goes too unless
+            # something still points at it - an id exists to be pointed at,
+            # and a column of checkboxes would otherwise share one.
+            if "id" not in self._attrs and input_attrs.get("aria_describedby") is None:
+                input_attrs.pop("id", None)
+            input_attrs["class_"] = classnames(box_classes, self._get_prop("class_"))
+            return html.input_(**input_attrs)
 
         return choice_row(
             html.input_(**input_attrs),
