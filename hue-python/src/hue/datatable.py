@@ -35,15 +35,7 @@ one part that is a function:
         )
 
         async def index(self, request, context):
-            invoices = self.invoices.bind(request)
-            return Page(
-                title="Invoices",
-                body=Stack().content(
-                    TableSearch.from_state(invoices),
-                    DataTable.from_state(invoices),
-                    TablePagination.from_state(invoices),
-                ),
-            )
+            return Page(title="Invoices", body=self.invoices.bind(request))
 
 It is declared at class scope because that is the only time a route can
 be registered, and the routes it registers call rows() the same way the
@@ -56,6 +48,11 @@ of a sorted table.
 rows is everything that matches, not the page of it. The page is sliced
 afterwards, so a paginated table is a count and a slice rather than a
 queryset walked to find out how long it is.
+
+bind() answers with the table itself - a component, and the whole of it:
+the search box, the rows and the pages. Give it children instead and it
+renders those, each of them finding the same binding in the context, so
+a pagination bar can sit in a page footer far from the rows it pages.
 """
 
 from __future__ import annotations
@@ -66,7 +63,6 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Mapping, Sequence
 from urllib.parse import urlencode
 
 from htmy import Context, html
-from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
@@ -74,7 +70,7 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import TextInput
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.pagination import Pagination
-from hue.ui.molecules.table import Column, DataTable, resolve_value
+from hue.ui.molecules.table import Column, DataTable, TableSource, resolve_value
 from hue.utils import classnames
 
 if TYPE_CHECKING:
@@ -161,27 +157,21 @@ def _total(rows: Any) -> int:
         return len(rows)
 
 
-def bound_or_raise(state: Any, component: str) -> BoundTable:
+def bound_from(context: Context, component: str) -> BoundTable:
     """
-    The bound table a component was given, or an explanation.
+    The bound table a component is being rendered inside, or an
+    explanation of what is missing.
 
-    Forgetting bind() is the one slip this shape invites, and left alone
-    it surfaces as a missing attribute on a class nobody was thinking
-    about. The declaration is a perfectly good object; it just does not
-    know which rows to draw yet.
+    Every part of a table reads the same one, which is what lets a
+    pagination bar sit in a page footer far from the rows it pages.
     """
-    if isinstance(state, BoundTable):
-        return state
-    if isinstance(state, Datatable):
-        raise TypeError(
-            f"{component}.from_state() takes a table bound to a request, and "
-            f"{state.key!r} is the declaration. Which rows answer a table "
-            f"depends on what was asked for, so bind it to the request "
-            f"first: table.bind(request)."
-        )
-    raise TypeError(
-        f"{component}.from_state() takes a table bound to a request, not "
-        f"{type(state).__name__}."
+    found = context.get(TableSource)
+    if isinstance(found, BoundTable):
+        return found
+    raise ValueError(
+        f"{component} draws part of a table bound to a request, and there "
+        f"is none here. Render it inside one: table.bind(request), which "
+        f"is a component and offers itself to everything in it."
     )
 
 
@@ -202,13 +192,14 @@ class TableUrls:
 
 
 @dataclass(frozen=True, slots=True)
-class BoundTable:
+class BoundTable(TableSource):
     """
     One table, for one request: what was asked, what answers it, and the
     page that came back.
 
-    The components take this. Every link they draw is on it already, so
-    none of them reaches for the request or works out a URL of its own.
+    Offered to everything inside the view that binds it. Every link a
+    component draws is on here already, so none of them reaches for the
+    request or works out a URL of its own.
     """
 
     declaration: Datatable
@@ -317,19 +308,14 @@ class Datatable:
             )
         self._register()
 
-    def build_into(self, into: DataTable) -> DataTable:
+    def bind(self, request: Any) -> TableView:
         """
-        Never: a declaration cannot draw itself, because it does not know
-        what was asked for. Here so that handing one to
-        DataTable.from_state() says that rather than failing on a missing
-        attribute.
-        """
-        bound_or_raise(self, "DataTable")
-        raise AssertionError("unreachable")  # pragma: no cover
+        The table, for this request: a component, and the whole of it.
 
-    def bind(self, request: Any) -> BoundTable:
-        """
-        Everything one request needs, in one value.
+        Rendered on its own it is the search box, the rows and the pages.
+        Given children it renders those instead, and each of them finds
+        this same binding in the context - which is what lets a
+        pagination bar sit in a page footer far from the rows it pages.
         """
         asked = self.state_of(request)
         matching = self.rows(request, asked)
@@ -337,7 +323,7 @@ class Datatable:
         start = (asked.page - 1) * self.page_size
         page = list(matching[start : start + self.page_size])
         self._check_identifier(page)
-        return BoundTable(self, asked, page, total, self._urls_for(request))
+        return TableView(BoundTable(self, asked, page, total, self._urls_for(request)))
 
     def _urls_for(self, request: Any) -> TableUrls:
         """
@@ -362,19 +348,6 @@ class Datatable:
             page = 1
         return TableState(
             sort=asked.get(SORT) or None, query=asked.get(QUERY, ""), page=page
-        )
-
-    def render(self, request: Any) -> ComponentType:
-        """
-        All of it, for a view that wants the table and no say in how it is
-        arranged.
-        """
-        bound = self.bind(request)
-        return html.div(
-            *((TableSearch.from_state(bound),) if self.search else ()),
-            DataTable.from_state(bound),
-            TablePagination.from_state(bound),
-            class_="flex flex-col gap-3",
         )
 
     def _check_identifier(self, page: Rows) -> None:
@@ -411,7 +384,7 @@ class Datatable:
         """
 
         async def read(view: Any, request: Any, context: Any) -> ComponentType:
-            return DataTable.from_state(self.bind(request))
+            return self.bind(request)
 
         async def act(
             view: Any, request: Any, context: Any, action: str
@@ -424,7 +397,7 @@ class Datatable:
                 )
             chosen.handler(request, self._router._get_form_list(request, SELECTED))
             # Bound after, because the rows have just changed under it.
-            return DataTable.from_state(self.bind(request))
+            return self.bind(request)
 
         # Named before they are registered, not after: the router takes
         # a route's name off __name__ as it decorates.
@@ -481,6 +454,69 @@ def datatable(
 # ----------------------------------------------------------------------
 
 
+class TableView(ChainableComponent):
+    """
+    One table, bound to one request, and everything that narrows it.
+
+    What bind() returns, and a component like any other. Rendered on its
+    own it is the whole package - the search box, the rows and the pages.
+    Given children it renders those instead, and every part of a table
+    finds this binding in the context rather than being handed it, so a
+    pagination bar can sit in a page footer far from the rows it pages.
+
+        self.invoices.bind(request)
+
+        self.invoices.bind(request).content(TableSearch(), DataTable())
+    """
+
+    category: ClassVar[str | None] = None
+
+    def __init__(self, bound: BoundTable) -> None:
+        super().__init__()
+        self._bound = bound
+
+    @property
+    def state(self) -> TableState:
+        """What was asked for."""
+        return self._bound.state
+
+    @property
+    def page(self) -> Rows:
+        """The rows that answer it, for the page being looked at."""
+        return self._bound.page
+
+    @property
+    def total(self) -> int:
+        """How many rows match in all, not just on this page."""
+        return self._bound.total
+
+    @property
+    def urls(self) -> TableUrls:
+        """Where this table's own routes live."""
+        return self._bound.urls
+
+    def htmy_context(self) -> Context:
+        return {TableSource: self._bound}
+
+    def _render(self, context: Context) -> Component:
+        return html.div(
+            *(self._children or self._package()),
+            class_=classnames("flex flex-col gap-3", self._get_prop("class_")),
+            **self._get_base_html_attrs(),
+        )
+
+    def _package(self) -> tuple[ComponentType, ...]:
+        """
+        The whole table when nobody said how to lay it out, which is what
+        a view wants nine times in ten.
+        """
+        return (
+            *((TableSearch(),) if self._bound.declaration.search else ()),
+            DataTable(),
+            TablePagination(),
+        )
+
+
 class TableSearch(ChainableComponent):
     """
     The box above a table, and the one part of it that is not swapped.
@@ -492,13 +528,10 @@ class TableSearch(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    @classmethod
-    def from_state(cls, state: BoundTable) -> Self:
-        return cls().content(_search_form(bound_or_raise(state, "TableSearch")))
-
     def _render(self, context: Context) -> Component:
+        bound = bound_from(context, "TableSearch")
         return html.div(
-            *self._children,
+            *(self._children or (_search_form(bound),)),
             class_=classnames("max-w-xs", self._get_prop("class_")),
             **self._get_base_html_attrs(),
         )
@@ -513,25 +546,19 @@ class TablePagination(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    @classmethod
-    def from_state(cls, state: BoundTable) -> Self:
-        state = bound_or_raise(state, "TablePagination")
-        size = state.declaration.page_size
-        return cls().content(
+    def _render(self, context: Context) -> Component:
+        bound = bound_from(context, "TablePagination")
+        size = bound.declaration.page_size
+        return html.div(
             Pagination()
-            .page(state.state.page)
+            .page(bound.state.page)
             .page_size(size)
-            .total_records(state.total)
+            .total_records(bound.total)
             # Pagination takes all three and derives none of them, so the
             # one the other two decide is worked out here rather than left
             # at its default of one page.
-            .total_pages(max(1, ceil(state.total / size)))
-            .href(lambda page: state.href(page=page))
-        )
-
-    def _render(self, context: Context) -> Component:
-        return html.div(
-            *self._children,
+            .total_pages(max(1, ceil(bound.total / size)))
+            .href(lambda page: bound.href(page=page)),
             class_=classnames(self._get_prop("class_")),
             **self._get_base_html_attrs(),
         )

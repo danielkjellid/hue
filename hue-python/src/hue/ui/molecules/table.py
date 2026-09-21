@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
     Literal,
     Mapping,
     Sequence,
-    cast,
 )
 
 from htmy import Context, html
@@ -25,9 +24,6 @@ from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.empty import Empty
 from hue.utils import classes_if_else, classnames, render_if
-
-if TYPE_CHECKING:
-    from hue.datatable import BoundTable
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
@@ -400,6 +396,40 @@ class TableCaption(ChainableComponent):
         )
 
 
+class TableSource(ABC):
+    """
+    Something that knows what a table is showing.
+
+    Whatever bound a table to a request offers one of these to everything
+    rendered inside it, so a DataTable in there draws itself without being
+    handed anything and without being a direct child of anything.
+
+    The abstract class lives here rather than with the layer that makes
+    one, so the components can name what they are looking for without
+    importing it - hue.datatable imports the components, and the other way
+    round as well would be a circle.
+    """
+
+    @abstractmethod
+    def build_into(self, into: DataTable) -> DataTable:
+        """
+        The table this describes: its columns, its rows, the order they
+        are in and where the next one lives.
+        """
+
+    @classmethod
+    def from_context(cls, context: Context) -> TableSource:
+        found = context.get(cls)
+        if isinstance(found, cls):
+            return found
+        raise ValueError(
+            "A DataTable with no columns of its own is drawn by whatever "
+            "bound it to a request, and nothing here has. Give it columns "
+            "and rows, or render it inside a bound table: "
+            "table.bind(request)."
+        )
+
+
 @dataclass(frozen=True)
 class Column:
     """
@@ -479,26 +509,6 @@ class DataTable(ChainableComponent):
         super().__init__()
         self._columns: list[Column] = []
         self._rows: Sequence[Mapping[str, Any]] = []
-
-    @classmethod
-    def from_state(cls, state: BoundTable) -> Self:
-        """
-        The table a bound state describes: its columns, the rows it was
-        asked for, the order they are in and where the next one lives.
-
-        Everything about it was decided by the declaration, so this is a
-        component like any other and goes wherever one goes.
-        """
-        # Duck-typed rather than checked against the state layer: table.py
-        # importing it would be a circle. A declaration has this method too
-        # and raises a better sentence than this one from inside it.
-        build = getattr(state, "build_into", None)
-        if build is None:
-            raise TypeError(
-                f"DataTable.from_state() takes a table bound to a request, "
-                f"not {type(state).__name__}."
-            )
-        return cast("Self", build(cls()))
 
     @classmethod
     def example(cls) -> Self:
@@ -632,6 +642,12 @@ class DataTable(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        if not self._columns:
+            # Nothing to draw and nobody said what: the bound table above
+            # it knows, and says so through the context rather than by
+            # being passed down through whatever laid this out.
+            TableSource.from_context(context).build_into(self)
+
         error: ComponentType | None = self._get_prop("error")
         loading: bool = self._get_prop("loading", False)
 

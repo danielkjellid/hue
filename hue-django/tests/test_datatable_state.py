@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.http import HttpRequest
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
+from htmy.html import div as html_div
 from hue.context import HueContextArgs
 from hue.datatable import BulkAction, TablePagination, TableSearch, datatable
 from hue.renderer import render_tree
@@ -119,6 +120,13 @@ def _render(component: Any) -> str:
     )
 
 
+def _part(bound: Any, part: Any) -> str:
+    """
+    One part of a table, rendered where it finds the binding: inside it.
+    """
+    return _render(bound.content(part))
+
+
 def test_the_declaration_registers_a_route_to_read_and_one_to_act():
     view = _view()
     assert [(route.method, route.path) for route in type(view).router.routes] == [
@@ -151,7 +159,7 @@ def test_rows_is_handed_what_was_asked_for(mounted):
 
 def test_a_sort_link_keeps_the_search(mounted):
     bound = mounted().invoices.bind(_request(sort="amount", q="contoso"))
-    html = _render(DataTable.from_state(bound))
+    html = _part(bound, DataTable())
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=contoso" in hrefs
 
@@ -159,7 +167,7 @@ def test_a_sort_link_keeps_the_search(mounted):
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
     bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", page="2"))
-    html = _render(TableSearch.from_state(bound))
+    html = _part(bound, TableSearch())
     hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     assert hidden == [("sort", "-amount")]
 
@@ -172,7 +180,7 @@ def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
 
 def test_pagination_links_keep_the_rest_of_the_state(mounted):
     bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", q="n"))
-    html = _render(TablePagination.from_state(bound))
+    html = _part(bound, TablePagination())
     hrefs = re.findall(r'href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
@@ -183,7 +191,7 @@ def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
     bound = mounted(page_size=2).invoices.bind(
         _request(sort="-amount", q="n", page="2")
     )
-    html = _render(DataTable.from_state(bound))
+    html = _part(bound, DataTable())
     assert re.search(
         r'formaction="/billing/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"',
         html,
@@ -200,7 +208,7 @@ def test_every_url_follows_the_mount_point(mounted):
 
 def test_the_search_form_posts_back_to_the_mounted_table(mounted):
     bound = mounted().invoices.bind(_request())
-    html = _render(TableSearch.from_state(bound))
+    html = _part(bound, TableSearch())
     assert 'action="/billing/invoices/"' in html
 
 
@@ -223,14 +231,14 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
     bound = mounted().invoices.bind(_request())
-    html = _render(DataTable.from_state(bound))
+    html = _part(bound, DataTable())
     picked = re.findall(r'name="selected" value="(\d+)"', html)
     assert picked == ["41", "17", "23", "58"]
 
 
 def test_the_search_box_submits_itself_after_a_pause(mounted):
     bound = mounted().invoices.bind(_request())
-    html = _render(TableSearch.from_state(bound))
+    html = _part(bound, TableSearch())
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
     assert re.search(r'x-target="invoices"', html)
 
@@ -268,30 +276,42 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
         raise AssertionError("expected a ValueError")
 
 
-def test_forgetting_to_bind_says_so():
-    # The one slip this shape invites. Left alone it surfaces as a missing
-    # attribute on a class nobody was thinking about.
-    declaration = type(_view()).invoices
-
-    for component, from_state in (
-        ("DataTable", DataTable.from_state),
-        ("TableSearch", TableSearch.from_state),
-        ("TablePagination", TablePagination.from_state),
-    ):
+def test_a_part_drawn_outside_a_bound_table_says_so():
+    # The one slip this shape invites. Left alone it surfaces as an empty
+    # table, or as a missing key on a context nobody was thinking about.
+    for component in (TableSearch(), TablePagination()):
         try:
-            from_state(declaration)
-        except TypeError as error:
-            assert "bound to a request" in str(error)
+            _render(component)
+        except ValueError as error:
             assert "bind(request)" in str(error)
-            assert component in str(error)
+            assert type(component).__name__ in str(error)
         else:  # pragma: no cover - the raise is the behaviour under test
-            raise AssertionError(f"{component} accepted an unbound table")
+            raise AssertionError(f"{component} drew itself out of nothing")
 
 
-def test_something_else_entirely_is_refused_too():
+def test_a_datatable_with_no_columns_and_nothing_above_it_says_so():
     try:
-        DataTable.from_state("not a table")  # type: ignore[arg-type]
-    except TypeError as error:
-        assert "not str" in str(error)
+        _render(DataTable())
+    except ValueError as error:
+        assert "bind(request)" in str(error)
     else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a TypeError")
+        raise AssertionError("expected a ValueError")
+
+
+def test_the_whole_table_is_one_component(mounted):
+    # No parts to place: bound and rendered is the search box, the rows
+    # and the pages.
+    html = _render(mounted().invoices.bind(_request()))
+    assert re.search(r'name="q"', html)
+    assert re.search(r"<table", html)
+    assert re.search(r'aria-label="Pagination', html)
+
+
+def test_the_parts_can_be_placed_instead(mounted):
+    # And each of them finds the same binding, however deeply it is laid
+    # out inside the view.
+    bound = mounted().invoices.bind(_request())
+    html = _render(bound.content(html_div(TablePagination()), DataTable()))
+    assert re.search(r"<table", html)
+    assert re.search(r'aria-label="Pagination', html)
+    assert 'type="search"' not in html

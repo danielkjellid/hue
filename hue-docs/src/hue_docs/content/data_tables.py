@@ -2,15 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from hue.datatable import (
-    BulkAction,
-    TablePagination,
-    TableSearch,
-    TableState,
-    datatable,
-)
+from hue.datatable import BulkAction, TableState, datatable
 from hue.types.core import ComponentType
-from hue.ui import Alert, Column, DataTable
+from hue.ui import Alert, Column
 
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
@@ -94,12 +88,7 @@ _TABLE = datatable(
 
 
 def _specimen(**params: str) -> ComponentType:
-    bound = _TABLE.bind(_Request(**params))
-    return pr.section(
-        TableSearch.from_state(bound),
-        DataTable.from_state(bound),
-        TablePagination.from_state(bound),
-    )
+    return pr.section(_TABLE.bind(_Request(**params)))
 
 
 _DECLARATION = """def invoices_for(request, asked):
@@ -127,15 +116,7 @@ class InvoicesView(HueView):
     )
 
     async def index(self, request, context):
-        invoices = self.invoices.bind(request)
-        return Page(
-            title="Invoices",
-            body=Stack().content(
-                TableSearch.from_state(invoices),
-                DataTable.from_state(invoices),
-                TablePagination.from_state(invoices),
-            ),
-        )"""
+        return Page(title="Invoices", body=self.invoices.bind(request))"""
 
 
 def _build() -> ComponentType:
@@ -281,13 +262,36 @@ def _build() -> ComponentType:
             "inside the frame, and swapping only the table would leave a "
             "stale one sitting beneath the new rows."
         ),
-        pr.h2("Why the search box is a separate component"),
+        pr.h2("One component, or the parts of one"),
         pr.p(
-            "TableSearch is placed by you rather than rendered by the table, "
-            "and that is structural rather than cosmetic. The frame is what "
-            "a response replaces; a box inside it would be swapped out from "
-            "under the person typing in it, losing the caret and the focus "
-            "every time a request came back."
+            "bind() answers with the table itself, and rendering it is the "
+            "whole of it: the search box, the rows and the pages. That is "
+            "what a view wants nine times in ten, and it is one line."
+        ),
+        pr.code(
+            "async def index(self, request, context):\n"
+            "    return Page(title=\"Invoices\", body=self.invoices.bind(request))"
+        ),
+        pr.p(
+            "Give it children and it renders those instead. Each of them "
+            "finds the same binding in the context rather than being handed "
+            "it, so a part can sit anywhere inside - a pagination bar in a "
+            "page footer, far from the rows it pages, still knowing which "
+            "page it is on."
+        ),
+        pr.code(
+            "self.invoices.bind(request).content(\n"
+            "    TableSearch(),\n"
+            "    Card().content(DataTable()),\n"
+            "    TablePagination(),\n"
+            ")"
+        ),
+        pr.p(
+            "The search box stays outside the frame either way, and that is "
+            "structural rather than cosmetic. The frame is what a response "
+            "replaces; a box inside it would be swapped out from under the "
+            "person typing in it, losing the caret and the focus every time "
+            "a request came back."
         ),
         pr.p(
             "It is a GET form that submits itself 300 milliseconds after the "
