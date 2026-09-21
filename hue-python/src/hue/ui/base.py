@@ -107,6 +107,14 @@ class ChainableComponent(ABC):
         self._attrs["aria_atomic"] = value
         return self
 
+    def aria_busy(self, value: Literal["true", "false"]) -> Self:
+        """
+        Say the contents are being replaced, so what is here now is not
+        worth reading out yet.
+        """
+        self._attrs["aria_busy"] = value
+        return self
+
     def aria_describedby(self, value: str) -> Self:
         self._attrs["aria_describedby"] = value
         return self

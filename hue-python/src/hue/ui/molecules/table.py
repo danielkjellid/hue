@@ -46,7 +46,9 @@ class Table(ChainableComponent):
     TableCaption, TableHeader, TableBody, TableFooter, TableRow, TableHead
     and TableCell mirror the HTML elements one for one. compact() sets the
     padding for every cell at once, and footer() is where an empty or error
-    state goes - inside the frame, under the header.
+    state goes - inside the frame, under the header. A table whose rows are
+    on their way says so with aria_busy("true"), and stands in for them
+    with whatever placeholder rows it likes.
 
     For a list of records, reach for DataTable, which builds all of this from
     a column definition and your rows.
@@ -93,17 +95,7 @@ class Table(ChainableComponent):
         self._props["footer"] = values
         return self
 
-    def busy(self, value: bool = True) -> Self:
-        """
-        Say the contents are being replaced, so a screen reader is told the
-        table is mid-update rather than reading out placeholder rows.
-        """
-        self._props["busy"] = value
-        return self
-
     def _render(self, context: HueContext) -> Component:
-        busy: bool = self._get_prop("busy", False)
-
         return html.div(
             html.table(
                 *self._children,
@@ -117,10 +109,7 @@ class Table(ChainableComponent):
                     ),
                     self._get_prop("class_"),
                 ),
-                **{
-                    "aria_busy": "true" if busy else None,
-                    **self._get_base_html_attrs(),
-                },
+                **self._get_base_html_attrs(),
             ),
             *self._get_prop("footer", ()),
             class_=_FRAME,
@@ -451,7 +440,6 @@ class DataTable(ChainableComponent):
         table = (
             Table()
             .compact(self._get_prop("compact", False))
-            .busy(loading)
             .content(
                 render_if(
                     self._get_prop("caption"), lambda c: TableCaption().content(c)
@@ -460,6 +448,11 @@ class DataTable(ChainableComponent):
                 *self._body(loading=loading, failed=error is not None),
             )
         )
+
+        if loading:
+            # One statement, once: the placeholders are already hidden from
+            # the screen reader, and this is what tells it why.
+            table.aria_busy("true")
 
         if error is not None:
             table.footer(error)

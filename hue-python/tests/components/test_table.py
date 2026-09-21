@@ -102,17 +102,6 @@ class TestTable:
         assert_selector(html, "div > table + div")
         assert "No invoices" in html
 
-    # busy(): both branches
-    @pytest.mark.asyncio
-    async def test_a_busy_table_says_it_is_mid_update(self, context_args):
-        html = await render_tree(Table().busy(), context_args=context_args)
-        assert_attr(html, "table", "aria-busy", "true")
-
-    @pytest.mark.asyncio
-    async def test_a_settled_table_says_nothing_about_it(self, context_args):
-        html = await render_tree(Table(), context_args=context_args)
-        assert_no_selector(html, "[aria-busy]")
-
     # TableRow selected(): both branches
     @pytest.mark.asyncio
     async def test_a_selected_row_is_marked_for_the_screen_reader_too(
