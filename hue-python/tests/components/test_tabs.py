@@ -101,7 +101,7 @@ class TestTabs:
 
     @pytest.mark.asyncio
     async def test_segmented_wears_what_the_segmented_control_wears(self, context_args):
-        html = await render_tree(_tabs(variant="segmented"), context_args=context_args)
+        html = await render_tree(_tabs(segmented=True), context_args=context_args)
         assert_selector(html, "nav.bg-surface-sunken")
         assert_selector(html, "a[class*='shadow-segment']")
 

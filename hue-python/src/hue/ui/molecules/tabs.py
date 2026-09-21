@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Literal
+from typing import ClassVar
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -12,15 +12,11 @@ from hue.ui.base import ChainableComponent
 from hue.ui.navigation import CurrentPage
 from hue.utils import classnames, render_if
 
-type TabsVariant = Literal["underline", "segmented"]
-
-_ROWS: dict[TabsVariant, str] = {
-    # Scrolls rather than wraps on a narrow screen: a row of tabs folded
-    # onto a second line stops reading as one row of choices, and every
-    # tab stays a real link either way.
-    "underline": "flex gap-1 overflow-x-auto border-b border-border",
-    "segmented": f"{SEGMENTED_TRACK} overflow-x-auto",
-}
+# Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
+# a second line stops reading as one row of choices, and every tab stays a
+# real link either way.
+_ROW = "flex gap-1 overflow-x-auto border-b border-border"
+_ROW_SEGMENTED = f"{SEGMENTED_TRACK} overflow-x-auto"
 
 # What an underline tab is, laid out. The segmented track says all of
 # this for its own items already, so only one of the two is ever applied.
@@ -64,7 +60,7 @@ class TabsState:
     child of the row to belong to it.
     """
 
-    variant: TabsVariant = "underline"
+    segmented: bool = False
     target: str | None = None
 
     @classmethod
@@ -109,8 +105,12 @@ class Tabs(ChainableComponent):
             )
         )
 
-    def variant(self, value: TabsVariant) -> Self:
-        self._props["variant"] = value
+    def segmented(self, value: bool = True) -> Self:
+        """
+        Wear the segmented track instead of the rule: a row of places
+        that sits inside something rather than heading it.
+        """
+        self._props["segmented"] = value
         return self
 
     def current(self, value: str) -> Self:
@@ -145,7 +145,7 @@ class Tabs(ChainableComponent):
         return {
             CurrentPage: CurrentPage(self._get_prop("current")),
             TabsState: TabsState(
-                self._get_prop("variant", "underline"), self._get_prop("target")
+                self._get_prop("segmented", False), self._get_prop("target")
             ),
         }
 
@@ -154,7 +154,7 @@ class Tabs(ChainableComponent):
             *self._children,
             aria_label=self._get_prop("label"),
             class_=classnames(
-                _ROWS[self._get_prop("variant", "underline")],
+                _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW,
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
@@ -216,7 +216,7 @@ class Tab(ChainableComponent):
                 href, exact=self._get_prop("exact", False)
             ),
         )
-        segmented = state.variant == "segmented"
+        segmented = state.segmented
         classes = classnames(
             # A link, and never underlined: the rule under the tab you are
             # on is the mark, and a second one under the words is noise.

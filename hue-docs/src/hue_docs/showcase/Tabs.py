@@ -19,10 +19,9 @@ SHOWCASES: list[Showcase] = [
             "sends to somebody and answers the back button, and what it "
             "shows is whatever that page renders. The page you are on is "
             "given once, and the tab that leads there marks itself, "
-            "including on the pages inside it. The segmented variant wears "
-            "the same track as SegmentedControl - they look alike and mean "
-            "different things, one a set of choices and this a set of "
-            "places."
+            "including on the pages inside it. segmented() wears the same "
+            "track as SegmentedControl - they look alike and mean different "
+            "things, one a set of choices and this a set of places."
         ),
         variants=[
             variant(
@@ -50,7 +49,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Tabs()
-                    .variant("segmented")
+                    .segmented()
                     .label("Date range")
                     .current("/reports/week")
                     .content(
