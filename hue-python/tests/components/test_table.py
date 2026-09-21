@@ -78,9 +78,16 @@ class TestTable:
             Table().id("users").class_("custom-class").aria_label("Users"),
             context_args=context_args,
         )
-        assert_attr(html, "table", "id", "users")
         assert_attr(html, "table", "aria-label", "Users")
         assert_selector(html, "table.custom-class")
+
+    @pytest.mark.asyncio
+    async def test_the_id_names_the_frame_rather_than_the_table(self, context_args):
+        # Which is what a request has to aim at: swap only the table and an
+        # empty state sitting under it would still be there afterwards.
+        html = await render_tree(Table().id("users"), context_args=context_args)
+        assert_attr(html, "div#users > table", "class")
+        assert_no_selector(html, "table#users")
 
     # compact(): both branches
     @pytest.mark.asyncio

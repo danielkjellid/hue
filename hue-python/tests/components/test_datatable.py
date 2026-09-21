@@ -202,7 +202,7 @@ class TestDataTable:
             DataTable().columns(_COLUMNS).rows(_ROWS).id("invoices").class_("mt-4"),
             context_args=context_args,
         )
-        assert_attr(html, "table", "id", "invoices")
+        assert_selector(html, "div#invoices")
         assert_selector(html, "table.mt-4")
 
     # The placeholder's own alignment: a block ignores text-align
@@ -315,3 +315,103 @@ class TestDataTable:
         )
         assert_no_selector(html, ".bg-accent-subtle")
         assert_no_selector(html, "[role=status]")
+
+    # sort: a header that goes somewhere, and one that does not
+    @pytest.mark.asyncio
+    async def test_a_sortable_header_is_a_link_not_a_clickable_cell(self, context_args):
+        # A th with a click handler is not keyboard-operable; a link is, and
+        # it puts the order in the URL where it can be shared.
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            .sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        assert_attr(html, "th a", "href", "?sort=amount")
+
+    @pytest.mark.asyncio
+    async def test_a_column_with_no_sort_is_only_its_label(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
+        )
+        assert_no_selector(html, "th a")
+        assert_no_selector(html, "[aria-sort]")
+
+    @pytest.mark.asyncio
+    async def test_only_the_column_the_rows_are_in_says_which_way(self, context_args):
+        # ARIA has no way to rank two sorted columns, so there is never more
+        # than one.
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column("invoice", "Invoice", sort="invoice"),
+                    Column("amount", "Amount", sort="amount"),
+                ]
+            )
+            .rows(_ROWS)
+            .sorted("-amount")
+            .sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        marked = select(html, "[aria-sort]")
+        assert len(marked) == 1
+        assert marked[0]["aria-sort"] == "descending"
+
+    @pytest.mark.asyncio
+    async def test_the_sorted_column_turns_around_and_the_others_replace_it(
+        self, context_args
+    ):
+        # One column at a time: clicking another column asks for its order
+        # instead, not for both.
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column("invoice", "Invoice", sort="invoice"),
+                    Column("amount", "Amount", sort="amount"),
+                ]
+            )
+            .rows(_ROWS)
+            .sorted("amount")
+            .sort_href(lambda order: order),
+            context_args=context_args,
+        )
+        assert [link["href"] for link in select(html, "th a")] == ["invoice", "-amount"]
+
+    @pytest.mark.asyncio
+    async def test_a_sortable_column_needs_somewhere_to_go(self, context_args):
+        with pytest.raises(ValueError, match="sort_href"):
+            await render_tree(
+                DataTable()
+                .columns([Column("amount", "Amount", sort="amount")])
+                .rows(_ROWS),
+                context_args=context_args,
+            )
+
+    # x-target: the swap, and the plain navigation it falls back to
+    @pytest.mark.asyncio
+    async def test_a_table_with_an_id_is_fetched_and_swapped_in_place(
+        self, context_args
+    ):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            .sort_href(lambda order: f"?sort={order}")
+            .id("invoices"),
+            context_args=context_args,
+        )
+        assert_attr(html, "th a", "x-target", "invoices")
+
+    @pytest.mark.asyncio
+    async def test_without_an_id_the_header_is_just_a_link(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            .sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[x-target]")
