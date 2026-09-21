@@ -16,7 +16,14 @@ from django.http import HttpRequest
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
 from htmy.html import div as html_div
 from hue.context import HueContextArgs
-from hue.datatable import BulkAction, TablePagination, TableSearch, datatable
+from hue.datatable import (
+    BulkAction,
+    Filter,
+    TableFilters,
+    TablePagination,
+    TableSearch,
+    datatable,
+)
 from hue.renderer import render_tree
 from hue.ui.molecules.table import Column, DataTable
 
@@ -32,6 +39,15 @@ _INVOICES: list[dict[str, Any]] = [
     {"pk": "58", "invoice": "INV-2051", "customer": "Adventure", "amount": 415},
 ]
 
+# Paid for the two ends of the range, draft for the two in the middle,
+# so a filter and a sort narrow to different rows and neither can pass
+# for the other.
+_STATUSES = {"41": "paid", "17": "draft", "23": "paid", "58": "draft"}
+for _row in _INVOICES:
+    _row["status"] = _STATUSES[_row["pk"]]
+
+_STATUS = [("paid", "Paid"), ("draft", "Draft")]
+
 _ARCHIVED: list[str] = []
 
 
@@ -42,6 +58,10 @@ def _matching(request: Any, asked: Any) -> Any:
     found = [
         row for row in _INVOICES if asked.query.lower() in str(row["customer"]).lower()
     ]
+    if statuses := asked.chosen("status"):
+        found = [row for row in found if row["status"] in statuses]
+    if least := asked.value("min"):
+        found = [row for row in found if row["amount"] >= int(least)]
     if asked.sort:
         field = asked.sort.lstrip("-")
         found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
@@ -68,6 +88,10 @@ def _view(page_size: int = 25) -> Any:
             rows=_matching,
             identifier="pk",
             search="Search customers",
+            filters=[
+                Filter("status", "Status", options=_STATUS),
+                Filter("min", "Minimum amount", kind="number"),
+            ],
             actions={
                 "archive": BulkAction(
                     "Archive", lambda request, ids: _ARCHIVED.extend(ids)
@@ -314,6 +338,66 @@ def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
     assert 'x-target.push="invoices-rows"' in html
 
 
+def test_a_filter_narrows_the_rows_it_names(mounted):
+    bound = mounted().invoices.bind(_request(status="paid"))
+    assert bound.state.chosen("status") == ("paid",)
+    assert [row["pk"] for row in bound.page] == ["41", "23"]
+
+
+def test_several_answers_to_one_filter_ride_in_one_parameter(mounted):
+    bound = mounted().invoices.bind(_request(status="paid,draft"))
+    assert bound.state.chosen("status") == ("paid", "draft")
+    assert len(bound.page) == 4
+
+
+def test_an_answer_the_filter_never_offered_is_dropped(mounted):
+    # The query string is somewhere anybody can type, and rows() should
+    # not have to defend itself against what lands in it.
+    bound = mounted().invoices.bind(_request(status="paid,whatever"))
+    assert bound.state.chosen("status") == ("paid",)
+
+
+def test_a_filter_with_nothing_to_tick_takes_what_it_is_given(mounted):
+    bound = mounted().invoices.bind(_request(min="1000"))
+    assert bound.state.value("min") == "1000"
+    assert [row["pk"] for row in bound.page] == ["41", "17"]
+
+
+def test_a_filter_rides_in_every_url_the_table_builds(mounted):
+    bound = mounted().invoices.bind(_request(status="paid", sort="amount"))
+    assert bound.href(sort="-amount") == "/billing/invoices/?sort=-amount&status=paid"
+
+
+def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
+    html = _part(mounted().invoices.bind(_request(status="paid")), TableFilters())
+    assert 'x-data="hueTableFilters"' in html
+    # The count on the trigger and the chips in the band are the same
+    # fact twice, both read off the controls rather than sent down.
+    assert 'x-text="applied.length"' in html
+    assert 'x-for="chip in applied"' in html
+    assert 'data-filter="status"' in html
+    assert 'data-option="Paid"' in html
+    assert re.search(r'id="invoices-status-paid"[^>]*checked', html) or re.search(
+        r'checked[^>]*id="invoices-status-paid"', html
+    )
+
+
+def test_a_filter_cannot_be_called_what_the_table_already_calls_something():
+    for taken in ("sort", "q", "page"):
+        try:
+            datatable(
+                Router[HttpRequest](),
+                key=f"clash_{taken}",
+                columns=[Column("invoice", "Invoice")],
+                rows=lambda request, asked: _INVOICES,
+                filters=[Filter(taken, "Clash")],
+            )
+        except ValueError as error:
+            assert taken in str(error)
+        else:  # pragma: no cover - the raise is the behaviour under test
+            raise AssertionError(f"a filter called {taken!r} was accepted")
+
+
 def test_the_whole_table_is_one_component(mounted):
     # No parts to place: bound and rendered is the search box, the rows
     # and the pages.
@@ -323,7 +407,7 @@ def test_the_whole_table_is_one_component(mounted):
     assert re.search(r'aria-label="Pagination', html)
     # Welded: one frame, with the search in a band above the rows and the
     # pages in a band below them.
-    assert html.count("rounded-lg border border-border") == 1
+    assert html.count("w-full rounded-lg border border-border bg-surface") == 1
 
 
 def test_the_parts_can_be_placed_instead(mounted):

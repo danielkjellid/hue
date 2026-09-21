@@ -32,6 +32,28 @@ from hue_docs.render import render_html_sync
 from hue_docs.showcase import curated_showcases
 
 
+def _prose_html(page: content.ProsePage) -> str:
+    return render_html_sync(
+        build_page(
+            title=page.title,
+            nav=build_nav(content.PAGES, discover()),
+            active_href=f"/{page.slug}",
+            main=page.build(),
+        )
+    )
+
+
+def _live_ids(html: str) -> list[str]:
+    """
+    The ids of the page's own controls.
+
+    A code sample is text about markup rather than markup, and the block
+    that holds one keeps a raw copy of the source for the copy button -
+    so its ids are neither live nor the page's to keep unique.
+    """
+    return re.findall(r'\sid="([^"]+)"', re.sub(r"<pre[\s\S]*?</pre>", "", html))
+
+
 def _page_html(doc: ComponentDoc) -> str:
     showcases = curated_showcases(doc) + auto_showcases(doc)
     return render_html_sync(
@@ -46,13 +68,32 @@ def _page_html(doc: ComponentDoc) -> str:
 
 @pytest.mark.parametrize("doc", discover(), ids=lambda doc: doc.name)
 def test_no_id_appears_twice(doc: ComponentDoc) -> None:
-    ids = re.findall(r'\sid="([^"]+)"', _page_html(doc))
+    ids = _live_ids(_page_html(doc))
     repeated = {name: n for name, n in collections.Counter(ids).items() if n > 1}
 
     assert not repeated, (
         f"the {doc.name} page repeats ids {sorted(repeated)}. Two controls on "
         f"one page cannot share a name: a label points at the first match in "
         f"the document, not the nearest one."
+    )
+
+
+@pytest.mark.parametrize("page", content.PAGES, ids=lambda page: page.title)
+def test_no_id_appears_twice_in_the_prose_pages(page: content.ProsePage) -> None:
+    """
+    The same rule, for the pages that are written rather than discovered.
+
+    A guide that puts two of the same thing on one page to show two
+    states of it has two of every id inside them, and a label in the
+    second points at a control in the first.
+    """
+    ids = _live_ids(_prose_html(page))
+    repeated = {name: n for name, n in collections.Counter(ids).items() if n > 1}
+
+    assert not repeated, (
+        f"the {page.title} page repeats ids {sorted(repeated)}. Two controls "
+        f"on one page cannot share a name: a label points at the first match "
+        f"in the document, not the nearest one."
     )
 
 

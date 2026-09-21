@@ -69,3 +69,70 @@ export function registerTableSearch(Alpine) {
 		},
 	}));
 }
+
+/**
+ * hueTableFilters: what is on, read off the controls that say so.
+ *
+ * The panel behind the Filter button is a plain GET form, so the server
+ * already knows what is on: it rendered the boxes ticked. What this adds
+ * is the count on the trigger and the chips under it, which are the same
+ * fact stated twice on purpose - a filter that only exists behind a
+ * closed popover gets blamed on the data.
+ *
+ * Derived from the form rather than sent down beside it, so a tick and
+ * the chip it puts up happen in the same frame instead of a round trip
+ * apart.
+ */
+export function registerTableFilters(Alpine) {
+	Alpine.data("hueTableFilters", () => ({
+		applied: [],
+
+		init() {
+			this.read();
+		},
+
+		controls() {
+			return Array.from(this.$refs.form.querySelectorAll("[data-filter]"));
+		},
+
+		read() {
+			this.applied = this.controls()
+				.filter((el) => (el.type === "checkbox" ? el.checked : el.value))
+				.map((el) => ({
+					group: el.dataset.filter,
+					name: el.dataset.group || el.dataset.filter,
+					value: el.type === "checkbox" ? el.value : "",
+					label: el.dataset.option || el.value,
+				}));
+		},
+
+		clearControl(el) {
+			if (el.type === "checkbox") {
+				el.checked = false;
+			} else {
+				el.value = "";
+			}
+		},
+
+		remove(chip) {
+			for (const el of this.controls()) {
+				if (el.dataset.filter !== chip.group) continue;
+				if (el.type === "checkbox" && el.value !== chip.value) continue;
+				this.clearControl(el);
+			}
+			this.apply();
+		},
+
+		clear() {
+			for (const el of this.controls()) {
+				this.clearControl(el);
+			}
+			this.apply();
+		},
+
+		apply() {
+			this.read();
+			this.$refs.form.requestSubmit();
+		},
+	}));
+}

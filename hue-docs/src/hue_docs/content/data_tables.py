@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hue.datatable import BulkAction, TableState, datatable
+from hue.datatable import BulkAction, Filter, TableState, datatable
 from hue.types.core import ComponentType
 from hue.ui import Alert, Column
 
@@ -14,11 +14,48 @@ from hue_docs.models import ProsePage
 # ordering and the paging below are the Python here and nothing needs a
 # database to be true.
 _INVOICES: list[dict[str, Any]] = [
-    {"pk": "41", "invoice": "INV-2050", "customer": "Contoso Ltd", "amount": 2190},
-    {"pk": "17", "invoice": "INV-2048", "customer": "Northwind", "amount": 1200},
-    {"pk": "23", "invoice": "INV-2049", "customer": "Fabrikam Inc", "amount": 840},
-    {"pk": "58", "invoice": "INV-2051", "customer": "Adventure Works", "amount": 415},
-    {"pk": "62", "invoice": "INV-2052", "customer": "Tailspin Toys", "amount": 3120},
+    {
+        "pk": "41",
+        "invoice": "INV-2050",
+        "customer": "Contoso Ltd",
+        "amount": 2190,
+        "status": "pending",
+    },
+    {
+        "pk": "17",
+        "invoice": "INV-2048",
+        "customer": "Northwind",
+        "amount": 1200,
+        "status": "paid",
+    },
+    {
+        "pk": "23",
+        "invoice": "INV-2049",
+        "customer": "Fabrikam Inc",
+        "amount": 840,
+        "status": "declined",
+    },
+    {
+        "pk": "58",
+        "invoice": "INV-2051",
+        "customer": "Adventure Works",
+        "amount": 415,
+        "status": "draft",
+    },
+    {
+        "pk": "62",
+        "invoice": "INV-2052",
+        "customer": "Tailspin Toys",
+        "amount": 3120,
+        "status": "paid",
+    },
+]
+
+_STATUS = [
+    ("paid", "Paid"),
+    ("pending", "Pending"),
+    ("declined", "Declined"),
+    ("draft", "Draft"),
 ]
 
 
@@ -65,30 +102,43 @@ def _matching(request: Any, asked: TableState) -> Any:
     found = [
         row for row in _INVOICES if asked.query.lower() in str(row["customer"]).lower()
     ]
+    if statuses := asked.chosen("status"):
+        found = [row for row in found if row["status"] in statuses]
+    if least := asked.value("min"):
+        found = [row for row in found if row["amount"] >= int(least)]
     if asked.sort:
         field = asked.sort.lstrip("-")
         found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
     return found
 
 
-_TABLE = datatable(
-    _Router(),  # type: ignore[arg-type]
-    key="invoices",
-    columns=[
-        Column("invoice", "Invoice"),
-        Column("customer", "Customer", sort="customer"),
-        Column("amount", "Amount", align="end", sort="amount"),
-    ],
-    rows=_matching,
-    identifier="pk",
-    search="Search customers",
-    actions={"archive": BulkAction("Archive", _archive)},
-    page_size=3,
-)
+def _table(key: str) -> Any:
+    """
+    The declaration, once per specimen: two tables on one page need two
+    keys, because the key is the id every part of a table is named from.
+    """
+    return datatable(
+        _Router(),  # type: ignore[arg-type]
+        key=key,
+        columns=[
+            Column("invoice", "Invoice"),
+            Column("customer", "Customer", sort="customer"),
+            Column("amount", "Amount", align="end", sort="amount"),
+        ],
+        rows=_matching,
+        identifier="pk",
+        search="Search customers",
+        filters=[
+            Filter("status", "Status", options=_STATUS),
+            Filter("min", "Minimum amount", kind="number", prefix="USD"),
+        ],
+        actions={"archive": BulkAction("Archive", _archive)},
+        page_size=3,
+    )
 
 
-def _specimen(**params: str) -> ComponentType:
-    return pr.section(_TABLE.bind(_Request(**params)))
+def _specimen(key: str, **params: str) -> ComponentType:
+    return pr.section(_table(key).bind(_Request(**params)))
 
 
 _DECLARATION = """def invoices_for(request, asked):
@@ -270,7 +320,7 @@ def _build() -> ComponentType:
         ),
         pr.code(
             "async def index(self, request, context):\n"
-            "    return Page(title=\"Invoices\", body=self.invoices.bind(request))"
+            '    return Page(title="Invoices", body=self.invoices.bind(request))'
         ),
         pr.p(
             "Give it children and it renders those instead. Each of them "
@@ -307,14 +357,14 @@ def _build() -> ComponentType:
             "filtered and ordered by the Python above - nothing on this page "
             "is a picture of a table."
         ),
-        _specimen(sort="-amount"),
+        _specimen("invoices", sort="-amount"),
         pr.p(
             "Sorted by amount, descending, three to a page. And the same "
             "table searched - which keeps the order and goes back to the "
             "first page, because page two of a different search is not a "
             "page anybody asked for:"
         ),
-        _specimen(q="n", sort="customer"),
+        _specimen("payments", q="n", sort="customer"),
         pr.h2("What it assumes"),
         pr.bullets(
             [

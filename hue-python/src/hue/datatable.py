@@ -57,19 +57,30 @@ a pagination bar can sit in a page footer far from the rows it pages.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Mapping, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Literal,
+    Mapping,
+    Sequence,
+)
 from urllib.parse import urlencode
 
 from htmy import Context, html
 
-from hue.types.core import Component, ComponentType
+from hue.js import unsafe
+from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
+from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import TextInput
+from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.pagination import Pagination
+from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import (
     Column,
     DataTable,
@@ -91,11 +102,37 @@ SORT = "sort"
 QUERY = "q"
 PAGE = "page"
 
+# What a filter cannot be called, because the table is already using it.
+RESERVED = (SORT, QUERY, PAGE)
+
 # Long enough that a word typed at speed is one request rather than five,
 # short enough that the table has moved by the time you look at it.
 SEARCH_DELAY = "300ms"
 
 DEFAULT_PAGE_SIZE = 25
+
+# The count on the Filter button: how many answers are on, beside the
+# word rather than instead of it, so the button still says what it opens.
+_FILTER_COUNT = (
+    "ms-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full "
+    "bg-accent px-1 font-ui text-2xs font-bold tabular-nums text-accent-fg"
+)
+
+# A group of answers to one question, ruled off from the next.
+_GROUP = "border-0 p-0 [&+&]:mt-4 [&+&]:border-t [&+&]:border-border [&+&]:pt-4"
+_LEGEND = (
+    "mb-2 block w-full p-0 font-ui text-2xs font-bold uppercase "
+    "tracking-[0.05em] text-fg-muted"
+)
+
+# The applied row: a whole line of the band, which basis-full takes.
+_APPLIED_ROW = "flex basis-full flex-wrap items-center gap-2"
+_APPLIED_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
+_CHIP = (
+    "inline-flex items-center gap-1.5 rounded-sm border border-border "
+    "bg-canvas-subtle py-0.5 ps-2 pe-1.5 text-sm text-fg "
+    "hover:border-border-hover hover:bg-surface-hover"
+)
 
 type Rows = Sequence[Mapping[str, Any]]
 type ActionHandler = Callable[[Any, list[str]], Any]
@@ -109,11 +146,30 @@ class TableState:
     What was asked for, read off the request and put back into every URL
     the table builds - so a sort keeps the search, a search keeps the
     order, and an action comes back to where it was done.
+
+    chosen() and value() are how rows() reads the filters: one of them
+    for a filter that can hold several answers and one for a filter that
+    holds one, so neither call has to know how the query string spells
+    them.
     """
 
     sort: str | None = None
     query: str = ""
     page: int = 1
+    filters: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+    def chosen(self, name: str) -> tuple[str, ...]:
+        """
+        Everything picked in one filter, empty when nothing was.
+        """
+        return self.filters.get(name, ())
+
+    def value(self, name: str) -> str | None:
+        """
+        The one answer a single-value filter holds, or None.
+        """
+        picked = self.chosen(name)
+        return picked[0] if picked else None
 
     def replace(self, **changes: Any) -> TableState:
         """
@@ -127,13 +183,70 @@ class TableState:
             sort=changes.get("sort", self.sort),
             query=changes.get("query", self.query),
             page=changes["page"] if "page" in changes else 1,
+            filters=changes.get("filters", self.filters),
         )
+
+    def without(self, name: str, value: str | None = None) -> TableState:
+        """
+        The same state with one filter off, or one answer taken out of
+        one - which is what a chip in the applied band undoes.
+        """
+        left = {
+            key: tuple(v for v in values if key != name or v != value)
+            for key, values in self.filters.items()
+        }
+        if value is None:
+            left.pop(name, None)
+        return self.replace(filters={k: v for k, v in left.items() if v})
 
     def params(self) -> dict[str, str]:
         asked = {SORT: self.sort or "", QUERY: self.query}
+        # One parameter per filter, answers comma-joined, which is how a
+        # query string already spells a list somebody might hand-edit.
+        for name, values in self.filters.items():
+            if values:
+                asked[name] = ",".join(values)
         if self.page > 1:
             asked[PAGE] = str(self.page)
         return {name: value for name, value in asked.items() if value}
+
+
+type FilterKind = Literal["choice", "text", "number"]
+
+
+@dataclass(frozen=True, slots=True)
+class Filter:
+    """
+    One way of narrowing a table, and what it is called in the URL.
+
+    Given options it is a list to tick through, and multiple says whether
+    more than one can be on at a time; given none it is a field to type
+    a value into. Either way the answers land in the state rows() is
+    handed, and the table draws the panel, the count on the trigger and
+    the chips that undo it.
+
+        Filter("status", "Status", options=[("paid", "Paid")])
+        Filter("min", "Minimum amount", kind="number", prefix="USD")
+    """
+
+    name: str
+    label: str
+    options: Sequence[tuple[str, str]] = ()
+    multiple: bool = True
+    kind: FilterKind = "choice"
+    prefix: str | None = None
+    placeholder: str | None = None
+
+    def labelled(self, value: str) -> str:
+        """
+        What one answer is called, for the chip that undoes it. Its own
+        label when it came from a list, the value itself when it was
+        typed.
+        """
+        for option, label in self.options:
+            if option == value:
+                return label
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,6 +405,7 @@ class Datatable:
         rows: RowsFor,
         identifier: str | None = None,
         search: str | None = None,
+        filters: Sequence[Filter] = (),
         actions: Mapping[str, BulkAction] | None = None,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> None:
@@ -300,6 +414,7 @@ class Datatable:
         self.rows = rows
         self.identifier = identifier
         self.search = search
+        self.filters = list(filters)
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
@@ -313,6 +428,12 @@ class Datatable:
             raise ValueError(
                 f"{key} has actions but no identifier, so there is nothing "
                 f"to hand them. Name the property a row is known by."
+            )
+        for taken in [f.name for f in self.filters if f.name in RESERVED]:
+            raise ValueError(
+                f"{key} has a filter called {taken!r}, which is what the "
+                f"table already calls the order, the search or the page in "
+                f"its own URLs. Name it something else."
             )
         self._register()
 
@@ -355,8 +476,30 @@ class Datatable:
         except ValueError:
             page = 1
         return TableState(
-            sort=asked.get(SORT) or None, query=asked.get(QUERY, ""), page=page
+            sort=asked.get(SORT) or None,
+            query=asked.get(QUERY, ""),
+            page=page,
+            filters=self._filters_in(asked),
         )
+
+    def _filters_in(self, asked: Mapping[str, str]) -> dict[str, tuple[str, ...]]:
+        """
+        What each filter was told, comma-separated in one parameter.
+
+        An answer a list-shaped filter does not offer is dropped rather
+        than passed on: the query string is somewhere anybody can type,
+        and rows() should not have to defend itself against it.
+        """
+        found: dict[str, tuple[str, ...]] = {}
+        for declared in self.filters:
+            raw = asked.get(declared.name, "")
+            values = tuple(part for part in raw.split(",") if part)
+            if declared.options:
+                offered = {option for option, _ in declared.options}
+                values = tuple(value for value in values if value in offered)
+            if values:
+                found[declared.name] = values if declared.multiple else values[:1]
+        return found
 
     def _check_identifier(self, page: Rows) -> None:
         """
@@ -423,6 +566,7 @@ def datatable(
     rows: RowsFor,
     identifier: str | None = None,
     search: str | None = None,
+    filters: Sequence[Filter] = (),
     actions: Mapping[str, BulkAction] | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> Datatable:
@@ -444,6 +588,11 @@ def datatable(
     puts a checkbox in every row, and it is those values an action is
     handed. It is not one of the columns, because a row is usually known
     by something nobody wants to see.
+
+    filters are the other ways of narrowing it. Each one becomes a
+    parameter of its own in the URL, a group in the panel behind the
+    Filter button, and a chip in the band under it - and its answers
+    arrive in the same state rows() is already reading the search off.
     """
     return Datatable(
         router,
@@ -452,6 +601,7 @@ def datatable(
         rows=rows,
         identifier=identifier,
         search=search,
+        filters=filters,
         actions=actions,
         page_size=page_size,
     )
@@ -503,6 +653,14 @@ class TableView(ChainableComponent):
         """Where this table's own routes live."""
         return self._bound.urls
 
+    def href(self, **changes: Any) -> str:
+        """
+        This table with one thing changed, which is every link on it -
+        and what a view links to when it wants to send somebody to a
+        state of it.
+        """
+        return self._bound.href(**changes)
+
     def htmy_context(self) -> Context:
         return {TableSource: self._bound}
 
@@ -519,9 +677,17 @@ class TableView(ChainableComponent):
         one frame: a band of ways to narrow it, the rows, and a band with
         the pages. One border and one radius, because they are one thing.
         """
+        declared = self._bound.declaration
         table = DataTable().under(TablePagination())
-        if self._bound.declaration.search:
-            table.toolbar(TableSearch())
+        band: list[ComponentType] = []
+        if declared.search:
+            band.append(TableSearch())
+        if declared.filters:
+            # After the spacer, at the end of the band: a panel anchored
+            # to a trigger near the middle opens across the rows.
+            band.extend((html.span(class_="flex-1"), TableFilters()))
+        if band:
+            table.toolbar(*band)
         return (table,)
 
 
@@ -585,6 +751,167 @@ class TablePagination(ChainableComponent):
         return bar
 
 
+class TableFilters(ChainableComponent):
+    """
+    The other ways of narrowing a table: a panel of them behind one
+    button, and a chip for every one that is on.
+
+    The panel is a GET form that submits itself the moment something in
+    it changes - there is no Apply, because the chips already say what is
+    on and already undo it.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def _render(self, context: Context) -> Component:
+        bound = bound_from(context, "TableFilters")
+        declared = bound.declaration.filters
+        if not declared:
+            return UNDEFINED
+
+        return html.div(
+            html.form(
+                _filter_panel(bound, declared),
+                # The search and the order ride along, so narrowing keeps
+                # both. The page does not: a filter is a different set of
+                # rows, and page four of it is nowhere anybody was.
+                *(
+                    html.input_(type="hidden", name=name, value=value)
+                    for name, value in bound.state.params().items()
+                    if name not in {PAGE, *(f.name for f in declared)}
+                ),
+                method="get",
+                action=bound.urls.read,
+                # No box of its own: the controls belong to the band
+                # around them, and this is only here to be submitted.
+                class_="contents",
+                **{
+                    "x-ref": "form",
+                    "x-target.push": rows_id(bound.key) or bound.key,
+                    "@change": "apply()",
+                },
+            ),
+            _applied_chips(),
+            class_="contents",
+            **{"x-data": "hueTableFilters"},
+        )
+
+
+def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentType:
+    """
+    One popover holding every filter, grouped and legended.
+    """
+    return (
+        Popover()
+        .title("Filter")
+        .placement("bottom-end")
+        .trigger(
+            Button()
+            .variant("outline")
+            .size("sm")
+            .content(
+                HueIcon("list-filter"),
+                "Filter",
+                html.span(
+                    class_=_FILTER_COUNT,
+                    **{
+                        "x-show": "applied.length",
+                        "x-text": "applied.length",
+                        "x-cloak": True,
+                    },
+                ),
+            )
+        )
+        .content(*(_filter_group(bound, one) for one in declared))
+    )
+
+
+def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
+    """
+    One filter, as a legended group - which is what a set of boxes that
+    answer the same question is, and the only way a screen reader hears
+    the question before the answers.
+    """
+    picked = bound.state.chosen(declared.name)
+    if not declared.options:
+        return html.fieldset(
+            html.legend(declared.label, class_=_LEGEND),
+            _filter_field(bound.key, declared, picked),
+            class_=_GROUP,
+        )
+    return html.fieldset(
+        html.legend(declared.label, class_=_LEGEND),
+        *(
+            Checkbox()
+            .name(declared.name)
+            .value(option)
+            .label(label)
+            .checked(option in picked)
+            # Every box in the group submits the same name, so the id
+            # cannot come from it: the label beside each one has to point
+            # at that one and not at the first of them.
+            .id(f"{bound.key}-{declared.name}-{option}")
+            .attr("data-filter", declared.name)
+            .attr("data-group", declared.label)
+            .attr("data-option", label)
+            for option, label in declared.options
+        ),
+        class_=_GROUP,
+    )
+
+
+def _filter_field(key: str, declared: Filter, picked: tuple[str, ...]) -> ComponentType:
+    """
+    A filter with nothing to tick is one to type into.
+
+    The id carries the table's key and the name does not: the name is the
+    query parameter, which is the same on every table, and the id has to
+    be the one thing on the page it names.
+    """
+    field = NumberInput() if declared.kind == "number" else TextInput()
+    field.name(declared.name).label(declared.label).hidden_label().size("sm")
+    field.id(f"{key}-{declared.name}")
+    field.value(picked[0] if picked else "")
+    field.attr("data-filter", declared.name).attr("data-group", declared.label)
+    if declared.prefix is not None:
+        field.prefix(declared.prefix)
+    if declared.placeholder is not None:
+        field.placeholder(declared.placeholder)
+    return field
+
+
+def _applied_chips() -> ComponentType:
+    """
+    Everything that is on, and one press to take any of it off.
+
+    A whole line of the band to itself, so a narrowed table says so above
+    the rows rather than only behind a closed popover.
+    """
+    return html.div(
+        html.span("Applied", class_=_APPLIED_LABEL),
+        html.template(
+            html.button(
+                html.span(**{"x-text": "chip.name + ': ' + chip.label"}),
+                HueIcon("x").class_("size-3"),
+                type="button",
+                class_=_CHIP,
+                **{
+                    "@click": "remove(chip)",
+                    ":aria-label": "'Remove filter ' + chip.name + ': ' + chip.label",
+                },
+            ),
+            **{"x-for": "chip in applied", ":key": "chip.group + chip.value"},
+        ),
+        Button()
+        .variant("link")
+        .size("xs")
+        .content("Clear all")
+        .x_on("click", unsafe("clear()")),
+        class_=_APPLIED_ROW,
+        **{"x-show": "applied.length", "x-cloak": True},
+    )
+
+
 def _search_form(bound: BoundTable) -> ComponentType:
     """
     A GET form of its own. A form because Enter already does this, and
@@ -594,6 +921,7 @@ def _search_form(bound: BoundTable) -> ComponentType:
     return html.form(
         TextInput()
         .name(QUERY)
+        .id(f"{bound.key}-{QUERY}")
         .attr("type", "search")
         .attr("x-ref", "field")
         # Stopped, so an escape that empties the box is not also an escape
