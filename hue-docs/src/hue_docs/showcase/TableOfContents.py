@@ -76,7 +76,7 @@ SHOWCASES: list[Showcase] = [
                     html.div(
                         TableOfContents()
                             .of("#toc-article", headings="h4, h5")
-                            .label("Documentation"),
+                            .title("Documentation"),
                         class_="w-56 flex-none",
                     ),
                     class_="flex w-full gap-10",
