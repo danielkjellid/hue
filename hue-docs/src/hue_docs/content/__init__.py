@@ -1,6 +1,7 @@
 """Hand-written prose pages, authored with hue's own components."""
 
 from hue_docs.content import (
+    contexts,
     django_css,
     django_views,
     framework,
@@ -20,6 +21,7 @@ PAGES: list[ProsePage] = [
     framework.PAGE,
     icons.PAGE,
     toasts.PAGE,
+    contexts.PAGE,
     django_views.PAGE,
     django_css.PAGE,
 ]

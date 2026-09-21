@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.ui._styles import FOCUS_RING
@@ -185,7 +184,7 @@ class Button(Clickable):
             return classnames(_HEIGHT_CLASSES[size], _WIDTH_CLASSES[size])
         return classnames(_HEIGHT_CLASSES[size], _PADDING_CLASSES[size])
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: ButtonVariant = self._get_prop("variant", "primary")
         size: ButtonSize = self._get_prop("size", "md")
         shape: ButtonShape = self._get_prop("shape", "rounded")

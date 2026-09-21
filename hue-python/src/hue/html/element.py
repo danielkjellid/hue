@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from htmy import Context
 from htmy.core import Tag, TagWithProps
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.base import AlpineModelMixin, ChainableComponent
 
@@ -41,7 +41,7 @@ class Element(ChainableComponent):
             raise TypeError(f"<{tag}> is a void element and cannot have children.")
         return super().content(*children)
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         attrs: dict[str, Any] = self._get_base_html_attrs()
 
         if class_ := self._get_prop("class_"):

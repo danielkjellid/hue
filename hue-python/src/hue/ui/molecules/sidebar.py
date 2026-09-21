@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent, Clickable
+from hue.ui.navigation import CurrentPage
 from hue.utils import classnames, render_if, render_when
 
 _ITEM = (
@@ -37,7 +37,8 @@ class Sidebar(ChainableComponent):
     A header that stays, a body that scrolls, a footer that stays - built
     from SidebarSection, SidebarHeading, SidebarDivider and SidebarSpacer,
     which is what lets a section sit at the bottom without being pinned
-    there. current() marks the link whose href matches the page you are on.
+    there. current() marks the link that leads to the page you are on -
+    including the one that leads to the section it is in.
     """
 
     category = "Navigation"
@@ -59,8 +60,13 @@ class Sidebar(ChainableComponent):
 
     def current(self, value: str) -> Self:
         """
-        The path of the page you are on. The item whose href matches it is
-        marked, so a consumer sets this once rather than per item.
+        The path of the page you are on, set once rather than per item.
+
+        An item is marked by its own href: the one that matches, and the
+        one that leads to the section this page is inside - /events stays
+        marked on /events/2050, because the row you followed to get here
+        should not go dark when you arrive. SidebarItem.exact() opts a
+        row out of that, for one whose subpaths have rows of their own.
         """
         self._props["current"] = value
         return self
@@ -73,12 +79,13 @@ class Sidebar(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
-        current: str | None = self._get_prop("current")
-        for child in self._children:
-            if isinstance(child, ChainableComponent):
-                _mark(child, current)
+    def htmy_context(self) -> Context:
+        """
+        What the page you are on is, for everything below to read.
+        """
+        return {CurrentPage: CurrentPage(self._get_prop("current"))}
 
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -97,7 +104,7 @@ class SidebarHeader(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -119,7 +126,7 @@ class SidebarBody(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.nav(
             *self._children,
             aria_label=self._get_prop("label", "Main"),
@@ -138,7 +145,7 @@ class SidebarFooter(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -156,7 +163,7 @@ class SidebarSection(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames("flex flex-col gap-0.5", self._get_prop("class_")),
@@ -171,7 +178,7 @@ class SidebarHeading(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -190,7 +197,7 @@ class SidebarDivider(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.hr(
             class_=classnames("my-4 h-px border-0 bg-border", self._get_prop("class_")),
             **self._get_base_html_attrs(),
@@ -207,7 +214,7 @@ class SidebarSpacer(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             class_=classnames("mt-8 flex-1", self._get_prop("class_")),
             **self._get_base_html_attrs(),
@@ -236,14 +243,30 @@ class SidebarItem(Clickable):
     def current(self, value: bool = True) -> Self:
         """
         Mark this as the page you are on, where the sidebar's own current()
-        cannot tell - a row that stands for several paths, say.
+        cannot tell - a row that stands for a path of its own, say.
         """
         self._props["current"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
-        current: bool = self._get_prop("current", False)
+    def exact(self, value: bool = True) -> Self:
+        """
+        Mark this only on its own path, not on the pages under it.
+
+        For the row that has rows beneath it: a Settings that sits above
+        Settings / Billing would otherwise light up alongside it, and two
+        rows marked as the page you are on is one too many.
+        """
+        self._props["exact"] = value
+        return self
+
+    def _render(self, context: Context) -> Component:
         href: str | None = self._get_prop("href")
+        # Marked by its own href against the page the sidebar named, or
+        # by hand where a row stands for a path of its own.
+        page = CurrentPage.from_context(context)
+        current: bool = self._get_prop(
+            "current", page.marks(href, exact=self._get_prop("exact", False))
+        )
 
         children = (
             render_when(current, _indicator()),
@@ -279,7 +302,7 @@ class SidebarLabel(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.span(
             *self._children,
             class_=classnames("truncate", self._get_prop("class_")),
@@ -299,18 +322,3 @@ def _indicator() -> ComponentType:
         aria_hidden="true",
         class_="absolute inset-y-2 -start-4 w-0.5 rounded-full bg-accent",
     )
-
-
-def _mark(component: ChainableComponent, current: str | None) -> None:
-    """
-    Walk the tree marking the item whose href is the page you are on.
-    """
-    if current is None:
-        return
-    if isinstance(component, SidebarItem):
-        if component._get_prop("href") == current:
-            component._props["current"] = True
-        return
-    for child in component._children:
-        if isinstance(child, ChainableComponent):
-            _mark(child, current)

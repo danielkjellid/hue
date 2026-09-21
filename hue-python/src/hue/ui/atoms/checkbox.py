@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
@@ -84,13 +83,13 @@ class Checkbox(FormControl):
         self._props["variant"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
         checked: bool = self._get_prop("checked", False)
         indeterminate: bool = self._get_prop("indeterminate", False)
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
         variant: ChoiceVariant = self._get_prop("variant", "inline")
@@ -99,6 +98,7 @@ class Checkbox(FormControl):
         # No explicit role: a native checkbox input already carries it. Boolean
         # attributes are true by presence, so False must omit them.
         input_attrs = self._control_attrs(
+            context,
             type="checkbox",
             name=name,
             id=input_id,
@@ -112,7 +112,7 @@ class Checkbox(FormControl):
             # become part of it.
             aria_labelledby=label_id(input_id) if label is not None else None,
             aria_describedby=self._describedby(
-                description_id(input_id) if description is not None else None
+                context, description_id(input_id) if description is not None else None
             ),
         )
         if indeterminate:

@@ -20,7 +20,10 @@ SHOWCASES: list[Showcase] = [
             "twice - a tint for the eye and a bar in the gutter for the "
             "glance - and the accent is spent on that and nothing else, "
             'because this is the one place where "where am I" has to '
-            "survive a squint."
+            "survive a squint. The page here is /events/2050, and Events "
+            "is still the row that leads to it: a section stays marked on "
+            "the pages inside it, so the row you followed to get here does "
+            "not go dark when you arrive."
         ),
         variants=[
             variant(
@@ -28,7 +31,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 html.div(
                     Sidebar()
-                    .current("/events")
+                    .current("/events/2050")
                     .content(
                         SidebarHeader().content(
                             SidebarItem()

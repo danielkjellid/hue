@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui.form import FieldControl
 from hue.utils import classnames, render_when
@@ -81,7 +80,7 @@ class Slider(FieldControl):
         self._props["ticks"] = values
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         low: float = self._get_prop("min", 0)
         high: float = self._get_prop("max", 100)
@@ -101,6 +100,7 @@ class Slider(FieldControl):
 
         track = html.input_(
             **self._control_attrs(
+                context,
                 type="range",
                 name=name,
                 id=control_id,
@@ -110,12 +110,15 @@ class Slider(FieldControl):
                 step=self._get_prop("step"),
                 value=current,
                 disabled=disabled or None,
-                aria_describedby=self._describedby(),
+                aria_describedby=self._describedby(
+                    context,
+                ),
                 **{"x-model.number": "value", ":style": fill},
             )
         )
 
         field = self._field(
+            context,
             html.div(
                 track,
                 render_when(
@@ -123,7 +126,7 @@ class Slider(FieldControl):
                     html.div(*(html.span(tick) for tick in ticks), class_=_TICKS),
                 ),
                 class_="flex flex-col",
-            )
+            ),
         )
 
         # The readout goes in the label row, where the guide puts it and where

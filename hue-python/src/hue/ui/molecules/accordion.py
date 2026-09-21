@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
@@ -76,7 +75,7 @@ class Accordion(ChainableComponent):
         self._props["multiple"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: AccordionVariant = self._get_prop("variant", "plain")
         multiple: bool = self._get_prop("multiple", False)
 
@@ -140,7 +139,7 @@ class AccordionItem(ChainableComponent):
         self._props["open"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         index: int = self._get_prop("index", 0)
         heading: HeadingLevel = self._get_prop("heading", "h3")
         shown = unsafe(f"shown({index})")

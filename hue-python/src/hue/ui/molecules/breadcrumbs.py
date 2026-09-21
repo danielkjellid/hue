@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
@@ -72,7 +71,7 @@ class Breadcrumbs(ChainableComponent):
         self._props["collapse_after"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         items = [Crumb(*item) for item in self._get_prop("items", [])]
         limit: int | None = self._get_prop("collapse_after")
         hidden: list[Crumb] = []

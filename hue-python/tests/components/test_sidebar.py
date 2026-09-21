@@ -13,7 +13,13 @@ from hue.ui import (
     SidebarSection,
     SidebarSpacer,
 )
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from hue.ui.base import ChainableComponent
+from tests._a11y import (
+    assert_attr,
+    assert_no_selector,
+    assert_selector,
+    select,
+)
 
 
 def _sidebar(*, current: str | None = "/events"):
@@ -123,3 +129,138 @@ class TestSidebar:
             context_args=context_args,
         )
         assert_selector(html, "a > span.truncate")
+
+
+class TestCurrentPage:
+    """
+    The sidebar offers the page it is on; an item marks itself against it.
+    """
+
+    @pytest.mark.asyncio
+    async def test_an_item_marks_itself_against_the_page(self, context_args):
+        html = await render_tree(
+            Sidebar()
+            .current("/events")
+            .content(
+                SidebarBody().content(
+                    SidebarSection().content(
+                        SidebarItem().href("/").content("Home"),
+                        SidebarItem().href("/events").content("Events"),
+                    )
+                )
+            ),
+            context_args=context_args,
+        )
+        marked = select(html, "[aria-current=page]")
+        assert len(marked) == 1
+        assert marked[0]["href"] == "/events"
+
+    @pytest.mark.asyncio
+    async def test_a_section_stays_marked_on_the_pages_inside_it(self, context_args):
+        # The row you followed to get here should not go dark when you
+        # arrive, and a list of events has to link to one of them.
+        html = await render_tree(
+            _sidebar(current="/events/2050"), context_args=context_args
+        )
+        marked = select(html, "[aria-current=page]")
+        assert len(marked) == 1
+        assert marked[0]["href"] == "/events"
+
+    @pytest.mark.asyncio
+    async def test_the_root_marks_only_itself(self, context_args):
+        # Everything is under it, so a prefix match would light Home on
+        # every page there is.
+        html = await render_tree(
+            _sidebar(current="/events/2050"), context_args=context_args
+        )
+        assert [item["href"] for item in select(html, "[aria-current=page]")] == [
+            "/events"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_trailing_slash_is_not_a_different_page(self, context_args):
+        # Whether a URL ends in one is a routing convention.
+        html = await render_tree(
+            _sidebar(current="/events/"), context_args=context_args
+        )
+        assert len(select(html, "[aria-current=page]")) == 1
+
+    @pytest.mark.asyncio
+    async def test_a_row_with_rows_beneath_it_can_ask_for_its_own_path_only(
+        self, context_args
+    ):
+        # Two rows marked as the page you are on is one too many.
+        html = await render_tree(
+            Sidebar()
+            .current("/settings/billing")
+            .content(
+                SidebarBody().content(
+                    SidebarSection().content(
+                        SidebarItem().href("/settings").exact().content("Settings"),
+                        SidebarItem().href("/settings/billing").content("Billing"),
+                    )
+                )
+            ),
+            context_args=context_args,
+        )
+        marked = select(html, "[aria-current=page]")
+        assert len(marked) == 1
+        assert marked[0]["href"] == "/settings/billing"
+
+    @pytest.mark.asyncio
+    async def test_a_longer_name_that_starts_the_same_is_a_different_page(
+        self, context_args
+    ):
+        html = await render_tree(
+            Sidebar()
+            .current("/events-archive")
+            .content(
+                SidebarBody().content(
+                    SidebarSection().content(
+                        SidebarItem().href("/events").content("Events"),
+                    )
+                )
+            ),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[aria-current=page]")
+
+    @pytest.mark.asyncio
+    async def test_items_built_while_rendering_are_marked_too(self, context_args):
+        # Walking the children from above could not reach these: they do
+        # not exist until the component holding them renders.
+        class Workspace(ChainableComponent):
+            category = None
+
+            def _render(self, context):
+                return SidebarSection().content(
+                    SidebarItem().href("/").content("Home"),
+                    SidebarItem().href("/events").content("Events"),
+                )
+
+        html = await render_tree(
+            Sidebar().current("/events").content(SidebarBody().content(Workspace())),
+            context_args=context_args,
+        )
+        marked = select(html, "[aria-current=page]")
+        assert len(marked) == 1
+        assert marked[0]["href"] == "/events"
+
+    @pytest.mark.asyncio
+    async def test_an_item_can_still_say_so_itself(self, context_args):
+        # For a row that stands for several paths, which no href matches.
+        html = await render_tree(
+            Sidebar()
+            .current("/events/2048")
+            .content(SidebarItem().href("/events").current().content("Events")),
+            context_args=context_args,
+        )
+        assert_selector(html, "[aria-current=page]")
+
+    @pytest.mark.asyncio
+    async def test_a_sidebar_that_names_no_page_marks_nothing(self, context_args):
+        html = await render_tree(
+            Sidebar().content(SidebarItem().href("/events").content("Events")),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[aria-current]")

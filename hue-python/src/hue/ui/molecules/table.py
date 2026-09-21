@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Literal, Mapping, Sequence
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
@@ -95,7 +94,7 @@ class Table(ChainableComponent):
         self._props["footer"] = values
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             html.table(
                 *self._children,
@@ -123,7 +122,7 @@ class TableHeader(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.thead(
             *self._children,
             class_=classnames(self._get_prop("class_")),
@@ -138,7 +137,7 @@ class TableBody(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.tbody(
             *self._children,
             # The frame already draws the line under the last row.
@@ -156,7 +155,7 @@ class TableFooter(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.tfoot(
             *self._children,
             class_=classnames(
@@ -182,7 +181,7 @@ class TableRow(ChainableComponent):
         self._props["selected"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         selected: bool = self._get_prop("selected", False)
 
         return html.tr(
@@ -221,7 +220,7 @@ class TableHead(ChainableComponent):
         self._props["colspan"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.th(
             *self._children,
             class_=classnames(
@@ -256,7 +255,7 @@ class TableCell(ChainableComponent):
         self._props["colspan"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.td(
             *self._children,
             class_=classnames(
@@ -279,7 +278,7 @@ class TableCaption(ChainableComponent):
 
     category: ClassVar[str | None] = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.caption(
             *self._children,
             class_=classnames(
@@ -433,7 +432,7 @@ class DataTable(ChainableComponent):
         self._props["error"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         error: ComponentType | None = self._get_prop("error")
         loading: bool = self._get_prop("loading", False)
 

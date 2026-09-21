@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal, override
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -264,20 +263,21 @@ class _BaseInput(FieldControl):
             **self._get_group_attrs(),
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
         readonly: bool = self._get_prop("readonly", False)
         autocomplete: Autocomplete = self._get_prop("autocomplete", "off")
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         input_id = self._input_id()
 
         # The visible <label for> supplies the accessible name, so no aria-label.
         # Native disabled/required/readonly carry their own ARIA semantics;
         # aria-invalid is what the shell keys its error border off.
         input_attrs = self._control_attrs(
+            context,
             type=self._input_type,
             name=name,
             id=input_id,
@@ -294,11 +294,13 @@ class _BaseInput(FieldControl):
             required=required or None,
             readonly=readonly or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(),
+            aria_describedby=self._describedby(
+                context,
+            ),
             **self._get_extra_input_attrs(),
         )
 
-        return self._field(self._control(input_attrs, size))
+        return self._field(context, self._control(input_attrs, size))
 
 
 class TextInput(_BaseInput):
@@ -360,7 +362,7 @@ class PasswordInput(_BaseInput):
         return {"x-data": '{"shown": false}'}
 
     @override
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         if self._get_prop("revealable", False):
             # The input's own type has to give way to the binding, so the
             # toggle has something to change.

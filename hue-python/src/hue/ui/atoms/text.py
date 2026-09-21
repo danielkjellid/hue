@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal, cast
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_when
@@ -85,7 +84,7 @@ class Text(ChainableComponent):
         self._props["destructive"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: TextVariant = self._get_prop("variant", "body")
         align: TextAlign = self._get_prop("align", "text-left")
         muted: bool = self._get_prop("muted", False)
@@ -163,7 +162,7 @@ class Label(ChainableComponent):
         self._props["hidden_label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         required: bool = self._get_prop("required", False)
         disabled: bool = self._get_prop("disabled", False)
         hidden_label: bool = self._get_prop("hidden_label", False)

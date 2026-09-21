@@ -388,10 +388,15 @@ class ChainableComponent(ABC):
         """
         Entry point called by the htmy renderer.
         """
-        return self._render(HueContext.from_context(context))
+        # Looked up and thrown away. A component that wants the request
+        # asks for it itself, but a tree rendered with no hue context at
+        # all is a mistake worth catching at the first component rather
+        # than at whichever one later happens to want a csrf token.
+        HueContext.from_context(context)
+        return self._render(context)
 
     @abstractmethod
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         """
         Subclasses produce the concrete markup here.
         """
