@@ -24,16 +24,37 @@ class TestEmpty:
         )
         assert_selector(html, "p.max-w-\\[42ch\\]")
 
-    # Every slot is optional and has to be absent cleanly.
+    # icon(): the variant's own, one of your own, or none at all
     @pytest.mark.asyncio
-    async def test_icon_is_optional(self, context_args):
-        with_icon = await render_tree(
+    async def test_every_variant_brings_its_own_icon(self, context_args):
+        # The variant tints the icon chip and nothing else, so without an
+        # icon there is nothing for it to be: variant("danger") would render
+        # exactly what neutral does.
+        neutral = await render_tree(Empty().title("Nothing"), context_args=context_args)
+        danger = await render_tree(
+            Empty().variant("danger").title("Could not load"),
+            context_args=context_args,
+        )
+        assert "inbox" in neutral
+        assert_selector(neutral, "span.bg-surface-sunken")
+        assert "circle-x" in danger
+        assert_selector(danger, "span.bg-danger-subtle")
+
+    @pytest.mark.asyncio
+    async def test_an_icon_of_your_own_replaces_it(self, context_args):
+        html = await render_tree(
             Empty().icon("!").title("Nothing"), context_args=context_args
         )
-        assert_selector(with_icon, "span.size-12")
+        assert_selector(html, "span.size-12")
+        assert "inbox" not in html
 
-        without = await render_tree(Empty().title("Nothing"), context_args=context_args)
-        assert_no_selector(without, "span.size-12")
+    @pytest.mark.asyncio
+    async def test_none_means_no_icon(self, context_args):
+        html = await render_tree(
+            Empty().icon(None).title("Nothing"), context_args=context_args
+        )
+        assert_no_selector(html, "span.size-12")
+        assert "inbox" not in html
 
     @pytest.mark.asyncio
     async def test_actions_are_optional(self, context_args):
@@ -51,23 +72,6 @@ class TestEmpty:
             Empty().description("Only a description."), context_args=context_args
         )
         assert_no_selector(html, "div.font-bold")
-
-    # variant(): only the icon chip changes tone
-    @pytest.mark.asyncio
-    async def test_neutral_by_default(self, context_args):
-        html = await render_tree(
-            Empty().icon("!").title("Nothing"), context_args=context_args
-        )
-        assert_selector(html, "span.bg-surface-sunken")
-
-    @pytest.mark.asyncio
-    async def test_danger_tints_the_icon(self, context_args):
-        html = await render_tree(
-            Empty().variant("danger").icon("!").title("Could not load"),
-            context_args=context_args,
-        )
-        assert_selector(html, "span.bg-danger-subtle")
-        assert_no_selector(html, "span.bg-surface-sunken")
 
     # title(heading=...): both branches
     @pytest.mark.asyncio
@@ -89,6 +93,15 @@ class TestEmpty:
     async def test_roomy_by_default(self, context_args):
         html = await render_tree(Empty().title("Nothing"), context_args=context_args)
         assert_selector(html, "div.py-12")
+
+    @pytest.mark.asyncio
+    async def test_compact_shrinks_the_icon_with_the_padding(self, context_args):
+        # An empty state inside a table is short on room in both directions.
+        html = await render_tree(
+            Empty().compact().title("Nothing"), context_args=context_args
+        )
+        assert_selector(html, "span.size-9")
+        assert_no_selector(html, "span.size-12")
 
     @pytest.mark.asyncio
     async def test_compact(self, context_args):

@@ -10,15 +10,24 @@ from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
-from hue.utils import classnames
+from hue.utils import classes_if_else, classnames
 
 type EmptyVariant = Literal["neutral", "danger"]
 type HeadingLevel = Literal["h1", "h2", "h3", "h4", "h5", "h6"]
 
-# Only the icon chip changes tone; the layout is the same either way.
+# Only the icon chip changes tone; the layout is the same either way - so
+# the variant needs an icon to be visible at all, and every variant has one
+# whether or not it was given one.
 _ICON_CLASSES: dict[EmptyVariant, str] = {
     "neutral": "bg-surface-sunken border-border text-fg-subtle",
     "danger": "bg-danger-subtle border-danger-border text-danger-text",
+}
+
+# An inbox for nothing being here yet, and the same cross a danger Alert
+# and a danger Toast use for something having gone wrong.
+_ICONS: dict[EmptyVariant, str] = {
+    "neutral": "inbox",
+    "danger": "circle-x",
 }
 
 _HEADING_TAGS: dict[HeadingLevel, Callable[..., ComponentType]] = {
@@ -35,9 +44,10 @@ class Empty(ChainableComponent):
     """
     What to show where content would have been.
 
-    icon(), title(), description() and actions() are all optional. variant()
-    tints the icon, compact() tightens the padding, and title() takes a heading
-    level for an empty state that stands in for a page.
+    title(), description() and actions() are all optional, and so is icon() -
+    each variant brings its own, which is what makes the variant visible.
+    compact() tightens the padding, and title() takes a heading level for an
+    empty state that stands in for a page.
 
         Empty().title("No invoices yet").actions(Button().content("Create"))
     """
@@ -48,7 +58,6 @@ class Empty(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .icon(HueIcon("inbox"))
             .title("No invoices yet")
             .description("Invoices appear here once your first order is paid.")
         )
@@ -64,7 +73,12 @@ class Empty(ChainableComponent):
         self._props["compact"] = value
         return self
 
-    def icon(self, value: ComponentType) -> Self:
+    def icon(self, value: ComponentType | None) -> Self:
+        """
+        Something other than the variant's own icon, or None for no icon at
+        all - which is how an empty state inside something already small
+        says what is missing without also drawing a picture of it.
+        """
         self._props["icon"] = value
         return self
 
@@ -91,7 +105,7 @@ class Empty(ChainableComponent):
     def _render(self, context: HueContext) -> Component:
         variant: EmptyVariant = self._get_prop("variant", "neutral")
         compact: bool = self._get_prop("compact", False)
-        icon: ComponentType | None = self._get_prop("icon")
+        icon: ComponentType | None = self._get_prop("icon", HueIcon(_ICONS[variant]))
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
         actions: tuple[ComponentType, ...] = self._get_prop("actions", ())
@@ -104,8 +118,12 @@ class Empty(ChainableComponent):
                 html.span(
                     icon,
                     class_=classnames(
-                        "mb-2 flex size-12 items-center justify-center",
-                        "rounded-lg border [&_svg]:size-5.5",
+                        "mb-2 flex items-center justify-center rounded-lg border",
+                        classes_if_else(
+                            compact,
+                            ["size-9", "[&_svg]:size-4.5"],
+                            ["size-12", "[&_svg]:size-5.5"],
+                        ),
                         _ICON_CLASSES[variant],
                     ),
                 )
