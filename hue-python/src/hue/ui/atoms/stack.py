@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.spacing import SPACE_BETWEEN, Size
 from hue.types.core import Component
 from hue.types.css import AlignItems, JustifyContent
@@ -61,7 +60,7 @@ class Stack(ChainableComponent):
         self._props["position"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         direction: StackDirection = self._get_prop("direction", "vertical")
         spacing: Size = self._get_prop("spacing", "sm")
         justify: JustifyContent = self._get_prop("justify_content", "justify-start")

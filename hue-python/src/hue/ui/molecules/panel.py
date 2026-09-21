@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
@@ -63,7 +62,7 @@ class Panel(ChainableComponent):
         self._props["sunken"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         label: str | None = self._get_prop("label")
         hint: str | None = self._get_prop("hint")
         padding: PanelPadding = self._get_prop("padding", "md")

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
@@ -43,9 +43,34 @@ _DISABLED = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class TabsState:
+    """
+    Which tab is showing and how the row is drawn, offered to everything
+    inside. A tab reads it and draws itself, so it does not have to be a
+    child of the row to belong to it.
+    """
+
+    variant: TabsVariant = "underline"
+
+    @classmethod
+    def from_context(cls, context: Context) -> TabsState:
+        found = context.get(cls)
+        if isinstance(found, cls):
+            return found
+        raise ValueError(
+            "A Tab, TabList or TabPanel only means something inside Tabs, "
+            "which is what says which of them is showing."
+        )
+
+
 class Tabs(ChainableComponent):
     """
     One panel at a time, with a row of tabs to pick it.
+
+    A TabList of Tabs, and a TabPanel for each of them - which can be laid
+    out wherever the page wants, because a panel finds the row by being
+    inside it rather than by being a child of it.
 
     value() is the tab that starts selected. The arrow keys move along the
     row and the panel follows, which is what the tab role promises; Tab
@@ -62,8 +87,14 @@ class Tabs(ChainableComponent):
             cls()
             .value("overview")
             .content(
-                Tab().value("overview").label("Overview").content("What happened."),
-                Tab().value("activity").label("Activity").content("Who did what."),
+                TabList()
+                .label("Report")
+                .content(
+                    Tab().value("overview").label("Overview"),
+                    Tab().value("activity").label("Activity"),
+                ),
+                TabPanel().value("overview").content("What happened."),
+                TabPanel().value("activity").content("Who did what."),
             )
         )
 
@@ -86,38 +117,50 @@ class Tabs(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
-        variant: TabsVariant = self._get_prop("variant", "underline")
-        tabs = [child for child in self._children if isinstance(child, Tab)]
-        selected: str = self._get_prop("value") or (
-            tabs[0]._get_prop("value", "") if tabs else ""
-        )
+    def htmy_context(self) -> Context:
+        return {TabsState: TabsState(self._get_prop("variant", "underline"))}
 
-        for tab in tabs:
-            tab._props["variant"] = variant
-
+    def _render(self, context: Context) -> Component:
         return html.div(
-            html.div(
-                *(tab._trigger() for tab in tabs),
-                role="tablist",
-                aria_label=self._get_prop("label"),
-                class_=_LISTS[variant],
-                **{
-                    # Arrows walk the row and the panel follows the focus,
-                    # which is the automatic activation the role implies.
-                    "x-on:keydown.right.prevent": "$focus.wrap().next()",
-                    "x-on:keydown.left.prevent": "$focus.wrap().previous()",
-                    "x-on:keydown.home.prevent": "$focus.first()",
-                    "x-on:keydown.end.prevent": "$focus.last()",
-                },
-            ),
-            *(tab._panel() for tab in tabs),
+            *self._children,
             # w-full, or the rule under the row is as wide as the widest
             # panel and moves every time the panel does.
             class_=classnames("w-full", self._get_prop("class_")),
             **{
-                "x-data": f"{{ selected: {selected!r} }}",
+                "x-data": f"{{ selected: {self._get_prop('value', '')!r} }}",
                 "x-id": "['hue-tab', 'hue-tabpanel']",
+                **self._get_base_html_attrs(),
+            },
+        )
+
+
+class TabList(ChainableComponent):
+    """
+    The row the tabs sit in, and the arrow keys that walk it.
+    """
+
+    category = None
+
+    def label(self, value: str) -> Self:
+        """
+        What this set of tabs is for, for a page with more than one.
+        """
+        self._props["label"] = value
+        return self
+
+    def _render(self, context: Context) -> Component:
+        return html.div(
+            *self._children,
+            role="tablist",
+            aria_label=self._get_prop("label"),
+            class_=_LISTS[TabsState.from_context(context).variant],
+            **{
+                # Arrows walk the row and the panel follows the focus,
+                # which is the automatic activation the role implies.
+                "x-on:keydown.right.prevent": "$focus.wrap().next()",
+                "x-on:keydown.left.prevent": "$focus.wrap().previous()",
+                "x-on:keydown.home.prevent": "$focus.first()",
+                "x-on:keydown.end.prevent": "$focus.last()",
                 **self._get_base_html_attrs(),
             },
         )
@@ -125,7 +168,7 @@ class Tabs(ChainableComponent):
 
 class Tab(ChainableComponent):
     """
-    One tab and the panel it shows. Children are the panel.
+    One tab in the row. What it shows is a TabPanel with the same value.
     """
 
     category = None
@@ -150,9 +193,9 @@ class Tab(ChainableComponent):
         self._props["disabled"] = value
         return self
 
-    def _trigger(self) -> ComponentType:
+    def _render(self, context: Context) -> Component:
         value: str = self._get_prop("value", "")
-        variant: TabsVariant = self._get_prop("variant", "underline")
+        variant: TabsVariant = TabsState.from_context(context).variant
         chosen = unsafe(f"selected === {value!r}")
 
         return html.button(
@@ -174,30 +217,46 @@ class Tab(ChainableComponent):
                 # Roving: only the selected tab is a tab stop, so Tab moves
                 # past the row rather than through it.
                 ":tabindex": f"{chosen} ? 0 : -1",
+                # The first tab in the row claims the selection if nothing
+                # else has: whichever initialises first is the first in the
+                # document, which is what "the first one" meant back when
+                # the row could see its own children.
+                "x-init": f"selected = selected || {value!r}",
                 "x-on:click": unsafe(f"selected = {value!r}"),
                 # Selection follows focus, so the arrows show as they go.
                 "x-on:focus": unsafe(f"selected = {value!r}"),
             },
         )
 
-    def _panel(self) -> ComponentType:
+
+class TabPanel(ChainableComponent):
+    """
+    What one tab shows, wherever it happens to be laid out.
+    """
+
+    category = None
+
+    def value(self, value: str) -> Self:
+        """
+        The tab this belongs to.
+        """
+        self._props["value"] = value
+        return self
+
+    def _render(self, context: Context) -> Component:
+        TabsState.from_context(context)
         value: str = self._get_prop("value", "")
         return html.div(
             *self._children,
             role="tabpanel",
             # Focusable, because a panel of text has nothing else to land on.
             tabindex="0",
-            class_="pt-5",
+            class_=classnames("pt-5", self._get_prop("class_")),
             **{
                 ":id": f"$id('hue-tabpanel', {value!r})",
                 ":aria-labelledby": f"$id('hue-tab', {value!r})",
                 "x-show": unsafe(f"selected === {value!r}"),
                 "x-cloak": True,
+                **self._get_base_html_attrs(),
             },
         )
-
-    def _render(self, context: HueContext) -> Component:
-        # Tabs takes a Tab apart and renders the trigger and the panel in
-        # their own places. One on its own has no row to belong to and no
-        # scope to ask whether it is selected, so it is just its content.
-        return html.div(*self._children, class_=self._get_prop("class_"))

@@ -44,6 +44,7 @@ from hue.ui.molecules.disclosure import Disclosure
 from hue.ui.molecules.drawer import Drawer
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.field import Field
+from hue.ui.molecules.form import Form, FormErrors
 from hue.ui.molecules.menu import (
     DropdownMenu,
     MenuItem,
@@ -78,7 +79,7 @@ from hue.ui.molecules.table import (
     TableHeader,
     TableRow,
 )
-from hue.ui.molecules.tabs import Tab, Tabs
+from hue.ui.molecules.tabs import Tab, TabList, TabPanel, Tabs
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
 from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
@@ -110,6 +111,8 @@ __all__ = [
     "EmailInput",
     "Empty",
     "Field",
+    "Form",
+    "FormErrors",
     "Icon",
     "IconResolver",
     "Kbd",
@@ -147,6 +150,8 @@ __all__ = [
     "Stack",
     "Switch",
     "Tab",
+    "TabList",
+    "TabPanel",
     "Table",
     "TableBody",
     "TableCaption",

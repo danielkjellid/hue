@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
@@ -130,7 +129,7 @@ class Drawer(ChainableComponent):
         self._props["open"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         side: DrawerSide = self._get_prop("side", "end")
         size: DrawerSize = self._get_prop("size", "md")
         title: str | None = self._get_prop("title")

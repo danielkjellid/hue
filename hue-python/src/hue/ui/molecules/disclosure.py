@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
@@ -62,7 +61,7 @@ class Disclosure(ChainableComponent):
         self._props["closed"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         starts_open = not self._get_prop("closed", False)
 
         trigger = html.button(

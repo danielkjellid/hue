@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
@@ -87,7 +86,7 @@ class SegmentedOption(Clickable):
             self.x_on("click", unsafe(f"selected = {value!r}"))
             self.x_bind("aria-pressed", unsafe(f"selected === {value!r}"))
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         size: SegmentedSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
         selected: bool | None = self._get_prop("selected")
@@ -165,7 +164,7 @@ class SegmentedControl(ChainableComponent):
         self._props["size"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         size: SegmentedSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
         selected: str | None = self._get_prop("value")

@@ -65,10 +65,9 @@ from math import ceil
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Mapping, Sequence
 from urllib.parse import urlencode
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.icon import HueIcon
@@ -497,7 +496,7 @@ class TableSearch(ChainableComponent):
     def from_state(cls, state: BoundTable) -> Self:
         return cls().content(_search_form(bound_or_raise(state, "TableSearch")))
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames("max-w-xs", self._get_prop("class_")),
@@ -530,7 +529,7 @@ class TablePagination(ChainableComponent):
             .href(lambda page: state.href(page=page))
         )
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(self._get_prop("class_")),

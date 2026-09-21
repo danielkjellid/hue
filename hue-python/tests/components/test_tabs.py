@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Badge, Tab, Tabs
+from hue.ui import Badge, Tab, TabList, TabPanel, Tabs
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
@@ -10,8 +10,12 @@ def _tabs(**props):
     for key, value in props.items():
         getattr(tabs, key)(value)
     return tabs.content(
-        Tab().value("overview").label("Overview").content("What happened"),
-        Tab().value("activity").label("Activity").content("Who did what"),
+        TabList().content(
+            Tab().value("overview").label("Overview"),
+            Tab().value("activity").label("Activity"),
+        ),
+        TabPanel().value("overview").content("What happened"),
+        TabPanel().value("activity").content("Who did what"),
     )
 
 
@@ -68,9 +72,14 @@ class TestTabs:
         assert "selected: 'activity'" in str(html)
 
     @pytest.mark.asyncio
-    async def test_the_first_tab_starts_selected(self, context_args):
+    async def test_the_first_tab_claims_the_selection_if_nothing_else_has(
+        self, context_args
+    ):
+        # The row cannot see its own tabs any more, so the first one to
+        # initialise takes it - which is the first one in the document.
         html = await render_tree(_tabs(), context_args=context_args)
-        assert "selected: 'overview'" in str(html)
+        assert "selected: ''" in str(html)
+        assert_attr(html, "button", "x-init", "selected = selected || 'overview'")
 
     # variant(): both branches
     @pytest.mark.asyncio
@@ -120,11 +129,11 @@ class TestTabs:
         assert_selector(html, 'button[role="tab"] span')
 
     @pytest.mark.asyncio
-    async def test_a_tab_on_its_own_is_its_content(self, context_args):
-        # No row to belong to and no scope to ask whether it is selected.
-        html = await render_tree(
-            Tab().value("stray").label("Stray").content("Still readable"),
-            context_args=context_args,
-        )
-        assert "Still readable" in str(html)
-        assert_no_selector(html, "[x-show]")
+    async def test_a_tab_outside_a_row_says_so(self, context_args):
+        # It has no row to belong to and no scope to ask whether it is
+        # showing, which is worth saying rather than rendering something
+        # inert that looks like a tab.
+        with pytest.raises(ValueError, match="inside Tabs"):
+            await render_tree(
+                Tab().value("stray").label("Stray"), context_args=context_args
+            )

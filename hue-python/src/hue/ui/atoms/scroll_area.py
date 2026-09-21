@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
 from hue.ui.base import ChainableComponent
@@ -65,7 +64,7 @@ class ScrollArea(ChainableComponent):
         self._props["fade"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         label: str | None = self._get_prop("label")
         fade: bool = self._get_prop("fade", False)
 

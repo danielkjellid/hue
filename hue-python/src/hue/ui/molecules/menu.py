@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET
@@ -95,7 +94,7 @@ class DropdownMenu(ChainableComponent):
         self._props["trigger"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         placement: MenuPlacement = self._get_prop("placement", "bottom-start")
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
@@ -206,7 +205,7 @@ class MenuItem(Clickable):
         self._props["disabled"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         variant: MenuItemVariant = self._get_prop("variant", "default")
         checkable: bool = self._get_prop("checkable", False)
         checked: bool = self._get_prop("checked", False)
@@ -279,7 +278,7 @@ class MenuLabel(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
             class_=classnames(
@@ -298,7 +297,7 @@ class MenuSeparator(ChainableComponent):
 
     category = None
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         return html.hr(
             class_=classnames(
                 "my-1 h-px border-0 bg-border",

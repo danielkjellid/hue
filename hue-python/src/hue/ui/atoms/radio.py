@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from htmy import html
+from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
@@ -82,7 +81,7 @@ class Radio(ChainableComponent):
         if disabled:
             self._props["disabled"] = True
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         value: str = self._get_prop("value", "")
         name: str = self._get_prop("name", "")
         disabled: bool = self._get_prop("disabled", False)
@@ -162,13 +161,13 @@ class RadioGroup(FieldControl):
         self._props["variant"] = value
         return self
 
-    def _render(self, context: HueContext) -> Component:
+    def _render(self, context: Context) -> Component:
         name = self._require_name()
         legend: str | None = self._get_prop("legend") or self._get_prop("label")
         variant: ChoiceVariant = self._get_prop("variant", "inline")
         disabled: bool = self._get_prop("disabled", False)
         required: bool = self._get_prop("required", False)
-        error: str | None = self._get_prop("error")
+        error: str | None = self._error(context)
         hint: str | None = self._get_prop("hint")
 
         options: list[ComponentType] = []
@@ -213,7 +212,9 @@ class RadioGroup(FieldControl):
             class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
             **{
                 # The legend names the group, so no aria-label as well.
-                "aria_describedby": self._describedby(),
+                "aria_describedby": self._describedby(
+                    context,
+                ),
                 "aria_invalid": "true" if error is not None else None,
                 "disabled": disabled or None,
                 **self._get_base_html_attrs(),
