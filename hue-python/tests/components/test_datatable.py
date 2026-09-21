@@ -290,7 +290,7 @@ class TestDataTable:
             context_args=context_args,
         )
         assert_selector(html, "div.bg-accent-subtle button")
-        assert_selector(html, "div.bg-accent-subtle + table[x-data]")
+        assert_selector(html, "div.bg-accent-subtle + div > table[x-data]")
         assert_attr(html, "div.bg-accent-subtle", "x-show", "selected.length > 0")
 
     @pytest.mark.asyncio

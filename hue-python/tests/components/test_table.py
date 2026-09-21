@@ -86,8 +86,16 @@ class TestTable:
         # Which is what a request has to aim at: swap only the table and an
         # empty state sitting under it would still be there afterwards.
         html = await render_tree(Table().id("users"), context_args=context_args)
-        assert_attr(html, "div#users > table", "class")
+        assert_attr(html, "div#users > div > table", "class")
         assert_no_selector(html, "table#users")
+
+    @pytest.mark.asyncio
+    async def test_only_the_band_the_table_is_in_scrolls(self, context_args):
+        # Not the shell: a popover opened from the toolbar has to be able to
+        # leave the frame, and overflow on the shell would cut it off.
+        html = await render_tree(Table(), context_args=context_args)
+        assert "overflow" not in select(html, "div")[0]["class"]
+        assert_selector(html, "div.overflow-x-auto > table")
 
     # compact(): both branches
     @pytest.mark.asyncio
@@ -106,7 +114,9 @@ class TestTable:
         html = await render_tree(
             Table().footer(Empty().title("No invoices")), context_args=context_args
         )
-        assert_selector(html, "div > table + div")
+        # The table is in a band of its own, the footer in the next one.
+        assert_selector(html, "div > div > table")
+        assert_selector(html, "div.overflow-x-auto + div")
         assert "No invoices" in html
 
     # TableRow selected(): both branches

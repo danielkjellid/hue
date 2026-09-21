@@ -53,7 +53,20 @@ _GUTTERS = "[&_th]:px-4 [&_td]:px-4"
 _ROW_HEIGHT = ["[&_th]:py-[9px]", "[&_td]:py-[11px]"]
 _ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 
-_FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
+# The shell owns the border and the radius; the toolbar, the table and the
+# footer are bands inside it, separated by hairlines. Only the band the
+# table is in scrolls: overflow on the shell would clip a popover opened
+# from the toolbar, and a filter panel that cannot leave the frame is no
+# panel at all. The bands square off the shell's corners unless the first
+# and the last are told to round with it - 11px, the 12px radius less the
+# border it sits inside.
+_FRAME = (
+    "w-full rounded-lg border border-border bg-surface "
+    "[&>*:first-child]:rounded-t-[11px] [&>*:last-child]:rounded-b-[11px]"
+)
+
+# The one band that scrolls, and the only place a table is ever too wide.
+_BODY_BAND = "overflow-x-auto"
 
 # The bar over a table with rows picked in it. accent-subtle so the whole
 # frame says something is selected, not just the rows.
@@ -165,19 +178,22 @@ class Table(ChainableComponent):
 
         inside: list[ComponentType] = [
             *self._get_prop("toolbar", ()),
-            html.table(
-                *self._children,
-                class_=classnames(
-                    "w-full border-collapse text-base",
-                    _GUTTERS,
-                    classes_if_else(
-                        self._get_prop("compact", False),
-                        _ROW_HEIGHT_COMPACT,
-                        _ROW_HEIGHT,
+            html.div(
+                html.table(
+                    *self._children,
+                    class_=classnames(
+                        "w-full border-collapse text-base",
+                        _GUTTERS,
+                        classes_if_else(
+                            self._get_prop("compact", False),
+                            _ROW_HEIGHT_COMPACT,
+                            _ROW_HEIGHT,
+                        ),
+                        self._get_prop("class_"),
                     ),
-                    self._get_prop("class_"),
+                    **attrs,
                 ),
-                **attrs,
+                class_=_BODY_BAND,
             ),
             *self._get_prop("footer", ()),
         ]
