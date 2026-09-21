@@ -145,9 +145,12 @@ def _specimen(key: str, **params: str) -> ComponentType:
 
 _DECLARATION = """def invoices_for(request, asked):
     \"\"\"The one part of a table that is not fixed: which rows answer it.\"\"\"
-    return Invoice.objects.filter(
-        customer__name__icontains=asked.query
-    ).order_by(asked.sort or "reference")
+    found = Invoice.objects.filter(customer__name__icontains=asked.query)
+    if statuses := asked.chosen("status"):
+        found = found.filter(status__in=statuses)
+    if least := asked.value("min"):
+        found = found.filter(amount__gte=least)
+    return found.order_by(asked.sort or "reference")
 
 
 class InvoicesView(HueView):
@@ -164,6 +167,12 @@ class InvoicesView(HueView):
         rows=invoices_for,
         identifier="pk",
         search="Search customers",
+        filters=[
+            Filter("status", "Status", options=STATUS),
+            Filter("min", "Minimum amount", kind="number", prefix="USD"),
+        ],
+        hideable=["customer", "amount"],
+        density=True,
         actions={"archive": BulkAction("Archive", archive_invoices)},
     )
 
@@ -263,18 +272,29 @@ def _build() -> ComponentType:
             "step."
         ),
         pr.code(
-            '<div id="invoices" class="…">          <!-- the frame: swapped -->\n'
-            '  <form method="post" action="/invoices/" x-target="invoices">\n'
-            "    <div>2 selected  [Archive]</div>   <!-- shown once one is -->\n"
+            '<div id="invoices" class="…">           <!-- the shell -->\n'
+            '  <form id="invoices-act" method="post" hidden></form>\n'
+            "  <div>   [search]  [Filter 2]  [Columns]  [...]   </div>\n"
+            "  <div>   2 selected            [Archive]         </div>\n"
+            '  <div id="invoices-rows">              <!-- replaced -->\n'
             "    <table>\n"
             '      <th aria-sort="descending">\n'
-            '        <a href="/invoices/?sort=amount" x-target="invoices">Amount</a>\n'
+            '        <a href="?sort=amount" x-target="invoices-rows">Amount</a>\n'
             "      </th>\n"
-            '      <td><input type="checkbox" name="selected" value="41"></td>\n'
+            '      <td><input type="checkbox" name="selected"\n'
+            '                 value="41" form="invoices-act"></td>\n'
             "    </table>\n"
-            "  </form>\n"
+            "    [pages]\n"
+            "  </div>\n"
             "</div>",
             language="html",
+        ),
+        pr.p(
+            "One shell, with bands inside it: the toolbar, the rows and the "
+            "pages share a border and a radius rather than floating apart. "
+            "Only the band the table is in scrolls - overflow on the shell "
+            "would clip the Filter and Columns panels, and a panel that "
+            "cannot leave the frame is no panel at all."
         ),
         pr.p(
             "None of those URLs is spelled by hand. The key names the two "
@@ -299,20 +319,65 @@ def _build() -> ComponentType:
             "quietly linking into the wrong namespace."
         ),
         pr.p(
-            "The selection posts through a real form around real checkboxes, "
-            "so what is ticked is submitted by the browser and not read off "
-            "the page by anything. x-target is the only part of it that "
-            "needs Alpine at all: it turns a navigation into a swap. With "
-            "JavaScript switched off the same link and the same form do the "
-            "same thing the long way round."
+            "A sort, a page, a search and a filter all aim at the rows "
+            "rather than at the shell. The toolbar is the one band a "
+            "response never replaces, which is what keeps the caret in the "
+            "search box and an open panel open while the rows underneath "
+            "them change."
         ),
         pr.p(
-            "The form sits inside the frame rather than around it, so the "
-            "table is still the outermost element and still what a response "
-            "replaces. The id is on the frame and not on the table element "
-            "for the same reason: an empty state lives under the table "
-            "inside the frame, and swapping only the table would leave a "
-            "stale one sitting beneath the new rows."
+            "The selection posts through real checkboxes, so what is ticked "
+            "is submitted by the browser and not read off the page by "
+            "anything - but the form around them is an empty element they "
+            "name rather than sit inside. A form wrapping the shell would "
+            "swallow the search box, which is a form of its own, and the "
+            "browser would throw the inner one away."
+        ),
+        pr.p(
+            "x-target is the only part of any of it that needs Alpine: it "
+            "turns a navigation into a swap. With JavaScript switched off "
+            "the same links and the same forms do the same things the long "
+            "way round - except the Columns panel, whose boxes read the "
+            "other way round from what the URL carries and so are wired up "
+            "rather than submitted."
+        ),
+        pr.h2("The ways of narrowing it"),
+        pr.p(
+            "Each filter is a parameter of its own in the URL, a group in "
+            "the panel behind the Filter button, and a chip in the band "
+            "under it. There is no Apply: changes land the moment a box is "
+            "ticked, because the chips already say what is on and already "
+            "undo it."
+        ),
+        pr.code(
+            'Filter("status", "Status", options=STATUS)     # ?status=paid,draft\n'
+            'Filter("min", "Minimum amount", kind="number") # ?min=500'
+        ),
+        pr.p(
+            "The chips and the count on the trigger are read off the "
+            "panel's own controls rather than rendered beside them. They "
+            "are the same fact stated twice on purpose - a filter that only "
+            "exists behind a closed popover gets blamed on the data - and "
+            "deriving them means a tick and the chip it puts up happen in "
+            "the same frame rather than a round trip apart."
+        ),
+        pr.p(
+            "An answer a filter never offered is dropped rather than passed "
+            "on. The query string is somewhere anybody can type, and rows() "
+            "should not have to defend itself against what lands in it. A "
+            "filter called sort, q, page, hide or density is refused "
+            "outright, because the table is already using all five."
+        ),
+        pr.p(
+            "hideable names the columns a reader may put away. A ticked box "
+            "in the panel is a column that is showing, which is the way "
+            "round anybody reads a list of columns - while the URL carries "
+            "the ones that are hidden, so a column added later shows itself "
+            "to somebody following an old link rather than hiding from "
+            "them. The locked columns are in the list too, ticked and "
+            "disabled and said to be locked: a table of amounts with no "
+            "invoice number is unreadable, and refusing the click without a "
+            "word would read as something broken."
         ),
         pr.h2("One component, or the parts of one"),
         pr.p(
@@ -339,18 +404,26 @@ def _build() -> ComponentType:
             ")"
         ),
         pr.p(
-            "The search box stays outside the frame either way, and that is "
-            "structural rather than cosmetic. The frame is what a response "
-            "replaces; a box inside it would be swapped out from under the "
-            "person typing in it, losing the caret and the focus every time "
-            "a request came back."
+            "The parts are TableSearch, TableFilters, TableColumns, "
+            "TableOptions, DataTable and TablePagination. Each of them "
+            "draws nothing and raises a sentence about binding if there is "
+            "no bound table above it, which is the one slip this shape "
+            "invites."
         ),
         pr.p(
-            "It is a GET form that submits itself 300 milliseconds after the "
-            "last keystroke - long enough that a word typed at speed is one "
-            "request rather than five. A form rather than a handler, because "
-            "Enter already does this. The order rides along as a hidden "
-            "field, so searching keeps the order the table was already in."
+            "The search box is a GET form that submits itself 300 "
+            "milliseconds after the last keystroke - long enough that a "
+            "word typed at speed is one request rather than five. A form "
+            "rather than a handler, because Enter already does this. The "
+            "order and the filters ride along as hidden fields, so "
+            "searching keeps everything else the table was narrowed by."
+        ),
+        pr.p(
+            "Slash focuses it from anywhere on the page and escape empties "
+            "it, both ignored where they would take a key away from "
+            "something else: slash while focus is in any field, and escape "
+            "while the box is already empty - which leaves that escape for "
+            "whatever the table is inside."
         ),
         pr.h2("The two states, side by side"),
         pr.p(
@@ -398,6 +471,19 @@ def _build() -> ComponentType:
                     "request being served, which is what makes them follow "
                     "the mount point instead of assuming the site root."
                 ),
+                pr.p(
+                    "Narrowing a table is a question for the server, not a "
+                    "pass over the rows in hand. A page of a lazy queryset "
+                    "is sliced after it is filtered and ordered, so the "
+                    "rows on screen are the wrong ones to narrow - which is "
+                    "why every control here is a link or a form and none of "
+                    "them is a handler."
+                ),
+                pr.p(
+                    "One table per key, per page. The key is the id every "
+                    "part of a table is named from, so two tables sharing "
+                    "one would share their controls' ids as well."
+                ),
             ]
         ),
         Alert()
@@ -407,8 +493,10 @@ def _build() -> ComponentType:
             "The no-JavaScript fallback for an action will be refused by "
             "Django's CSRF middleware, because the form carries no hidden "
             "token; the AJAX path is fine, since the bundle sends the header "
-            "the middleware reads. Integration work rather than anything "
-            "about the shape above."
+            "the middleware reads. The panel does not tally how many rows "
+            "each filter answer would leave, either: the count would have to "
+            "be recomputed on the server and swapped back into the one band "
+            "that is deliberately never swapped."
         ),
     )
 
