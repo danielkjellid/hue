@@ -44,8 +44,8 @@ def from_context(cls, context: Context) -> TabsState:
     if isinstance(found, cls):
         return found
     raise ValueError(
-        "A Tab, TabList or TabPanel only means something inside Tabs, "
-        "which is what says which of them is showing."
+        "A Tab only means something inside Tabs, which is what says "
+        "how the row is drawn and which of them you are on."
     )
 
 
@@ -60,11 +60,11 @@ _REQUEST = """class WhoIsHere(ChainableComponent):
         user = HueContext.from_context(context).request.user
         return html.span(user.get_full_name())"""
 
-_NESTING = """Tabs().variant("underline").content(
-    TabPanel().content(
-        # A row inside a panel. Everything in here reads "segmented";
-        # everything outside it still reads "underline".
-        Tabs().variant("segmented").content(...),
+_NESTING = """Sidebar().current(request.path).content(
+    SidebarBody().content(
+        # A section that knows a path of its own. Everything in here
+        # reads that one; everything outside it reads the page's.
+        Sidebar().current("/events/2050").content(...),
     ),
 )"""
 
@@ -153,13 +153,17 @@ def _build() -> ComponentType:
                     "the context its own _render was handed."
                 ),
                 pr.p(
-                    "CurrentPage - the path Sidebar was told it is on. A "
-                    "SidebarItem whose href matches marks itself."
+                    "CurrentPage - the path a set of links was told it is "
+                    "on. Offered by Sidebar and by Tabs, because they are "
+                    "the same question asked twice: of these links, which "
+                    "one leads here? A link reads it and marks itself, on "
+                    "its own path and on the pages inside it."
                 ),
                 pr.p(
-                    "TabsState - how a row of tabs is drawn. TabList, Tab "
-                    "and TabPanel all read it, and all three raise without "
-                    "it."
+                    "TabsState - how a row of tabs is drawn and where a "
+                    "tab lands. A Tab reads it, and raises without it; the "
+                    "row offers CurrentPage alongside, so the two between "
+                    "them are the whole of what a tab needs."
                 ),
                 pr.p(
                     "FormErrors - what came back wrong, by control name. "
