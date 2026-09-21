@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from hue.datatable import (
-    BoundTable,
     BulkAction,
+    TablePagination,
     TableSearch,
     TableState,
     datatable,
+    table,
 )
 from hue.types.core import ComponentType
 from hue.ui import Alert, Column, DataTable
@@ -15,112 +16,117 @@ from hue.ui import Alert, Column, DataTable
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
 
-# The example, for real: the same declaration the page talks about, built
-# against a list of dicts so nothing here needs a database. The specimens
-# below are this table bound to states it might be asked for.
+# The example, for real. The same declaration the page talks about, over a
+# list of dictionaries rather than a queryset - so the filtering, the
+# ordering and the paging below are the Python here and nothing needs a
+# database to be true.
 _INVOICES: list[dict[str, Any]] = [
     {"pk": "41", "invoice": "INV-2050", "customer": "Contoso Ltd", "amount": 2190},
     {"pk": "17", "invoice": "INV-2048", "customer": "Northwind", "amount": 1200},
     {"pk": "23", "invoice": "INV-2049", "customer": "Fabrikam Inc", "amount": 840},
     {"pk": "58", "invoice": "INV-2051", "customer": "Adventure Works", "amount": 415},
+    {"pk": "62", "invoice": "INV-2052", "customer": "Tailspin Toys", "amount": 3120},
 ]
 
-_ARCHIVED: set[str] = set()
 
+class _Request:
+    """
+    Just enough of a request to carry a query string.
+    """
 
-def _invoices(asked: TableState) -> list[dict[str, Any]]:
-    """
-    One function, both questions: what was searched for and what order.
-    """
-    found = [
-        row
-        for row in _INVOICES
-        if row["pk"] not in _ARCHIVED
-        and asked.query.lower() in str(row["customer"]).lower()
-    ]
-    if asked.sort:
-        key = asked.sort.lstrip("-")
-        found.sort(key=lambda row: row[key], reverse=asked.sort.startswith("-"))
-    return found
+    def __init__(self, **params: str) -> None:
+        self.params = params
 
 
 class _Router:
     """
     A stand-in, because a docs page has no view to hang routes on. A real
-    declaration is handed the view's own Router and registers two routes on
-    it; here they are registered on nothing and never called.
+    declaration is handed the view's own Router and registers two routes
+    on it; here they are registered on nothing and never called.
     """
 
-    def fragment_get(self, path: str):  # type: ignore[no-untyped-def]
+    def fragment_get(self, path: str) -> Any:
         return lambda view_func: view_func
 
-    def fragment_post(self, path: str):  # type: ignore[no-untyped-def]
+    def fragment_post(self, path: str) -> Any:
         return lambda view_func: view_func
 
-
-_TABLE = datatable(
-    _Router(),  # type: ignore[arg-type]
-    key="invoices",
-    columns=[
-        Column("invoice", "Invoice"),
-        Column("customer", "Customer", sort="customer"),
-        Column("amount", "Amount", align="end", sort="amount"),
-    ],
-    rows=_invoices,
-    identifier="pk",
-    search="Search customers",
-    actions={"archive": BulkAction("Archive", lambda request, ids: None)},
-)
+    def _get_query_params(self, request: Any) -> dict[str, str]:
+        return dict(request.params)
 
 
-def _specimen(asked: TableState) -> ComponentType:
-    bound = BoundTable(_TABLE, asked)
+def _archive(request: Any, ids: list[str]) -> None:
+    """A service function, which is all an action ever is."""
+
+
+class _Invoices:
+    router = _Router()
+
+    @datatable(router, "invoices")  # type: ignore[arg-type]
+    def invoices(self, request: Any, asked: TableState) -> Any:
+        found = [
+            row
+            for row in _INVOICES
+            if asked.query.lower() in str(row["customer"]).lower()
+        ]
+        if asked.sort:
+            field = asked.sort.lstrip("-")
+            found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
+        return table(
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("customer", "Customer", sort="customer"),
+                Column("amount", "Amount", align="end", sort="amount"),
+            ],
+            rows=found,
+            identifier="pk",
+            search="Search customers",
+            actions={"archive": BulkAction("Archive", _archive)},
+            page_size=3,
+        )
+
+
+_VIEW = _Invoices()
+
+
+def _specimen(**params: str) -> ComponentType:
+    bound = _VIEW.invoices(_Request(**params))
     return pr.section(
         TableSearch.from_state(bound),
         DataTable.from_state(bound),
+        TablePagination.from_state(bound),
     )
 
 
-_DECLARATION = '''from hue.datatable import BulkAction, datatable
-from hue.ui import Column, DataTable, TableSearch
-
-
-def invoices_for(asked):
-    """Both questions, one answer: what was searched for, and in what order."""
-    found = Invoice.objects.filter(customer__name__icontains=asked.query)
-    return found.order_by(asked.sort or "reference")
-
-
-def archive(request, ids):
-    Invoice.objects.filter(pk__in=ids).update(archived=True)
-
-
-class InvoicesView(HueView):
+_DECLARATION = """class InvoicesView(HueView):
     router = Router[HttpRequest]()
 
-    invoices = datatable(
-        router,
-        key="invoices",
-        columns=[
-            Column("invoice", "Invoice"),
-            Column("customer", "Customer", sort="customer__name"),
-            Column("amount", "Amount", align="end", sort="amount"),
-        ],
-        rows=invoices_for,
-        identifier="pk",
-        search="Search customers",
-        actions={"archive": BulkAction("Archive", archive)},
-    )
+    @datatable(router, "invoices")
+    def invoices(self, request, asked):
+        return table(
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("customer", "Customer", sort="customer__name"),
+                Column("amount", "Amount", align="end", sort="amount"),
+            ],
+            rows=Invoice.objects.filter(
+                customer__name__icontains=asked.query
+            ).order_by(asked.sort or "reference"),
+            identifier="pk",
+            search="Search customers",
+            actions={"archive": BulkAction("Archive", archive_invoices)},
+        )
 
     async def index(self, request, context):
-        invoices = self.invoices.bind(request)
+        invoices = self.invoices(request)
         return Page(
             title="Invoices",
             body=Stack().content(
                 TableSearch.from_state(invoices),
                 DataTable.from_state(invoices),
+                TablePagination.from_state(invoices),
             ),
-        )'''
+        )"""
 
 
 def _build() -> ComponentType:
@@ -177,7 +183,10 @@ def _build() -> ComponentType:
             "doing something with them is. So actions are named, they post, "
             "and they are handed the ids of what was ticked. Reads and "
             "writes split the way HTTP already splits them, and the two "
-            "routes a declaration registers are exactly that pair."
+            "routes the decorator registers are exactly that pair - and "
+            "both go through the described method, so an action answers "
+            "with the table in the state it was done in rather than the "
+            "first page of an unsorted one."
         ),
         pr.code(
             "GET   /invoices/?sort=-amount&q=contoso   -> the table\n"
@@ -263,17 +272,24 @@ def _build() -> ComponentType:
             "filtered and ordered by the Python above - nothing on this page "
             "is a picture of a table."
         ),
-        _specimen(TableState(sort="-amount")),
-        pr.p("Sorted by amount, descending. And the same table searched:"),
-        _specimen(TableState(query="n", sort="customer")),
+        _specimen(sort="-amount"),
+        pr.p(
+            "Sorted by amount, descending, three to a page. And the same "
+            "table searched - which keeps the order and goes back to the "
+            "first page, because page two of a different search is not a "
+            "page anybody asked for:"
+        ),
+        _specimen(q="n", sort="customer"),
         pr.h2("What it assumes"),
         pr.bullets(
             [
                 pr.p(
-                    "The declaration lives at class scope. Routes register as "
-                    "the class body runs, and rows are per request - which is "
-                    "why rows is a function and not a list, and why a table "
-                    "cannot be declared inside index()."
+                    "The described method is declared at class scope and "
+                    "called per request. Routes can only be registered while "
+                    "the class body runs, and the rows can only be known once "
+                    "there is a request - the decorator is what lets both be "
+                    "true at once, and why the table is not built inline in "
+                    "index()."
                 ),
                 pr.p(
                     "Every state that matters is in the URL. That is what "

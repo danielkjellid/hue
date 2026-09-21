@@ -1,9 +1,9 @@
 """
-The datatable() declaration, end to end against a Django request.
+The @datatable declaration, end to end against a Django view.
 
-What this is here to show is that nothing between the header link and the
-handler is wired by hand: the routes, the URLs and the id they are swapped
-into all come off the one key.
+What this is here to show is that every way into the table goes through
+the one described method, so a sort, a search, a page and an action all
+come back with the table in the state it was in.
 """
 
 import asyncio
@@ -12,64 +12,67 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from django.http import HttpRequest
-from htmy import html
 from hue.context import HueContextArgs
-from hue.datatable import (
-    BoundTable,
-    BulkAction,
-    DataTableState,
-    TableSearch,
-    TableState,
-    datatable,
-)
+from hue.datatable import BulkAction, TablePagination, TableSearch, datatable, table
 from hue.renderer import render_tree
 from hue.ui.molecules.table import Column, DataTable
 
 from hue_django.router import Router
 
-# A pk nobody displays, which is the point of naming the identifier
-# separately from the columns.
-_INVOICES = [
-    {"pk": "41", "invoice": "INV-2050", "amount": "2190"},
-    {"pk": "17", "invoice": "INV-2048", "amount": "1200"},
+# A pk nobody displays, which is the point of naming the identifier apart
+# from the columns.
+_INVOICES: list[dict[str, Any]] = [
+    {"pk": "41", "invoice": "INV-2050", "customer": "Contoso", "amount": 2190},
+    {"pk": "17", "invoice": "INV-2048", "customer": "Northwind", "amount": 1200},
+    {"pk": "23", "invoice": "INV-2049", "customer": "Fabrikam", "amount": 840},
+    {"pk": "58", "invoice": "INV-2051", "customer": "Adventure", "amount": 415},
 ]
 
-
-def _build(archived: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
-    router = Router[HttpRequest]()
-    state = datatable(
-        router,
-        key="invoices",
-        columns=[
-            Column("invoice", "Invoice"),
-            Column("amount", "Amount", align="end", sort="amount"),
-        ],
-        # The whole read path: given the order that was asked for, the rows
-        # in it. No handler sits between the click and this.
-        rows=lambda asked: sorted(
-            _INVOICES,
-            key=lambda row: row["amount"],
-            reverse=(asked.sort or "").startswith("-"),
-        ),
-        identifier="pk",
-        actions={
-            "archive": BulkAction("Archive", lambda request, ids: archived.extend(ids))
-        },
-    )
-    return router, state
+_ARCHIVED: list[str] = []
 
 
-def _bound(state: DataTableState, asked: TableState) -> Any:
-    """
-    The two components a bound state gives you, as one tree.
-    """
+def _view(page_size: int = 25) -> Any:
+    _ARCHIVED.clear()
 
-    bound = BoundTable(state, asked)
-    parts: list[Any] = []
-    if state.search is not None:
-        parts.append(TableSearch.from_state(bound))
-    parts.append(DataTable.from_state(bound))
-    return html.div(*parts)
+    class InvoicesView:
+        router = Router[HttpRequest]()
+
+        @datatable(router, "invoices")
+        def invoices(self, request: Any, asked: Any) -> Any:
+            found = [
+                row
+                for row in _INVOICES
+                if asked.query.lower() in str(row["customer"]).lower()
+            ]
+            if asked.sort:
+                field = asked.sort.lstrip("-")
+                found.sort(
+                    key=lambda row: row[field], reverse=asked.sort.startswith("-")
+                )
+            return table(
+                columns=[
+                    Column("invoice", "Invoice"),
+                    Column("customer", "Customer", sort="customer"),
+                    Column("amount", "Amount", align="end", sort="amount"),
+                ],
+                rows=found,
+                identifier="pk",
+                search="Search customers",
+                actions={
+                    "archive": BulkAction(
+                        "Archive", lambda request, ids: _ARCHIVED.extend(ids)
+                    )
+                },
+                page_size=page_size,
+            )
+
+    return InvoicesView()
+
+
+def _request(**params: str) -> Any:
+    request = MagicMock()
+    request.GET.dict.return_value = params
+    return request
 
 
 def _render(component: Any) -> str:
@@ -81,9 +84,9 @@ def _render(component: Any) -> str:
     )
 
 
-def test_one_declaration_registers_a_route_to_read_and_one_to_act():
-    router, _ = _build([])
-    assert [(route.method, route.path) for route in router.routes] == [
+def test_the_decorator_registers_a_route_to_read_and_one_to_act():
+    view = _view()
+    assert [(route.method, route.path) for route in type(view).router.routes] == [
         ("GET", "invoices/"),
         ("POST", "invoices/<str:action>/"),
     ]
@@ -92,124 +95,82 @@ def test_one_declaration_registers_a_route_to_read_and_one_to_act():
 def test_the_routes_are_named_after_the_table():
     # The router takes a route's name off __name__ as it decorates, so two
     # tables on one view would otherwise both be called "read" and "act".
-    router, _ = _build([])
-    assert [route.name for route in router.routes] == ["invoices_read", "invoices_act"]
+    view = _view()
+    assert [route.name for route in type(view).router.routes] == [
+        "invoices_read",
+        "invoices_act",
+    ]
 
 
-def test_the_header_links_to_its_own_route_and_swaps_itself():
-    _, state = _build([])
-    html = _render(_bound(state, TableState()))
-    link = re.search(r'<th[^>]*>\s*<a href="([^"]*)"[^>]*x-target="([^"]*)"', html)
-    assert link is not None
-    assert link.group(1) == "/invoices/?sort=amount"
-    assert link.group(2) == "invoices"
+def test_the_described_method_is_handed_what_was_asked_for():
+    bound = _view().invoices(_request(sort="-amount", q="n"))
+    assert bound.state.sort == "-amount"
+    assert bound.state.query == "n"
+    # Contoso has an n in it too; descending by amount is the order asked.
+    assert [row["customer"] for row in bound.page] == [
+        "Contoso",
+        "Northwind",
+        "Adventure",
+    ]
 
 
-def test_the_order_asked_for_is_the_order_the_rows_come_back_in():
-    _, state = _build([])
-    descending = _render(_bound(state, TableState(sort="-amount")))
-    first = re.search(r"<tbody.*?INV-(\d+)", descending, re.S)
-    assert first is not None
-    assert first.group(1) == "2050"
+def test_a_sort_link_keeps_the_search():
+    bound = _view().invoices(_request(sort="amount", q="contoso"))
+    html = _render(DataTable.from_state(bound))
+    hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
+    assert "/invoices/?sort=-amount&amp;q=contoso" in hrefs
 
 
-def test_the_selection_posts_through_a_real_form():
-    _, state = _build([])
-    html = _render(_bound(state, TableState()))
+def test_a_search_keeps_the_order_and_drops_the_page():
+    # Page four of a different search is not a page anybody asked for.
+    bound = _view(page_size=2).invoices(_request(sort="-amount", page="2"))
+    html = _render(TableSearch.from_state(bound))
+    hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
+    assert hidden == [("sort", "-amount")]
+
+
+def test_the_page_is_a_slice_and_the_count_is_everything():
+    bound = _view(page_size=2).invoices(_request(page="2"))
+    assert bound.total == 4
+    assert [row["pk"] for row in bound.page] == ["23", "58"]
+
+
+def test_pagination_links_keep_the_rest_of_the_state():
+    bound = _view(page_size=2).invoices(_request(sort="-amount", q="n"))
+    html = _render(TablePagination.from_state(bound))
+    hrefs = re.findall(r'href="([^"]*)"', html)
+    assert "/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
+
+
+def test_an_action_posts_to_a_url_that_remembers_the_state():
+    # Otherwise archiving on page two of a sorted table answers with the
+    # first page of an unsorted one.
+    bound = _view(page_size=2).invoices(_request(sort="-amount", q="n", page="2"))
+    html = _render(DataTable.from_state(bound))
     assert re.search(
-        r'<form method="post" action="/invoices/" x-target="invoices"', html
-    )
-    assert re.search(r'formaction="/invoices/archive/"', html)
-    # The pk, not the invoice reference: what a row is known by is not
-    # what a row shows.
-    assert re.findall(r'name="selected" value="(\d+)"', html) == ["17", "41"]
-
-
-def test_an_action_is_handed_the_ids_as_python():
-    archived: list[str] = []
-    router, state = _build(archived)
-    request = MagicMock()
-    request.POST.getlist.return_value = ["41", "17"]
-
-    state.actions["archive"].handler(
-        request, router._get_form_list(request, "selected")
+        r'formaction="/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"', html
     )
 
-    assert archived == ["41", "17"]
 
-
-def test_a_flat_form_dict_would_have_kept_only_the_last_one():
-    # Which is why there is a _get_form_list at all.
-    router = Router[HttpRequest]()
-    request = MagicMock()
-    request.POST.dict.return_value = {"selected": "INV-2048"}
-    request.POST.getlist.return_value = ["INV-2050", "INV-2048"]
-
-    assert router._get_form_data(request)["selected"] == "INV-2048"
-    assert router._get_form_list(request, "selected") == ["INV-2050", "INV-2048"]
-
-
-def _searchable(rows_seen: list[str]) -> tuple[Router[HttpRequest], DataTableState]:
-    router = Router[HttpRequest]()
-    state = datatable(
-        router,
-        key="invoices",
-        columns=[Column("invoice", "Invoice")],
-        rows=lambda asked: (
-            rows_seen.append(asked.query)
-            or [row for row in _INVOICES if asked.query in row["invoice"]]
-        ),
-        search="Search invoices",
-    )
-    return router, state
+def test_the_checkboxes_carry_the_identifier_not_the_columns():
+    bound = _view().invoices(_request())
+    html = _render(DataTable.from_state(bound))
+    picked = re.findall(r'name="selected" value="(\d+)"', html)
+    assert picked == ["41", "17", "23", "58"]
 
 
 def test_the_search_box_submits_itself_after_a_pause():
-    # Debounced so a word typed at speed is one request rather than five,
-    # and a form so Enter already works without any of this.
-    _, state = _searchable([])
-    html = _render(_bound(state, TableState()))
+    bound = _view().invoices(_request())
+    html = _render(TableSearch.from_state(bound))
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
-    assert re.search(
-        r'<form method="get" action="/invoices/"[^>]*x-target="invoices"', html
-    )
-
-
-def test_the_box_sits_outside_what_gets_replaced():
-    # A box swapped out from under the person typing in it loses the caret.
-    _, state = _searchable([])
-    html = _render(_bound(state, TableState()))
-    form_at = html.index("<form")
-    frame_at = html.index('id="invoices"')
-    assert form_at < frame_at
-    assert html.index("</form>") < frame_at
-
-
-def test_what_was_searched_for_reaches_rows_and_comes_back_in_the_box():
-    seen: list[str] = []
-    _, state = _searchable(seen)
-    html = _render(_bound(state, TableState(query="2050")))
-    assert seen == ["2050"]
-    assert "INV-2050" in html
-    assert "INV-2048" not in html
-    assert re.search(r'value="2050"', html)
-
-
-def test_a_search_keeps_the_order_it_was_already_in():
-    _, state = _build([])
-    assert state.href(TableState(sort="-amount", query="acme")) == (
-        "/invoices/?sort=-amount&q=acme"
-    )
+    assert re.search(r'x-target="invoices"', html)
 
 
 def test_actions_with_nothing_to_hand_them_are_refused():
-    router = Router[HttpRequest]()
     try:
-        datatable(
-            router,
-            key="invoices",
+        table(
             columns=[Column("invoice", "Invoice")],
-            rows=lambda asked: _INVOICES,
+            rows=_INVOICES,
             actions={"archive": BulkAction("Archive", lambda request, ids: None)},
         )
     except ValueError as error:
@@ -219,18 +180,19 @@ def test_actions_with_nothing_to_hand_them_are_refused():
 
 
 def test_rows_that_do_not_carry_the_identifier_are_refused():
-    # Otherwise the first checkbox raises about a missing dict key, and a
-    # table whose ids are quietly absent posts an empty selection.
-    router = Router[HttpRequest]()
-    state = datatable(
-        router,
-        key="invoices",
-        columns=[Column("invoice", "Invoice")],
-        rows=lambda asked: [{"invoice": "INV-2050"}],
-        identifier="pk",
-    )
+    class Bare:
+        router = Router[HttpRequest]()
+
+        @datatable(router, "bare")
+        def bare(self, request: Any, asked: Any) -> Any:
+            return table(
+                columns=[Column("invoice", "Invoice")],
+                rows=[{"invoice": "INV-2050"}],
+                identifier="pk",
+            )
+
     try:
-        _render(_bound(state, TableState()))
+        Bare().bare(_request())
     except ValueError as error:
         assert "identified by 'pk'" in str(error)
         assert "['invoice']" in str(error)

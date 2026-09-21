@@ -407,7 +407,7 @@ class Column:
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
-def _resolve(
+def resolve_value(
     row: Mapping[str, Any],
     key: str | Callable[[Mapping[str, Any]], Any],
 ) -> Any:
@@ -474,7 +474,7 @@ class DataTable(ChainableComponent):
         Everything about it was decided by the declaration, so this is a
         component like any other and goes wherever one goes.
         """
-        return cast("Self", state.table(cls()))
+        return cast("Self", state.build_into(cls()))
 
     @classmethod
     def example(cls) -> Self:
@@ -734,7 +734,7 @@ class DataTable(ChainableComponent):
         )
 
     def _select_cell(self, row: Mapping[str, Any]) -> ComponentType:
-        value = str(_resolve(row, self._get_prop("selectable")))
+        value = str(resolve_value(row, self._get_prop("selectable")))
         return (
             TableCell()
             .class_(_SELECT_COLUMN)
@@ -757,7 +757,7 @@ class DataTable(ChainableComponent):
         key = self._get_prop("selectable")
         if key is None:
             return None
-        return [str(_resolve(row, key)) for row in self._rows]
+        return [str(resolve_value(row, key)) for row in self._rows]
 
     def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
         """
@@ -778,7 +778,7 @@ class DataTable(ChainableComponent):
             *[self._cell(column, row) for column in self._columns],
         )
         if (key := self._get_prop("selectable")) is not None:
-            value = json.dumps(str(_resolve(row, key)))
+            value = json.dumps(str(resolve_value(row, key)))
             line.x_bind("aria-selected", unsafe(f"isSelected({value})"))
         return line
 
@@ -824,7 +824,7 @@ class DataTable(ChainableComponent):
         content = (
             column.render(row)
             if column.render is not None
-            else _stringify(_resolve(row, column.key))
+            else _stringify(resolve_value(row, column.key))
         )
         return TableCell().align(column.align).content(content)
 
