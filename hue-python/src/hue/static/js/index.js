@@ -5,6 +5,7 @@ import Alpine from "alpinejs";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerThemeStore } from "./theme.js";
 import { registerToastMagic } from "./toast.js";
+import { registerTocData } from "./toc.js";
 
 // Make Alpine available globally
 window.Alpine = Alpine;
@@ -34,6 +35,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerScrollAreaData(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
+	registerTocData(Alpine);
 
 	Alpine.start();
 
