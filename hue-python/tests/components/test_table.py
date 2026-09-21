@@ -86,7 +86,7 @@ class TestTable:
         # Which is what a request has to aim at: swap only the table and an
         # empty state sitting under it would still be there afterwards.
         html = await render_tree(Table().id("users"), context_args=context_args)
-        assert_attr(html, "div#users > div > table", "class")
+        assert_attr(html, "div#users > div#users-rows > div > table", "class")
         assert_no_selector(html, "table#users")
 
     @pytest.mark.asyncio

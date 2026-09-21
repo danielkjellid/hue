@@ -70,7 +70,14 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import TextInput
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.pagination import Pagination
-from hue.ui.molecules.table import Column, DataTable, TableSource, resolve_value
+from hue.ui.molecules.table import (
+    Column,
+    DataTable,
+    TableSource,
+    form_id,
+    resolve_value,
+    rows_id,
+)
 from hue.utils import classnames
 
 if TYPE_CHECKING:
@@ -246,6 +253,7 @@ class BoundTable(TableSource):
                 .size("xs")
                 .type("submit")
                 .content(action.label)
+                .attr("form", form_id(self.key))
                 .attr("formaction", self.action_url(name))
                 for name, action in declared.actions.items()
             )
@@ -507,14 +515,14 @@ class TableView(ChainableComponent):
 
     def _package(self) -> tuple[ComponentType, ...]:
         """
-        The whole table when nobody said how to lay it out, which is what
-        a view wants nine times in ten.
+        The whole table when nobody said how to lay it out, welded into
+        one frame: a band of ways to narrow it, the rows, and a band with
+        the pages. One border and one radius, because they are one thing.
         """
-        return (
-            *((TableSearch(),) if self._bound.declaration.search else ()),
-            DataTable(),
-            TablePagination(),
-        )
+        table = DataTable().under(TablePagination())
+        if self._bound.declaration.search:
+            table.toolbar(TableSearch())
+        return (table,)
 
 
 class TableSearch(ChainableComponent):
@@ -532,8 +540,18 @@ class TableSearch(ChainableComponent):
         bound = bound_from(context, "TableSearch")
         return html.div(
             *(self._children or (_search_form(bound),)),
-            class_=classnames("max-w-xs", self._get_prop("class_")),
-            **self._get_base_html_attrs(),
+            # Takes the free space in the band up to a readable cap: a
+            # field as wide as the table reads as a search of the page,
+            # and this one only ever searches these rows.
+            class_=classnames(
+                "min-w-0 flex-1 basis-64 sm:max-w-[340px]",
+                self._get_prop("class_"),
+            ),
+            **{
+                "x-data": "hueTableSearch",
+                "x-on:keydown.window.slash": "focusField($event)",
+                **self._get_base_html_attrs(),
+            },
         )
 
 
@@ -549,7 +567,7 @@ class TablePagination(ChainableComponent):
     def _render(self, context: Context) -> Component:
         bound = bound_from(context, "TablePagination")
         size = bound.declaration.page_size
-        return html.div(
+        bar = (
             Pagination()
             .page(bound.state.page)
             .page_size(size)
@@ -558,10 +576,13 @@ class TablePagination(ChainableComponent):
             # one the other two decide is worked out here rather than left
             # at its default of one page.
             .total_pages(max(1, ceil(bound.total / size)))
-            .href(lambda page: bound.href(page=page)),
-            class_=classnames(self._get_prop("class_")),
-            **self._get_base_html_attrs(),
+            .href(lambda page: bound.href(page=page))
+            .target(rows_id(bound.key) or "")
         )
+        if class_ := self._get_prop("class_"):
+            bar.class_(class_)
+        bar._attrs.update(self._attrs)
+        return bar
 
 
 def _search_form(bound: BoundTable) -> ComponentType:
@@ -574,6 +595,10 @@ def _search_form(bound: BoundTable) -> ComponentType:
         TextInput()
         .name(QUERY)
         .attr("type", "search")
+        .attr("x-ref", "field")
+        # Stopped, so an escape that empties the box is not also an escape
+        # that closes whatever the table is inside.
+        .attr("x-on:keydown.escape", "clearField($event)")
         .label(bound.declaration.search or "")
         .hidden_label()
         .placeholder(bound.declaration.search or "")
@@ -590,7 +615,11 @@ def _search_form(bound: BoundTable) -> ComponentType:
         method="get",
         action=bound.urls.read,
         **{
-            "x-target": bound.key,
+            # The rows and not the frame, so the box this was typed into
+            # is not swapped out from under the caret. replace rather than
+            # push: a word typed at speed would otherwise be a history
+            # entry per pause in it.
+            "x-target.replace": rows_id(bound.key) or bound.key,
             f"@input.debounce.{SEARCH_DELAY}": "$el.requestSubmit()",
         },
     )

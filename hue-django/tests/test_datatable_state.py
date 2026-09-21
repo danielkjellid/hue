@@ -240,7 +240,10 @@ def test_the_search_box_submits_itself_after_a_pause(mounted):
     bound = mounted().invoices.bind(_request())
     html = _part(bound, TableSearch())
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
-    assert re.search(r'x-target="invoices"', html)
+    # The rows and not the frame, or the box would be swapped out from
+    # under the caret that typed into it. replace, so a word typed at
+    # speed is not a history entry per pause in it.
+    assert re.search(r'x-target\.replace="invoices-rows"', html)
 
 
 def test_actions_with_nothing_to_hand_them_are_refused():
@@ -298,6 +301,19 @@ def test_a_datatable_with_no_columns_and_nothing_above_it_says_so():
         raise AssertionError("expected a ValueError")
 
 
+def test_the_search_box_answers_to_slash_and_escape(mounted):
+    html = _part(mounted().invoices.bind(_request()), TableSearch())
+    assert 'x-data="hueTableSearch"' in html
+    assert 'x-on:keydown.window.slash="focusField($event)"' in html
+    assert 'x-on:keydown.escape="clearField($event)"' in html
+
+
+def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
+    bound = mounted(page_size=2).invoices.bind(_request())
+    html = _part(bound, TablePagination())
+    assert 'x-target.push="invoices-rows"' in html
+
+
 def test_the_whole_table_is_one_component(mounted):
     # No parts to place: bound and rendered is the search box, the rows
     # and the pages.
@@ -305,6 +321,9 @@ def test_the_whole_table_is_one_component(mounted):
     assert re.search(r'name="q"', html)
     assert re.search(r"<table", html)
     assert re.search(r'aria-label="Pagination', html)
+    # Welded: one frame, with the search in a band above the rows and the
+    # pages in a band below them.
+    assert html.count("rounded-lg border border-border") == 1
 
 
 def test_the_parts_can_be_placed_instead(mounted):

@@ -255,9 +255,10 @@ class TestDataTable:
             DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
             context_args=context_args,
         )
+        # On the frame, so a band above the rows is inside the scope too.
         assert_attr(
             html,
-            "table",
+            "div[x-data]",
             "x-data",
             'hueTableSelection(["INV-2050", "INV-2048"])',
         )
@@ -290,7 +291,9 @@ class TestDataTable:
             context_args=context_args,
         )
         assert_selector(html, "div.bg-accent-subtle button")
-        assert_selector(html, "div.bg-accent-subtle + div > table[x-data]")
+        # One Alpine scope on the frame, so the bar above the rows is inside it.
+        assert_selector(html, "div[x-data] div.bg-accent-subtle")
+        assert_selector(html, "div.bg-accent-subtle + div > div > table")
         assert_attr(html, "div.bg-accent-subtle", "x-show", "selected.length > 0")
 
     @pytest.mark.asyncio
@@ -403,7 +406,8 @@ class TestDataTable:
             .id("invoices"),
             context_args=context_args,
         )
-        assert_attr(html, "th a", "x-target", "invoices")
+        # The rows, not the frame: a toolbar above them keeps its caret.
+        assert_attr(html, "th a", "x-target", "invoices-rows")
 
     @pytest.mark.asyncio
     async def test_without_an_id_the_header_is_just_a_link(self, context_args):

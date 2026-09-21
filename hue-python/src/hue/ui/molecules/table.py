@@ -64,6 +64,13 @@ _FRAME = (
 # The one band that scrolls, and the only place a table is ever too wide.
 _BODY_BAND = "overflow-x-auto"
 
+# A band of controls welded into the shell, above the rows or below them.
+_BAND = "flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
+_BAND_BOTTOM = (
+    "flex flex-wrap items-center justify-between gap-2 gap-x-5 "
+    "border-t border-border bg-canvas-subtle px-4 py-2.5"
+)
+
 # The bar over a table with rows picked in it. accent-subtle so the whole
 # frame says something is selected, not just the rows.
 _BULK_BAR = (
@@ -137,11 +144,14 @@ class Table(ChainableComponent):
 
     def form(self, action: str) -> Self:
         """
-        Post what is inside the table to this URL.
+        Post what is ticked in the table to this URL.
 
-        The form goes inside the frame rather than around it, so the table
-        is still the outermost thing and still what a response is swapped
-        into - and the checkboxes in the rows are inside it either way.
+        The form is an empty element in the frame rather than a wrapper
+        around any of it: the checkboxes and the buttons name it with
+        their own form attribute instead of being inside it. Wrapping
+        would put a form around the band above the rows, and the search
+        box in that band is a form of its own - which the browser would
+        throw away.
         """
         self._props["form"] = action
         return self
@@ -157,56 +167,83 @@ class Table(ChainableComponent):
 
     def footer(self, *values: ComponentType) -> Self:
         """
-        What sits under the table inside the same frame, which is where an
-        empty or an error state goes: a full-width message is not a cell, and
-        a table with a header and no rows is still a table. Not the same
+        What stands in for the rows when there are none: an empty state, an
+        error. It sits under the table and inside the same id, so a
+        response that finds no rows replaces both at once. Not the same
         thing as TableFooter, which is a row of the table itself.
         """
         self._props["footer"] = values
+        return self
+
+    def under(self, *values: ComponentType) -> Self:
+        """
+        The band along the bottom of the frame - the pages, a total. Below
+        the rows and outside what a response replaces, so it is drawn once
+        and does not flicker with them.
+        """
+        self._props["under"] = values
         return self
 
     def _render(self, context: Context) -> Component:
         attrs = self._get_base_html_attrs()
         # The id names the frame rather than the table inside it, because
         # the frame is the whole of what a table is: swap only the table and
-        # an empty state left under it would still be there.
+        # an empty state left under it would still be there. The Alpine
+        # scope moves with it for the same reason - a toolbar above the
+        # rows is as much part of the table as the rows are, and a scope on
+        # the table element would leave it outside.
         frame_id = attrs.pop("id", None)
+        scope = attrs.pop("x-data", None)
 
         inside: list[ComponentType] = [
             *self._get_prop("toolbar", ()),
+            # Everything a response replaces, under one id: the rows, and
+            # whatever stands in for them when there are none.
             html.div(
-                html.table(
-                    *self._children,
-                    class_=classnames(
-                        "w-full border-collapse text-base",
-                        _GUTTERS,
-                        classes_if_else(
-                            self._get_prop("compact", False),
-                            _ROW_HEIGHT_COMPACT,
-                            _ROW_HEIGHT,
+                html.div(
+                    html.table(
+                        *self._children,
+                        class_=classnames(
+                            "w-full border-collapse text-base",
+                            _GUTTERS,
+                            classes_if_else(
+                                self._get_prop("compact", False),
+                                _ROW_HEIGHT_COMPACT,
+                                _ROW_HEIGHT,
+                            ),
+                            self._get_prop("class_"),
                         ),
-                        self._get_prop("class_"),
+                        **attrs,
                     ),
-                    **attrs,
+                    class_=_BODY_BAND,
                 ),
-                class_=_BODY_BAND,
+                *self._get_prop("footer", ()),
+                id=rows_id(frame_id),
             ),
-            *self._get_prop("footer", ()),
+            *self._get_prop("under", ()),
         ]
         action: str | None = self._get_prop("form")
         if action is not None:
-            # Swapping the frame it sits in, which is the same thing the
-            # sort links swap, so there is one answer to every request.
-            inside = [
+            # The whole frame, unlike a sort or a page: an action changes
+            # what is there rather than which of it is shown, and the
+            # selection it was done with is gone afterwards.
+            inside.insert(
+                0,
                 html.form(
-                    *inside,
+                    id=form_id(frame_id),
                     method="post",
                     action=action,
+                    hidden=True,
                     **({"x-target": frame_id} if frame_id else {}),
-                )
-            ]
+                ),
+            )
 
-        return html.div(*inside, id=frame_id, class_=_FRAME)
+        return html.div(
+            *inside,
+            id=frame_id,
+            class_=_FRAME,
+            **({"x-data": scope} if scope is not None else {}),
+        )
 
 
 class TableHeader(ChainableComponent):
@@ -452,6 +489,23 @@ class Column:
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
+def rows_id(frame_id: str | None) -> str | None:
+    """
+    The id of the region a response replaces: the rows and whatever stands
+    in for them. Derived from the frame's, so naming a table names all of
+    it and there is nothing to keep in step.
+    """
+    return None if frame_id is None else f"{frame_id}-rows"
+
+
+def form_id(frame_id: str | None) -> str | None:
+    """
+    The id of the form a table posts through. Derived from the frame's,
+    like the rows region.
+    """
+    return None if frame_id is None else f"{frame_id}-act"
+
+
 def resolve_value(
     row: Mapping[str, Any],
     key: str | Callable[[Mapping[str, Any]], Any],
@@ -641,6 +695,23 @@ class DataTable(ChainableComponent):
         self._props["name"] = value
         return self
 
+    def toolbar(self, *values: ComponentType) -> Self:
+        """
+        The band above the rows, welded into the same frame: the ways of
+        narrowing the table. Picking rows takes the band over rather than
+        adding a second one under it, because two bands push the first row
+        out of view at the moment somebody is acting on rows.
+        """
+        self._props["toolbar"] = values
+        return self
+
+    def under(self, *values: ComponentType) -> Self:
+        """
+        The band along the bottom of the frame: the pages, a total.
+        """
+        self._props["under"] = values
+        return self
+
     def _render(self, context: Context) -> Component:
         if not self._columns:
             # Nothing to draw and nobody said what: the bound table above
@@ -671,10 +742,17 @@ class DataTable(ChainableComponent):
         if (action := self._get_prop("form")) is not None:
             table.form(action)
 
+        bands: list[ComponentType] = []
         if (values := self._selection_values()) is not None:
             table.x_data(f"hueTableSelection({json.dumps(values)})")
-            if (bar := self._bulk_bar()) is not None:
-                table.toolbar(bar)
+            bands = self._bands(self._bulk_bar())
+        elif toolbar := self._get_prop("toolbar", ()):
+            bands = [html.div(*toolbar, class_=_BAND)]
+        if bands:
+            table.toolbar(*bands)
+
+        if under := self._get_prop("under", ()):
+            table.under(html.div(*under, class_=_BAND_BOTTOM))
 
         if error is not None:
             table.footer(error)
@@ -712,9 +790,11 @@ class DataTable(ChainableComponent):
         # turns around.
         following = f"-{column.sort}" if current == "ascending" else column.sort
 
-        # Given an id to aim at, the browser fetches the new order and swaps
-        # the table in place; without one it follows the link.
-        target = self._attrs.get("id")
+        # Given an id to aim at, the browser fetches the new order and
+        # swaps the rows in place; without one it follows the link. The
+        # rows and not the frame, so the toolbar above them - and the
+        # caret in the search box in it - is left where it was.
+        target = rows_id(self._attrs.get("id"))
 
         return head.sorted(current).content(
             html.a(
@@ -725,6 +805,28 @@ class DataTable(ChainableComponent):
                 **({"x-target": target} if target is not None else {}),
             )
         )
+
+    def _bands(self, picked: ComponentType | None) -> list[ComponentType]:
+        """
+        The one band above the rows, in its two moods.
+
+        Selection takes the band over instead of stacking a second one
+        beneath it, so only one is ever showing and the rows never move
+        down at the moment somebody is reaching for them.
+        """
+        toolbar: tuple[ComponentType, ...] = self._get_prop("toolbar", ())
+        if picked is None:
+            return [html.div(*toolbar, class_=_BAND)] if toolbar else []
+        if not toolbar:
+            return [picked]
+        return [
+            html.div(
+                *toolbar,
+                class_=_BAND,
+                **{"x-show": "selected.length === 0"},
+            ),
+            picked,
+        ]
 
     def _bulk_bar(self) -> ComponentType | None:
         """
@@ -775,18 +877,20 @@ class DataTable(ChainableComponent):
 
     def _select_cell(self, row: Mapping[str, Any]) -> ComponentType:
         value = str(resolve_value(row, self._get_prop("selectable")))
-        return (
-            TableCell()
-            .class_(_SELECT_COLUMN)
-            .content(
-                Checkbox()
-                .name(self._get_prop("name", "selected"))
-                .value(value)
-                .label(f"Select {value}")
-                .hidden_label()
-                .x_model("selected")
-            )
+        box = (
+            Checkbox()
+            .name(self._get_prop("name", "selected"))
+            .value(value)
+            .label(f"Select {value}")
+            .hidden_label()
+            .x_model("selected")
         )
+        # Named rather than wrapped: the form is an empty element in the
+        # frame, because a form around the band above the rows would
+        # swallow the search box, which is a form of its own.
+        if (posts_to := form_id(self._attrs.get("id"))) is not None:
+            box.attr("form", posts_to)
+        return TableCell().class_(_SELECT_COLUMN).content(box)
 
     def _selection_values(self) -> list[str] | None:
         """
