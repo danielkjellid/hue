@@ -513,9 +513,7 @@ class DataTable(ChainableComponent):
                 *[
                     TableRow().content(
                         *[
-                            TableCell()
-                            .align(column.align)
-                            .content(Skeleton().width(_placeholder_width(index)))
+                            self._placeholder(column, index)
                             for index, column in enumerate(self._columns)
                         ]
                     )
@@ -523,6 +521,21 @@ class DataTable(ChainableComponent):
                 ]
             )
         )
+
+    def _placeholder(self, column: Column, index: int) -> ComponentType:
+        """
+        One bar, standing where the value will.
+
+        Pushed to the column's own side by a margin rather than by the
+        alignment: a skeleton is a block with a width of its own, and
+        text-align does not move one of those. Without it an ended column
+        would fill in from the wrong side and jump across the moment the
+        rows arrived.
+        """
+        bar = Skeleton().width(_placeholder_width(index))
+        if column.align != "start":
+            bar.class_("mx-auto" if column.align == "center" else "ms-auto")
+        return TableCell().align(column.align).content(bar)
 
     def _cell(self, column: Column, row: Mapping[str, Any]) -> ComponentType:
         content = (

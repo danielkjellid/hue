@@ -202,3 +202,23 @@ class TestDataTable:
         )
         assert_attr(html, "table", "id", "invoices")
         assert_selector(html, "table.mt-4")
+
+    # The placeholder's own alignment: a block ignores text-align
+    @pytest.mark.asyncio
+    async def test_a_placeholder_stands_on_its_column_s_own_side(self, context_args):
+        # Otherwise an ended column fills in from the wrong side and jumps
+        # across the moment the rows arrive.
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).loading(), context_args=context_args
+        )
+        bars = select(html, "tbody tr:first-child td > div")
+        assert "ms-auto" not in bars[0]["class"]
+        assert "ms-auto" in bars[1]["class"]
+
+    @pytest.mark.asyncio
+    async def test_a_centred_placeholder_is_centred_too(self, context_args):
+        html = await render_tree(
+            DataTable().columns([Column("note", "Note", align="center")]).loading(),
+            context_args=context_args,
+        )
+        assert_selector(html, "tbody td > div.mx-auto")
