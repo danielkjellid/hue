@@ -10,7 +10,9 @@ from typing_extensions import Self
 from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import UNDEFINED, Component, ComponentType
+from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.checkbox import Checkbox
+from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.empty import Empty
@@ -18,6 +20,7 @@ from hue.utils import classes_if_else, classnames, render_if
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
+type SortDirection = Literal["ascending", "descending"]
 
 # Ending a column and lining its digits up are one decision, not two: the
 # only thing that wants to sit against the right edge is a number, and
@@ -47,6 +50,18 @@ _BULK_BAR = (
     "flex items-center justify-between gap-4 border-b border-border "
     "bg-accent-subtle px-4 py-2"
 )
+
+# The header's own text, made pressable. It inherits everything from the th,
+# so a sortable column reads exactly like one that is not until it is sorted.
+_SORT_TRIGGER = (
+    "inline-flex items-center gap-1 rounded-xs text-inherit no-underline "
+    "hover:text-fg [&_svg]:size-3.5 [&_svg]:flex-none"
+)
+
+# The column the rows are in the order of says so in the header's own
+# colour; the rest keep a faint hint that they could be.
+_SORT_ICON = "text-accent-text"
+_SORT_HINT = "text-fg-disabled"
 
 # A checkbox column is as wide as a checkbox and no wider. Only the margin
 # centres it: the box is a grid, which is what puts the tick in the middle
@@ -120,6 +135,12 @@ class Table(ChainableComponent):
         return self
 
     def _render(self, context: HueContext) -> Component:
+        attrs = self._get_base_html_attrs()
+        # The id names the frame rather than the table inside it, because
+        # the frame is the whole of what a table is: swap only the table and
+        # an empty state left under it would still be there.
+        frame_id = attrs.pop("id", None)
+
         return html.div(
             *self._get_prop("toolbar", ()),
             html.table(
@@ -134,9 +155,10 @@ class Table(ChainableComponent):
                     ),
                     self._get_prop("class_"),
                 ),
-                **self._get_base_html_attrs(),
+                **attrs,
             ),
             *self._get_prop("footer", ()),
+            id=frame_id,
             class_=_FRAME,
         )
 
@@ -242,6 +264,16 @@ class TableHead(ChainableComponent):
         self._props["align"] = value
         return self
 
+    def sorted(self, value: SortDirection | None) -> Self:
+        """
+        Which way this column is sorted, if it is the one the rows are in
+        the order of. One header at a time: aria-sort on two of them says
+        the rows are in two orders at once, and ARIA has no way to say which
+        of the two came first.
+        """
+        self._props["sorted"] = value
+        return self
+
     def colspan(self, value: int) -> Self:
         self._props["colspan"] = value
         return self
@@ -257,7 +289,10 @@ class TableHead(ChainableComponent):
             ),
             scope=self._get_prop("scope", "col"),
             colspan=self._get_prop("colspan"),
-            **self._get_base_html_attrs(),
+            **{
+                "aria_sort": self._get_prop("sorted"),
+                **self._get_base_html_attrs(),
+            },
         )
 
 
@@ -325,12 +360,15 @@ class Column:
     whatever the cell should hold, for the columns that are a badge or a
     button rather than a value. align is where the value sits in the cell,
     and align="end" is what a column of numbers wants: it lines the digits
-    up as well as the edge.
+    up as well as the edge. sort is what the server orders by, which is
+    often not what the value is read from - give it one and the header
+    becomes a link to the rows in that order.
     """
 
     key: str | Callable[[Mapping[str, Any]], Any]
     label: str
     align: CellAlign = "start"
+    sort: str | None = None
     render: Callable[[Mapping[str, Any]], ComponentType] | None = None
 
 
@@ -380,7 +418,9 @@ class DataTable(ChainableComponent):
     columns() and rows() are the shape of it; everything else is a state it
     can be in instead. loading() puts placeholder rows under the header,
     empty() and error() replace the rows with a message under it, and
-    compact() tightens the rows.
+    compact() tightens the rows. A column given a sort gets a header that
+    links to the rows in that order - one column at a time, so clicking
+    another replaces the order rather than adding to it.
     """
 
     category = "Data"
@@ -480,6 +520,31 @@ class DataTable(ChainableComponent):
         self._props["bulk_actions"] = values
         return self
 
+    def sorted(self, value: str | None) -> Self:
+        """
+        The order the rows are already in, as the server spells it:
+        "amount" or "-amount" for the other way. The same string Django's
+        order_by takes and the same one a sort query parameter carries, so
+        a view hands its own straight through without parsing it.
+
+        The table never sorts anything. A page of a lazy queryset cannot be
+        re-sorted in any case - the rows in hand are already the wrong rows,
+        and only another query fixes that.
+        """
+        self._props["sorted"] = value
+        return self
+
+    def sort_href(self, value: Callable[[str], str]) -> Self:
+        """
+        Where an order lives, given the order clicking would ask for.
+
+        One column at a time: clicking a column the rows are not in the
+        order of replaces the order rather than adding to it, and clicking
+        the one they are in turns it around.
+        """
+        self._props["sort_href"] = value
+        return self
+
     def name(self, value: str) -> Self:
         """
         What the row checkboxes are called when the form around the table is
@@ -533,7 +598,36 @@ class DataTable(ChainableComponent):
         )
 
     def _header_cell(self, column: Column) -> ComponentType:
-        return TableHead().align(column.align).content(column.label)
+        head = TableHead().align(column.align)
+        if column.sort is None:
+            return head.content(column.label)
+
+        href: Callable[[str], str] | None = self._get_prop("sort_href")
+        if href is None:
+            raise ValueError(
+                f"Column {column.label!r} is sortable, so its header is a "
+                f"link to the rows in that order - and sort_href() is the "
+                f"only thing that knows where that order lives."
+            )
+
+        current = _direction(self._get_prop("sorted"), column.sort)
+        # Ascending first; the column the rows are already in the order of
+        # turns around.
+        following = f"-{column.sort}" if current == "ascending" else column.sort
+
+        # Given an id to aim at, the browser fetches the new order and swaps
+        # the table in place; without one it follows the link.
+        target = self._attrs.get("id")
+
+        return head.sorted(current).content(
+            html.a(
+                column.label,
+                _sort_icon(current),
+                href=href(following),
+                class_=classnames(_SORT_TRIGGER, FOCUS_RING),
+                **({"x-target": target} if target is not None else {}),
+            )
+        )
 
     def _bulk_bar(self) -> ComponentType | None:
         """
@@ -676,6 +770,35 @@ class DataTable(ChainableComponent):
             else _stringify(_resolve(row, column.key))
         )
         return TableCell().align(column.align).content(content)
+
+
+def _direction(order: str | None, key: str) -> SortDirection | None:
+    """
+    Which way this column is sorted, if the rows are in its order at all.
+
+    One column: anything the server put in front of a different key leaves
+    every other header saying nothing.
+    """
+    if order is None:
+        return None
+    if order.lstrip("-") != key:
+        return None
+    return "descending" if order.startswith("-") else "ascending"
+
+
+def _sort_icon(direction: SortDirection | None) -> ComponentType:
+    """
+    Which way the rows go, or that they could go some way at all.
+
+    One arrow turned over rather than two icons, so the change between the
+    two orders is a rotation the eye can follow; the columns the rows are
+    not in the order of get a quieter glyph that claims no direction.
+    """
+    if direction is None:
+        return HueIcon("arrow-up-down").class_(_SORT_HINT)
+    return HueIcon("arrow-down").class_(
+        classnames(_SORT_ICON, "rotate-180" if direction == "ascending" else None)
+    )
 
 
 def _placeholder_width(index: int) -> str:
