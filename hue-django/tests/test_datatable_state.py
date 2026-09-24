@@ -493,7 +493,16 @@ def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     html = _table(mounted().invoices, _request(hide="customer"))
     assert "hueTableColumns([&quot;customer&quot;], 'invoices')" in html
     assert "x-effect=\"$el.checked = showing('customer')\"" in html
-    assert "Locked" in html
+    # Locked is a padlock to look at and a description to hear.
+    assert re.search(
+        r'id="invoices-hide-invoice"[^>]*aria-describedby="invoices-hide-invoice-locked"',
+        html,
+    ) or re.search(
+        r'aria-describedby="invoices-hide-invoice-locked"[^>]*id="invoices-hide-invoice"',
+        html,
+    )
+    assert 'id="invoices-hide-invoice-locked" class="sr-only">Locked<' in html
+    assert "invoices-hide-customer-locked" not in html
 
 
 def test_reset_is_out_of_the_way_until_something_is_narrowed(mounted):

@@ -93,7 +93,7 @@ from hue.ui.molecules.table import (
     resolve_value,
     rows_id,
 )
-from hue.utils import classes_if, classnames, render_when
+from hue.utils import classnames, render_when
 
 if TYPE_CHECKING:
     from hue.router import Router
@@ -123,9 +123,12 @@ _FILTER_COUNT = (
     "bg-accent px-1 font-ui text-2xs font-bold tabular-nums text-accent-fg"
 )
 
-# A group of answers to one question, ruled off from the next.
-_GROUP = "border-0 p-0"
-_GROUP_NEXT = ["border-t", "border-border", "pt-3.5"]
+# The groups are ruled off from each other by a wrapper around each
+# fieldset rather than by the fieldset itself: a fieldset draws its top
+# border through the middle of its legend and puts its padding under it.
+_GROUPS = "flex flex-col divide-y divide-border"
+_GROUP = "py-4 first:pt-0 last:pb-0"
+_OPTIONS = "flex flex-col gap-3"
 _LEGEND = (
     "mb-2 block w-full p-0 font-ui text-2xs font-bold uppercase "
     "tracking-[0.05em] text-fg-muted"
@@ -140,7 +143,12 @@ _APPLIED_ROW = (
 )
 # The small uppercase heading at the top of a panel.
 _PANEL_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
-_LOCKED = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-subtle"
+# A row of the columns panel: a whole control's height, so it reads as a
+# list of things to press and not as a form.
+_COLUMN_ROW = (
+    "flex min-h-control-sm items-center gap-3 rounded-md px-2 "
+    "hover:bg-surface-hover has-disabled:hover:bg-transparent"
+)
 _CHIP = (
     "inline-flex items-center gap-1.5 rounded-sm border border-border "
     "bg-canvas-subtle py-0.5 ps-2 pe-1.5 text-sm text-fg "
@@ -856,7 +864,7 @@ def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentTyp
     """
     return (
         Popover()
-        .title("Filter")
+        .label("Filter")
         .placement("bottom-end")
         .trigger(
             Button()
@@ -876,15 +884,26 @@ def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentTyp
             )
         )
         .content(
-            *(
-                _filter_group(bound, one, first=index == 0)
-                for index, one in enumerate(declared)
+            html.div(
+                html.div(
+                    html.span("Filter", class_=_PANEL_LABEL),
+                    Button()
+                    .variant("link")
+                    .size("xs")
+                    .content("Clear")
+                    .x_on("click", unsafe("clear()")),
+                    class_="mb-3 flex items-center justify-between gap-3",
+                ),
+                html.div(
+                    *(_filter_group(bound, one) for one in declared),
+                    class_=_GROUPS,
+                ),
             )
         )
     )
 
 
-def _filter_group(bound: BoundTable, declared: Filter, *, first: bool) -> ComponentType:
+def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
     """
     One filter as a fieldset with a legend. A set of checkboxes that
     answer one question is a group, and the legend is how a screen reader
@@ -892,30 +911,36 @@ def _filter_group(bound: BoundTable, declared: Filter, *, first: bool) -> Compon
     """
     picked = bound.state.chosen(declared.name)
     if not declared.options:
-        return html.fieldset(
-            html.legend(declared.label, class_=_LEGEND),
-            _filter_field(bound.key, declared, picked),
-            class_=classnames(_GROUP, classes_if(not first, _GROUP_NEXT)),
-        )
-    return html.fieldset(
-        html.legend(declared.label, class_=_LEGEND),
-        *(
-            Checkbox()
-            .name(declared.name)
-            .value(option)
-            .label(label)
-            .checked(option in picked)
-            # Every box in the group submits the same name, so the id
-            # cannot come from it: the label beside each one has to point
-            # at that one and not at the first of them.
-            .id(f"{bound.key}-{declared.name}-{option}")
-            .attr("data-filter", declared.name)
-            .attr("data-group", declared.label)
-            .attr("data-option", label)
-            for option, label in declared.options
-        ),
-        class_=classnames(_GROUP, classes_if(not first, _GROUP_NEXT)),
+        answers: ComponentType = _filter_field(bound.key, declared, picked)
+    else:
+        answers = html.div(*_filter_options(bound, declared, picked), class_=_OPTIONS)
+    return html.div(
+        html.fieldset(html.legend(declared.label, class_=_LEGEND), answers),
+        class_=_GROUP,
     )
+
+
+def _filter_options(
+    bound: BoundTable, declared: Filter, picked: tuple[str, ...]
+) -> list[ComponentType]:
+    """
+    A box to tick for every option a filter offers.
+    """
+    return [
+        Checkbox()
+        .name(declared.name)
+        .value(option)
+        .label(label)
+        .checked(option in picked)
+        # Every box in the group submits the same name, so the id
+        # cannot come from it: the label beside each one has to point
+        # at that one and not at the first of them.
+        .id(f"{bound.key}-{declared.name}-{option}")
+        .attr("data-filter", declared.name)
+        .attr("data-group", declared.label)
+        .attr("data-option", label)
+        for option, label in declared.options
+    ]
 
 
 def _filter_field(key: str, declared: Filter, picked: tuple[str, ...]) -> ComponentType:
@@ -1003,19 +1028,24 @@ class _TableColumns(ChainableComponent):
                 .size("sm")
                 .content(HueIcon("columns-3"), "Columns")
             )
+            .label("Columns")
             .content(
                 html.div(
-                    html.span("Columns", class_=_PANEL_LABEL),
-                    html.span(
-                        f"{showing} of {len(declared.columns)}",
-                        class_="text-2xs tabular-nums text-fg-muted",
+                    html.div(
+                        html.span("Columns", class_=_PANEL_LABEL),
+                        html.span(
+                            f"{showing} of {len(declared.columns)}",
+                            class_="text-2xs tabular-nums text-fg-muted",
+                        ),
+                        class_="flex items-baseline justify-between gap-3 "
+                        "px-2 pb-2 pt-1.5",
                     ),
-                    class_="flex items-baseline justify-between gap-3 px-2 pb-1.5 pt-1",
-                ),
-                *(
-                    _column_row(bound, column, hideable, hidden)
-                    for column in declared.columns
-                ),
+                    *(
+                        _column_row(bound, column, hideable, hidden)
+                        for column in declared.columns
+                    ),
+                    class_="w-60 p-1",
+                )
             ),
             html.form(
                 # One field carries the answer, because a box can only
@@ -1057,8 +1087,16 @@ def _column_row(
         .checked(locked or key not in hidden)
         .disabled(locked)
         .id(f"{bound.key}-{HIDE}-{key}")
+        # The whole row is the label, so the box is not a small target
+        # in a wide one.
+        .class_("flex-1")
     )
-    if not locked:
+    locked_id = f"{bound.key}-{HIDE}-{key}-locked"
+    if locked:
+        # The padlock is drawn, not read; the word is what a screen reader
+        # hears after the column's name.
+        box.aria_describedby(locked_id)
+    else:
         # Read from the scope rather than left to the attribute, which
         # stops meaning anything the moment somebody clicks the box.
         box.x_effect(unsafe(f"$el.checked = showing({key!r})")).x_on(
@@ -1066,9 +1104,15 @@ def _column_row(
         )
     return html.div(
         box,
-        render_when(locked, html.span("Locked", class_=_LOCKED)),
-        class_="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 "
-        "hover:bg-surface-hover",
+        render_when(
+            locked,
+            html.span(
+                HueIcon("lock").class_("size-3.5"),
+                html.span("Locked", id=locked_id, class_="sr-only"),
+                class_="text-fg-muted",
+            ),
+        ),
+        class_=_COLUMN_ROW,
     )
 
 
