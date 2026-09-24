@@ -66,7 +66,9 @@ _FRAME = (
 _BODY_BAND = "overflow-x-auto"
 
 # A band of controls welded into the shell, above the rows or below them.
-_BAND = "flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
+# Its sides match the cells' gutters, so a control's edge lines up with the
+# column under it.
+_BAND = "flex flex-wrap items-center gap-2 border-b border-border px-4 py-2"
 # Rounded here, not by the frame: it sits inside the rows region, which is
 # the frame's last child but has no background of its own to round.
 #
@@ -458,47 +460,14 @@ class TableCaption(ChainableComponent):
         )
 
 
-class TableSource(ABC):
-    """
-    Something that knows what a table is showing.
-
-    A bound table offers one of these to everything rendered inside it,
-    so a DataTable in there can draw itself without being handed anything
-    and without being a direct child of anything.
-
-    The abstract class lives here instead of with the code that makes one,
-    so the components can name it without importing that code:
-    hue.datatable imports the components, and the reverse import would be
-    circular.
-    """
-
-    @abstractmethod
-    def build_into(self, into: DataTable) -> DataTable:
-        """
-        The table this describes: its columns, its rows, the order they
-        are in and where the next one lives.
-        """
-
-    @classmethod
-    def from_context(cls, context: Context) -> TableSource:
-        found = context.get(cls)
-        if isinstance(found, cls):
-            return found
-        raise ValueError(
-            "A DataTable with no columns of its own is drawn by the table "
-            "declaration it sits in, and there is none here. Give it columns "
-            "and rows, or draw it from one: "
-            "DataTable.from_state(self.invoices)."
-        )
-
-
 class TableDeclaration(ABC):
     """
     A table declared once and drawn once per request.
 
-    DataTable.from_state() takes one. It lives here for the same reason
-    TableSource does: the component has to name it without importing the
-    code that makes one.
+    DataTable.from_state() takes one. The abstract class lives here, not
+    with the code that makes one, so the component can name it without
+    importing that code: hue.datatable imports the components, and the
+    reverse import would be circular.
     """
 
     @abstractmethod
@@ -784,12 +753,6 @@ class DataTable(ChainableComponent):
             # A copy without the declaration goes in, or drawing it would
             # hand it straight back to the declaration again.
             return _Drawn(state, self._without_state())
-
-        if not self._columns:
-            # Nothing to draw and nobody said what: the bound table above
-            # it knows, and says so through the context rather than by
-            # being passed down through whatever laid this out.
-            TableSource.from_context(context).build_into(self)
 
         error: ComponentType | None = self._get_prop("error")
         loading: bool = self._get_prop("loading", False)

@@ -49,9 +49,8 @@ database without being walked.
 
 DataTable.from_state() draws the table a declaration describes, bound
 to the request the page is rendered for. The request is already in the
-context, so the view passes nothing. layout() draws parts of the table
-instead, and each part finds the same binding in the context, so a
-pagination bar can sit in a page footer far from the rows it pages.
+context, so the view passes nothing. The search, the filters, the
+column picker and the pages come with it, and none of them is exported.
 
 rows() and an action's handler run off the event loop, through the
 router, because both usually use the ORM and the ORM refuses to run on
@@ -90,7 +89,6 @@ from hue.ui.molecules.table import (
     Column,
     DataTable,
     TableDeclaration,
-    TableSource,
     form_id,
     resolve_value,
     rows_id,
@@ -325,16 +323,15 @@ def bound_from(context: Context, component: str) -> BoundTable:
     The bound table a component is rendered inside, or an error saying
     what is missing.
 
-    Every part of a table reads the same binding, which is what lets a
-    pagination bar sit in a page footer far from the rows it pages.
+    Every part of a table reads the same binding, so none of them is
+    handed the request or the rows.
     """
-    found = context.get(TableSource)
+    found = context.get(BoundTable)
     if isinstance(found, BoundTable):
         return found
     raise ValueError(
         f"{component} draws part of a table bound to a request, and there "
-        f"is none here. Put it in a declaration's layout(): "
-        f"self.invoices.layout({component}(), ...)."
+        f"is none here. It is drawn by DataTable.from_state()."
     )
 
 
@@ -354,7 +351,7 @@ class TableUrls:
 
 
 @dataclass(frozen=True, slots=True)
-class BoundTable(TableSource):
+class BoundTable:
     """
     One table for one request: what was asked, how many rows match, and
     the page that came back.
@@ -506,18 +503,6 @@ class Datatable(TableDeclaration):
         bound = await self._bound_for(context)
         return _TableView(bound).content(self._furnish(bound.build_into(table)))
 
-    def layout(self, *parts: ComponentType) -> ComponentType:
-        """
-        Parts of the table instead of all of it, laid out however the page
-        wants, such as a pagination bar in the page footer and the rows in a
-        card.
-
-        It returns a new component on every call instead of adding children
-        to the declaration, because the declaration is a class attribute that
-        every request shares.
-        """
-        return _LaidOut(self, parts)
-
     async def bind(self, request: Any) -> BoundTable:
         """
         The state, the page of rows and the total for one request, for code
@@ -538,21 +523,21 @@ class Datatable(TableDeclaration):
         """
         band: list[ComponentType] = []
         if self.search:
-            band.append(TableSearch())
+            band.append(_TableSearch())
         # After the spacer, at the end of the band: a panel anchored to a
         # trigger near the middle opens across the rows.
         controls: list[ComponentType] = []
         if self.filters:
-            controls.append(TableFilters())
+            controls.append(_TableFilters())
         if self.hideable:
-            controls.append(TableColumns())
+            controls.append(_TableColumns())
         if self.filters or self.hideable:
-            controls.append(TableReset())
+            controls.append(_TableReset())
         if controls:
             band.extend((html.span(class_="flex-1"), *controls))
         if band:
             table._toolbar(*band)
-        return table._under(TablePagination())
+        return table._under(_TablePagination())
 
     def _fetch(self, request: Any, asked: TableState) -> tuple[Rows, int]:
         """
@@ -737,22 +722,6 @@ def datatable(
 # ----------------------------------------------------------------------
 
 
-class _LaidOut:
-    """
-    A declaration and the parts of it a page chose, bound when rendered.
-    """
-
-    def __init__(
-        self, declaration: Datatable, parts: tuple[ComponentType, ...]
-    ) -> None:
-        self._declaration = declaration
-        self._parts = parts
-
-    async def htmy(self, context: Context) -> Component:
-        bound = await self._declaration._bound_for(context)
-        return _TableView(bound).content(*self._parts)
-
-
 class _TableView(ChainableComponent):
     """
     Offers one binding to every part of a table rendered inside it.
@@ -768,13 +737,13 @@ class _TableView(ChainableComponent):
         self._bound = bound
 
     def htmy_context(self) -> Context:
-        return {TableSource: self._bound}
+        return {BoundTable: self._bound}
 
     def _render(self, context: Context) -> Component:
         return html.div(*self._children, class_="flex flex-col gap-3")
 
 
-class TableSearch(ChainableComponent):
+class _TableSearch(ChainableComponent):
     """
     The search box for a table.
 
@@ -785,7 +754,7 @@ class TableSearch(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TableSearch")
+        bound = bound_from(context, "_TableSearch")
         return html.div(
             *(self._children or (_search_form(bound),)),
             # Takes the free space in the band up to a readable cap: a
@@ -804,7 +773,7 @@ class TableSearch(ChainableComponent):
         )
 
 
-class TablePagination(ChainableComponent):
+class _TablePagination(ChainableComponent):
     """
     The pages of a table, drawn from the same binding as the rows.
     """
@@ -812,7 +781,7 @@ class TablePagination(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TablePagination")
+        bound = bound_from(context, "_TablePagination")
         size = bound.declaration.page_size
         bar = (
             Pagination()
@@ -832,7 +801,7 @@ class TablePagination(ChainableComponent):
         return bar
 
 
-class TableFilters(ChainableComponent):
+class _TableFilters(ChainableComponent):
     """
     The other ways of narrowing a table: a panel of filters behind one
     button, and a chip for each one that is on.
@@ -845,7 +814,7 @@ class TableFilters(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TableFilters")
+        bound = bound_from(context, "_TableFilters")
         declared = bound.declaration.filters
         if not declared:
             return UNDEFINED
@@ -1000,7 +969,7 @@ def _applied_chips() -> ComponentType:
     )
 
 
-class TableColumns(ChainableComponent):
+class _TableColumns(ChainableComponent):
     """
     Which columns are showing, including the ones that cannot be hidden.
 
@@ -1016,7 +985,7 @@ class TableColumns(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TableColumns")
+        bound = bound_from(context, "_TableColumns")
         declared = bound.declaration
         if not declared.hideable:
             return UNDEFINED
@@ -1103,7 +1072,7 @@ def _column_row(
     )
 
 
-class TableReset(ChainableComponent):
+class _TableReset(ChainableComponent):
     """
     One button that takes the filters off and shows every column again,
     there only while something is filtered or hidden.
@@ -1116,7 +1085,7 @@ class TableReset(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TableReset")
+        bound = bound_from(context, "_TableReset")
         declared = bound.declaration
         filtered = sum(len(values) for values in bound.state.filters.values())
         hidden = len(bound.state.hidden)
@@ -1130,7 +1099,11 @@ class TableReset(ChainableComponent):
             .content(HueIcon("rotate-ccw")),
             method="get",
             action=bound.urls.read,
-            class_="inline-flex",
+            # Pulled out by the inset of its own glyph, so the icon, which is
+            # all that shows of a ghost button, sits on the edge of the column
+            # under it. A button draws its icon at 1rem; the pagination band
+            # does the same for its chevron, which is drawn at 0.875rem.
+            class_="-me-[calc((var(--spacing-control-sm)_-_1rem)_/_2)] inline-flex",
             **{
                 # Told when a filter or a column changes, since the toolbar
                 # is not redrawn for either and this has to show and hide
@@ -1158,6 +1131,16 @@ def _carried(bound: BoundTable, *, without: set[str]) -> tuple[ComponentType, ..
     )
 
 
+class _SearchField(TextInput):
+    """
+    A text input with the search type, which gives it the search role and
+    a search key on a phone's keyboard. A control's own type wins over
+    attr(), so it has to be the class that says so.
+    """
+
+    _input_type = "search"
+
+
 def _search_form(bound: BoundTable) -> ComponentType:
     """
     The search box's own GET form. It is a form because Enter already
@@ -1165,11 +1148,10 @@ def _search_form(bound: BoundTable) -> ComponentType:
     search still works with Alpine switched off.
     """
     return html.form(
-        TextInput()
+        _SearchField()
         .name(QUERY)
         .id(f"{bound.key}-{QUERY}")
         .size("sm")
-        .attr("type", "search")
         .attr("x-ref", "field")
         # Stopped, so an escape that empties the box is not also an escape
         # that closes whatever the table is inside.

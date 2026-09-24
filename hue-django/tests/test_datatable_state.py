@@ -17,16 +17,10 @@ import pytest
 from django.http import HttpRequest, QueryDict
 from django.test import Client
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
-from htmy.html import div as html_div
 from hue.context import HueContextArgs
 from hue.datatable import (
     BulkAction,
     Filter,
-    TableColumns,
-    TableFilters,
-    TablePagination,
-    TableReset,
-    TableSearch,
     datatable,
 )
 from hue.renderer import render_tree
@@ -219,11 +213,15 @@ def _table(declaration: Any, request: Any) -> str:
     return _render(DataTable.from_state(declaration), request)
 
 
-def _part(declaration: Any, request: Any, part: Any) -> str:
+def _form(html: str, marker: str) -> str:
     """
-    One part of a table, rendered where it finds the binding: in a layout.
+    The one form in a drawn table that carries marker. Every panel is a
+    form of its own, so a hidden field or a flag read off the whole table
+    could belong to any of them.
     """
-    return _render(declaration.layout(part), request)
+    found = [f for f in re.findall(r"<form.*?</form>", html, re.S) if marker in f]
+    assert len(found) == 1, f"{len(found)} forms carry {marker!r}"
+    return found[0]
 
 
 def test_the_declaration_registers_a_route_to_read_and_one_to_act():
@@ -257,16 +255,15 @@ def test_rows_is_handed_what_was_asked_for(mounted):
 
 
 def test_a_sort_link_keeps_the_search(mounted):
-    html = _part(mounted().invoices, _request(sort="amount", q="contoso"), DataTable())
+    html = _table(mounted().invoices, _request(sort="amount", q="contoso"))
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=contoso" in hrefs
 
 
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
-    html = _part(
-        mounted(page_size=2).invoices, _request(sort="-amount", page="2"), TableSearch()
-    )
+    html = _table(mounted(page_size=2).invoices, _request(sort="-amount", page="2"))
+    html = _form(html, 'name="q"')
     hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     assert hidden == [("sort", "-amount")]
 
@@ -278,11 +275,7 @@ def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
 
 
 def test_pagination_links_keep_the_rest_of_the_state(mounted):
-    html = _part(
-        mounted(page_size=2).invoices,
-        _request(sort="-amount", q="n"),
-        TablePagination(),
-    )
+    html = _table(mounted(page_size=2).invoices, _request(sort="-amount", q="n"))
     hrefs = re.findall(r'href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
@@ -290,10 +283,8 @@ def test_pagination_links_keep_the_rest_of_the_state(mounted):
 def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
     # Otherwise archiving on page two of a sorted table answers with the
     # first page of an unsorted one.
-    html = _part(
-        mounted(page_size=2).invoices,
-        _request(sort="-amount", q="n", page="2"),
-        DataTable(),
+    html = _table(
+        mounted(page_size=2).invoices, _request(sort="-amount", q="n", page="2")
     )
     assert re.search(
         r'formaction="/billing/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"',
@@ -310,7 +301,7 @@ def test_every_url_follows_the_mount_point(mounted):
 
 
 def test_the_search_form_posts_back_to_the_mounted_table(mounted):
-    html = _part(mounted().invoices, _request(), TableSearch())
+    html = _table(mounted().invoices, _request())
     assert 'action="/billing/invoices/"' in html
 
 
@@ -332,13 +323,13 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
 
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
-    html = _part(mounted().invoices, _request(), DataTable())
+    html = _table(mounted().invoices, _request())
     picked = re.findall(r'name="selected" value="(\d+)"', html)
     assert picked == ["41", "17", "23", "58"]
 
 
 def test_the_search_box_submits_itself_after_a_pause(mounted):
-    html = _part(mounted().invoices, _request(), TableSearch())
+    html = _table(mounted().invoices, _request())
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
     # The rows and not the frame, or the box would be swapped out from
     # under the caret that typed into it. replace, so a word typed at
@@ -379,30 +370,8 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
         raise AssertionError("expected a ValueError")
 
 
-def test_a_part_drawn_outside_a_bound_table_says_so():
-    # The one slip this shape invites. Left alone it surfaces as an empty
-    # table, or as a missing key on a context nobody was thinking about.
-    for component in (TableSearch(), TablePagination()):
-        try:
-            _render(component)
-        except ValueError as error:
-            assert "layout(" in str(error)
-            assert type(component).__name__ in str(error)
-        else:  # pragma: no cover - the raise is the behaviour under test
-            raise AssertionError(f"{component} drew itself out of nothing")
-
-
-def test_a_datatable_with_no_columns_and_nothing_above_it_says_so():
-    try:
-        _render(DataTable())
-    except ValueError as error:
-        assert "DataTable.from_state(" in str(error)
-    else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a ValueError")
-
-
 def test_the_search_box_answers_to_slash_and_escape(mounted):
-    html = _part(mounted().invoices, _request(), TableSearch())
+    html = _table(mounted().invoices, _request())
     assert 'x-data="hueTableSearch"' in html
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
     assert 'x-on:keydown.escape="clearField($event)"' in html
@@ -414,7 +383,7 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
 def test_the_applied_row_comes_after_the_controls(mounted):
     # basis-full puts it on a line of its own, and order-last keeps that
     # line under the controls rather than splitting them.
-    html = _part(mounted().invoices, _request(status="paid"), TableFilters())
+    html = _table(mounted().invoices, _request(status="paid"))
     assert "order-last" in html
     assert "basis-full" in html
 
@@ -427,7 +396,7 @@ def test_the_pages_are_redrawn_with_the_rows(mounted):
 
 
 def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
-    html = _part(mounted(page_size=2).invoices, _request(), TablePagination())
+    html = _table(mounted(page_size=2).invoices, _request())
     assert 'x-target.push="invoices-rows"' in html
 
 
@@ -462,7 +431,7 @@ def test_a_filter_rides_in_every_url_the_table_builds(mounted):
 
 
 def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
-    html = _part(mounted().invoices, _request(status="paid"), TableFilters())
+    html = _table(mounted().invoices, _request(status="paid"))
     assert "hueTableFilters('invoices')" in html
     # The count on the trigger and the chips in the band are the same
     # fact twice, both read off the controls rather than sent down.
@@ -521,22 +490,23 @@ def test_a_column_nobody_may_hide_stays(mounted):
 def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     # The way round anybody reads a list of columns, while the URL
     # carries the ones that are hidden.
-    html = _part(mounted().invoices, _request(hide="customer"), TableColumns())
+    html = _table(mounted().invoices, _request(hide="customer"))
     assert "hueTableColumns([&quot;customer&quot;], 'invoices')" in html
     assert "x-effect=\"$el.checked = showing('customer')\"" in html
     assert "Locked" in html
 
 
 def test_reset_is_out_of_the_way_until_something_is_narrowed(mounted):
-    html = _part(mounted().invoices, _request(sort="amount"), TableReset())
+    html = _form(_table(mounted().invoices, _request(sort="amount")), "hueTableReset")
     assert 'x-show="narrowed"' in html
     assert "x-cloak" in html
     assert "hueTableReset('invoices', 0, 0)" in html
 
 
 def test_reset_shows_once_a_filter_or_a_column_is_off(mounted):
-    html = _part(
-        mounted().invoices, _request(status="paid,draft", hide="customer"), TableReset()
+    html = _form(
+        _table(mounted().invoices, _request(status="paid,draft", hide="customer")),
+        "hueTableReset",
     )
     assert "hueTableReset('invoices', 2, 1)" in html
     assert "x-cloak" not in html
@@ -545,11 +515,11 @@ def test_reset_shows_once_a_filter_or_a_column_is_off(mounted):
 
 def test_reset_keeps_the_search_and_the_order(mounted):
     # It takes off what the panels put on, and only that.
-    html = _part(
+    html = _table(
         mounted().invoices,
         _request(q="n", sort="-amount", status="paid", hide="customer", page="2"),
-        TableReset(),
     )
+    html = _form(html, "hueTableReset")
     hidden = dict(
         re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     )
@@ -559,7 +529,8 @@ def test_reset_keeps_the_search_and_the_order(mounted):
 def test_reset_redraws_the_whole_frame(mounted):
     # The panels live in the toolbar, which a sort or a page leaves alone,
     # and they have to come back unticked.
-    html = _part(mounted().invoices, _request(status="paid"), TableReset())
+    html = _table(mounted().invoices, _request(status="paid"))
+    html = _form(html, "hueTableReset")
     assert 'x-target.push="invoices"' in html
 
 
@@ -621,33 +592,6 @@ def test_one_from_state_can_be_drawn_for_two_requests(mounted):
     second = _render(table, _request(q="northwind"))
     assert "Contoso" in first and "Northwind" not in first
     assert "Northwind" in second and "Contoso" not in second
-
-
-def test_layout_draws_the_parts_it_was_given(mounted):
-    view = mounted()
-    html = asyncio.run(
-        render_tree(
-            view.invoices.layout(html_div(TablePagination()), DataTable()),
-            context_args=HueContextArgs(request=_request(), csrf_token="t"),
-        )
-    )
-    assert "<table" in html
-    assert 'aria-label="Pagination' in html
-    assert 'name="q"' not in html
-
-
-def test_a_layout_leaves_the_declaration_whole(mounted):
-    # The declaration is a class attribute every request shares, so a
-    # page laying out parts of it must not change what the next page gets.
-    view = mounted()
-    context_args = HueContextArgs(request=_request(), csrf_token="t")
-    asyncio.run(
-        render_tree(view.invoices.layout(DataTable()), context_args=context_args)
-    )
-    html = asyncio.run(
-        render_tree(DataTable.from_state(view.invoices), context_args=context_args)
-    )
-    assert 'name="q"' in html
 
 
 def _on_the_event_loop() -> bool:
@@ -719,21 +663,9 @@ def test_the_whole_table_is_one_component(mounted):
     # No parts to place: bound and rendered is the search box, the rows
     # and the pages.
     html = _table(mounted().invoices, _request())
-    assert re.search(r'name="q"', html)
+    assert re.search(r'type="search"[^>]*name="q"', html)
     assert re.search(r"<table", html)
     assert re.search(r'aria-label="Pagination', html)
     # Welded: one frame, with the search in a band above the rows and the
     # pages in a band below them.
     assert html.count("w-full rounded-lg border border-border bg-surface") == 1
-
-
-def test_the_parts_can_be_placed_instead(mounted):
-    # And each of them finds the same binding, however deeply it is laid
-    # out inside the view.
-    html = _render(
-        mounted().invoices.layout(html_div(TablePagination()), DataTable()),
-        _request(),
-    )
-    assert re.search(r"<table", html)
-    assert re.search(r'aria-label="Pagination', html)
-    assert 'type="search"' not in html

@@ -391,7 +391,9 @@ def _build() -> ComponentType:
         pr.h2("Drawing the table"),
         pr.p(
             "DataTable.from_state() draws the table a declaration describes: "
-            "the search box, the rows and the pages. It binds to the request "
+            "the search box, the filter and column panels, the rows and the "
+            "pages. None of those is exported on its own, so there is one way "
+            "to put a declared table on a page. It binds to the request "
             "the page is being rendered for, which is already in the "
             "context, so the view names the table it shows and passes "
             "nothing else. Anything chained after it, such as a caption or "
@@ -405,30 +407,10 @@ def _build() -> ComponentType:
             "    )"
         ),
         pr.p(
-            "layout() draws parts of the table instead. Each part finds the binding in "
-            "the context, so it can sit anywhere inside the layout, and a pagination "
-            "bar in a page footer still knows which page it is on. layout() returns a "
-            "new component each time instead of adding children to the declaration, "
-            "because the declaration is a class attribute shared by every request."
-        ),
-        pr.code(
-            "self.invoices.layout(\n"
-            "    TableSearch(),\n"
-            "    Card().content(DataTable()),\n"
-            "    TablePagination(),\n"
-            ")"
-        ),
-        pr.p(
             "bind(request) is for code that wants the values instead of the "
             "table, such as the total for a heading. It returns the state, "
             "the page of rows and the total. It is a coroutine because it is "
             "what asks for the rows."
-        ),
-        pr.p(
-            "The parts are TableSearch, TableFilters, TableColumns, TableReset, "
-            "DataTable and TablePagination. Rendered with no bound table above it, "
-            "each one raises an error saying what is missing. That is the one mistake "
-            "this design makes easy."
         ),
         pr.p(
             "The search box is a GET form that submits itself 300 milliseconds after "

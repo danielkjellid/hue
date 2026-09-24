@@ -171,14 +171,6 @@ def _build() -> ComponentType:
                     "explicitly keeps it, so the form is the fallback rather "
                     "than an override."
                 ),
-                pr.p(
-                    "TableSource - the table a request was bound to, offered "
-                    "by what a declaration renders as. DataTable, "
-                    "TableSearch, TablePagination and the rest of a table's "
-                    "parts read it, so a part can sit anywhere under the "
-                    "declaration and still know which page of which rows it "
-                    "shows."
-                ),
             ]
         ),
         pr.code(_REQUEST),
