@@ -8,7 +8,8 @@ come back with the table in the state it was in.
 
 import asyncio
 import re
-from typing import Any
+from html.parser import HTMLParser
+from typing import Any, ClassVar
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
 
@@ -23,8 +24,8 @@ from hue.datatable import (
     Filter,
     TableColumns,
     TableFilters,
-    TableOptions,
     TablePagination,
+    TableReset,
     TableSearch,
     datatable,
 )
@@ -97,7 +98,6 @@ def _view(page_size: int = 25) -> Any:
                 Filter("min", "Minimum amount", kind="number"),
             ],
             hideable=["customer", "amount"],
-            density=True,
             actions={
                 "archive": BulkAction(
                     "Archive", lambda request, ids: _ARCHIVED.extend(ids)
@@ -157,6 +157,51 @@ def _render(component: Any, request: Any = None) -> str:
             ),
         )
     )
+
+
+class _Nesting(HTMLParser):
+    """
+    The ids of every element open around the first one whose aria-label
+    starts with a given word.
+    """
+
+    VOID: ClassVar[set[str]] = {
+        "input",
+        "img",
+        "br",
+        "hr",
+        "meta",
+        "link",
+        "source",
+        "path",
+        "circle",
+    }
+
+    def __init__(self, label: str) -> None:
+        super().__init__()
+        self.label = label
+        self.open: list[str | None] = []
+        self.found: list[str | None] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        named = dict(attrs)
+        if self.found is None and (named.get("aria-label") or "").startswith(
+            self.label
+        ):
+            self.found = list(self.open)
+        if tag not in self.VOID:
+            self.open.append(named.get("id"))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag not in self.VOID and self.open:
+            self.open.pop()
+
+
+def _ids_around(html: str, label: str) -> list[str | None]:
+    nesting = _Nesting(label)
+    nesting.feed(html)
+    assert nesting.found is not None, f"nothing labelled {label!r}"
+    return nesting.found
 
 
 def _bind(declaration: Any, request: Any) -> Any:
@@ -374,6 +419,13 @@ def test_the_applied_row_comes_after_the_controls(mounted):
     assert "basis-full" in html
 
 
+def test_the_pages_are_redrawn_with_the_rows(mounted):
+    # A page, a sort or a search replaces the rows region; the bar saying
+    # which page of how many has to be inside it, or it goes stale.
+    html = _table(mounted(page_size=2).invoices, _request())
+    assert "invoices-rows" in _ids_around(html, "Pagination")
+
+
 def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
     html = _part(mounted(page_size=2).invoices, _request(), TablePagination())
     assert 'x-target.push="invoices-rows"' in html
@@ -411,7 +463,7 @@ def test_a_filter_rides_in_every_url_the_table_builds(mounted):
 
 def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
     html = _part(mounted().invoices, _request(status="paid"), TableFilters())
-    assert 'x-data="hueTableFilters"' in html
+    assert "hueTableFilters('invoices')" in html
     # The count on the trigger and the chips in the band are the same
     # fact twice, both read off the controls rather than sent down.
     assert 'x-text="applied.length"' in html
@@ -470,25 +522,51 @@ def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     # The way round anybody reads a list of columns, while the URL
     # carries the ones that are hidden.
     html = _part(mounted().invoices, _request(hide="customer"), TableColumns())
-    assert 'hueTableColumns(["customer"])' in html
+    assert "hueTableColumns([&quot;customer&quot;], 'invoices')" in html
     assert "x-effect=\"$el.checked = showing('customer')\"" in html
     assert "Locked" in html
 
 
-def test_density_is_a_radio_and_a_link(mounted):
-    html = _part(mounted().invoices, _request(density="compact"), TableOptions())
-    assert 'role="menuitemradio"' in html
-    assert 'aria-checked="true"' in html
-    assert "/billing/invoices/?density=compact" in html
-    # And a way back to the table as it came.
-    assert "Reset view" in html
+def test_reset_is_out_of_the_way_until_something_is_narrowed(mounted):
+    html = _part(mounted().invoices, _request(sort="amount"), TableReset())
+    assert 'x-show="narrowed"' in html
+    assert "x-cloak" in html
+    assert "hueTableReset('invoices', 0, 0)" in html
 
 
-def test_compact_tightens_the_rows(mounted):
-    loose = _table(mounted().invoices, _request())
-    tight = _table(mounted().invoices, _request(density="compact"))
-    assert "_td]:py-[11px]" in loose
-    assert "_td]:py-[7px]" in tight
+def test_reset_shows_once_a_filter_or_a_column_is_off(mounted):
+    html = _part(
+        mounted().invoices, _request(status="paid,draft", hide="customer"), TableReset()
+    )
+    assert "hueTableReset('invoices', 2, 1)" in html
+    assert "x-cloak" not in html
+    assert 'aria-label="Reset filters and columns"' in html
+
+
+def test_reset_keeps_the_search_and_the_order(mounted):
+    # It takes off what the panels put on, and only that.
+    html = _part(
+        mounted().invoices,
+        _request(q="n", sort="-amount", status="paid", hide="customer", page="2"),
+        TableReset(),
+    )
+    hidden = dict(
+        re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
+    )
+    assert hidden == {"sort": "-amount", "q": "n"}
+
+
+def test_reset_redraws_the_whole_frame(mounted):
+    # The panels live in the toolbar, which a sort or a page leaves alone,
+    # and they have to come back unticked.
+    html = _part(mounted().invoices, _request(status="paid"), TableReset())
+    assert 'x-target.push="invoices"' in html
+
+
+def test_the_panels_tell_the_reset_which_table_they_belong_to(mounted):
+    html = _table(mounted().invoices, _request())
+    assert "hueTableFilters('invoices')" in html
+    assert "hueTableColumns([], 'invoices')" in html
 
 
 def test_hiding_a_column_nobody_declared_is_refused():

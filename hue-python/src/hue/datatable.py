@@ -84,12 +84,6 @@ from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.menu import (
-    DropdownMenu,
-    MenuItem,
-    MenuLabel,
-    MenuSeparator,
-)
 from hue.ui.molecules.pagination import Pagination
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import (
@@ -114,10 +108,9 @@ SORT = "sort"
 QUERY = "q"
 PAGE = "page"
 HIDE = "hide"
-DENSITY = "density"
 
 # What a filter cannot be called, because the table is already using it.
-RESERVED = (SORT, QUERY, PAGE, HIDE, DENSITY)
+RESERVED = (SORT, QUERY, PAGE, HIDE)
 
 # Long enough that a word typed at speed is one request rather than five,
 # short enough that the table has moved by the time you look at it.
@@ -147,7 +140,8 @@ _APPLIED_ROW = (
     "order-last flex basis-full flex-wrap items-center gap-2 "
     "border-t border-border pt-2"
 )
-_APPLIED_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
+# The small uppercase heading at the top of a panel.
+_PANEL_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
 _LOCKED = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-subtle"
 _CHIP = (
     "inline-flex items-center gap-1.5 rounded-sm border border-border "
@@ -178,7 +172,6 @@ class TableState:
     page: int = 1
     filters: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     hidden: tuple[str, ...] = ()
-    compact: bool = False
 
     def chosen(self, name: str) -> tuple[str, ...]:
         """
@@ -208,7 +201,6 @@ class TableState:
             page=changes["page"] if "page" in changes else 1,
             filters=changes.get("filters", self.filters),
             hidden=changes.get("hidden", self.hidden),
-            compact=changes.get("compact", self.compact),
         )
 
     def without(self, name: str, value: str | None = None) -> TableState:
@@ -233,8 +225,6 @@ class TableState:
                 asked[name] = ",".join(values)
         if self.hidden:
             asked[HIDE] = ",".join(self.hidden)
-        if self.compact:
-            asked[DENSITY] = "compact"
         if self.page > 1:
             asked[PAGE] = str(self.page)
         return {name: value for name, value in asked.items() if value}
@@ -284,11 +274,15 @@ class BulkAction:
 
     The handler receives the request and the ids. It is whatever you would
     have written anyway, such as the service function that archives them.
+    The icon goes before the label in the bar for picked rows.
+
+        BulkAction("Delete", delete_invoices, icon=HueIcon("trash-2"))
     """
 
     label: str
     handler: ActionHandler
-    variant: ButtonVariant = "outline"
+    variant: ButtonVariant = "ghost"
+    icon: ComponentType | None = None
 
 
 def _one(asked: Mapping[str, list[str]], name: str) -> str | None:
@@ -402,9 +396,9 @@ class BoundTable(TableSource):
         # this is the one place that sets all of them together.
         into.id(self.key).columns(
             [column for column in declared.columns if column.key not in hidden]
-        ).rows(self.page).compact(self.state.compact)._sorted(
-            self.state.sort
-        )._sort_href(lambda order: self.href(sort=order))
+        ).rows(self.page)._sorted(self.state.sort)._sort_href(
+            lambda order: self.href(sort=order)
+        )
 
         if declared.identifier is None:
             return into
@@ -417,9 +411,11 @@ class BoundTable(TableSource):
             *(
                 Button()
                 .variant(action.variant)
-                .size("xs")
+                .size("sm")
                 .type("submit")
-                .content(action.label)
+                .content(
+                    *((action.icon,) if action.icon is not None else ()), action.label
+                )
                 .attr("form", form_id(self.key))
                 .attr("formaction", self.action_url(name))
                 for name, action in declared.actions.items()
@@ -450,7 +446,7 @@ class Datatable(TableDeclaration):
     can be registered.
     """
 
-    def __init__(  # noqa: PLR0913 - the declaration, and see datatable() below
+    def __init__(
         self,
         router: Router[Any],
         *,
@@ -461,7 +457,6 @@ class Datatable(TableDeclaration):
         search: str | None = None,
         filters: Sequence[Filter] = (),
         hideable: Sequence[str] = (),
-        density: bool = False,
         actions: Mapping[str, BulkAction] | None = None,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> None:
@@ -472,7 +467,6 @@ class Datatable(TableDeclaration):
         self.search = search
         self.filters = list(filters)
         self.hideable = list(hideable)
-        self.density = density
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
@@ -552,8 +546,8 @@ class Datatable(TableDeclaration):
             controls.append(TableFilters())
         if self.hideable:
             controls.append(TableColumns())
-        if self.density:
-            controls.append(TableOptions())
+        if self.filters or self.hideable:
+            controls.append(TableReset())
         if controls:
             band.extend((html.span(class_="flex-1"), *controls))
         if band:
@@ -604,7 +598,6 @@ class Datatable(TableDeclaration):
             # Only columns that could have been hidden, so a key typed
             # into the URL cannot take away a column nobody may hide.
             hidden=tuple(key for key in _many(asked, HIDE) if key in hideable),
-            compact=_one(asked, DENSITY) == "compact",
         )
 
     def _filters_in(self, asked: Mapping[str, list[str]]) -> dict[str, tuple[str, ...]]:
@@ -682,7 +675,7 @@ class Datatable(TableDeclaration):
         self._router.fragment_post(f"{self.key}/<str:action>/")(act)
 
 
-def datatable(  # noqa: PLR0913 - see "One argument each" below
+def datatable(
     router: Router[Any],
     *,
     key: str,
@@ -692,7 +685,6 @@ def datatable(  # noqa: PLR0913 - see "One argument each" below
     search: str | None = None,
     filters: Sequence[Filter] = (),
     hideable: Sequence[str] = (),
-    density: bool = False,
     actions: Mapping[str, BulkAction] | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> Datatable:
@@ -721,11 +713,10 @@ def datatable(  # noqa: PLR0913 - see "One argument each" below
 
     hideable names the columns a reader may hide. The others are locked,
     and the panel marks them as locked instead of ignoring the click.
-    density adds a choice between comfortable and compact rows.
 
-    search, filters, hideable and density each get their own argument for
-    now. They are all ways of narrowing the table and could become one
-    toolbar argument, but it is too early to know what each of them needs.
+    search, filters and hideable each get their own argument for now. They
+    are all ways of narrowing the table and could become one toolbar
+    argument, but it is too early to know what each of them needs.
     """
     return Datatable(
         router,
@@ -736,7 +727,6 @@ def datatable(  # noqa: PLR0913 - see "One argument each" below
         search=search,
         filters=filters,
         hideable=hideable,
-        density=density,
         actions=actions,
         page_size=page_size,
     )
@@ -887,7 +877,7 @@ class TableFilters(ChainableComponent):
             ),
             _applied_chips(),
             class_="contents",
-            **{"x-data": "hueTableFilters"},
+            **{"x-data": f"hueTableFilters({bound.key!r})"},
         )
 
 
@@ -987,7 +977,6 @@ def _applied_chips() -> ComponentType:
     above the rows as well as inside the closed popover.
     """
     return html.div(
-        html.span("Applied", class_=_APPLIED_LABEL),
         html.template(
             html.button(
                 html.span(**{"x-text": "chip.name + ': ' + chip.label"}),
@@ -1047,7 +1036,7 @@ class TableColumns(ChainableComponent):
             )
             .content(
                 html.div(
-                    html.span("Columns", class_=_APPLIED_LABEL),
+                    html.span("Columns", class_=_PANEL_LABEL),
                     html.span(
                         f"{showing} of {len(declared.columns)}",
                         class_="text-2xs tabular-nums text-fg-muted",
@@ -1074,7 +1063,7 @@ class TableColumns(ChainableComponent):
                 },
             ),
             class_="contents",
-            **{"x-data": f"hueTableColumns({dumps(sorted(hidden))})"},
+            **{"x-data": f"hueTableColumns({dumps(sorted(hidden))}, {bound.key!r})"},
         )
 
 
@@ -1114,47 +1103,44 @@ def _column_row(
     )
 
 
-class TableOptions(ChainableComponent):
+class TableReset(ChainableComponent):
     """
-    The remaining table options behind one button: how tight the rows
-    are, and a way back to the default view.
+    One button that takes the filters off and shows every column again,
+    there only while something is filtered or hidden.
+
+    The search and the order are kept. The whole frame is redrawn, because
+    the filter and column panels live in the toolbar, which a response
+    otherwise leaves alone, and they have to show the reset state too.
     """
 
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = bound_from(context, "TableOptions")
-        if not bound.declaration.density:
-            return UNDEFINED
-
-        target = rows_id(bound.key) or bound.key
-        return (
-            DropdownMenu()
-            .label("More table options")
-            .placement("bottom-end")
-            .trigger(
-                Button()
-                .variant("ghost")
-                .size("sm")
-                .icon_only("More table options")
-                .content(HueIcon("ellipsis"))
-            )
-            .content(
-                MenuLabel().content("Density"),
-                *(
-                    MenuItem()
-                    .href(bound.href(compact=compact))
-                    .selected(bound.state.compact == compact)
-                    .content(label)
-                    .attr("x-target.push", target)
-                    for compact, label in ((False, "Comfortable"), (True, "Compact"))
-                ),
-                MenuSeparator(),
-                MenuItem()
-                .href(bound.urls.read)
-                .content("Reset view")
-                .attr("x-target.push", target),
-            )
+        bound = bound_from(context, "TableReset")
+        declared = bound.declaration
+        filtered = sum(len(values) for values in bound.state.filters.values())
+        hidden = len(bound.state.hidden)
+        return html.form(
+            *_carried(bound, without={PAGE, HIDE, *(f.name for f in declared.filters)}),
+            Button()
+            .variant("ghost")
+            .size("sm")
+            .type("submit")
+            .icon_only("Reset filters and columns")
+            .content(HueIcon("rotate-ccw")),
+            method="get",
+            action=bound.urls.read,
+            class_="inline-flex",
+            **{
+                # Told when a filter or a column changes, since the toolbar
+                # is not redrawn for either and this has to show and hide
+                # with them.
+                "x-data": f"hueTableReset({bound.key!r}, {filtered}, {hidden})",
+                "x-show": "narrowed",
+                "x-on:hue-table-narrowed.window": "hear($event.detail)",
+                "x-target.push": bound.key,
+                **({} if filtered or hidden else {"x-cloak": True}),
+            },
         )
 
 

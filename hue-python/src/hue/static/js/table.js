@@ -1,15 +1,58 @@
 /**
  * hueTableSelection: which rows are ticked.
  *
- * The row checkboxes are real checkboxes carrying a name and a value, so a
- * form around the table posts the selection without any of this. What needs
- * watching is the one in the header, which has a third state - some rows,
- * not all - that no attribute can express and only a DOM property can set.
+ * The row checkboxes are real checkboxes carrying a name and a value, so the
+ * table's form posts the selection without any of this. What needs watching
+ * is the checkbox in the header, which has a third state (some rows, not
+ * all) that no attribute can express and only a DOM property can set.
+ *
+ * The values are read off the rows on the page each time rather than handed
+ * in once, because a sort, a page or a search replaces the rows without
+ * replacing this scope.
+ *
+ * There is one selection per page. Each table's bar floats in the same spot,
+ * so starting a selection in one table clears it in every other. Otherwise
+ * one bar would cover another while its rows stayed ticked, and Escape would
+ * clear both.
  */
 export function registerTableData(Alpine) {
-	Alpine.data("hueTableSelection", (values = []) => ({
-		values,
+	Alpine.data("hueTableSelection", () => ({
+		// Declared, so Alpine keeps them on this scope instead of writing
+		// them to the outermost one on the page.
+		frame: null,
+		onOtherSelection: null,
 		selected: [],
+
+		init() {
+			this.frame = this.$el;
+			this.onOtherSelection = (event) => {
+				if (event.detail !== this.frame && this.selected.length) {
+					this.selected = [];
+				}
+			};
+			window.addEventListener("hue-table-selection", this.onOtherSelection);
+			this.$watch("selected", (now, before) => {
+				if (now.length && !before?.length) {
+					window.dispatchEvent(
+						new CustomEvent("hue-table-selection", { detail: this.frame }),
+					);
+				}
+			});
+		},
+
+		destroy() {
+			window.removeEventListener("hue-table-selection", this.onOtherSelection);
+		},
+
+		get values() {
+			if (!this.frame) {
+				return [];
+			}
+			return Array.from(
+				this.frame.querySelectorAll("[data-hue-row-select]"),
+				(box) => box.value,
+			);
+		},
 
 		get all() {
 			return this.values.length > 0 && this.selected.length === this.values.length;
@@ -21,6 +64,17 @@ export function registerTableData(Alpine) {
 
 		toggleAll(checked) {
 			this.selected = checked ? [...this.values] : [];
+		},
+
+		clear() {
+			this.selected = [];
+		},
+
+		// Drops what is no longer on the page, so a bulk action can only
+		// reach rows the reader can see.
+		prune() {
+			const showing = this.values;
+			this.selected = this.selected.filter((value) => showing.includes(value));
 		},
 
 		isSelected(value) {
@@ -90,7 +144,8 @@ export function registerTableSearch(Alpine) {
  * apart.
  */
 export function registerTableFilters(Alpine) {
-	Alpine.data("hueTableFilters", () => ({
+	Alpine.data("hueTableFilters", (table = "") => ({
+		table,
 		applied: [],
 
 		init() {
@@ -110,6 +165,7 @@ export function registerTableFilters(Alpine) {
 					value: el.type === "checkbox" ? el.value : "",
 					label: el.dataset.option || el.value,
 				}));
+			narrowed(this.table, { filters: this.applied.length });
 		},
 
 		clearControl(el) {
@@ -174,7 +230,8 @@ export function registerTableFilters(Alpine) {
  * carries the answer.
  */
 export function registerTableColumns(Alpine) {
-	Alpine.data("hueTableColumns", (hidden = []) => ({
+	Alpine.data("hueTableColumns", (hidden = [], table = "") => ({
+		table,
 		hidden,
 
 		showing(key) {
@@ -185,7 +242,51 @@ export function registerTableColumns(Alpine) {
 			this.hidden = shown
 				? this.hidden.filter((other) => other !== key)
 				: [...this.hidden, key];
+			narrowed(this.table, { hidden: this.hidden.length });
 			this.$refs.form.requestSubmit();
+		},
+	}));
+}
+
+/**
+ * Says how narrowed a table is, for whatever is listening for that table.
+ *
+ * The filter and column panels live in the toolbar, which a response leaves
+ * alone, so nothing else redraws the reset button when either changes.
+ */
+function narrowed(table, counts) {
+	window.dispatchEvent(
+		new CustomEvent("hue-table-narrowed", { detail: { table, ...counts } }),
+	);
+}
+
+/**
+ * hueTableReset: shown while a table is filtered or has columns hidden.
+ *
+ * Starts from the counts the server rendered, and hears about changes from
+ * the panels, matched by the table's key so two tables on a page keep their
+ * own.
+ */
+export function registerTableReset(Alpine) {
+	Alpine.data("hueTableReset", (table = "", filters = 0, hidden = 0) => ({
+		table,
+		filters,
+		hidden,
+
+		get narrowed() {
+			return this.filters > 0 || this.hidden > 0;
+		},
+
+		hear(detail) {
+			if (detail.table !== this.table) {
+				return;
+			}
+			if ("filters" in detail) {
+				this.filters = detail.filters;
+			}
+			if ("hidden" in detail) {
+				this.hidden = detail.hidden;
+			}
 		},
 	}));
 }

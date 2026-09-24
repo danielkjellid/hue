@@ -138,7 +138,6 @@ def _table(key: str) -> Any:
             Filter("min", "Minimum amount", kind="number", prefix="USD"),
         ],
         hideable=["customer", "amount"],
-        density=True,
         actions={"archive": BulkAction("Archive", _archive)},
         page_size=3,
     )
@@ -188,7 +187,6 @@ class InvoicesView(HueView):
             Filter("min", "Minimum amount", kind="number", prefix="USD"),
         ],
         hideable=["customer", "amount"],
-        density=True,
         actions={"archive": BulkAction("Archive", archive_invoices)},
     )
 
@@ -278,8 +276,10 @@ def _build() -> ComponentType:
         pr.code(
             '<div id="invoices" class="…">           <!-- the shell -->\n'
             '  <form id="invoices-act" method="post" hidden></form>\n'
-            "  <div>   [search]  [Filter 2]  [Columns]  [...]   </div>\n"
-            "  <div>   2 selected            [Archive]         </div>\n"
+            "  <div>   [search]  [Filter 2]  [Columns]  [reset] </div>\n"
+            '  <template x-teleport="body">          <!-- floats over the page -->\n'
+            '    <div role="group">  2 selected [x] | [Archive]  </div>\n'
+            "  </template>\n"
             '  <div id="invoices-rows">              <!-- replaced -->\n'
             "    <table>\n"
             '      <th aria-sort="descending">\n'
@@ -332,6 +332,16 @@ def _build() -> ComponentType:
             "discard a nested form."
         ),
         pr.p(
+            "Ticking a row brings up a bar that floats at the bottom of the "
+            "window, with the count, a button that clears the selection, and the "
+            "actions. Escape clears the selection too. The bar is moved to the end "
+            "of the page body so it stays in reach wherever the page is scrolled, "
+            "and it never pushes the rows down. When a sort, a page or a search "
+            "replaces the rows, any ticked row that is no longer on the page is "
+            "dropped from the selection, so an action only reaches rows the reader "
+            "can see."
+        ),
+        pr.p(
             "x-target is the only part that needs Alpine: it turns a navigation into a "
             "swap. With JavaScript off, the same links and forms do the same things "
             "with full page loads. The Columns panel is the exception. Its checkboxes "
@@ -359,7 +369,7 @@ def _build() -> ComponentType:
         pr.p(
             "A filter drops any answer it does not offer instead of passing it on. "
             "Anyone can type into a query string, and rows() should not have to guard "
-            "against it. Filters named sort, q, page, hide or density are refused, "
+            "against it. Filters named sort, q, page or hide are refused, "
             "because the table already uses those names."
         ),
         pr.p(
@@ -370,6 +380,13 @@ def _build() -> ComponentType:
             "too, ticked, disabled and labelled as locked. A table of amounts without "
             "invoice numbers is unreadable, and a click that silently did nothing "
             "would look broken."
+        ),
+        pr.p(
+            "While a filter is on or a column is hidden, a reset button appears at "
+            "the end of the toolbar. It takes the filters off and shows every column "
+            "again, and keeps the search and the order. It redraws the whole table, "
+            "since the filter and column panels are in the toolbar and have to come "
+            "back cleared as well."
         ),
         pr.h2("Drawing the table"),
         pr.p(
@@ -408,7 +425,7 @@ def _build() -> ComponentType:
             "what asks for the rows."
         ),
         pr.p(
-            "The parts are TableSearch, TableFilters, TableColumns, TableOptions, "
+            "The parts are TableSearch, TableFilters, TableColumns, TableReset, "
             "DataTable and TablePagination. Rendered with no bound table above it, "
             "each one raises an error saying what is missing. That is the one mistake "
             "this design makes easy."

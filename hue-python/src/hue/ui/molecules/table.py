@@ -18,6 +18,7 @@ from typing_extensions import Self
 from hue.js import unsafe
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
+from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
@@ -66,17 +67,41 @@ _BODY_BAND = "overflow-x-auto"
 
 # A band of controls welded into the shell, above the rows or below them.
 _BAND = "flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
+# Rounded here, not by the frame: it sits inside the rows region, which is
+# the frame's last child but has no background of its own to round.
+#
+# The end padding is the cells' 16px less the inset of a pagination step,
+# which is a control-height square with a 14px glyph centred in it. That puts
+# the last chevron on the same edge as the column above it, and it tracks
+# the control height when a coarse pointer makes the steps larger.
 _BAND_BOTTOM = (
-    "flex flex-wrap items-center justify-between gap-2 gap-x-5 "
-    "border-t border-border bg-canvas-subtle px-4 py-2.5"
+    "flex flex-wrap items-center justify-between gap-2 gap-x-5 rounded-b-[11px] "
+    "border-t border-border bg-canvas-subtle py-2.5 ps-4 "
+    "pe-[calc(1rem_-_(var(--spacing-control-sm)_-_0.875rem)_/_2)]"
 )
 
 # The bar over a table with rows picked in it. accent-subtle so the whole
 # frame says something is selected, not just the rows.
+# The picked-rows bar floats at the foot of the viewport, over the page, so
+# it is in reach wherever the reader has scrolled and never pushes a row.
 _BULK_BAR = (
-    "flex items-center justify-between gap-4 border-b border-border "
-    "bg-accent-subtle px-4 py-2"
+    "fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] "
+    "flex-wrap items-center gap-1 rounded-lg border border-border "
+    "bg-surface-raised p-1 shadow-overlay"
 )
+_BULK_DIVIDER = "mx-1 w-px self-stretch bg-border"
+_BULK_COUNT = "ps-2.5 pe-1 font-ui text-sm font-medium tabular-nums text-fg"
+
+# Slides up from below and fades in. The stylesheet's reduced-motion rule
+# already shortens every transition, so this needs nothing of its own.
+_BULK_MOTION = {
+    "x-transition:enter": "transition duration-200 ease-out",
+    "x-transition:enter-start": "translate-y-5 opacity-0",
+    "x-transition:enter-end": "translate-y-0 opacity-100",
+    "x-transition:leave": "transition duration-150 ease-in",
+    "x-transition:leave-start": "translate-y-0 opacity-100",
+    "x-transition:leave-end": "translate-y-5 opacity-0",
+}
 
 # The header's own text, made pressable. It inherits everything from the th,
 # so a sortable column reads exactly like one that is not until it is sorted.
@@ -176,7 +201,8 @@ class Table(ChainableComponent):
     def under(self, *values: ComponentType) -> Self:
         """
         The band along the bottom of the frame, such as the pages or a total.
-        It sits below the rows, outside the region a response replaces.
+        It sits inside the region a response replaces, because what it says
+        is about the rows and changes when they do.
         """
         self._props["under"] = values
         return self
@@ -215,9 +241,11 @@ class Table(ChainableComponent):
                     class_=_BODY_BAND,
                 ),
                 *self._get_prop("footer", ()),
+                # Replaced with the rows. The pages and the total describe
+                # them, so a response that changes the rows changes these.
+                *self._get_prop("under", ()),
                 id=rows_id(frame_id),
             ),
-            *self._get_prop("under", ()),
         ]
         action: str | None = self._get_prop("form")
         if action is not None:
@@ -691,8 +719,8 @@ class DataTable(ChainableComponent):
 
     def _bulk_actions(self, *values: ComponentType) -> Self:
         """
-        What to do with the picked rows, in a bar above them that appears once
-        at least one is picked.
+        What to do with the picked rows, in a bar that floats at the foot of
+        the page once at least one is picked.
 
         The actions render inside the table's Alpine scope, so an expression in
         one can read selected, the list of values the checkboxes carry:
@@ -738,9 +766,7 @@ class DataTable(ChainableComponent):
     def _toolbar(self, *values: ComponentType) -> Self:
         """
         The band above the rows, inside the same frame: the ways of narrowing
-        the table. Picking rows takes over this band instead of adding a
-        second one, which would push the first row down just as someone is
-        acting on the rows.
+        the table.
         """
         self._props["toolbar"] = values
         return self
@@ -802,12 +828,12 @@ class DataTable(ChainableComponent):
 
     def _frame(self, table: Table) -> None:
         """
-        The bands around the rows: a toolbar above, which picking rows
-        takes over, and a band along the bottom.
+        The bands around the rows: a toolbar above, the bar for picked rows
+        that floats over the page, and a band along the bottom.
         """
         bands: list[ComponentType] = []
-        if (values := self._selection_values()) is not None:
-            table.x_data(f"hueTableSelection({json.dumps(values)})")
+        if self._selection_values() is not None:
+            table.x_data("hueTableSelection")
             bands = self._bands(self._bulk_bar())
         elif toolbar := self._get_prop("toolbar", ()):
             bands = [html.div(*toolbar, class_=_BAND)]
@@ -869,49 +895,83 @@ class DataTable(ChainableComponent):
             )
         )
 
-    def _bands(self, picked: ComponentType | None) -> list[ComponentType]:
+    def _bands(self, picked: tuple[ComponentType, ...] | None) -> list[ComponentType]:
         """
-        The one band above the rows, in both of its modes.
+        The band above the rows, and the bar for picked rows when there are
+        actions to put in it.
 
-        Selection replaces the toolbar's contents instead of adding a band
-        beneath it, so only one band shows and the rows never move while
-        someone is reaching for them.
+        The bar floats over the page instead of taking a band in the frame,
+        so picking rows never moves them.
         """
         toolbar: tuple[ComponentType, ...] = self._get_prop("toolbar", ())
-        if picked is None:
-            return [html.div(*toolbar, class_=_BAND)] if toolbar else []
-        if not toolbar:
-            return [picked]
-        return [
-            html.div(
-                *toolbar,
-                class_=_BAND,
-                **{"x-show": "selected.length === 0"},
-            ),
-            picked,
-        ]
+        bands: list[ComponentType] = (
+            [html.div(*toolbar, class_=_BAND)] if toolbar else []
+        )
+        if picked is not None:
+            bands.extend(picked)
+        return bands
 
-    def _bulk_bar(self) -> ComponentType | None:
+    def _bulk_bar(self) -> tuple[ComponentType, ...] | None:
         """
-        The count of picked rows and the actions for them.
+        The bar for picked rows: how many there are, a way to clear them,
+        and what can be done with them.
 
-        It has role="status" so it announces itself, since a screen reader has
-        no other way to hear that controls appeared after a checkbox was
-        ticked. It stays in the markup either way, because a live region added
-        at the moment it has something to say is not read out.
+        It is moved to the end of the body so it floats over the page, and
+        it keeps the table's Alpine scope when it moves. Escape clears the
+        selection too. The count is also announced from a live region that
+        stays displayed, because a region shown at the moment it has
+        something to say is not read out, and the bar itself is hidden until
+        a row is picked.
         """
         actions: tuple[ComponentType, ...] = self._get_prop("bulk_actions", ())
         if not actions:
             return None
-        return html.div(
+        clear = (
+            Button()
+            .variant("ghost")
+            .size("xs")
+            .icon_only("Clear selection")
+            .content(HueIcon("x"))
+            .attr("aria-keyshortcuts", "Escape")
+            .x_on("click", unsafe("clear()"))
+        )
+        bar = html.div(
+            # The count and the button that clears it read as one thing, so
+            # they sit together with no gap of their own.
+            html.span(
+                html.span(
+                    class_=_BULK_COUNT,
+                    **{"x-text": "selected.length + ' selected'"},
+                ),
+                clear,
+                class_="flex items-center",
+            ),
+            html.span(aria_hidden="true", class_=_BULK_DIVIDER),
+            *actions,
+            # A group rather than a toolbar: a toolbar promises arrow keys
+            # and one tab stop, and these are ordinary buttons Tab walks.
+            role="group",
+            aria_label="Selected rows",
+            class_=_BULK_BAR,
+            **{
+                "x-show": "selected.length > 0",
+                "x-cloak": True,
+                "x-on:keydown.escape.window": "if (selected.length) clear()",
+                # A sort, a page or a search replaces the rows without
+                # replacing this scope; a row that left the page leaves the
+                # selection with it, so an action can only reach what is
+                # on screen.
+                "x-on:ajax:merged.window": "prune()",
+                **_BULK_MOTION,
+            },
+        )
+        return (
+            html.template(bar, **{"x-teleport": "body"}),
             html.span(
                 role="status",
-                class_="font-ui text-sm font-medium text-accent-text",
-                **{"x-text": "selected.length + ' selected'"},
+                class_="sr-only",
+                **{"x-text": "selected.length ? selected.length + ' selected' : ''"},
             ),
-            html.div(*actions, class_="flex flex-wrap items-center gap-2"),
-            class_=_BULK_BAR,
-            **{"x-show": "selected.length > 0", "x-cloak": True},
         )
 
     def _select_all(self) -> ComponentType:
@@ -946,6 +1006,7 @@ class DataTable(ChainableComponent):
             .label(f"Select {value}")
             .hidden_label()
             .x_model("selected")
+            .attr("data-hue-row-select", "")
         )
         # Named rather than wrapped: the form is an empty element in the
         # frame, because a form around the band above the rows would

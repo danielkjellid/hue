@@ -260,12 +260,10 @@ class TestDataTable:
             context_args=context_args,
         )
         # On the frame, so a band above the rows is inside the scope too.
-        assert_attr(
-            html,
-            "div[x-data]",
-            "x-data",
-            'hueTableSelection(["INV-2050", "INV-2048"])',
-        )
+        # The values are read off the rows, which a sort or a page replaces
+        # without replacing the scope.
+        assert_attr(html, "div[x-data]", "x-data", "hueTableSelection")
+        assert_selector(html, "tbody input[data-hue-row-select]", count=2)
         assert_attr(
             html,
             "thead input",
@@ -283,9 +281,11 @@ class TestDataTable:
 
     # bulk_actions(): both branches
     @pytest.mark.asyncio
-    async def test_what_to_do_with_the_picked_rows_sits_above_them(self, context_args):
-        # Inside the table's own Alpine scope, so an expression in an action
-        # can read the list of values the checkboxes carry.
+    async def test_what_to_do_with_the_picked_rows_floats_over_the_page(
+        self, context_args
+    ):
+        # Moved to the end of the body so it is in reach wherever the page
+        # is scrolled, and declared inside the frame so it keeps the scope.
         html = await render_tree(
             DataTable()
             .columns(_COLUMNS)
@@ -294,11 +294,52 @@ class TestDataTable:
             ._bulk_actions(Button().content("Delete")),
             context_args=context_args,
         )
-        assert_selector(html, "div.bg-accent-subtle button")
-        # One Alpine scope on the frame, so the bar above the rows is inside it.
-        assert_selector(html, "div[x-data] div.bg-accent-subtle")
-        assert_selector(html, "div.bg-accent-subtle + div > div > table")
-        assert_attr(html, "div.bg-accent-subtle", "x-show", "selected.length > 0")
+        bar = "div[x-data] template[x-teleport=body] > div[role=group]"
+        assert_selector(html, bar)
+        assert_attr(html, bar, "aria-label", "Selected rows")
+        assert_attr(html, bar, "x-show", "selected.length > 0")
+        assert_selector(html, f"{bar}.fixed")
+        assert_selector(html, f"{bar} button", count=2)
+
+    @pytest.mark.asyncio
+    async def test_the_bar_can_be_cleared_by_hand_or_by_escape(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._selectable("invoice")
+            ._bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        bar = "template[x-teleport=body] > div[role=group]"
+        assert_attr(
+            html,
+            f"{bar} button[aria-label='Clear selection']",
+            "aria-keyshortcuts",
+            "Escape",
+        )
+        assert_attr(
+            html, bar, "x-on:keydown.escape.window", "if (selected.length) clear()"
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_new_page_of_rows_drops_what_left_the_page(self, context_args):
+        # A sort or a page replaces the rows without replacing the scope, so
+        # the selection is pruned to what is still on screen.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._selectable("invoice")
+            ._bulk_actions(Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_attr(
+            html,
+            "template[x-teleport=body] > div",
+            "x-on:ajax:merged.window",
+            "prune()",
+        )
 
     @pytest.mark.asyncio
     async def test_the_count_announces_itself(self, context_args):
@@ -312,7 +353,15 @@ class TestDataTable:
             ._bulk_actions(Button().content("Delete")),
             context_args=context_args,
         )
-        assert_attr(html, "[role=status]", "x-text", "selected.length + ' selected'")
+        # Outside the bar, which is hidden until a row is picked: a region
+        # shown at the moment it has something to say is not read out.
+        assert_attr(
+            html,
+            "span.sr-only[role=status]",
+            "x-text",
+            "selected.length ? selected.length + ' selected' : ''",
+        )
+        assert_no_selector(html, "template [role=status]")
 
     @pytest.mark.asyncio
     async def test_no_actions_means_no_bar(self, context_args):
@@ -320,7 +369,8 @@ class TestDataTable:
             DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
             context_args=context_args,
         )
-        assert_no_selector(html, ".bg-accent-subtle")
+        assert_no_selector(html, "template[x-teleport]")
+        assert_no_selector(html, "[role=status]")
         assert_no_selector(html, "[role=status]")
 
     # sort: a header that goes somewhere, and one that does not

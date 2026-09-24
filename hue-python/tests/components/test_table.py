@@ -1,4 +1,5 @@
 import pytest
+from htmy.html import div as html_div
 
 from hue.renderer import render_tree
 from hue.ui import (
@@ -96,6 +97,18 @@ class TestTable:
         html = await render_tree(Table(), context_args=context_args)
         assert "overflow" not in select(html, "div")[0]["class"]
         assert_selector(html, "div.overflow-x-auto > table")
+
+    @pytest.mark.asyncio
+    async def test_the_band_along_the_bottom_is_replaced_with_the_rows(
+        self, context_args
+    ):
+        # It says which page of how many, so a response that changes the
+        # rows has to change it too.
+        html = await render_tree(
+            Table().id("users").under(html_div("1 of 3")), context_args=context_args
+        )
+        assert_selector(html, "div#users-rows > div.overflow-x-auto + div")
+        assert "1 of 3" in str(select(html, "#users-rows")[0])
 
     # compact(): both branches
     @pytest.mark.asyncio

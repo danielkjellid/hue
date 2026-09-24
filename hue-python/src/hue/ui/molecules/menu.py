@@ -196,19 +196,6 @@ class MenuItem(Clickable):
         self._props["checked"] = value
         return self
 
-    def selected(self, value: bool = True) -> Self:
-        """
-        One of a set of choices, and whether it is the one in effect.
-
-        A radio rather than a tick: picking one of these unpicks the
-        rest, which is a different promise from a box that stands alone,
-        and the only one a screen reader can hear the difference between.
-        The state is decided by whoever renders the menu, since choosing
-        is usually a navigation rather than something the item does.
-        """
-        self._props["selected"] = value
-        return self
-
     def disabled(self, value: bool = True) -> Self:
         """
         Dim it and take it out of reach, but leave it in the menu and in the
@@ -221,7 +208,6 @@ class MenuItem(Clickable):
     def _render(self, context: Context) -> Component:
         variant: MenuItemVariant = self._get_prop("variant", "default")
         checkable: bool = self._get_prop("checkable", False)
-        selected: bool | None = self._get_prop("selected")
         checked: bool = self._get_prop("checked", False)
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
@@ -237,14 +223,6 @@ class MenuItem(Clickable):
                     **{"x-show": "checked"},
                 ),
             ),
-            render_when(
-                bool(selected),
-                html.span(
-                    aria_hidden="true",
-                    class_="checkmark absolute start-[9px] top-1/2 -mt-[5px] "
-                    "size-[10px] bg-accent-text",
-                ),
-            ),
             *self._children,
             render_if(
                 self._get_prop("shortcut"),
@@ -253,14 +231,7 @@ class MenuItem(Clickable):
         )
 
         attrs: dict[str, object] = {
-            "role": (
-                "menuitemcheckbox"
-                if checkable
-                else "menuitemradio"
-                if selected is not None
-                else "menuitem"
-            ),
-            "aria_checked": None if selected is None else str(selected).lower(),
+            "role": "menuitemcheckbox" if checkable else "menuitem",
             # Out of the tab order, because a menu is walked with the arrow
             # keys: focus is moved here rather than tabbed to, and Tab means
             # "leave", which the browser then does for us. Roving focus is
@@ -279,7 +250,7 @@ class MenuItem(Clickable):
                 FOCUS_RING_INSET,
                 # The gutter the tick sits in, so the labels of a group of
                 # checkable items line up whether or not they are ticked.
-                classes_if(checkable or selected is not None, ["relative", "ps-7"]),
+                classes_if(checkable, ["relative", "ps-7"]),
             ),
             # Its own state, so the tick answers the click without a round
             # trip; x_model or an AJAX action can take it over.

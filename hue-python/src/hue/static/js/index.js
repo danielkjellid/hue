@@ -7,6 +7,7 @@ import {
 	registerTableColumns,
 	registerTableData,
 	registerTableFilters,
+	registerTableReset,
 	registerTableSearch,
 } from "./table.js";
 import { registerThemeStore } from "./theme.js";
@@ -43,6 +44,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerTableSearch(Alpine);
 	registerTableFilters(Alpine);
 	registerTableColumns(Alpine);
+	registerTableReset(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
 	registerTocData(Alpine);
