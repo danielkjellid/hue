@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, datatable
 from hue.types.core import ComponentType
-from hue.ui import Alert, Column
+from hue.ui import Alert, Column, DataTable
 
 from hue_docs.content import _prose as pr
 from hue_docs.models import ProsePage
@@ -90,6 +91,10 @@ class _Router:
         action = params.get("action")
         return f"/invoices/{action}/" if action else "/invoices/"
 
+    async def _run_sync(self, func: Any, /, *args: Any) -> Any:
+        # A list of dictionaries has no event loop to keep off.
+        return func(*args)
+
 
 def _archive(request: Any, ids: list[str]) -> None:
     """A service function, which is all an action ever is."""
@@ -140,7 +145,18 @@ def _table(key: str) -> Any:
 
 
 def _specimen(key: str, **params: str) -> ComponentType:
-    return pr.section(_table(key).bind(_Request(**params)))
+    """
+    The table drawn the way a view draws it. Each specimen is a request of
+    its own, so each is wrapped in a context carrying it - the nearest one
+    wins, which is the same rule that lets the page's own sit outside.
+    """
+    return pr.section(
+        HueContext(
+            DataTable.from_state(_table(key)),
+            request=_Request(**params),
+            csrf_token="",
+        )
+    )
 
 
 _DECLARATION = """def invoices_for(request, asked):
@@ -177,67 +193,59 @@ class InvoicesView(HueView):
     )
 
     async def index(self, request, context):
-        return Page(title="Invoices", body=self.invoices.bind(request))"""
+        return Page(title="Invoices", body=DataTable.from_state(self.invoices))"""
 
 
 def _build() -> ComponentType:
     return pr.page(
         pr.h1("Data tables"),
         pr.lead(
-            "A table that knows where its own state lives. One declaration "
-            "says what the columns are, where the rows come from and what "
-            "there is to do with the ones that are picked; it registers the "
-            "routes that serve all three, so nothing between a click and a "
-            "handler is wired by hand."
+            "A table that knows where its own state lives. One declaration says what "
+            "the columns are, where the rows come from and which actions can run on "
+            "picked rows. It registers the routes that serve all three, so nothing "
+            "between a click and a handler is wired by hand."
         ),
-        pr.h2("The whole of it"),
+        pr.h2("The declaration"),
         pr.code(_DECLARATION),
         pr.p(
-            "Everything below is that declaration, taken apart. The examples "
-            "on this page are the same one built against a list of "
-            "dictionaries rather than a queryset - the filtering and the "
-            "ordering are plain Python, so nothing here needs a database to "
-            "be true."
+            "The rest of this page takes that declaration apart. The examples here "
+            "build the same one against a list of dictionaries instead of a queryset. "
+            "Filtering and ordering are plain Python, so nothing on the page needs a "
+            "database."
         ),
-        pr.h2("State is a question, not an event"),
+        pr.h2("State comes from the request"),
         pr.p(
-            "There is no on_sort and no on_search. An order and a search are "
-            "both questions about which rows to show, and rows() is already "
-            "the answer to them: it is handed the state that was asked for "
-            "and returns the rows for it. A handler between the two would "
-            "have nothing to do that the next call does not."
+            "There is no on_sort and no on_search. An order and a search both decide "
+            "which rows to show, and rows() already answers that: it receives the "
+            "state that was asked for and returns the matching rows. A handler in "
+            "between would have nothing to do."
         ),
         pr.p(
-            "That is not a stylistic preference. A page of a lazy queryset is "
-            "sliced after it is ordered, so re-sorting the rows you are "
-            "holding gives you page two of the old order sorted within "
-            "itself. The rows in hand are already the wrong rows, and only "
-            "another query fixes it - which is why the header is a link and "
-            "not a click handler."
+            "This matters because a page of a lazy queryset is sliced after it is "
+            "ordered. Re-sorting the rows you already hold gives page two of the old "
+            "order, sorted within itself, so only another query returns the right "
+            "rows. That is why a sortable header is a link and not a click handler."
         ),
         pr.code(
-            "def invoices_for(asked):\n"
+            "def invoices_for(request, asked):\n"
             "    found = Invoice.objects.filter(\n"
             "        customer__name__icontains=asked.query\n"
             "    )\n"
             '    return found.order_by(asked.sort or "reference")'
         ),
         pr.p(
-            "asked.sort is spelled the way Django and a query string both "
-            'already spell it - "amount", or "-amount" for the other way '
-            "- so a view hands its own sort parameter straight to order_by "
-            "without parsing anything in between."
+            "asked.sort uses the spelling Django and query strings already use: "
+            '"amount", or "-amount" for descending. A view can pass its own sort '
+            "parameter straight to order_by without parsing it."
         ),
         pr.h2("Acting on rows is a write"),
         pr.p(
-            "Picking rows is not something the server needs to hear about; "
-            "doing something with them is. So actions are named, they post, "
-            "and they are handed the ids of what was ticked. Reads and "
-            "writes split the way HTTP already splits them, and the two "
-            "routes the declaration registers are exactly that pair - and "
-            "both go through the same rows(), so an action answers "
-            "with the table in the state it was done in rather than the "
-            "first page of an unsorted one."
+            "The server does not need to hear about rows being picked, only about "
+            "something being done with them. Actions are named, they post, and they "
+            "receive the ids of the ticked rows. The two routes a declaration "
+            "registers follow the usual HTTP split between reads and writes. Both go "
+            "through the same rows(), so after an action the table comes back in the "
+            "state it was in instead of as the first page of an unsorted list."
         ),
         pr.code(
             "GET   /invoices/?sort=-amount&q=contoso   -> the table\n"
@@ -245,31 +253,27 @@ def _build() -> ComponentType:
             language="bash",
         ),
         pr.p(
-            "Both answer with the whole table, so the response to sorting and "
-            "the response to archiving are the same thing and there is only "
-            "one way for the page to be brought up to date."
+            "Both routes answer with the whole table. Sorting and archiving produce "
+            "the same kind of response, so the page has one way to update."
         ),
-        pr.h2("What the ids are"),
+        pr.h2("Identifying rows"),
         pr.p(
-            "identifier names the property a row is known by, and an action "
-            "is handed those values. It is a property of the rows rather "
-            "than one of the columns, because what identifies a row is "
-            "usually not something anybody wants to look at - a primary key, "
-            "not the reference that is printed on the invoice."
+            "identifier names the property a row is known by, and actions receive "
+            "those values. It belongs to the rows instead of the columns because what "
+            "identifies a row is usually not something anyone wants to see: a primary "
+            "key, say, instead of the reference printed on the invoice."
         ),
         pr.p(
-            "Every row has to carry it whether or not a column shows it. A "
-            "declaration whose rows do not raises rather than rendering "
-            "checkboxes with nothing in them, which would post an empty "
-            "selection to an action that then does nothing to nothing."
+            "Every row has to carry it, whether or not a column shows it. If the rows "
+            "lack it, the declaration raises an error. Otherwise the checkboxes would "
+            "carry no value and an action would receive an empty selection."
         ),
-        pr.h2("Under the hood"),
+        pr.h2("How it is wired"),
         pr.p(
-            "The key is the whole of the wiring. It names the fragment path, "
-            "the element the response is swapped into, and by extension the "
-            "URL every link and form on the table points at - so it has to "
-            "be unique on the page, and there is nothing else to keep in "
-            "step."
+            "The key does all of the wiring. It names the fragment path, the element "
+            "each response replaces, and so the URL every link and form on the table "
+            "points at. It has to be unique on the page, and there is nothing else to "
+            "keep in sync."
         ),
         pr.code(
             '<div id="invoices" class="…">           <!-- the shell -->\n'
@@ -290,20 +294,17 @@ def _build() -> ComponentType:
             language="html",
         ),
         pr.p(
-            "One shell, with bands inside it: the toolbar, the rows and the "
-            "pages share a border and a radius rather than floating apart. "
-            "Only the band the table is in scrolls - overflow on the shell "
-            "would clip the Filter and Columns panels, and a panel that "
-            "cannot leave the frame is no panel at all."
+            "The table is one shell with bands inside it. The toolbar, the rows and "
+            "the pages share a border and a radius. Only the band holding the table "
+            "scrolls, because overflow on the shell would clip the Filter and Columns "
+            "panels."
         ),
         pr.p(
-            "None of those URLs is spelled by hand. The key names the two "
-            "routes, and binding the table reverses them through the "
-            "namespace the request came in on - so a view included under a "
-            "prefix, included with a namespace of its own, or mounted twice "
-            "builds links back into the mount the reader is actually in. A "
-            "path written into a link would be right until the first "
-            "include() moved it."
+            "None of these URLs is written by hand. The key names the two routes, and "
+            "binding the table reverses them through the namespace the request came in "
+            "on. A view included under a prefix, included with its own namespace, or "
+            "mounted twice therefore links back into the mount the reader is using. A "
+            "hard-coded path would break as soon as include() moved the view."
         ),
         pr.code(
             'urlpatterns = [path("billing/", include(InvoicesView.urls))]\n'
@@ -313,155 +314,175 @@ def _build() -> ComponentType:
             language="python",
         ),
         pr.p(
-            "The other side of that: a table can only build its URLs while "
-            "the view that declared it is the one serving the request. "
-            "Rendering one from somebody else's page raises rather than "
-            "quietly linking into the wrong namespace."
+            "In return, a table can only build its URLs while the view that declared "
+            "it is serving the request. Rendering it from another view's page raises "
+            "an error instead of linking into the wrong namespace."
         ),
         pr.p(
-            "A sort, a page, a search and a filter all aim at the rows "
-            "rather than at the shell. The toolbar is the one band a "
-            "response never replaces, which is what keeps the caret in the "
-            "search box and an open panel open while the rows underneath "
-            "them change."
+            "Sorting, paging, searching and filtering all replace the rows, not the "
+            "whole shell. No response ever replaces the toolbar, so the caret stays in "
+            "the search box and an open panel stays open while the rows change."
         ),
         pr.p(
-            "The selection posts through real checkboxes, so what is ticked "
-            "is submitted by the browser and not read off the page by "
-            "anything - but the form around them is an empty element they "
-            "name rather than sit inside. A form wrapping the shell would "
-            "swallow the search box, which is a form of its own, and the "
-            "browser would throw the inner one away."
+            "The selection is submitted through real checkboxes, so the browser sends "
+            "what is ticked and nothing reads it off the page. The checkboxes do not "
+            "sit inside the form, though. The form is an empty element that each "
+            "checkbox names with its form attribute. A form around the whole shell "
+            "would contain the search box, which is a form of its own, and browsers "
+            "discard a nested form."
         ),
         pr.p(
-            "x-target is the only part of any of it that needs Alpine: it "
-            "turns a navigation into a swap. With JavaScript switched off "
-            "the same links and the same forms do the same things the long "
-            "way round - except the Columns panel, whose boxes read the "
-            "other way round from what the URL carries and so are wired up "
-            "rather than submitted."
+            "x-target is the only part that needs Alpine: it turns a navigation into a "
+            "swap. With JavaScript off, the same links and forms do the same things "
+            "with full page loads. The Columns panel is the exception. Its checkboxes "
+            "are the inverse of what the URL carries, so Alpine wires them up instead "
+            "of the browser submitting them."
         ),
-        pr.h2("The ways of narrowing it"),
+        pr.h2("Filters and columns"),
         pr.p(
-            "Each filter is a parameter of its own in the URL, a group in "
-            "the panel behind the Filter button, and a chip in the band "
-            "under it. There is no Apply: changes land the moment a box is "
-            "ticked, because the chips already say what is on and already "
-            "undo it."
+            "Each filter gets its own parameter in the URL, a group in the panel "
+            "behind the Filter button and a chip in the band under it. There is no "
+            "Apply button. A change takes effect as soon as a box is ticked, since the "
+            "chips already show what is on and can undo it."
         ),
         pr.code(
             'Filter("status", "Status", options=STATUS)     # ?status=paid,draft\n'
             'Filter("min", "Minimum amount", kind="number") # ?min=500'
         ),
         pr.p(
-            "The chips and the count on the trigger are read off the "
-            "panel's own controls rather than rendered beside them. They "
-            "are the same fact stated twice on purpose - a filter that only "
-            "exists behind a closed popover gets blamed on the data - and "
-            "deriving them means a tick and the chip it puts up happen in "
-            "the same frame rather than a round trip apart."
+            "The chips and the count on the trigger are read from the panel's own "
+            "controls. Stating the same fact in two places is deliberate, because a "
+            "filter that is only visible in a closed popover gets mistaken for missing "
+            "data. Reading them from the controls also means a chip appears in the "
+            "same frame as the tick, with no round trip."
         ),
         pr.p(
-            "An answer a filter never offered is dropped rather than passed "
-            "on. The query string is somewhere anybody can type, and rows() "
-            "should not have to defend itself against what lands in it. A "
-            "filter called sort, q, page, hide or density is refused "
-            "outright, because the table is already using all five."
+            "A filter drops any answer it does not offer instead of passing it on. "
+            "Anyone can type into a query string, and rows() should not have to guard "
+            "against it. Filters named sort, q, page, hide or density are refused, "
+            "because the table already uses those names."
         ),
         pr.p(
-            "hideable names the columns a reader may put away. A ticked box "
-            "in the panel is a column that is showing, which is the way "
-            "round anybody reads a list of columns - while the URL carries "
-            "the ones that are hidden, so a column added later shows itself "
-            "to somebody following an old link rather than hiding from "
-            "them. The locked columns are in the list too, ticked and "
-            "disabled and said to be locked: a table of amounts with no "
-            "invoice number is unreadable, and refusing the click without a "
-            "word would read as something broken."
+            "hideable names the columns a reader may hide. In the panel, a ticked box "
+            "means the column is showing, which is how people read a list of columns. "
+            "The URL carries the hidden columns instead, so a column added later shows "
+            "up for someone following an old link. Locked columns appear in the list "
+            "too, ticked, disabled and labelled as locked. A table of amounts without "
+            "invoice numbers is unreadable, and a click that silently did nothing "
+            "would look broken."
         ),
-        pr.h2("One component, or the parts of one"),
+        pr.h2("Drawing the table"),
         pr.p(
-            "bind() answers with the table itself, and rendering it is the "
-            "whole of it: the search box, the rows and the pages. That is "
-            "what a view wants nine times in ten, and it is one line."
+            "DataTable.from_state() draws the table a declaration describes: "
+            "the search box, the rows and the pages. It binds to the request "
+            "the page is being rendered for, which is already in the "
+            "context, so the view names the table it shows and passes "
+            "nothing else. Anything chained after it, such as a caption or "
+            "an empty state of your own, stays on the table."
         ),
         pr.code(
             "async def index(self, request, context):\n"
-            '    return Page(title="Invoices", body=self.invoices.bind(request))'
+            "    return Page(\n"
+            '        title="Invoices",\n'
+            '        body=DataTable.from_state(self.invoices).caption("Invoices"),\n'
+            "    )"
         ),
         pr.p(
-            "Give it children and it renders those instead. Each of them "
-            "finds the same binding in the context rather than being handed "
-            "it, so a part can sit anywhere inside - a pagination bar in a "
-            "page footer, far from the rows it pages, still knowing which "
-            "page it is on."
+            "layout() draws parts of the table instead. Each part finds the binding in "
+            "the context, so it can sit anywhere inside the layout, and a pagination "
+            "bar in a page footer still knows which page it is on. layout() returns a "
+            "new component each time instead of adding children to the declaration, "
+            "because the declaration is a class attribute shared by every request."
         ),
         pr.code(
-            "self.invoices.bind(request).content(\n"
+            "self.invoices.layout(\n"
             "    TableSearch(),\n"
             "    Card().content(DataTable()),\n"
             "    TablePagination(),\n"
             ")"
         ),
         pr.p(
-            "The parts are TableSearch, TableFilters, TableColumns, "
-            "TableOptions, DataTable and TablePagination. Each of them "
-            "draws nothing and raises a sentence about binding if there is "
-            "no bound table above it, which is the one slip this shape "
-            "invites."
+            "bind(request) is for code that wants the values instead of the "
+            "table, such as the total for a heading. It returns the state, "
+            "the page of rows and the total. It is a coroutine because it is "
+            "what asks for the rows."
         ),
         pr.p(
-            "The search box is a GET form that submits itself 300 "
-            "milliseconds after the last keystroke - long enough that a "
-            "word typed at speed is one request rather than five. A form "
-            "rather than a handler, because Enter already does this. The "
-            "order and the filters ride along as hidden fields, so "
-            "searching keeps everything else the table was narrowed by."
+            "The parts are TableSearch, TableFilters, TableColumns, TableOptions, "
+            "DataTable and TablePagination. Rendered with no bound table above it, "
+            "each one raises an error saying what is missing. That is the one mistake "
+            "this design makes easy."
         ),
         pr.p(
-            "Slash focuses it from anywhere on the page and escape empties "
-            "it, both ignored where they would take a key away from "
-            "something else: slash while focus is in any field, and escape "
-            "while the box is already empty - which leaves that escape for "
-            "whatever the table is inside."
+            "The search box is a GET form that submits itself 300 milliseconds after "
+            "the last keystroke, so a word typed quickly costs one request instead of "
+            "five. It is a form because Enter already submits a form. The order and "
+            "the filters go along as hidden fields, so a search keeps everything else "
+            "the table was narrowed by."
         ),
-        pr.h2("The two states, side by side"),
         pr.p(
-            "Both of these are the declaration at the top of this page, "
-            "bound to a state it might be asked for. The rows really are "
-            "filtered and ordered by the Python above - nothing on this page "
-            "is a picture of a table."
+            "Slash focuses the box from anywhere on the page and Escape clears it. "
+            "Slash is ignored while focus is in any field, and Escape is ignored while "
+            "the box is empty, which leaves that key for whatever the table sits "
+            "inside."
+        ),
+        pr.h2("Why it is declared on the class"),
+        pr.p(
+            "It would read more naturally to build the table inside index, "
+            "where the request already is. The routes are what stop it. A "
+            "declaration registers two routes on the view's router, and they "
+            "have to exist before the framework builds its URL table, which "
+            "Django does once, when the URLconf is imported and before the "
+            "first request arrives. A declaration built inside index would "
+            "register them on the first request, after the table was built, "
+            "so every sort, search and action would come back 404 and the "
+            "URLs could not be reversed."
+        ),
+        pr.p(
+            "FastAPI has the same constraint. Its include_router copies a "
+            "router's routes into the app when it is called, so a route added "
+            "to the router afterwards never reaches the app. The same goes "
+            "for any framework that builds its route table at startup."
+        ),
+        pr.p(
+            "So the declaration is made once, at class scope, and bound once "
+            "per request, when DataTable.from_state() renders it. The view "
+            "names the declaration and never builds it."
+        ),
+        pr.h2("Two examples"),
+        pr.p(
+            "Both tables below are the declaration from the top of this page, bound to "
+            "different requests. The Python above really filters and orders their "
+            "rows."
         ),
         _specimen("invoices", sort="-amount"),
         pr.p(
-            "Sorted by amount, descending, three to a page. And the same "
-            "table searched and filtered - which keeps the order and goes "
-            "back to the first page, because page two of a different set of "
-            "rows is not a page anybody asked for. The chips say what is on "
-            "without anybody having to open the panel to find out:"
+            "The first is sorted by amount, descending, three to a page. The second is "
+            "searched and filtered. It keeps the order and goes back to the first "
+            "page, because page two of a different set of rows is not a page anyone "
+            "asked for. The chips show what is on without opening the panel:"
         ),
         _specimen("payments", q="n", status="paid", sort="customer"),
-        pr.h2("What it assumes"),
+        pr.h2("Assumptions"),
         pr.bullets(
             [
                 pr.p(
-                    "The declaration lives at class scope, because that is "
-                    "the only time a route can be registered. Everything "
-                    "about a table is fixed except which rows answer it, so "
-                    "everything but rows is stated once and rows is the one "
-                    "part that is a function - called for the page, and "
-                    "called again by the routes the declaration registered."
+                    "The declaration lives at class scope because that is the only "
+                    "time a route can be registered. Everything about a table is fixed "
+                    "except which rows answer it, so everything else is stated once "
+                    "and rows is a function. It is called for the page and again by "
+                    "the routes the declaration registered."
                 ),
                 pr.p(
-                    "Every state that matters is in the URL. That is what "
-                    "makes a sorted, searched table a thing you can send to "
-                    "somebody, and what lets the back button work."
+                    "Every state that matters is in the URL. That is what lets you "
+                    "send someone a sorted, searched table, and what makes the back "
+                    "button work."
                 ),
                 pr.p(
-                    "One column is sorted at a time. Clicking another "
-                    "replaces the order rather than adding to it: aria-sort "
-                    "marks one header, and ARIA has no way to say which of "
-                    "two sorted columns came first."
+                    "One column is sorted at a time. Clicking another column replaces "
+                    "the order instead of adding to it: aria-sort marks one header, "
+                    "and ARIA has no way to say which of two sorted columns came "
+                    "first."
                 ),
                 pr.p(
                     "The rows carry the identifier, whether or not a column shows it."
@@ -473,17 +494,24 @@ def _build() -> ComponentType:
                     "the mount point instead of assuming the site root."
                 ),
                 pr.p(
-                    "Narrowing a table is a question for the server, not a "
-                    "pass over the rows in hand. A page of a lazy queryset "
-                    "is sliced after it is filtered and ordered, so the "
-                    "rows on screen are the wrong ones to narrow - which is "
-                    "why every control here is a link or a form and none of "
-                    "them is a handler."
+                    "Narrowing a table is a query to the server. A page of a lazy "
+                    "queryset is sliced after it is filtered and ordered, so the rows "
+                    "on screen are the wrong ones to narrow. That is why every control "
+                    "here is a link or a form and none is a JavaScript handler."
                 ),
                 pr.p(
                     "One table per key, per page. The key is the id every "
                     "part of a table is named from, so two tables sharing "
                     "one would share their controls' ids as well."
+                ),
+                pr.p(
+                    "rows() and an action's handler are plain functions, "
+                    "and they run in a thread rather than on the event "
+                    "loop. Counting and slicing a queryset are both "
+                    "queries and archiving is a write, and Django raises "
+                    "SynchronousOnlyOperation for any query made on the "
+                    "loop. An async function in either place is not "
+                    "supported yet."
                 ),
             ]
         ),
@@ -491,13 +519,12 @@ def _build() -> ComponentType:
         .variant("warning")
         .title("What is not done yet")
         .content(
-            "The no-JavaScript fallback for an action will be refused by "
-            "Django's CSRF middleware, because the form carries no hidden "
-            "token; the AJAX path is fine, since the bundle sends the header "
-            "the middleware reads. The panel does not tally how many rows "
-            "each filter answer would leave, either: the count would have to "
-            "be recomputed on the server and swapped back into the one band "
-            "that is deliberately never swapped."
+            "The no-JavaScript fallback for an action will be refused by Django's CSRF "
+            "middleware, because the form carries no hidden token. The AJAX path "
+            "works, since the bundle sends the header the middleware reads. The panel "
+            "also does not show how many rows each filter answer would leave. That "
+            "count would have to be recomputed on the server and swapped into the one "
+            "band that is never swapped."
         ),
     )
 

@@ -259,6 +259,18 @@ class Router[T_Request]:
             result = await result
         return result
 
+    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
+        """
+        Call a blocking function from inside an async route.
+
+        This is for work a route does on a handler's behalf, such as fetching
+        the rows a table needs or running an action. The base router calls it
+        directly. An integration whose ORM refuses to run on the event loop
+        overrides it to run the call in a thread, as _call_view_func does for a
+        sync handler.
+        """
+        return func(*args)
+
     def _parse_body(self, request: T_Request, adapter: TypeAdapter[Any]) -> Any:
         """
         Parse the request body with the given Pydantic adapter.

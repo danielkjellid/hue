@@ -1,15 +1,14 @@
 """
 A table that knows where its own state lives.
 
-DataTable on its own is a renderer: you tell it what order the rows are in,
-where the next order lives, what the checkboxes are called and what to do
-with them, and you wire the four of those together yourself. Every one of
-them is a separate contract, none of them is checkable, and a table that
-sorts but forgets what was searched for is what you get when one is wrong.
+DataTable on its own only renders. Something else has to tell it what
+order the rows are in, where the next order lives, what the checkboxes
+are called and what to do with them, and each of those is a separate
+contract that nothing checks. A table that sorts but forgets the search
+is what you get when one of them is wrong.
 
-This is the other way round. One declaration says everything a table is,
-and the one part of it that is not fixed - which rows answer it - is the
-one part that is a function:
+A declaration puts all of it in one place. Everything about the table
+is fixed except which rows answer it, and that one part is a function:
 
     def invoices_for(request, asked):
         return Invoice.objects.filter(
@@ -35,24 +34,28 @@ one part that is a function:
         )
 
         async def index(self, request, context):
-            return Page(title="Invoices", body=self.invoices.bind(request))
+            return Page(title="Invoices", body=DataTable.from_state(self.invoices))
 
 It is declared at class scope because that is the only time a route can
 be registered, and the routes it registers call rows() the same way the
-page does. Every way in - the page, a sort, a search, a page number, an
-action - goes through that one function, which is what keeps all five
-answering with the table in the state it was in. Action URLs carry the
-state, so archiving on page two of a sorted table comes back to page two
-of a sorted table.
+page does. The page, a sort, a search, a page number and an action all
+go through that one function, so every response shows the table in the
+state it was in. Action URLs carry the state too, so archiving on page
+two of a sorted table comes back to page two of a sorted table.
 
-rows is everything that matches, not the page of it. The page is sliced
-afterwards, so a paginated table is a count and a slice rather than a
-queryset walked to find out how long it is.
+rows returns everything that matches, and the page is sliced from it
+afterwards. A paginated queryset is then counted and sliced in the
+database without being walked.
 
-bind() answers with the table itself - a component, and the whole of it:
-the search box, the rows and the pages. Give it children instead and it
-renders those, each of them finding the same binding in the context, so
-a pagination bar can sit in a page footer far from the rows it pages.
+DataTable.from_state() draws the table a declaration describes, bound
+to the request the page is rendered for. The request is already in the
+context, so the view passes nothing. layout() draws parts of the table
+instead, and each part finds the same binding in the context, so a
+pagination bar can sit in a page footer far from the rows it pages.
+
+rows() and an action's handler run off the event loop, through the
+router, because both usually use the ORM and the ORM refuses to run on
+the loop.
 """
 
 from __future__ import annotations
@@ -73,6 +76,7 @@ from urllib.parse import urlencode
 
 from htmy import Context, html
 
+from hue.context import HueContext
 from hue.js import unsafe
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
@@ -91,6 +95,7 @@ from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import (
     Column,
     DataTable,
+    TableDeclaration,
     TableSource,
     form_id,
     resolve_value,
@@ -159,14 +164,13 @@ type RowsFor = Callable[[Any, "TableState"], Any]
 @dataclass(frozen=True, slots=True)
 class TableState:
     """
-    What was asked for, read off the request and put back into every URL
-    the table builds - so a sort keeps the search, a search keeps the
+    What was asked for, read off the request and written back into every
+    URL the table builds. A sort keeps the search, a search keeps the
     order, and an action comes back to where it was done.
 
-    chosen() and value() are how rows() reads the filters: one of them
-    for a filter that can hold several answers and one for a filter that
-    holds one, so neither call has to know how the query string spells
-    them.
+    rows() reads the filters with chosen() for a filter that can hold
+    several answers and value() for one that holds a single answer, so it
+    never has to know how the query string spells them.
     """
 
     sort: str | None = None
@@ -191,11 +195,12 @@ class TableState:
 
     def replace(self, **changes: Any) -> TableState:
         """
-        The same state with one thing different, which is what every link
-        on the table is.
+        The same state with one thing changed. Every link on the table is one
+        of these.
 
-        Anything but the page sends you back to the first one: page four
-        of a different search is not a page anybody asked for.
+        Changing anything other than the page resets it to the first one,
+        because page four of a different search is not a page anyone asked
+        for.
         """
         return TableState(
             sort=changes.get("sort", self.sort),
@@ -208,8 +213,8 @@ class TableState:
 
     def without(self, name: str, value: str | None = None) -> TableState:
         """
-        The same state with one filter off, or one answer taken out of
-        one - which is what a chip in the applied band undoes.
+        The same state with one filter off, or one answer removed from it,
+        which is what a chip in the applied band undoes.
         """
         left = {
             key: tuple(v for v in values if key != name or v != value)
@@ -241,13 +246,13 @@ type FilterKind = Literal["choice", "text", "number"]
 @dataclass(frozen=True, slots=True)
 class Filter:
     """
-    One way of narrowing a table, and what it is called in the URL.
+    One way of narrowing a table, and the name it goes by in the URL.
 
-    Given options it is a list to tick through, and multiple says whether
-    more than one can be on at a time; given none it is a field to type
-    a value into. Either way the answers land in the state rows() is
-    handed, and the table draws the panel, the count on the trigger and
-    the chips that undo it.
+    With options it is a list to tick, and multiple says whether more than
+    one can be on at once. Without options it is a field to type a value
+    into. Either way the answers arrive in the state rows() is handed, and
+    the table draws the panel, the count on the trigger and the chips that
+    undo it.
 
         Filter("status", "Status", options=[("paid", "Paid")])
         Filter("min", "Minimum amount", kind="number", prefix="USD")
@@ -263,9 +268,8 @@ class Filter:
 
     def labelled(self, value: str) -> str:
         """
-        What one answer is called, for the chip that undoes it. Its own
-        label when it came from a list, the value itself when it was
-        typed.
+        What one answer is called on the chip that undoes it: the option's
+        label when it came from a list, or the value itself when it was typed.
         """
         for option, label in self.options:
             if option == value:
@@ -276,10 +280,10 @@ class Filter:
 @dataclass(frozen=True, slots=True)
 class BulkAction:
     """
-    Something to do with the rows that are ticked, and what it is called.
+    Something to do with the ticked rows, and what it is called.
 
-    The handler is given the request and the ids, and is whatever you would
-    have written anyway - the service function that archives them.
+    The handler receives the request and the ids. It is whatever you would
+    have written anyway, such as the service function that archives them.
     """
 
     label: str
@@ -299,9 +303,9 @@ def _many(asked: Mapping[str, list[str]], name: str) -> tuple[str, ...]:
     """
     Every value a parameter holds, however it was spelled.
 
-    A browser repeats the name once per box; a link the table built
-    joins them with commas, because that is what somebody hand-editing a
-    query string would write. Both read the same.
+    A browser repeats the name once per checkbox, while links the table
+    builds join the values with commas, since that is what someone editing
+    a query string by hand would write. Both read the same.
     """
     return tuple(
         part for value in asked.get(name, ()) for part in value.split(",") if part
@@ -312,9 +316,9 @@ def _total(rows: Any) -> int:
     """
     How many rows match, without walking them.
 
-    A queryset counts in the database. A list has a count() too, but it
-    wants an argument and raises without one, which is the difference
-    worth catching.
+    A queryset counts in the database. A list also has count(), but it
+    takes an argument and raises without one, so the TypeError is what
+    tells the two apart.
     """
     try:
         return int(rows.count())
@@ -324,10 +328,10 @@ def _total(rows: Any) -> int:
 
 def bound_from(context: Context, component: str) -> BoundTable:
     """
-    The bound table a component is being rendered inside, or an
-    explanation of what is missing.
+    The bound table a component is rendered inside, or an error saying
+    what is missing.
 
-    Every part of a table reads the same one, which is what lets a
+    Every part of a table reads the same binding, which is what lets a
     pagination bar sit in a page footer far from the rows it pages.
     """
     found = context.get(TableSource)
@@ -335,8 +339,8 @@ def bound_from(context: Context, component: str) -> BoundTable:
         return found
     raise ValueError(
         f"{component} draws part of a table bound to a request, and there "
-        f"is none here. Render it inside one: table.bind(request), which "
-        f"is a component and offers itself to everything in it."
+        f"is none here. Put it in a declaration's layout(): "
+        f"self.invoices.layout({component}(), ...)."
     )
 
 
@@ -345,11 +349,10 @@ class TableUrls:
     """
     Where this table's two routes live, for one request.
 
-    Resolved when the table is bound rather than spelled by hand, because
-    a path written into a link is right until the first include() moves
-    the view under a prefix. The routes are registered by name and looked
-    up by the same name, so there is one spelling of each and the
-    framework fills in the rest.
+    The URLs are reversed when the table is bound, because a path written
+    into a link would break as soon as include() moved the view under a
+    prefix. The routes are registered and looked up by the same name, so
+    each is spelled once and the framework fills in the rest.
     """
 
     read: str
@@ -359,12 +362,12 @@ class TableUrls:
 @dataclass(frozen=True, slots=True)
 class BoundTable(TableSource):
     """
-    One table, for one request: what was asked, what answers it, and the
-    page that came back.
+    One table for one request: what was asked, how many rows match, and
+    the page that came back.
 
-    Offered to everything inside the view that binds it. Every link a
-    component draws is on here already, so none of them reaches for the
-    request or works out a URL of its own.
+    Every part of the table reads this from the context. The links a part
+    draws are all built from it, so no part reaches for the request or
+    works out a URL of its own.
     """
 
     declaration: Datatable
@@ -379,35 +382,38 @@ class BoundTable(TableSource):
 
     def href(self, **changes: Any) -> str:
         """
-        This table with one thing changed, which is every link on it.
+        This table with one thing changed. Every link on the table is one of
+        these.
         """
         asked = self.state.replace(**changes).params()
         return self.urls.read + (f"?{urlencode(asked)}" if asked else "")
 
     def build_into(self, into: DataTable) -> DataTable:
         """
-        The DataTable this describes.
+        The DataTable this binding describes.
 
-        A method on the value rather than a function the component
-        imports: table.py knowing about this module would be a circle, and
-        what is being asked here is what the bound state is for.
+        It is a method on the value because table.py cannot import this module
+        without a circular import, and the bound state is what knows the
+        answer.
         """
         declared = self.declaration
         hidden = set(self.state.hidden)
+        # The wiring modifiers are private: they only work as a set, and
+        # this is the one place that sets all of them together.
         into.id(self.key).columns(
             [column for column in declared.columns if column.key not in hidden]
-        ).rows(self.page).compact(self.state.compact).sorted(self.state.sort).sort_href(
-            lambda order: self.href(sort=order)
-        )
+        ).rows(self.page).compact(self.state.compact)._sorted(
+            self.state.sort
+        )._sort_href(lambda order: self.href(sort=order))
 
         if declared.identifier is None:
             return into
 
-        into.selectable(declared.identifier).name(SELECTED)
+        into._selectable(declared.identifier)._name(SELECTED)
         if not declared.actions:
             return into
 
-        into.bulk_actions(
+        into._bulk_actions(
             *(
                 Button()
                 .variant(action.variant)
@@ -423,25 +429,25 @@ class BoundTable(TableSource):
         # table is still the outermost thing and still what a response is
         # swapped into. Every button names its own action, so the form's
         # own is only a fallback for a browser that ignores formaction.
-        return into.form(self.action_url(next(iter(declared.actions))))
+        return into._form(self.action_url(next(iter(declared.actions))))
 
     def action_url(self, name: str) -> str:
         """
-        Where an action posts - carrying the state, so what comes back is
-        the table as it was and not the first page of an unsorted one.
+        Where an action posts. The URL carries the state, so the response is
+        the table as it was instead of the first page of an unsorted one.
         """
         asked = self.state.params()
         return self.urls.act[name] + (f"?{urlencode(asked)}" if asked else "")
 
 
-class Datatable:
+class Datatable(TableDeclaration):
     """
     One table's declaration, and the two routes that serve it.
 
-    Everything about a table is fixed except which rows answer it, so
-    everything but rows is stated here once and rows is a function called
-    per request. Declared at class scope, because that is the only time a
-    route can be registered.
+    Everything about a table is fixed except which rows answer it, so the
+    rest is stated here once and rows is a function called per request.
+    It is declared at class scope because that is the only time a route
+    can be registered.
     """
 
     def __init__(  # noqa: PLR0913 - the declaration, and see datatable() below
@@ -495,29 +501,82 @@ class Datatable:
             )
         self._register()
 
-    def bind(self, request: Any) -> TableView:
+    async def draw(self, table: DataTable, context: Context) -> Component:
         """
-        The table, for this request: a component, and the whole of it.
+        The table bound to the request this page is rendered for, with the
+        ways to narrow it in a band above the rows and the pages below.
 
-        Rendered on its own it is the search box, the rows and the pages.
-        Given children it renders those instead, and each of them finds
-        this same binding in the context - which is what lets a
-        pagination bar sit in a page footer far from the rows it pages.
+        DataTable.from_state() hands over to this. The request is already in
+        the context, so the view has nothing to pass.
+        """
+        bound = await self._bound_for(context)
+        return _TableView(bound).content(self._furnish(bound.build_into(table)))
+
+    def layout(self, *parts: ComponentType) -> ComponentType:
+        """
+        Parts of the table instead of all of it, laid out however the page
+        wants, such as a pagination bar in the page footer and the rows in a
+        card.
+
+        It returns a new component on every call instead of adding children
+        to the declaration, because the declaration is a class attribute that
+        every request shares.
+        """
+        return _LaidOut(self, parts)
+
+    async def bind(self, request: Any) -> BoundTable:
+        """
+        The state, the page of rows and the total for one request, for code
+        that wants the values instead of the table.
         """
         asked = self.state_of(request)
+        page, total = await self._router._run_sync(self._fetch, request, asked)
+        self._check_identifier(page)
+        return BoundTable(self, asked, page, total, self._urls_for(request))
+
+    async def _bound_for(self, context: Context) -> BoundTable:
+        return await self.bind(HueContext.from_context(context).request)
+
+    def _furnish(self, table: DataTable) -> DataTable:
+        """
+        The bands a declared table gets: the search and the panels above the
+        rows, and the pages below, all in one frame.
+        """
+        band: list[ComponentType] = []
+        if self.search:
+            band.append(TableSearch())
+        # After the spacer, at the end of the band: a panel anchored to a
+        # trigger near the middle opens across the rows.
+        controls: list[ComponentType] = []
+        if self.filters:
+            controls.append(TableFilters())
+        if self.hideable:
+            controls.append(TableColumns())
+        if self.density:
+            controls.append(TableOptions())
+        if controls:
+            band.extend((html.span(class_="flex-1"), *controls))
+        if band:
+            table._toolbar(*band)
+        return table._under(TablePagination())
+
+    def _fetch(self, request: Any, asked: TableState) -> tuple[Rows, int]:
+        """
+        The page of rows and the total. These are all the queries a table
+        makes, in one blocking call the router can run off the event loop.
+        """
         matching = self.rows(request, asked)
         total = _total(matching)
         start = (asked.page - 1) * self.page_size
-        page = list(matching[start : start + self.page_size])
-        self._check_identifier(page)
-        return TableView(BoundTable(self, asked, page, total, self._urls_for(request)))
+        return list(matching[start : start + self.page_size]), total
 
     def _urls_for(self, request: Any) -> TableUrls:
         """
         Both routes, reversed for this request.
 
-        Once per binding rather than once per link: every href on the
-        table is one of these two with a different query string on it.
+        This happens once per binding instead of once per link, because every
+        href on the table is one of these two URLs with a different query
+        string.
         """
         return TableUrls(
             read=self._router._url_for(request, self._read_route),
@@ -552,9 +611,9 @@ class Datatable:
         """
         What each filter was told.
 
-        An answer a list-shaped filter does not offer is dropped rather
-        than passed on: the query string is somewhere anybody can type,
-        and rows() should not have to defend itself against it.
+        A list-shaped filter drops any answer it does not offer. Anyone can
+        type into a query string, and rows() should not have to guard against
+        it.
         """
         found: dict[str, tuple[str, ...]] = {}
         for declared in self.filters:
@@ -568,13 +627,12 @@ class Datatable:
 
     def _check_identifier(self, page: Rows) -> None:
         """
-        Every row has to carry what it is known by.
+        Every row has to carry the property it is known by.
 
-        Checked here rather than left to the first checkbox, because the
-        error out of that names a key and a dict and not the reason either
-        of them matters - and because a table whose ids are quietly
-        missing posts an empty selection to an action that then does
-        nothing to nothing.
+        This is checked up front because the error from the first checkbox
+        would name a key and a dict without saying why either matters. A table
+        whose ids were silently missing would also post an empty selection to
+        its action.
         """
         if self.identifier is None or not page:
             return
@@ -593,14 +651,13 @@ class Datatable:
         """
         One route to read a state and one to act on a selection.
 
-        Both go through the described method and both answer with the
-        table, so the response to sorting and the response to archiving
-        are the same thing and there is one way for the page to come up to
-        date.
+        Both answer with the whole table drawn from the declaration, so the
+        response to a sort and the response to an archive are the same kind
+        of thing and the page has one way to update.
         """
 
         async def read(view: Any, request: Any, context: Any) -> ComponentType:
-            return self.bind(request)
+            return DataTable.from_state(self)
 
         async def act(
             view: Any, request: Any, context: Any, action: str
@@ -611,9 +668,11 @@ class Datatable:
                     f"{self.key} has no action called {action!r}. It has "
                     f"{sorted(self.actions) or 'none at all'}."
                 )
-            chosen.handler(request, self._router._get_form_list(request, SELECTED))
-            # Bound after, because the rows have just changed under it.
-            return self.bind(request)
+            await self._router._run_sync(
+                chosen.handler, request, self._router._get_form_list(request, SELECTED)
+            )
+            # Drawn after, because the rows have just changed under it.
+            return DataTable.from_state(self)
 
         # Named before they are registered, not after: the router takes
         # a route's name off __name__ as it decorates.
@@ -641,36 +700,32 @@ def datatable(  # noqa: PLR0913 - see "One argument each" below
     Declare a table and the two routes that serve it.
 
     key names the fragment path and the element every response is swapped
-    into, so it has to be unique on the page - and it is the whole of the
-    wiring, since every URL the table builds comes off it.
+    into, so it has to be unique on the page. Every URL the table builds
+    comes from it.
 
     rows is the only part of a table that is not fixed, so it is the only
-    part that is a function. It is handed the request and the state that
-    was asked for, and returns everything that matches - the whole
-    filtered, ordered set, not the page of it. The page is sliced
-    afterwards, so a queryset stays lazy and gets counted rather than
-    walked.
+    part that is a function. It receives the request and the state that
+    was asked for, and returns everything that matches: the whole filtered,
+    ordered set. The page is sliced afterwards, so a queryset stays lazy
+    and is counted instead of walked.
 
-    identifier names the property a row is known by. Giving one is what
-    puts a checkbox in every row, and it is those values an action is
-    handed. It is not one of the columns, because a row is usually known
-    by something nobody wants to see.
+    identifier names the property a row is known by. Giving one puts a
+    checkbox in every row, and actions receive those values. It is
+    separate from the columns because a row is usually known by something
+    nobody wants to see.
 
-    filters are the other ways of narrowing it. Each one becomes a
-    parameter of its own in the URL, a group in the panel behind the
-    Filter button, and a chip in the band under it - and its answers
-    arrive in the same state rows() is already reading the search off.
+    filters are the other ways of narrowing the table. Each one gets its
+    own parameter in the URL, a group in the panel behind the Filter
+    button and a chip in the band under it, and its answers arrive in the
+    same state rows() reads the search from.
 
-    hideable names the columns a reader may put away. Everything else is
-    locked, and the panel says so on the row rather than refusing the
-    click silently. density adds the choice between comfortable rows and
-    compact ones.
+    hideable names the columns a reader may hide. The others are locked,
+    and the panel marks them as locked instead of ignoring the click.
+    density adds a choice between comfortable and compact rows.
 
-    One argument each: search, filters, hideable and density are all the
-    same thing said four times - the ways of narrowing the table - and
-    there is a case for them being one toolbar argument instead. Left
-    apart for now, while there is still something being learned about
-    what each of them needs.
+    search, filters, hideable and density each get their own argument for
+    now. They are all ways of narrowing the table and could become one
+    toolbar argument, but it is too early to know what each of them needs.
     """
     return Datatable(
         router,
@@ -692,19 +747,28 @@ def datatable(  # noqa: PLR0913 - see "One argument each" below
 # ----------------------------------------------------------------------
 
 
-class TableView(ChainableComponent):
+class _LaidOut:
     """
-    One table, bound to one request, and everything that narrows it.
+    A declaration and the parts of it a page chose, bound when rendered.
+    """
 
-    What bind() returns, and a component like any other. Rendered on its
-    own it is the whole package - the search box, the rows and the pages.
-    Given children it renders those instead, and every part of a table
-    finds this binding in the context rather than being handed it, so a
-    pagination bar can sit in a page footer far from the rows it pages.
+    def __init__(
+        self, declaration: Datatable, parts: tuple[ComponentType, ...]
+    ) -> None:
+        self._declaration = declaration
+        self._parts = parts
 
-        self.invoices.bind(request)
+    async def htmy(self, context: Context) -> Component:
+        bound = await self._declaration._bound_for(context)
+        return _TableView(bound).content(*self._parts)
 
-        self.invoices.bind(request).content(TableSearch(), DataTable())
+
+class _TableView(ChainableComponent):
+    """
+    Offers one binding to every part of a table rendered inside it.
+
+    The binding is a frozen value, because every part reads it and none of
+    them owns it, so a separate component has to provide it.
     """
 
     category: ClassVar[str | None] = None
@@ -713,78 +777,19 @@ class TableView(ChainableComponent):
         super().__init__()
         self._bound = bound
 
-    @property
-    def state(self) -> TableState:
-        """What was asked for."""
-        return self._bound.state
-
-    @property
-    def page(self) -> Rows:
-        """The rows that answer it, for the page being looked at."""
-        return self._bound.page
-
-    @property
-    def total(self) -> int:
-        """How many rows match in all, not just on this page."""
-        return self._bound.total
-
-    @property
-    def urls(self) -> TableUrls:
-        """Where this table's own routes live."""
-        return self._bound.urls
-
-    def href(self, **changes: Any) -> str:
-        """
-        This table with one thing changed, which is every link on it -
-        and what a view links to when it wants to send somebody to a
-        state of it.
-        """
-        return self._bound.href(**changes)
-
     def htmy_context(self) -> Context:
         return {TableSource: self._bound}
 
     def _render(self, context: Context) -> Component:
-        return html.div(
-            *(self._children or self._package()),
-            class_=classnames("flex flex-col gap-3", self._get_prop("class_")),
-            **self._get_base_html_attrs(),
-        )
-
-    def _package(self) -> tuple[ComponentType, ...]:
-        """
-        The whole table when nobody said how to lay it out, welded into
-        one frame: a band of ways to narrow it, the rows, and a band with
-        the pages. One border and one radius, because they are one thing.
-        """
-        declared = self._bound.declaration
-        table = DataTable().under(TablePagination())
-        band: list[ComponentType] = []
-        if declared.search:
-            band.append(TableSearch())
-        # After the spacer, at the end of the band: a panel anchored to a
-        # trigger near the middle opens across the rows.
-        controls: list[ComponentType] = []
-        if declared.filters:
-            controls.append(TableFilters())
-        if declared.hideable:
-            controls.append(TableColumns())
-        if declared.density:
-            controls.append(TableOptions())
-        if controls:
-            band.extend((html.span(class_="flex-1"), *controls))
-        if band:
-            table.toolbar(*band)
-        return (table,)
+        return html.div(*self._children, class_="flex flex-col gap-3")
 
 
 class TableSearch(ChainableComponent):
     """
-    The box above a table, and the one part of it that is not swapped.
+    The search box for a table.
 
-    Its own component because of where it has to be: the frame is what a
-    response replaces, and a box swapped out from under the person typing
-    in it loses the caret along with the focus.
+    In the default layout it sits in the toolbar, which no response
+    replaces, so the box keeps its caret and focus while the rows change.
     """
 
     category: ClassVar[str | None] = None
@@ -811,9 +816,7 @@ class TableSearch(ChainableComponent):
 
 class TablePagination(ChainableComponent):
     """
-    The pages of a table, under the frame rather than inside it - so it is
-    drawn from the same state as the rows and does not vanish with them
-    when they are swapped.
+    The pages of a table, drawn from the same binding as the rows.
     """
 
     category: ClassVar[str | None] = None
@@ -841,12 +844,12 @@ class TablePagination(ChainableComponent):
 
 class TableFilters(ChainableComponent):
     """
-    The other ways of narrowing a table: a panel of them behind one
-    button, and a chip for every one that is on.
+    The other ways of narrowing a table: a panel of filters behind one
+    button, and a chip for each one that is on.
 
-    The panel is a GET form that submits itself the moment something in
-    it changes - there is no Apply, because the chips already say what is
-    on and already undo it.
+    The panel is a GET form that submits itself as soon as anything in it
+    changes. There is no Apply button, since the chips already show what is
+    on and can undo it.
     """
 
     category: ClassVar[str | None] = None
@@ -890,7 +893,7 @@ class TableFilters(ChainableComponent):
 
 def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentType:
     """
-    One popover holding every filter, grouped and legended.
+    One popover holding every filter, each in a legended group.
     """
     return (
         Popover()
@@ -924,9 +927,9 @@ def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentTyp
 
 def _filter_group(bound: BoundTable, declared: Filter, *, first: bool) -> ComponentType:
     """
-    One filter, as a legended group - which is what a set of boxes that
-    answer the same question is, and the only way a screen reader hears
-    the question before the answers.
+    One filter as a fieldset with a legend. A set of checkboxes that
+    answer one question is a group, and the legend is how a screen reader
+    hears the question before the answers.
     """
     picked = bound.state.chosen(declared.name)
     if not declared.options:
@@ -958,11 +961,11 @@ def _filter_group(bound: BoundTable, declared: Filter, *, first: bool) -> Compon
 
 def _filter_field(key: str, declared: Filter, picked: tuple[str, ...]) -> ComponentType:
     """
-    A filter with nothing to tick is one to type into.
+    A text or number field, for a filter with no options to tick.
 
-    The id carries the table's key and the name does not: the name is the
-    query parameter, which is the same on every table, and the id has to
-    be the one thing on the page it names.
+    The id carries the table's key and the name does not. The name is the
+    query parameter, which is the same on every table, while the id has to
+    be unique on the page.
     """
     field = NumberInput() if declared.kind == "number" else TextInput()
     field.name(declared.name).label(declared.label).hidden_label().size("sm")
@@ -978,10 +981,10 @@ def _filter_field(key: str, declared: Filter, picked: tuple[str, ...]) -> Compon
 
 def _applied_chips() -> ComponentType:
     """
-    Everything that is on, and one press to take any of it off.
+    Everything that is on, and one press to remove any of it.
 
-    A whole line of the band to itself, so a narrowed table says so above
-    the rows rather than only behind a closed popover.
+    The chips take a full line of the band, so a narrowed table says so
+    above the rows as well as inside the closed popover.
     """
     return html.div(
         html.span("Applied", class_=_APPLIED_LABEL),
@@ -1010,17 +1013,15 @@ def _applied_chips() -> ComponentType:
 
 class TableColumns(ChainableComponent):
     """
-    Which columns are showing, and the ones that cannot be put away.
+    Which columns are showing, including the ones that cannot be hidden.
 
-    A checkbox list behind one button, with the count in its header. A
-    ticked box is a column that is showing, which is the way round
-    anybody reads a list of columns - but the URL carries the ones that
-    are hidden, so a column added later shows itself to somebody
-    following an old link rather than hiding from them.
+    A checkbox list behind one button, with a count in its header. A
+    ticked box means the column is showing, which is how people read a
+    list of columns. The URL carries the hidden ones instead, so a column
+    added later shows up for someone following an old link.
 
-    The columns nobody may hide are in the list too, ticked and disabled
-    and said to be locked: the affordance states the rule rather than
-    refusing the click without a word.
+    Locked columns are in the list too, ticked, disabled and labelled as
+    locked, so the rule is visible instead of a click that does nothing.
     """
 
     category: ClassVar[str | None] = None
@@ -1084,8 +1085,9 @@ def _column_row(
     hidden: set[str],
 ) -> ComponentType:
     """
-    One column in the panel. The box carries the key when the column is
-    off, so the form submits exactly the list of what is hidden.
+    One column in the panel, its box ticked while the column shows. The
+    boxes are not submitted: a hidden field built from them carries the
+    list of hidden columns.
     """
     key = str(column.key)
     locked = key not in hideable
@@ -1114,8 +1116,8 @@ def _column_row(
 
 class TableOptions(ChainableComponent):
     """
-    The rest of what can be done to a table, behind one button: how
-    tight the rows are, and a way back to the table as it was.
+    The remaining table options behind one button: how tight the rows
+    are, and a way back to the default view.
     """
 
     category: ClassVar[str | None] = None
@@ -1160,8 +1162,8 @@ def _carried(bound: BoundTable, *, without: set[str]) -> tuple[ComponentType, ..
     """
     The rest of the state, as hidden fields.
 
-    A form narrows one thing and has to leave the others alone, so
-    everything it is not itself about rides along inside it.
+    Each form changes one thing and has to keep the others, so everything
+    it is not about goes along inside it.
     """
     return tuple(
         html.input_(type="hidden", name=name, value=value)
@@ -1172,9 +1174,9 @@ def _carried(bound: BoundTable, *, without: set[str]) -> tuple[ComponentType, ..
 
 def _search_form(bound: BoundTable) -> ComponentType:
     """
-    A GET form of its own. A form because Enter already does this, and
-    x-target only turns the navigation into a swap - so it still works
-    with Alpine switched off.
+    The search box's own GET form. It is a form because Enter already
+    submits one, and x-target only turns the navigation into a swap, so
+    search still works with Alpine switched off.
     """
     return html.form(
         TextInput()

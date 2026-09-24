@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 
 import pytest
 from django.http import HttpRequest, QueryDict
+from django.test import Client
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
 from htmy.html import div as html_div
 from hue.context import HueContextArgs
@@ -142,20 +143,42 @@ def _request(at: str | None = MOUNT, **params: str) -> Any:
     return request
 
 
-def _render(component: Any) -> str:
+def _render(component: Any, request: Any = None) -> str:
+    """
+    A component rendered for a request, the way a page renders it: the
+    request goes in the context, which is where a table looks for it.
+    """
     return asyncio.run(
         render_tree(
             component,
-            context_args=HueContextArgs(request=HttpRequest(), csrf_token="t"),
+            context_args=HueContextArgs(
+                request=HttpRequest() if request is None else request,
+                csrf_token="t",
+            ),
         )
     )
 
 
-def _part(bound: Any, part: Any) -> str:
+def _bind(declaration: Any, request: Any) -> Any:
     """
-    One part of a table, rendered where it finds the binding: inside it.
+    The values a table was drawn from. bind() is a coroutine - it runs
+    rows() through the router - and these tests are sync.
     """
-    return _render(bound.content(part))
+    return asyncio.run(declaration.bind(request))
+
+
+def _table(declaration: Any, request: Any) -> str:
+    """
+    The whole table, drawn the way a view draws it.
+    """
+    return _render(DataTable.from_state(declaration), request)
+
+
+def _part(declaration: Any, request: Any, part: Any) -> str:
+    """
+    One part of a table, rendered where it finds the binding: in a layout.
+    """
+    return _render(declaration.layout(part), request)
 
 
 def test_the_declaration_registers_a_route_to_read_and_one_to_act():
@@ -177,7 +200,7 @@ def test_the_routes_are_named_after_the_table():
 
 
 def test_rows_is_handed_what_was_asked_for(mounted):
-    bound = mounted().invoices.bind(_request(sort="-amount", q="n"))
+    bound = _bind(mounted().invoices, _request(sort="-amount", q="n"))
     assert bound.state.sort == "-amount"
     assert bound.state.query == "n"
     # Contoso has an n in it too; descending by amount is the order asked.
@@ -189,29 +212,32 @@ def test_rows_is_handed_what_was_asked_for(mounted):
 
 
 def test_a_sort_link_keeps_the_search(mounted):
-    bound = mounted().invoices.bind(_request(sort="amount", q="contoso"))
-    html = _part(bound, DataTable())
+    html = _part(mounted().invoices, _request(sort="amount", q="contoso"), DataTable())
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=contoso" in hrefs
 
 
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
-    bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", page="2"))
-    html = _part(bound, TableSearch())
+    html = _part(
+        mounted(page_size=2).invoices, _request(sort="-amount", page="2"), TableSearch()
+    )
     hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
     assert hidden == [("sort", "-amount")]
 
 
 def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
-    bound = mounted(page_size=2).invoices.bind(_request(page="2"))
+    bound = _bind(mounted(page_size=2).invoices, _request(page="2"))
     assert bound.total == 4
     assert [row["pk"] for row in bound.page] == ["23", "58"]
 
 
 def test_pagination_links_keep_the_rest_of_the_state(mounted):
-    bound = mounted(page_size=2).invoices.bind(_request(sort="-amount", q="n"))
-    html = _part(bound, TablePagination())
+    html = _part(
+        mounted(page_size=2).invoices,
+        _request(sort="-amount", q="n"),
+        TablePagination(),
+    )
     hrefs = re.findall(r'href="([^"]*)"', html)
     assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
@@ -219,10 +245,11 @@ def test_pagination_links_keep_the_rest_of_the_state(mounted):
 def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
     # Otherwise archiving on page two of a sorted table answers with the
     # first page of an unsorted one.
-    bound = mounted(page_size=2).invoices.bind(
-        _request(sort="-amount", q="n", page="2")
+    html = _part(
+        mounted(page_size=2).invoices,
+        _request(sort="-amount", q="n", page="2"),
+        DataTable(),
     )
-    html = _part(bound, DataTable())
     assert re.search(
         r'formaction="/billing/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"',
         html,
@@ -232,14 +259,13 @@ def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
 def test_every_url_follows_the_mount_point(mounted):
     # The same declaration, included somewhere else. Nothing about the
     # table changed; where it lives did.
-    bound = mounted(at="admin/reports/").invoices.bind(_request(at="admin/reports/"))
+    bound = _bind(mounted(at="admin/reports/").invoices, _request(at="admin/reports/"))
     assert bound.urls.read == "/admin/reports/invoices/"
     assert bound.urls.act == {"archive": "/admin/reports/invoices/archive/"}
 
 
 def test_the_search_form_posts_back_to_the_mounted_table(mounted):
-    bound = mounted().invoices.bind(_request())
-    html = _part(bound, TableSearch())
+    html = _part(mounted().invoices, _request(), TableSearch())
     assert 'action="/billing/invoices/"' in html
 
 
@@ -252,7 +278,7 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
     elsewhere.resolver_match.namespace = "somebodyelse"
 
     try:
-        view.invoices.bind(elsewhere)
+        _bind(view.invoices, elsewhere)
     except NoReverseMatch as error:
         assert "somebodyelse:invoices_read" in str(error)
         assert "its own fragments" in str(error)
@@ -261,15 +287,13 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
 
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
-    bound = mounted().invoices.bind(_request())
-    html = _part(bound, DataTable())
+    html = _part(mounted().invoices, _request(), DataTable())
     picked = re.findall(r'name="selected" value="(\d+)"', html)
     assert picked == ["41", "17", "23", "58"]
 
 
 def test_the_search_box_submits_itself_after_a_pause(mounted):
-    bound = mounted().invoices.bind(_request())
-    html = _part(bound, TableSearch())
+    html = _part(mounted().invoices, _request(), TableSearch())
     assert re.search(r'@input\.debounce\.300ms="\$el\.requestSubmit\(\)"', html)
     # The rows and not the frame, or the box would be swapped out from
     # under the caret that typed into it. replace, so a word typed at
@@ -302,7 +326,7 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
     )
 
     try:
-        bare.bind(_request(at=None))
+        _bind(bare, _request(at=None))
     except ValueError as error:
         assert "identified by 'pk'" in str(error)
         assert "['invoice']" in str(error)
@@ -317,7 +341,7 @@ def test_a_part_drawn_outside_a_bound_table_says_so():
         try:
             _render(component)
         except ValueError as error:
-            assert "bind(request)" in str(error)
+            assert "layout(" in str(error)
             assert type(component).__name__ in str(error)
         else:  # pragma: no cover - the raise is the behaviour under test
             raise AssertionError(f"{component} drew itself out of nothing")
@@ -327,13 +351,13 @@ def test_a_datatable_with_no_columns_and_nothing_above_it_says_so():
     try:
         _render(DataTable())
     except ValueError as error:
-        assert "bind(request)" in str(error)
+        assert "DataTable.from_state(" in str(error)
     else:  # pragma: no cover - the raise is the behaviour under test
         raise AssertionError("expected a ValueError")
 
 
 def test_the_search_box_answers_to_slash_and_escape(mounted):
-    html = _part(mounted().invoices.bind(_request()), TableSearch())
+    html = _part(mounted().invoices, _request(), TableSearch())
     assert 'x-data="hueTableSearch"' in html
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
     assert 'x-on:keydown.escape="clearField($event)"' in html
@@ -345,25 +369,24 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
 def test_the_applied_row_comes_after_the_controls(mounted):
     # basis-full puts it on a line of its own, and order-last keeps that
     # line under the controls rather than splitting them.
-    html = _part(mounted().invoices.bind(_request(status="paid")), TableFilters())
+    html = _part(mounted().invoices, _request(status="paid"), TableFilters())
     assert "order-last" in html
     assert "basis-full" in html
 
 
 def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
-    bound = mounted(page_size=2).invoices.bind(_request())
-    html = _part(bound, TablePagination())
+    html = _part(mounted(page_size=2).invoices, _request(), TablePagination())
     assert 'x-target.push="invoices-rows"' in html
 
 
 def test_a_filter_narrows_the_rows_it_names(mounted):
-    bound = mounted().invoices.bind(_request(status="paid"))
+    bound = _bind(mounted().invoices, _request(status="paid"))
     assert bound.state.chosen("status") == ("paid",)
     assert [row["pk"] for row in bound.page] == ["41", "23"]
 
 
 def test_several_answers_to_one_filter_ride_in_one_parameter(mounted):
-    bound = mounted().invoices.bind(_request(status="paid,draft"))
+    bound = _bind(mounted().invoices, _request(status="paid,draft"))
     assert bound.state.chosen("status") == ("paid", "draft")
     assert len(bound.page) == 4
 
@@ -371,23 +394,23 @@ def test_several_answers_to_one_filter_ride_in_one_parameter(mounted):
 def test_an_answer_the_filter_never_offered_is_dropped(mounted):
     # The query string is somewhere anybody can type, and rows() should
     # not have to defend itself against what lands in it.
-    bound = mounted().invoices.bind(_request(status="paid,whatever"))
+    bound = _bind(mounted().invoices, _request(status="paid,whatever"))
     assert bound.state.chosen("status") == ("paid",)
 
 
 def test_a_filter_with_nothing_to_tick_takes_what_it_is_given(mounted):
-    bound = mounted().invoices.bind(_request(min="1000"))
+    bound = _bind(mounted().invoices, _request(min="1000"))
     assert bound.state.value("min") == "1000"
     assert [row["pk"] for row in bound.page] == ["41", "17"]
 
 
 def test_a_filter_rides_in_every_url_the_table_builds(mounted):
-    bound = mounted().invoices.bind(_request(status="paid", sort="amount"))
+    bound = _bind(mounted().invoices, _request(status="paid", sort="amount"))
     assert bound.href(sort="-amount") == "/billing/invoices/?sort=-amount&status=paid"
 
 
 def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
-    html = _part(mounted().invoices.bind(_request(status="paid")), TableFilters())
+    html = _part(mounted().invoices, _request(status="paid"), TableFilters())
     assert 'x-data="hueTableFilters"' in html
     # The count on the trigger and the chips in the band are the same
     # fact twice, both read off the controls rather than sent down.
@@ -424,13 +447,13 @@ def test_a_browser_repeating_a_name_is_read_the_same_as_a_comma(mounted):
     request = MagicMock()
     request.GET = QueryDict("status=paid&status=draft")
     request.resolver_match = resolve(f"/{MOUNT}")
-    assert view.invoices.bind(request).state.chosen("status") == ("paid", "draft")
+    assert _bind(view.invoices, request).state.chosen("status") == ("paid", "draft")
 
 
 def test_a_hidden_column_is_not_drawn(mounted):
-    bound = mounted().invoices.bind(_request(hide="customer"))
-    assert bound.state.hidden == ("customer",)
-    html = _render(bound)
+    view, request = mounted(), _request(hide="customer")
+    assert _bind(view.invoices, request).state.hidden == ("customer",)
+    html = _table(view.invoices, request)
     assert "Northwind" not in html
     assert "INV-2048" in html
 
@@ -438,22 +461,22 @@ def test_a_hidden_column_is_not_drawn(mounted):
 def test_a_column_nobody_may_hide_stays(mounted):
     # Typed into the URL rather than clicked, which is the only way to
     # ask for it - and the answer is no.
-    bound = mounted().invoices.bind(_request(hide="invoice"))
-    assert bound.state.hidden == ()
-    assert "INV-2048" in _render(bound)
+    view, request = mounted(), _request(hide="invoice")
+    assert _bind(view.invoices, request).state.hidden == ()
+    assert "INV-2048" in _table(view.invoices, request)
 
 
 def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     # The way round anybody reads a list of columns, while the URL
     # carries the ones that are hidden.
-    html = _part(mounted().invoices.bind(_request(hide="customer")), TableColumns())
+    html = _part(mounted().invoices, _request(hide="customer"), TableColumns())
     assert 'hueTableColumns(["customer"])' in html
     assert "x-effect=\"$el.checked = showing('customer')\"" in html
     assert "Locked" in html
 
 
 def test_density_is_a_radio_and_a_link(mounted):
-    html = _part(mounted().invoices.bind(_request(density="compact")), TableOptions())
+    html = _part(mounted().invoices, _request(density="compact"), TableOptions())
     assert 'role="menuitemradio"' in html
     assert 'aria-checked="true"' in html
     assert "/billing/invoices/?density=compact" in html
@@ -462,8 +485,8 @@ def test_density_is_a_radio_and_a_link(mounted):
 
 
 def test_compact_tightens_the_rows(mounted):
-    loose = _render(mounted().invoices.bind(_request()))
-    tight = _render(mounted().invoices.bind(_request(density="compact")))
+    loose = _table(mounted().invoices, _request())
+    tight = _table(mounted().invoices, _request(density="compact"))
     assert "_td]:py-[11px]" in loose
     assert "_td]:py-[7px]" in tight
 
@@ -483,10 +506,141 @@ def test_hiding_a_column_nobody_declared_is_refused():
         raise AssertionError("expected a ValueError")
 
 
+def test_the_declaration_draws_itself_for_the_page_it_is_on(mounted):
+    # Nothing to bind: the request is already in the context the page is
+    # rendered with, so a view hands over the declaration as it is.
+    view = mounted()
+    html = asyncio.run(
+        render_tree(
+            DataTable.from_state(view.invoices),
+            context_args=HueContextArgs(
+                request=_request(sort="-amount"), csrf_token="t"
+            ),
+        )
+    )
+    assert 'aria-sort="descending"' in html
+    assert html.index("INV-2050") < html.index("INV-2048")
+
+
+def test_what_is_chained_after_from_state_is_kept(mounted):
+    # The reason it answers with a DataTable rather than something that
+    # only renders as one: a caption or an empty state of your own still
+    # goes on the table the declaration draws.
+    html = _render(
+        DataTable.from_state(mounted().invoices).caption("Invoices, September"),
+        _request(),
+    )
+    assert "<caption" in html
+    assert "Invoices, September" in html
+
+
+def test_one_from_state_can_be_drawn_for_two_requests(mounted):
+    # Drawn into a copy, so the second request is not shown the first
+    # one's rows - which a DataTable filling itself in would do.
+    view = mounted()
+    table = DataTable.from_state(view.invoices)
+    first = _render(table, _request(q="contoso"))
+    second = _render(table, _request(q="northwind"))
+    assert "Contoso" in first and "Northwind" not in first
+    assert "Northwind" in second and "Contoso" not in second
+
+
+def test_layout_draws_the_parts_it_was_given(mounted):
+    view = mounted()
+    html = asyncio.run(
+        render_tree(
+            view.invoices.layout(html_div(TablePagination()), DataTable()),
+            context_args=HueContextArgs(request=_request(), csrf_token="t"),
+        )
+    )
+    assert "<table" in html
+    assert 'aria-label="Pagination' in html
+    assert 'name="q"' not in html
+
+
+def test_a_layout_leaves_the_declaration_whole(mounted):
+    # The declaration is a class attribute every request shares, so a
+    # page laying out parts of it must not change what the next page gets.
+    view = mounted()
+    context_args = HueContextArgs(request=_request(), csrf_token="t")
+    asyncio.run(
+        render_tree(view.invoices.layout(DataTable()), context_args=context_args)
+    )
+    html = asyncio.run(
+        render_tree(DataTable.from_state(view.invoices), context_args=context_args)
+    )
+    assert 'name="q"' in html
+
+
+def _on_the_event_loop() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+def test_the_rows_are_asked_for_off_the_event_loop(urlpatterns_):
+    # Counting and slicing a queryset are both queries, and Django raises
+    # SynchronousOnlyOperation for a query made on the loop.
+    seen: list[bool] = []
+
+    def rows(request: Any, asked: Any) -> Any:
+        seen.append(_on_the_event_loop())
+        return _INVOICES
+
+    class ProbeView(HueView):
+        router = Router[HttpRequest]()
+        invoices = datatable(
+            router, key="invoices", columns=[Column("invoice", "Invoice")], rows=rows
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
+
+    urlpatterns_.append(path(MOUNT, include(ProbeView.urls)))
+    clear_url_caches()
+    _bind(ProbeView.invoices, _request())
+    assert seen == [False]
+
+
+def test_an_action_runs_off_the_event_loop_too(urlpatterns_):
+    # Archiving is a write, which is the same query on the same loop.
+    ran: list[bool] = []
+
+    class ArchiveView(HueView):
+        router = Router[HttpRequest]()
+        invoices = datatable(
+            router,
+            key="invoices",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda request, asked: _INVOICES,
+            identifier="pk",
+            actions={
+                "archive": BulkAction(
+                    "Archive", lambda request, ids: ran.append(_on_the_event_loop())
+                )
+            },
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
+
+    urlpatterns_.append(path(MOUNT, include(ArchiveView.urls)))
+    clear_url_caches()
+    response = Client().post(
+        f"/{MOUNT}invoices/archive/",
+        {"selected": ["41"]},
+        HTTP_X_ALPINE_REQUEST="true",
+    )
+    assert response.status_code == 200
+    assert ran == [False]
+
+
 def test_the_whole_table_is_one_component(mounted):
     # No parts to place: bound and rendered is the search box, the rows
     # and the pages.
-    html = _render(mounted().invoices.bind(_request()))
+    html = _table(mounted().invoices, _request())
     assert re.search(r'name="q"', html)
     assert re.search(r"<table", html)
     assert re.search(r'aria-label="Pagination', html)
@@ -498,8 +652,10 @@ def test_the_whole_table_is_one_component(mounted):
 def test_the_parts_can_be_placed_instead(mounted):
     # And each of them finds the same binding, however deeply it is laid
     # out inside the view.
-    bound = mounted().invoices.bind(_request())
-    html = _render(bound.content(html_div(TablePagination()), DataTable()))
+    html = _render(
+        mounted().invoices.layout(html_div(TablePagination()), DataTable()),
+        _request(),
+    )
     assert re.search(r"<table", html)
     assert re.search(r'aria-label="Pagination', html)
     assert 'type="search"' not in html

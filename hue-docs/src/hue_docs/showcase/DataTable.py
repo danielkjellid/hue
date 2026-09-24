@@ -54,74 +54,6 @@ _PLAIN = """
                     Column("amount", "Amount", align="end"),
 """
 
-_SORTED = """
-                Column("invoice", "Invoice"),
-                Column("amount", "Amount", align="end", sort="amount"),
-"""
-
-# Only Amount sorts here, so there are two orders and both are on this page.
-# The header link goes to the one it asks for, which is the truth: that is
-# where those rows are.
-_BY_AMOUNT = """
-            lambda order: "#sorted-descending"
-            if order.startswith("-")
-            else "#sorted-ascending"
-"""
-
-_CHEAPEST_FIRST = """
-                {"invoice": "INV-2049", "amount": "$840.00"},
-                {"invoice": "INV-2048", "amount": "$1,200.00"},
-                {"invoice": "INV-2050", "amount": "$2,190.00"},
-"""
-
-_DEAREST_FIRST = """
-                {"invoice": "INV-2050", "amount": "$2,190.00"},
-                {"invoice": "INV-2048", "amount": "$1,200.00"},
-                {"invoice": "INV-2049", "amount": "$840.00"},
-"""
-
-
-def _sorted_table(anchor: str, order: str, rows: str) -> str:
-    return f"""
-        DataTable().id("{anchor}").sorted("{order}").sort_href(
-{_BY_AMOUNT}        ).columns(
-            [{_SORTED}            ]
-        ).rows(
-            [{rows}            ]
-        )
-        """
-
-
-SORTING = Showcase(
-    title="Sorting",
-    layout="grid",
-    description=(
-        "The table never sorts anything. A column given a sort gets a header "
-        "that links to the rows in that order, and the server answers with "
-        "them - a page of a lazy queryset could not be re-sorted in any "
-        "case, since the rows in hand are already the wrong rows. Give the "
-        "table an id and the link fetches and swaps it in place instead of "
-        "navigating; leave it off and the same URL does the same thing the "
-        "long way round - and the id is what it aims at. One column at a "
-        "time: clicking a column the rows are not in the order of replaces "
-        "the order rather than adding to "
-        "it, because ARIA can mark one sorted header and has no way to say "
-        "which of two came first. Amount is the only sortable column below, "
-        "and both of its orders are on this page - so the headers really do "
-        "lead to the rows they promise."
-    ),
-    variants=[
-        variant(
-            "Ascending", _sorted_table("sorted-ascending", "amount", _CHEAPEST_FIRST)
-        ),
-        variant(
-            "Descending",
-            _sorted_table("sorted-descending", "-amount", _DEAREST_FIRST),
-        ),
-    ],
-)
-
-
 SHOWCASES: list[Showcase] = [
     Showcase(
         title="Examples",
@@ -136,21 +68,10 @@ SHOWCASES: list[Showcase] = [
             "tabular figures, because without them the decimal points drift "
             "and the column stops being scannable. Cells wrap rather than "
             "truncate: an invoice reference cut off without saying so is "
-            "worse than an uneven row. A column given a sort gets a header "
-            "that links to the rows in that order - the table never sorts "
-            "anything itself, and a page of a lazy queryset could not be "
-            "re-sorted anyway, since the rows in hand are already the wrong "
-            "rows. One column at a time: clicking another column replaces "
-            "the order rather than adding to it, because ARIA has no way to "
-            "say which of two sorted columns came first. "
-            "Every row checkbox names its own row "
-            "- four all announcing 'Select' give a screen reader nothing to "
-            "pick by - and carries a name and a value, so a form around the "
-            "table posts the selection with no JavaScript at all. Tick one "
-            "and the bar above the table appears with the count and what "
-            "there is to do with them; the expressions in those buttons can "
-            "read `selected`, which is the list of values the checkboxes "
-            "carry."
+            "worse than an uneven row. Sorting, searching, filtering and "
+            "acting on picked rows all need the server, so they come with a "
+            "table drawn from a declaration, DataTable.from_state(). The "
+            "Data tables guide shows them working."
         ),
         variants=[
             variant(
@@ -158,10 +79,6 @@ SHOWCASES: list[Showcase] = [
                 f"""
                 DataTable().caption(
                     "Invoices, September 2026 - 3 of 148 shown"
-                ).selectable("invoice").bulk_actions(
-                    Button().variant("outline").size("xs").content("Export"),
-                    Button().variant("danger").size("xs").content("Delete")
-                    .on_click(call("remove", unsafe("selected"))),
                 ).columns(
                     [{_COLUMNS}                ]
                 ).rows(
@@ -228,5 +145,4 @@ SHOWCASES: list[Showcase] = [
             ),
         ],
     ),
-    SORTING,
 ]

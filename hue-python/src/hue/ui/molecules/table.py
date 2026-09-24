@@ -146,40 +146,37 @@ class Table(ChainableComponent):
         """
         Post what is ticked in the table to this URL.
 
-        The form is an empty element in the frame rather than a wrapper
-        around any of it: the checkboxes and the buttons name it with
-        their own form attribute instead of being inside it. Wrapping
-        would put a form around the band above the rows, and the search
-        box in that band is a form of its own - which the browser would
-        throw away.
+        The form is an empty element in the frame, and the checkboxes and
+        buttons name it with their own form attribute. A form wrapped around
+        the frame would contain the search box in the band above the rows,
+        which is a form of its own, and browsers discard a nested form.
         """
         self._props["form"] = action
         return self
 
     def toolbar(self, *values: ComponentType) -> Self:
         """
-        What sits above the table inside the same frame - a bar of things to
-        do with the rows, say. Not a row of the table: it is not part of the
-        grid and nothing in it lines up with a column.
+        What sits above the table inside the same frame, such as a bar of
+        actions for the rows. It is not a row of the table, because it is not
+        part of the grid and nothing in it lines up with a column.
         """
         self._props["toolbar"] = values
         return self
 
     def footer(self, *values: ComponentType) -> Self:
         """
-        What stands in for the rows when there are none: an empty state, an
-        error. It sits under the table and inside the same id, so a
-        response that finds no rows replaces both at once. Not the same
-        thing as TableFooter, which is a row of the table itself.
+        What stands in for the rows when there are none, such as an empty
+        state or an error. It sits under the table inside the same id, so a
+        response that finds no rows replaces both at once. This is different
+        from TableFooter, which is a row of the table itself.
         """
         self._props["footer"] = values
         return self
 
     def under(self, *values: ComponentType) -> Self:
         """
-        The band along the bottom of the frame - the pages, a total. Below
-        the rows and outside what a response replaces, so it is drawn once
-        and does not flicker with them.
+        The band along the bottom of the frame, such as the pages or a total.
+        It sits below the rows, outside the region a response replaces.
         """
         self._props["under"] = values
         return self
@@ -437,14 +434,14 @@ class TableSource(ABC):
     """
     Something that knows what a table is showing.
 
-    Whatever bound a table to a request offers one of these to everything
-    rendered inside it, so a DataTable in there draws itself without being
-    handed anything and without being a direct child of anything.
+    A bound table offers one of these to everything rendered inside it,
+    so a DataTable in there can draw itself without being handed anything
+    and without being a direct child of anything.
 
-    The abstract class lives here rather than with the layer that makes
-    one, so the components can name what they are looking for without
-    importing it - hue.datatable imports the components, and the other way
-    round as well would be a circle.
+    The abstract class lives here instead of with the code that makes one,
+    so the components can name it without importing that code:
+    hue.datatable imports the components, and the reverse import would be
+    circular.
     """
 
     @abstractmethod
@@ -460,11 +457,43 @@ class TableSource(ABC):
         if isinstance(found, cls):
             return found
         raise ValueError(
-            "A DataTable with no columns of its own is drawn by whatever "
-            "bound it to a request, and nothing here has. Give it columns "
-            "and rows, or render it inside a bound table: "
-            "table.bind(request)."
+            "A DataTable with no columns of its own is drawn by the table "
+            "declaration it sits in, and there is none here. Give it columns "
+            "and rows, or draw it from one: "
+            "DataTable.from_state(self.invoices)."
         )
+
+
+class TableDeclaration(ABC):
+    """
+    A table declared once and drawn once per request.
+
+    DataTable.from_state() takes one. It lives here for the same reason
+    TableSource does: the component has to name it without importing the
+    code that makes one.
+    """
+
+    @abstractmethod
+    async def draw(self, table: DataTable, context: Context) -> Component:
+        """
+        This table, bound to the request the page is rendered for and drawn
+        into table, so that anything chained onto table is kept.
+        """
+
+
+class _Drawn:
+    """
+    A DataTable waiting for its declaration, which has to fetch the rows
+    before there is anything to draw. Fetching is a coroutine, and _render
+    is not.
+    """
+
+    def __init__(self, state: TableDeclaration, table: DataTable) -> None:
+        self._state = state
+        self._table = table
+
+    async def htmy(self, context: Context) -> Component:
+        return await self._state.draw(self._table, context)
 
 
 @dataclass(frozen=True)
@@ -472,14 +501,14 @@ class Column:
     """
     One column of a DataTable: where its value comes from, and how it reads.
 
-    key resolves a row's value - a key, a dotted path into a nested record,
-    or a callable given the row. render takes the row instead and returns
-    whatever the cell should hold, for the columns that are a badge or a
-    button rather than a value. align is where the value sits in the cell,
-    and align="end" is what a column of numbers wants: it lines the digits
-    up as well as the edge. sort is what the server orders by, which is
-    often not what the value is read from - give it one and the header
-    becomes a link to the rows in that order.
+    key resolves a row's value. It can be a key, a dotted path into a
+    nested record, or a callable given the row. render takes the row and
+    returns whatever the cell should hold, for columns that show a badge
+    or a button instead of a value. align is where the value sits in the
+    cell; align="end" also lines up the digits, which a column of numbers
+    needs. sort is what the server orders by, often not the field the
+    value is read from. On a table drawn from a declaration it turns the
+    header into a link to the rows in that order.
     """
 
     key: str | Callable[[Mapping[str, Any]], Any]
@@ -491,16 +520,16 @@ class Column:
 
 def rows_id(frame_id: str | None) -> str | None:
     """
-    The id of the region a response replaces: the rows and whatever stands
-    in for them. Derived from the frame's, so naming a table names all of
-    it and there is nothing to keep in step.
+    The id of the region a response replaces: the rows, and whatever
+    stands in for them. It is derived from the frame's id, so naming a
+    table names every part of it.
     """
     return None if frame_id is None else f"{frame_id}-rows"
 
 
 def form_id(frame_id: str | None) -> str | None:
     """
-    The id of the form a table posts through. Derived from the frame's,
+    The id of the form a table posts through, derived from the frame's id
     like the rows region.
     """
     return None if frame_id is None else f"{frame_id}-act"
@@ -528,8 +557,8 @@ def resolve_value(
 
 def _stringify(value: Any) -> str:
     """
-    A resolved scalar as text. Anything else is a render() the column is
-    missing, rather than something to guess at.
+    A resolved scalar as text. A value that is not a scalar needs a
+    render() on its column, so this raises instead of guessing.
     """
     if value is None:
         return ""
@@ -549,12 +578,12 @@ class DataTable(ChainableComponent):
     """
     A Table built from a column definition and a list of records.
 
-    columns() and rows() are the shape of it; everything else is a state it
-    can be in instead. loading() puts placeholder rows under the header,
-    empty() and error() replace the rows with a message under it, and
-    compact() tightens the rows. A column given a sort gets a header that
-    links to the rows in that order - one column at a time, so clicking
-    another replaces the order rather than adding to it.
+    columns() and rows() give it its shape, and everything else is a state
+    it can be in. loading() shows placeholder rows under the header,
+    empty() and error() replace the rows with a message, and compact()
+    tightens the rows. Sorting, searching and acting on picked rows need
+    the server, so they come with a table drawn from a declaration:
+    DataTable.from_state().
     """
 
     category = "Data"
@@ -563,6 +592,17 @@ class DataTable(ChainableComponent):
         super().__init__()
         self._columns: list[Column] = []
         self._rows: Sequence[Mapping[str, Any]] = []
+
+    @classmethod
+    def from_state(cls, state: TableDeclaration) -> Self:
+        """
+        The table a declaration describes, bound to the request of the page it
+        is rendered on. Anything chained after it, such as a caption or your
+        own empty state, is kept.
+        """
+        table = cls()
+        table._props["state"] = state
+        return table
 
     @classmethod
     def example(cls) -> Self:
@@ -605,19 +645,18 @@ class DataTable(ChainableComponent):
         self._props["compact"] = value
         return self
 
-    def form(self, action: str) -> Self:
+    def _form(self, action: str) -> Self:
         """
-        Post what is inside the table to this URL - which is how the rows
-        that are ticked are submitted. See Table.form().
+        Post the ticked rows to this URL. See Table.form().
         """
         self._props["form"] = action
         return self
 
     def loading(self, value: bool = True) -> Self:
         """
-        Placeholder rows under the header while the real ones are on their
-        way, keeping the columns where they are so the page does not jump
-        when they land.
+        Placeholder rows under the header while the real ones load. The
+        columns stay where they are, so the page does not jump when the rows
+        arrive.
         """
         self._props["loading"] = value
         return self
@@ -625,94 +664,101 @@ class DataTable(ChainableComponent):
     def empty(self, value: ComponentType) -> Self:
         """
         What to show in place of the rows when there are none. An Empty that
-        says why there is nothing here and what to do about it beats the
-        default, which can only say that there is nothing.
+        says why and what to do next is better than the default, which can
+        only say there is nothing here.
         """
         self._props["empty"] = value
         return self
 
     def error(self, value: ComponentType) -> Self:
         """
-        What to show when the rows could not be fetched at all. Set, it
-        replaces them whatever else is going on - there is nothing to say
-        about rows nobody has.
+        What to show when the rows could not be fetched. When set, it replaces
+        the rows whatever else is going on, since there is nothing to say
+        about rows that never arrived.
         """
         self._props["error"] = value
         return self
 
-    def selectable(self, key: str | Callable[[Mapping[str, Any]], Any]) -> Self:
+    def _selectable(self, key: str | Callable[[Mapping[str, Any]], Any]) -> Self:
         """
         Put a checkbox at the start of every row, named after what key
-        resolves for it. "Select INV-2050" rather than four checkboxes all
-        announcing "Select", which gives a screen reader nothing to pick by.
+        resolves to for that row. "Select INV-2050" gives a screen reader
+        something to pick by, where four checkboxes all announcing "Select"
+        would not.
         """
         self._props["selectable"] = key
         return self
 
-    def bulk_actions(self, *values: ComponentType) -> Self:
+    def _bulk_actions(self, *values: ComponentType) -> Self:
         """
-        What to do with the rows that are picked, in a bar above them that
-        is there only once at least one is.
+        What to do with the picked rows, in a bar above them that appears once
+        at least one is picked.
 
-        They render inside the table's own Alpine scope, so an expression in
-        one can read selected - the list of values the checkboxes carry:
+        The actions render inside the table's Alpine scope, so an expression in
+        one can read selected, the list of values the checkboxes carry:
 
             Button().content("Delete").on_click(call("remove", unsafe("selected")))
         """
         self._props["bulk_actions"] = values
         return self
 
-    def sorted(self, value: str | None) -> Self:
+    def _sorted(self, value: str | None) -> Self:
         """
-        The order the rows are already in, as the server spells it:
-        "amount" or "-amount" for the other way. The same string Django's
-        order_by takes and the same one a sort query parameter carries, so
-        a view hands its own straight through without parsing it.
+        The order the rows are already in, as the server spells it: "amount",
+        or "-amount" for descending. It is the same string Django's order_by
+        takes and a sort query parameter carries, so a view passes its own
+        straight through.
 
-        The table never sorts anything. A page of a lazy queryset cannot be
-        re-sorted in any case - the rows in hand are already the wrong rows,
-        and only another query fixes that.
+        The table never sorts anything itself. A page of a lazy queryset
+        cannot be re-sorted anyway, because the rows in hand are already the
+        wrong ones and only another query returns the right ones.
         """
         self._props["sorted"] = value
         return self
 
-    def sort_href(self, value: Callable[[str], str]) -> Self:
+    def _sort_href(self, value: Callable[[str], str]) -> Self:
         """
-        Where an order lives, given the order clicking would ask for.
+        Where an order lives, given the order a click would ask for.
 
-        One column at a time: clicking a column the rows are not in the
-        order of replaces the order rather than adding to it, and clicking
-        the one they are in turns it around.
+        One column is sorted at a time. Clicking a column the rows are not
+        sorted by replaces the order, and clicking the one they are sorted by
+        reverses it.
         """
         self._props["sort_href"] = value
         return self
 
-    def name(self, value: str) -> Self:
+    def _name(self, value: str) -> Self:
         """
-        What the row checkboxes are called when the form around the table is
-        submitted. "selected" unless you say otherwise.
+        What the row checkboxes are called when the table's form is
+        submitted, "selected" unless set.
         """
         self._props["name"] = value
         return self
 
-    def toolbar(self, *values: ComponentType) -> Self:
+    def _toolbar(self, *values: ComponentType) -> Self:
         """
-        The band above the rows, welded into the same frame: the ways of
-        narrowing the table. Picking rows takes the band over rather than
-        adding a second one under it, because two bands push the first row
-        out of view at the moment somebody is acting on rows.
+        The band above the rows, inside the same frame: the ways of narrowing
+        the table. Picking rows takes over this band instead of adding a
+        second one, which would push the first row down just as someone is
+        acting on the rows.
         """
         self._props["toolbar"] = values
         return self
 
-    def under(self, *values: ComponentType) -> Self:
+    def _under(self, *values: ComponentType) -> Self:
         """
-        The band along the bottom of the frame: the pages, a total.
+        The band along the bottom of the frame, such as the pages or a total.
         """
         self._props["under"] = values
         return self
 
     def _render(self, context: Context) -> Component:
+        state: TableDeclaration | None = self._get_prop("state")
+        if state is not None:
+            # A copy without the declaration goes in, or drawing it would
+            # hand it straight back to the declaration again.
+            return _Drawn(state, self._without_state())
+
         if not self._columns:
             # Nothing to draw and nobody said what: the bound table above
             # it knows, and says so through the context rather than by
@@ -742,6 +788,23 @@ class DataTable(ChainableComponent):
         if (action := self._get_prop("form")) is not None:
             table.form(action)
 
+        self._frame(table)
+
+        if error is not None:
+            table.footer(error)
+        elif not loading and not self._rows:
+            table.footer(self._get_prop("empty") or _default_empty())
+
+        if class_ := self._get_prop("class_"):
+            table.class_(class_)
+        table._attrs.update(self._attrs)
+        return table
+
+    def _frame(self, table: Table) -> None:
+        """
+        The bands around the rows: a toolbar above, which picking rows
+        takes over, and a band along the bottom.
+        """
         bands: list[ComponentType] = []
         if (values := self._selection_values()) is not None:
             table.x_data(f"hueTableSelection({json.dumps(values)})")
@@ -754,14 +817,13 @@ class DataTable(ChainableComponent):
         if under := self._get_prop("under", ()):
             table.under(html.div(*under, class_=_BAND_BOTTOM))
 
-        if error is not None:
-            table.footer(error)
-        elif not loading and not self._rows:
-            table.footer(self._get_prop("empty") or _default_empty())
-
-        if class_ := self._get_prop("class_"):
-            table.class_(class_)
-        table._attrs.update(self._attrs)
+    def _without_state(self) -> DataTable:
+        table = DataTable()
+        table._props = {k: v for k, v in self._props.items() if k != "state"}
+        table._attrs = dict(self._attrs)
+        table._children = self._children
+        table._columns = list(self._columns)
+        table._rows = self._rows
         return table
 
     def _head(self) -> ComponentType:
@@ -781,8 +843,9 @@ class DataTable(ChainableComponent):
         if href is None:
             raise ValueError(
                 f"Column {column.label!r} is sortable, so its header is a "
-                f"link to the rows in that order - and sort_href() is the "
-                f"only thing that knows where that order lives."
+                f"link to the rows in that order, and only a declaration "
+                f"knows where that order lives. Draw the table from one - "
+                f"DataTable.from_state() - or leave sort off the column."
             )
 
         current = _direction(self._get_prop("sorted"), column.sort)
@@ -808,11 +871,11 @@ class DataTable(ChainableComponent):
 
     def _bands(self, picked: ComponentType | None) -> list[ComponentType]:
         """
-        The one band above the rows, in its two moods.
+        The one band above the rows, in both of its modes.
 
-        Selection takes the band over instead of stacking a second one
-        beneath it, so only one is ever showing and the rows never move
-        down at the moment somebody is reaching for them.
+        Selection replaces the toolbar's contents instead of adding a band
+        beneath it, so only one band shows and the rows never move while
+        someone is reaching for them.
         """
         toolbar: tuple[ComponentType, ...] = self._get_prop("toolbar", ())
         if picked is None:
@@ -830,13 +893,12 @@ class DataTable(ChainableComponent):
 
     def _bulk_bar(self) -> ComponentType | None:
         """
-        The count and the things to do with what is counted.
+        The count of picked rows and the actions for them.
 
-        role="status" so the bar announces itself: controls appearing after
-        a checkbox is ticked are a change a screen reader has no other way
-        of hearing about. It stays in the markup either way, because a live
-        region added to the page at the moment it has something to say is
-        never read out.
+        It has role="status" so it announces itself, since a screen reader has
+        no other way to hear that controls appeared after a checkbox was
+        ticked. It stays in the markup either way, because a live region added
+        at the moment it has something to say is not read out.
         """
         actions: tuple[ComponentType, ...] = self._get_prop("bulk_actions", ())
         if not actions:
@@ -856,9 +918,9 @@ class DataTable(ChainableComponent):
         """
         The checkbox above the column of checkboxes.
 
-        Both of its states are set as DOM properties rather than bound as
-        attributes: indeterminate has no attribute at all, and the checked
-        attribute stops meaning anything once a person has clicked the box.
+        Both of its states are set as DOM properties instead of bound as
+        attributes. indeterminate has no attribute at all, and the checked
+        attribute stops reflecting the state once someone has clicked the box.
         """
         if self._selection_values() is None:
             return UNDEFINED
@@ -894,9 +956,9 @@ class DataTable(ChainableComponent):
 
     def _selection_values(self) -> list[str] | None:
         """
-        What every row would be selected as, or None when the table has no
-        checkboxes. The header needs the whole list to know what all of them
-        is.
+        The value each row would be selected as, or None when the table has
+        no checkboxes. The header needs the whole list to know when all of
+        them are ticked.
         """
         key = self._get_prop("selectable")
         if key is None:
@@ -905,8 +967,9 @@ class DataTable(ChainableComponent):
 
     def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
         """
-        The rows, the placeholders that stand in for them, or nothing at all -
-        a header with a message under it, which is what empty and error are.
+        The rows, the placeholders standing in for them, or nothing at all,
+        which leaves a header with a message under it for the empty and error
+        states.
         """
         if failed or (not loading and not self._rows):
             return ()
@@ -928,9 +991,9 @@ class DataTable(ChainableComponent):
 
     def _placeholders(self) -> ComponentType:
         """
-        Bars where the values will be, as many rows as are already there so
-        the table keeps its height, and hidden from the screen reader that is
-        already being told the table is busy.
+        Bars where the values will be. There are as many rows as are already
+        there, so the table keeps its height, and they are hidden from screen
+        readers, which are already told the table is busy.
         """
         count = len(self._rows) or _PLACEHOLDER_ROWS
         return (
@@ -951,13 +1014,12 @@ class DataTable(ChainableComponent):
 
     def _placeholder(self, column: Column, index: int) -> ComponentType:
         """
-        One bar, standing where the value will.
+        One bar, where the value will be.
 
-        Pushed to the column's own side by a margin rather than by the
-        alignment: a skeleton is a block with a width of its own, and
-        text-align does not move one of those. Without it an ended column
-        would fill in from the wrong side and jump across the moment the
-        rows arrived.
+        It is pushed to the column's side with a margin, because a skeleton is
+        a block with its own width and text-align does not move it. Without
+        the margin an end-aligned column would fill in from the wrong side and
+        jump when the rows arrived.
         """
         bar = Skeleton().width(_placeholder_width(index))
         if column.align != "start":

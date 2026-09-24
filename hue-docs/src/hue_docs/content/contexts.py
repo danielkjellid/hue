@@ -171,6 +171,14 @@ def _build() -> ComponentType:
                     "explicitly keeps it, so the form is the fallback rather "
                     "than an override."
                 ),
+                pr.p(
+                    "TableSource - the table a request was bound to, offered "
+                    "by what a declaration renders as. DataTable, "
+                    "TableSearch, TablePagination and the rest of a table's "
+                    "parts read it, so a part can sit anywhere under the "
+                    "declaration and still know which page of which rows it "
+                    "shows."
+                ),
             ]
         ),
         pr.code(_REQUEST),
@@ -183,10 +191,12 @@ def _build() -> ComponentType:
             "genuinely cannot reach."
         ),
         pr.p(
-            "The request is the case to avoid. It is already in the context "
-            "and almost nothing reads it, which is the healthy outcome: a "
-            "leaf component that reaches for the request is one you can no "
-            "longer render without building one."
+            "The request needs more care. It is already in the context, and a "
+            "leaf that reaches for it can no longer be rendered without a "
+            "request built for it first. Hue reads it in one place: the table "
+            "declaration, whose job is to turn a request into rows. It reads "
+            "it once, at the top of the table, and everything under it reads "
+            "the bound table instead."
         ),
     )
 

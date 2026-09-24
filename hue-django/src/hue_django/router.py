@@ -1,5 +1,6 @@
 import inspect
 import re
+from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -87,6 +88,14 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 f"of its own fragments, and only while it is the one serving "
                 f"the request."
             ) from None
+
+    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
+        """
+        Runs the call in a thread, because the ORM raises
+        SynchronousOnlyOperation for a query made on the event loop, and
+        counting and slicing a queryset are both queries.
+        """
+        return await sync_to_async(func)(*args)
 
     async def _call_view_func(
         self,

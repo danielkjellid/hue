@@ -231,7 +231,7 @@ class TestDataTable:
         # Three checkboxes all announcing "Select" gives a screen reader
         # nothing to select by.
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
@@ -242,7 +242,11 @@ class TestDataTable:
     async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):
         # A form around the table posts them without any JavaScript at all.
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice").name("ids"),
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._selectable("invoice")
+            ._name("ids"),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
@@ -252,7 +256,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
             context_args=context_args,
         )
         # On the frame, so a band above the rows is inside the scope too.
@@ -286,8 +290,8 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            .selectable("invoice")
-            .bulk_actions(Button().content("Delete")),
+            ._selectable("invoice")
+            ._bulk_actions(Button().content("Delete")),
             context_args=context_args,
         )
         assert_selector(html, "div.bg-accent-subtle button")
@@ -304,8 +308,8 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            .selectable("invoice")
-            .bulk_actions(Button().content("Delete")),
+            ._selectable("invoice")
+            ._bulk_actions(Button().content("Delete")),
             context_args=context_args,
         )
         assert_attr(html, "[role=status]", "x-text", "selected.length + ' selected'")
@@ -313,7 +317,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_no_actions_means_no_bar(self, context_args):
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).selectable("invoice"),
+            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
             context_args=context_args,
         )
         assert_no_selector(html, ".bg-accent-subtle")
@@ -328,7 +332,7 @@ class TestDataTable:
             DataTable()
             .columns([Column("amount", "Amount", sort="amount")])
             .rows(_ROWS)
-            .sort_href(lambda order: f"?sort={order}"),
+            ._sort_href(lambda order: f"?sort={order}"),
             context_args=context_args,
         )
         assert_attr(html, "th a", "href", "?sort=amount")
@@ -354,8 +358,8 @@ class TestDataTable:
                 ]
             )
             .rows(_ROWS)
-            .sorted("-amount")
-            .sort_href(lambda order: f"?sort={order}"),
+            ._sorted("-amount")
+            ._sort_href(lambda order: f"?sort={order}"),
             context_args=context_args,
         )
         marked = select(html, "[aria-sort]")
@@ -377,15 +381,17 @@ class TestDataTable:
                 ]
             )
             .rows(_ROWS)
-            .sorted("amount")
-            .sort_href(lambda order: order),
+            ._sorted("amount")
+            ._sort_href(lambda order: order),
             context_args=context_args,
         )
         assert [link["href"] for link in select(html, "th a")] == ["invoice", "-amount"]
 
     @pytest.mark.asyncio
     async def test_a_sortable_column_needs_somewhere_to_go(self, context_args):
-        with pytest.raises(ValueError, match="sort_href"):
+        # Built by hand there is nowhere for the header to link to; the
+        # sentence says where there is.
+        with pytest.raises(ValueError, match="from_state"):
             await render_tree(
                 DataTable()
                 .columns([Column("amount", "Amount", sort="amount")])
@@ -402,7 +408,7 @@ class TestDataTable:
             DataTable()
             .columns([Column("amount", "Amount", sort="amount")])
             .rows(_ROWS)
-            .sort_href(lambda order: f"?sort={order}")
+            ._sort_href(lambda order: f"?sort={order}")
             .id("invoices"),
             context_args=context_args,
         )
@@ -415,7 +421,7 @@ class TestDataTable:
             DataTable()
             .columns([Column("amount", "Amount", sort="amount")])
             .rows(_ROWS)
-            .sort_href(lambda order: f"?sort={order}"),
+            ._sort_href(lambda order: f"?sort={order}"),
             context_args=context_args,
         )
         assert_no_selector(html, "[x-target]")
