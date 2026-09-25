@@ -4,7 +4,7 @@ from functools import cached_property
 from hue.pages import BasePage
 
 from hue_django.conf import settings
-from hue_django.middleware import CSS_URL, JS_URL
+from hue_django.middleware import CSS_URL, JS_URL, versioned_url
 
 
 class Page(BasePage):
@@ -18,11 +18,11 @@ class Page(BasePage):
 
     @cached_property
     def css_url(self) -> str:
-        return CSS_URL
+        return versioned_url(CSS_URL)
 
     @cached_property
     def js_url(self) -> str:
-        return JS_URL
+        return versioned_url(JS_URL)
 
     @cached_property
     def extra_css_urls(self) -> list[str]:
