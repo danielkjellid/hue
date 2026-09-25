@@ -66,6 +66,7 @@ class Radio(ChainableComponent):
         card: bool,
         disabled: bool,
         required: bool,
+        form: str | None,
     ) -> None:
         """
         Called by the group, which owns everything a radio shares with its
@@ -77,6 +78,9 @@ class Radio(ChainableComponent):
         # Required goes on the options rather than the fieldset, which has no
         # such attribute - one marked radio makes the whole name required.
         self._props["required"] = required
+        # The inputs are what a form submits, and a form attribute on the
+        # fieldset around them ties only the fieldset to it.
+        self._props["form"] = form
         if disabled:
             self._props["disabled"] = True
 
@@ -100,6 +104,7 @@ class Radio(ChainableComponent):
                 checked=self._get_prop("checked", False) or None,
                 disabled=disabled or None,
                 required=self._get_prop("required", False) or None,
+                form=self._get_prop("form"),
                 # An explicit name, so the description inside the label does
                 # not become part of it.
                 aria_labelledby=label_id(input_id) if label is not None else None,
@@ -182,6 +187,7 @@ class RadioGroup(FieldControl):
                     card=card,
                     disabled=disabled,
                     required=required,
+                    form=self._attrs.get("form"),
                 )
             options.append(child)
 

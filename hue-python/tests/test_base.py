@@ -4,13 +4,15 @@ These live here (not per component) because every component inherits them — th
 are exercised once, using Button as a concrete vehicle.
 """
 
+import re
+
 import pytest
 from htmy import Renderer
 
 from hue.exceptions import MissingHueContextError
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button
+from hue.ui import Button, TextInput
 
 
 class TestChainableComponent:
@@ -61,6 +63,29 @@ class TestChainableComponent:
     async def test_render_without_hue_context_raises(self):
         with pytest.raises(MissingHueContextError):
             await Renderer().render(Button().content("Hi"))
+
+
+class TestFormElementMixin:
+    """
+    The form attribute, which reaches the element a form submits: the button
+    itself here, and the input inside a control's field.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_button_can_belong_to_a_form_it_is_not_in(self, context_args):
+        html = await render_tree(
+            Button().type("submit").form("invoices").content("Archive"),
+            context_args=context_args,
+        )
+        assert 'form="invoices"' in html
+
+    @pytest.mark.asyncio
+    async def test_it_lands_on_a_controls_own_element(self, context_args):
+        html = await render_tree(
+            TextInput().name("q").label("Search").form("invoices"),
+            context_args=context_args,
+        )
+        assert re.search(r'<input[^>]*form="invoices"', html)
 
 
 class TestAlpinePluginModifiers:

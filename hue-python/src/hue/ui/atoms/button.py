@@ -8,7 +8,7 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import Clickable
+from hue.ui.base import Clickable, FormElementMixin
 from hue.utils import classnames
 
 type ButtonVariant = Literal[
@@ -94,7 +94,7 @@ _PADDING_CLASSES: dict[ButtonSize, str] = {
 }
 
 
-class Button(Clickable):
+class Button(FormElementMixin, Clickable):
     """
     A clickable button.
 
