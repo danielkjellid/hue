@@ -95,8 +95,8 @@ canonical templates. The shape:
   the `for` on the label, and the ids the hint and error hang off. The constructor form
   stays supported; it just isn't what we teach.
 - Named form controls (inputs, checkbox) subclass `FormControl` (`hue-python/src/hue/ui/form.py`),
-  which owns `name`/`label`/`disabled`/`required`/`help_text`/`error_text`, `x_model`, and the
-  `aria-describedby` / `aria-errormessage` wiring — don't re-implement those per control.
+  which owns `name`/`label`/`disabled`/`required`/`help_text`/`error_text`, `x_model`, `form`, and
+  the `aria-describedby` / `aria-errormessage` wiring — don't re-implement those per control.
 - Boolean HTML attributes are true by presence: emit `value or None`, never a raw `False`
   (htmy renders `False` as `attr="false"`, which the browser reads as true).
 - `@classmethod example(cls) -> Self` returns a representative instance for the docs preview.

@@ -437,6 +437,23 @@ class AlpineModelMixin:
         return self
 
 
+class FormElementMixin:
+    """
+    The form attribute, for components that render an element a form can
+    own: a control or a button. It ties the element to a form by id, so the
+    browser submits it with that form wherever it sits on the page.
+    """
+
+    _attrs: dict[str, Any]  # provided by ChainableComponent
+
+    def form(self, value: str) -> Self:
+        """
+        The id of the form this belongs to, when it sits outside it.
+        """
+        self._attrs["form"] = value
+        return self
+
+
 class Clickable(ChainableComponent):
     """
     A component that renders something a browser already treats as a control -
