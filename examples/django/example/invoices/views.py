@@ -17,7 +17,7 @@ from hue import toast
 from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.types.core import ComponentType
-from hue.ui import Badge, Column, DataTable, Stack, Text, ToastRegion
+from hue.ui import Badge, Column, DataTable, Dialog, Stack, Text, ToastRegion
 from hue.ui.atoms.icon import HueIcon
 from hue_django.pages import Page
 from hue_django.router import Router
@@ -107,7 +107,13 @@ class InvoicesView(HueView):
         hideable=["customer__name", "issued_on", "status"],
         actions={
             "paid": BulkAction("Mark as paid", mark_paid, icon=HueIcon("check")),
-            "archive": BulkAction("Archive", archive),
+            "archive": BulkAction(
+                "Archive",
+                archive,
+                confirm=Dialog()
+                .title("Archive these invoices?")
+                .description("They leave the table until the database is reseeded."),
+            ),
         },
         page_size=10,
     )
