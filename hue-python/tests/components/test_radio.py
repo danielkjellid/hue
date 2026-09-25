@@ -32,6 +32,19 @@ class TestRadioGroup:
         assert_selector(html, 'input[type="radio"][name="region"]', count=2)
 
     # value(): both branches
+    # form(): both branches
+    @pytest.mark.asyncio
+    async def test_a_form_the_group_is_outside_reaches_every_option(self, context_args):
+        # The radios are what the form submits; a form attribute on the
+        # fieldset alone would tie only the fieldset to it.
+        html = await render_tree(_group().form("settings"), context_args=context_args)
+        assert_selector(html, 'input[type=radio][form="settings"]', count=2)
+
+    @pytest.mark.asyncio
+    async def test_options_belong_to_no_other_form_by_default(self, context_args):
+        html = await render_tree(_group(), context_args=context_args)
+        assert_no_selector(html, "input[form]")
+
     @pytest.mark.asyncio
     async def test_the_named_option_starts_checked(self, context_args):
         html = await render_tree(_group().value("us"), context_args=context_args)

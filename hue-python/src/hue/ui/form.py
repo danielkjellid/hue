@@ -4,13 +4,13 @@ from htmy import Context
 from typing_extensions import Self
 
 from hue.types.core import ComponentType
-from hue.ui.base import AlpineModelMixin, ChainableComponent
+from hue.ui.base import AlpineModelMixin, ChainableComponent, FormElementMixin
 from hue.ui.molecules.field import Field, error_id, hint_id
 from hue.ui.molecules.form import FormErrors
 from hue.utils import classnames
 
 
-class FormControl(AlpineModelMixin, ChainableComponent):
+class FormControl(AlpineModelMixin, FormElementMixin, ChainableComponent):
     """
     Shared plumbing for every named form control.
 
