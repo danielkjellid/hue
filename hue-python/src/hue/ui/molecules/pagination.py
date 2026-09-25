@@ -291,6 +291,9 @@ def _cursor_step(label: str, enabled: bool) -> ComponentType:
 
 
 def _status(page: int, size: int, total: int) -> list[ComponentType]:
+    if total == 0:
+        # There is no range of nothing, and "showing 1-0" reads as a bug.
+        return ["No records"]
     first = (page - 1) * size + 1
     last = min(page * size, total)
     return [

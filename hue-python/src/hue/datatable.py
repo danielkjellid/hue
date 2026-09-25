@@ -68,6 +68,8 @@ the loop.
 
 from __future__ import annotations
 
+import logging
+from copy import copy
 from dataclasses import dataclass, field, replace
 from http import HTTPStatus
 from math import ceil
@@ -83,8 +85,9 @@ from urllib.parse import urlencode
 
 from htmy import Context, html
 
+from hue import toast
 from hue.context import HueContext
-from hue.js import call, unsafe
+from hue.js import call, close, unsafe
 from hue.router import HueResponse
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
@@ -93,10 +96,14 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.datatable import Column, DataTable, resolve_value
+from hue.ui.molecules.dialog import Dialog
+from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.pagination import Pagination
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import form_id, rows_id
 from hue.utils import classnames, render_when
+
+_log = logging.getLogger(__name__)
 
 # The name every row checkbox is submitted under.
 _SELECTED = "selected"
@@ -300,13 +307,23 @@ class BulkAction:
     never reaches the handler. The icon goes before the label in the bar
     for picked rows.
 
-        BulkAction("Delete", delete_invoices, icon=HueIcon("trash-2"))
+    confirm is a Dialog to answer first, for an action that cannot be taken
+    back. Give it the question; the table adds the button that opens it and
+    the footer, with a way out and the button that does the action.
+
+        BulkAction(
+            "Delete",
+            delete_invoices,
+            variant="danger",
+            confirm=Dialog().destructive().title("Delete these invoices?"),
+        )
     """
 
     label: str
     handler: ActionHandler
     variant: ButtonVariant = "ghost"
     icon: ComponentType | None = None
+    confirm: Dialog | None = None
 
 
 def _one(asked: Mapping[str, list[str]], name: str) -> str | None:
@@ -543,7 +560,7 @@ class _Declaration:
             self, replace(asked, page=number), page, total, self._urls_for(request)
         )
 
-    def _drawn(self, table: DataTable, bound: BoundTable) -> Component:
+    def _drawn(self, table: DataTable, bound: BoundTable) -> ComponentType:
         """
         The whole table for one binding: the rows in the order asked, the
         toolbar above them and the pages below, all in one frame, inside
@@ -561,13 +578,9 @@ class _Declaration:
             table._bulk_actions(
                 self.identifier,
                 *(
-                    Button()
-                    .variant(action.variant)
-                    .size("sm")
-                    .type("submit")
-                    .content(*((action.icon,) if action.icon else ()), action.label)
-                    .form(form_id(self.key) or "")
-                    .formaction(bound.urls.act[name])
+                    _action_control(
+                        action, form_id(self.key) or "", bound.urls.act[name]
+                    )
                     for name, action in self.actions.items()
                 ),
             )
@@ -591,7 +604,11 @@ class _Declaration:
         # response replaces, so the forms up in the toolbar always send
         # the state the table is in now and not the one it was drawn in.
         table._under(_TablePagination(), _TableCarried())
-        return _TableView(bound).content(table)
+        # Your own empty state wins; this one is for a table narrowed to
+        # nothing, which the generic one would blame on the data.
+        if not bound.page and _narrowed(bound.state) and "empty" not in table._props:
+            table.empty(_nothing_matches(bound))
+        return _TableView(bound).content(table, _TableSummary())
 
     def _fetch(self, request: Any, asked: TableState) -> tuple[Rows, int, int]:
         """
@@ -740,7 +757,23 @@ class _Declaration:
             picked = await self._router._run_sync(
                 self._picked, request, asked, posted.get(_SELECTED, [])
             )
-            await self._router._run_sync(chosen.handler, request, picked)
+            try:
+                await self._router._run_sync(chosen.handler, request, picked)
+            except Exception:
+                # Logged with its traceback, since nothing is raised for an
+                # error tracker to catch. The reader is told on the page, and
+                # the selection stays for another try.
+                _log.exception("%s: the %r action failed", self.key, action)
+                toast.danger(
+                    f"{chosen.label} failed",
+                    description="The rows are shown as they are now.",
+                )
+                return HueResponse(
+                    component=self._drawn(
+                        DataTable(), await self._bind(request, asked)
+                    ),
+                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
             # Drawn after, because the rows have just changed under it.
             return self._drawn(DataTable(), await self._bind(request, asked))
 
@@ -757,6 +790,79 @@ build_datatable_state = _Declaration
 # ----------------------------------------------------------------------
 # The components a bound table draws itself with
 # ----------------------------------------------------------------------
+
+
+def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
+    """
+    The button in the bar for one action: the submit itself, or the button
+    that opens its confirmation, with the submit in the dialog's footer.
+    """
+    submit = (
+        Button()
+        .variant(action.variant)
+        .size("sm")
+        .type("submit")
+        .content(*((action.icon,) if action.icon else ()), action.label)
+        .form(form)
+        .formaction(url)
+    )
+    if action.confirm is None:
+        return submit
+    # A copy: the declaration, and the dialog on it, is shared by every
+    # request, and this sets a trigger and a footer of its own on it.
+    dialog = copy(action.confirm)
+    dialog._props = dict(action.confirm._props)
+    return dialog.trigger(
+        Button()
+        .variant(action.variant)
+        .size("sm")
+        .content(*((action.icon,) if action.icon else ()), action.label)
+    ).footer(
+        Button().variant("ghost").content("Cancel").x_on("click", close()),
+        # The answer the dialog asks for, so it is the primary button there
+        # whatever it looks like in the bar, and danger when the action is.
+        # Closed as it submits: the form posts on the click regardless.
+        submit.size("md")
+        .variant("danger" if action.variant == "danger" else "primary")
+        .x_on("click", close()),
+    )
+
+
+def _narrowed(state: TableState) -> bool:
+    return bool(state.query or state.filters)
+
+
+def _nothing_matches(bound: BoundTable) -> ComponentType:
+    """
+    What a table narrowed to nothing says, with the way back out.
+    """
+    # Everything but the search and the filters rides along, so the order
+    # and the hidden columns survive the way back out. Drawn in the rows
+    # region, which every response replaces, so the fields are never stale.
+    cleared = bound.state.replace(query="", filters={}).params()
+    return (
+        Empty()
+        .compact()
+        .title("Nothing matches")
+        .description("No rows match this search and these filters.")
+        .actions(
+            html.form(
+                *(
+                    html.input_(type="hidden", name=name, value=value)
+                    for name, value in cleared.items()
+                ),
+                Button()
+                .variant("outline")
+                .size("xs")
+                .type("submit")
+                .content("Clear search and filters"),
+                method="get",
+                action=bound.urls.read,
+                # The whole frame, so the search box and the panels clear too.
+                **{"x-target.push": bound.key},
+            )
+        )
+    )
 
 
 class _TableView(ChainableComponent):
@@ -778,6 +884,43 @@ class _TableView(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         return html.div(*self._children, class_="flex flex-col gap-3")
+
+
+class _TableSummary(ChainableComponent):
+    """
+    How many rows there are, said to a screen reader after a search, a
+    filter or a page changes them, which it has no other way to hear.
+
+    Outside the frame and synced by id, so the same element stays on the
+    page and only its words change. A live region is only read out when
+    its content changes: one swapped in along with the rows is new, and
+    new regions are not announced.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def _render(self, context: Context) -> Component:
+        bound = _bound_from(context, self)
+        return html.p(
+            _summary(bound),
+            id=f"{bound.key}-summary",
+            role="status",
+            class_="sr-only",
+            **{"x-sync": ""},
+        )
+
+
+def _summary(bound: BoundTable) -> str:
+    total = bound.total
+    if total == 0:
+        return "No rows match." if _narrowed(bound.state) else "No rows."
+    rows = "1 row" if total == 1 else f"{total} rows"
+    size = bound.declaration.page_size
+    if total <= size:
+        return f"{rows}."
+    first = (bound.state.page - 1) * size + 1
+    last = min(total, first + size - 1)
+    return f"{rows}, showing {first} to {last}."
 
 
 class _ToolbarForm(ChainableComponent):

@@ -48,6 +48,13 @@ _FRAME = (
     "[&>*:first-child]:rounded-t-[11px] [&>*:last-child]:rounded-b-[11px]"
 )
 
+# Alpine AJAX marks what it is about to replace aria-busy for as long as the
+# request runs. Dimmed, so a slow query reads as working rather than as a
+# click that did nothing; the attribute itself tells a screen reader.
+_LOADING = (
+    "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:cursor-progress"
+)
+
 # The one band that scrolls, and the only place a table is ever too wide.
 _BODY_BAND = "overflow-x-auto"
 
@@ -176,6 +183,7 @@ class Table(ChainableComponent):
                 # them, so a response that changes the rows changes these.
                 *self._get_prop("under", ()),
                 id=rows_id(frame_id),
+                class_=_LOADING,
             ),
         ]
         action: str | None = self._get_prop("form")
@@ -197,7 +205,7 @@ class Table(ChainableComponent):
         return html.div(
             *inside,
             id=frame_id,
-            class_=_FRAME,
+            class_=classnames(_FRAME, _LOADING),
             **({"x-data": scope} if scope is not None else {}),
         )
 

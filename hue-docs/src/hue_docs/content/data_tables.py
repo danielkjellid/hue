@@ -471,6 +471,47 @@ def _build() -> ComponentType:
             "the box is empty, which leaves that key for whatever the table sits "
             "inside."
         ),
+        pr.h2("What the reader is told"),
+        pr.p(
+            "An action that cannot be taken back can ask first. Give its "
+            "BulkAction a Dialog with the question on it. The table adds the "
+            "button that opens it, and a footer with Cancel and the action's own "
+            "button, which is the one that posts."
+        ),
+        pr.code(
+            "BulkAction(\n"
+            '    "Delete",\n'
+            "    delete_invoices,\n"
+            '    variant="danger",\n'
+            '    confirm=Dialog().destructive().title("Delete these invoices?"),\n'
+            ")"
+        ),
+        pr.p(
+            "If a handler raises, the table logs the error with its traceback, "
+            "raises a danger toast saying which action failed, and answers with "
+            "the table as it is now. The selection stays, so the reader can try "
+            "again. Nothing is raised on past the route, so an error tracker "
+            "hears about it through the logging it already reads."
+        ),
+        pr.p(
+            "While a request runs, Alpine AJAX marks the part it is about to "
+            "replace with aria-busy, and the table dims it, so a slow query "
+            "looks like it is working. The attribute also tells a screen reader "
+            "that the rows are about to change."
+        ),
+        pr.p(
+            "A search or a filter that leaves nothing says so: Nothing matches, "
+            "with a button that clears the search and the filters and keeps the "
+            "order and the hidden columns. An empty state of your own, chained "
+            "after from_state(), is shown instead."
+        ),
+        pr.p(
+            "After every change, a screen reader hears how many rows there are, "
+            "such as 61 rows, showing 1 to 10. It comes from a live region "
+            "outside the rows that stays on the page and changes only its words. "
+            "A region swapped in along with the rows would be new, and a new "
+            "region is not read out."
+        ),
         pr.h2("Why it is declared on the class"),
         pr.p(
             "It would read more naturally to build the table inside index, "
@@ -563,12 +604,38 @@ def _build() -> ComponentType:
         .variant("warning")
         .title("What is not done yet")
         .content(
-            "Actions need JavaScript. Alpine draws the bar they sit in, so with it off "
-            "there is nothing to press. The form carries no CSRF token of its own "
-            "either, since the bundle sends the header Django reads. The panel also "
-            "does not show how many rows each filter answer would leave: that count "
-            "would have to be recomputed on the server and swapped into the one band "
-            "that is never swapped."
+            pr.bullets(
+                [
+                    pr.p(
+                        "Actions need JavaScript. Alpine draws the bar they sit in, "
+                        "so with it off there is nothing to press. The form carries "
+                        "no CSRF token of its own either, since the bundle sends the "
+                        "header Django reads."
+                    ),
+                    pr.p(
+                        "An action redraws the table from its declaration alone, so "
+                        "a caption or an empty state chained after from_state() is "
+                        "gone after the first action. A sort, a search or a page "
+                        "keeps it, because each of those loads the page again."
+                    ),
+                    pr.p(
+                        "An aware datetime is written in its own timezone. A Django "
+                        "queryset hands them over in UTC, so convert them first if "
+                        "the readers are somewhere else."
+                    ),
+                    pr.p(
+                        "A hyphen in a filter's name or in an option's value can "
+                        "give two controls the same id. A filter a with an option "
+                        "b-c and a filter a-b with an option c both get "
+                        "invoices-filter-a-b-c."
+                    ),
+                    pr.p(
+                        "The filter panel does not show how many rows each answer "
+                        "would leave. That count would have to be recomputed on the "
+                        "server and swapped into the one band that is never swapped."
+                    ),
+                ]
+            )
         ),
     )
 
