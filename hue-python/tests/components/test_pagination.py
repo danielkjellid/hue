@@ -74,6 +74,15 @@ class TestPagination:
         assert_selector(html, "nav button")
         assert_no_selector(html, "nav a")
 
+    @pytest.mark.asyncio
+    async def test_no_records_is_said_as_such(self, context_args):
+        html = await render_tree(
+            Pagination().page(1).total_pages(1).total_records(0),
+            context_args=context_args,
+        )
+        assert "No records" in html
+        assert "Showing" not in html
+
     # target(): both branches
     @pytest.mark.asyncio
     async def test_a_target_swaps_the_page_in_and_remembers_it(self, context_args):

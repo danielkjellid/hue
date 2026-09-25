@@ -26,6 +26,7 @@ from hue.datatable import (
     build_datatable_state,
 )
 from hue.renderer import render_tree
+from hue.ui import Dialog, Empty
 from hue.ui.molecules.datatable import Column, DataTable
 
 from hue_django.pages import Page
@@ -807,7 +808,7 @@ def _plain(urlpatterns_: list[Any], **declared: Any) -> Any:
             router,
             key="invoices",
             columns=[Column("invoice", "Invoice"), Column("amount", "Amount")],
-            rows=lambda request, asked: _INVOICES,
+            rows=declared.pop("rows", lambda request, asked: _INVOICES),
             **declared,
         )
 
@@ -845,3 +846,123 @@ def test_a_filter_cannot_take_the_id_of_a_form_in_the_toolbar(mounted):
     ids = re.findall(r' id="([^"]+)"', html)
     assert "invoices-filter-min" in ids
     assert len(ids) == len(set(ids)), sorted(i for i in ids if ids.count(i) > 1)
+
+
+def _breaks(request: Any, ids: list[str]) -> None:
+    raise RuntimeError("the billing service is down")
+
+
+def test_an_action_that_fails_says_so_and_keeps_the_table(urlpatterns_, caplog):
+    # Silence is the worst answer: the reader cannot tell a failure from a
+    # slow success, and nothing in the logs says what went wrong.
+    _plain(
+        urlpatterns_,
+        identifier="pk",
+        actions={"send": BulkAction("Send reminders", _breaks)},
+    )
+    response = _act("send", selected=["41"])
+    html = response.content.decode()
+    assert response.status_code == 500
+    assert "Send reminders failed" in html
+    assert 'id="invoices"' in html
+    assert "the billing service is down" in caplog.text
+    assert "Traceback" in caplog.text
+
+
+def test_an_action_that_works_raises_no_alarm(mounted):
+    mounted()
+    assert "failed" not in _act("archive", selected=["41"]).content.decode()
+
+
+def _confirmed(urlpatterns_: list[Any]) -> Any:
+    return _plain(
+        urlpatterns_,
+        identifier="pk",
+        actions={
+            "delete": BulkAction(
+                "Delete",
+                lambda request, ids: None,
+                variant="danger",
+                confirm=Dialog().destructive().title("Delete these invoices?"),
+            )
+        },
+    )
+
+
+def test_an_action_to_confirm_opens_a_dialog_first(urlpatterns_):
+    html = _table(_confirmed(urlpatterns_), _request())
+    assert "Delete these invoices?" in html
+    # The bar's button only opens it; the one that posts is in the dialog.
+    assert re.search(r'<button[^>]*aria-haspopup="dialog"[^>]*>', _bar(html))
+    submits = re.findall(r"<button[^>]*formaction=\"([^\"]*)\"[^>]*>", html)
+    assert submits == ["/billing/invoices/delete/"]
+    assert re.search(r'type="submit"[^>]*form="invoices-act"', html) or re.search(
+        r'form="invoices-act"[^>]*type="submit"', html
+    )
+
+
+def _bar(html: str) -> str:
+    found = re.search(r'<template x-teleport="body">(.*?)</template>', html, re.S)
+    assert found, "no bar for picked rows"
+    return found.group(1)
+
+
+def test_an_action_with_nothing_to_confirm_posts_straight_away(mounted):
+    bar = _bar(_table(mounted().invoices, _request()))
+    assert 'aria-haspopup="dialog"' not in bar
+    assert 'formaction="/billing/invoices/archive/"' in bar
+
+
+def test_the_dialog_on_the_declaration_is_left_as_it_was(urlpatterns_):
+    # Shared by every request, so drawing one must not change the next.
+    declared = _confirmed(urlpatterns_)
+    _table(declared, _request())
+    assert "trigger" not in declared.actions["delete"].confirm._props
+
+
+def test_a_table_narrowed_to_nothing_says_so_and_the_way_out(mounted):
+    html = _table(mounted().invoices, _request(q="nobody", sort="amount"))
+    assert "Nothing matches" in html
+    way_out = _form(html, "Clear search and filters")
+    # The order survives; the search does not.
+    assert 'name="sort" value="amount"' in way_out
+    assert 'name="q"' not in way_out
+
+
+def test_an_empty_table_that_is_not_narrowed_is_just_empty(urlpatterns_):
+    html = _table(_plain(urlpatterns_, rows=lambda request, asked: []), _request())
+    assert "Nothing matches" not in html
+
+
+def test_your_own_empty_state_wins(mounted):
+    html = _render(
+        DataTable.from_state(mounted().invoices).empty(Empty().title("No invoices")),
+        _request(q="nobody"),
+    )
+    assert "No invoices" in html
+    assert "Nothing matches" not in html
+
+
+def _summary(html: str) -> str:
+    found = re.search(r'<p id="invoices-summary"[^>]*>([^<]*)</p>', html)
+    assert found, "no summary"
+    return found.group(1)
+
+
+def test_the_rows_are_counted_out_loud(mounted):
+    html = _table(mounted(page_size=2).invoices, _request())
+    # Outside the rows, which a response replaces, and synced by id, so
+    # the region stays and only its words change.
+    assert "invoices-rows" not in _ids_around(html, "invoices-summary", attr="id")
+    assert re.search(r'<p id="invoices-summary"[^>]*x-sync', html)
+    assert _summary(html) == "4 rows, showing 1 to 2."
+
+
+def test_a_count_that_fits_one_page_is_just_the_count(mounted):
+    assert _summary(_table(mounted().invoices, _request(q="contoso"))) == "1 row."
+
+
+def test_a_count_of_nothing_says_why(mounted):
+    assert (
+        _summary(_table(mounted().invoices, _request(q="nobody"))) == "No rows match."
+    )
