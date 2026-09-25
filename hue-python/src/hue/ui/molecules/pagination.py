@@ -290,12 +290,19 @@ def _cursor_step(label: str, enabled: bool) -> ComponentType:
     return button
 
 
+def record_range(page: int, size: int, total: int) -> tuple[int, int]:
+    """
+    The first and last record a page shows, counted from one.
+    """
+    first = (page - 1) * size + 1
+    return first, min(page * size, total)
+
+
 def _status(page: int, size: int, total: int) -> list[ComponentType]:
     if total == 0:
         # There is no range of nothing, and "showing 1-0" reads as a bug.
         return ["No records"]
-    first = (page - 1) * size + 1
-    last = min(page * size, total)
+    first, last = record_range(page, size, total)
     return [
         "Showing ",
         html.strong(f"{first:,}{_RANGE}{last:,}"),

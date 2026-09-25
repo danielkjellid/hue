@@ -91,6 +91,16 @@ class TestDataTable:
         assert cells == ["2026-03-01", "2026-03-01 14:05", "2190.00"]
 
     @pytest.mark.asyncio
+    async def test_a_small_decimal_is_written_out_in_full(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("rate", "Rate")])
+            .rows([{"rate": Decimal("1E-7")}]),
+            context_args=context_args,
+        )
+        assert select(html, "tbody td")[0].get_text(strip=True) == "0.0000001"
+
+    @pytest.mark.asyncio
     async def test_the_context_says_how_a_date_is_written(self, context_args):
         html = await render_tree(
             DataTable()

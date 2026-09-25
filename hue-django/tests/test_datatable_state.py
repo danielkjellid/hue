@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 from urllib.parse import urlencode
 
 import pytest
+from django.core.exceptions import PermissionDenied
 from django.db.models import QuerySet
 from django.http import HttpRequest, QueryDict
 from django.test import Client
@@ -31,7 +32,7 @@ from hue.ui.molecules.datatable import Column, DataTable
 
 from hue_django.pages import Page
 from hue_django.router import Router
-from hue_django.views import HueView
+from hue_django.views import HueFragmentsView, HueView
 
 # A pk nobody displays, which is the point of naming the identifier apart
 # from the columns.
@@ -129,11 +130,22 @@ def mounted(urlpatterns_: list[Any]) -> Any:
     return build
 
 
+def _ours(params: dict[str, Any]) -> dict[str, Any]:
+    """
+    The fixture table's state, under its key, as the URL spells it. A name
+    that already has a key, or is nobody's state, is left as it is.
+    """
+    return {
+        name if "-" in name or name == "selected" else f"invoices-{name}": value
+        for name, value in params.items()
+    }
+
+
 def _request(at: str | None = MOUNT, **params: str) -> Any:
     request = MagicMock()
     # A real QueryDict: what the table reads off it is every value under
     # a name, which is the part a flat mapping gets wrong.
-    request.GET = QueryDict(urlencode(params, doseq=True))
+    request.GET = QueryDict(urlencode(_ours(params), doseq=True))
     # What Django puts on the request before the view runs, and what the
     # namespace of every URL the table builds comes from. None for the
     # tests that never get as far as building one.
@@ -234,32 +246,26 @@ def _carried(html: str, form: str) -> dict[str, str]:
     """
     return dict(
         re.findall(
-            rf'<input type="hidden" name="(\w+)" value="([^"]*)" form="{form}"', html
+            rf'<input type="hidden" name="([\w-]+)" value="([^"]*)" form="{form}"', html
         )
     )
 
 
-def test_the_declaration_registers_one_route_to_act():
+def test_the_declaration_registers_one_route_to_act_named_for_the_table():
     # Reading is the page: every link and form points at it, so a URL in
-    # the address bar reloads.
-    view = _view()
-    assert [(route.method, route.path) for route in type(view).router.routes] == [
-        ("POST", "invoices/<str:action>/"),
+    # the address bar reloads. The name comes off the table, since the router
+    # takes a route's name off __name__ and two tables would both be "act".
+    routes = type(_view()).router.routes
+    assert [(route.method, route.path, route.name) for route in routes] == [
+        ("POST", "invoices/<str:action>/", "invoices_act"),
     ]
-
-
-def test_the_route_is_named_after_the_table():
-    # The router takes a route's name off __name__ as it decorates, so two
-    # tables on one view would otherwise both be called "act".
-    view = _view()
-    assert [route.name for route in type(view).router.routes] == ["invoices_act"]
 
 
 def test_reading_the_table_is_loading_the_page(mounted):
     # What the address bar holds after a sort, reloaded: the whole page,
     # in that order, with no AJAX header to ask for it.
     mounted()
-    response = Client().get(f"/{MOUNT}", {"sort": "-amount"})
+    response = Client().get(f"/{MOUNT}", {"invoices-sort": "-amount"})
     assert response.status_code == 200
     html = response.content.decode()
     assert 'aria-sort="descending"' in html
@@ -281,13 +287,13 @@ def test_rows_is_handed_what_was_asked_for(mounted):
 def test_a_sort_link_keeps_the_search(mounted):
     html = _table(mounted().invoices, _request(sort="amount", q="contoso"))
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
-    assert "/billing/?sort=-amount&amp;q=contoso" in hrefs
+    assert "/billing/?invoices-sort=-amount&amp;invoices-q=contoso" in hrefs
 
 
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
     html = _table(mounted(page_size=2).invoices, _request(sort="-amount", page="2"))
-    assert _carried(html, "invoices-search") == {"sort": "-amount"}
+    assert _carried(html, "invoices-search") == {"invoices-sort": "-amount"}
 
 
 def test_what_the_forms_carry_is_redrawn_with_the_rows(mounted):
@@ -305,17 +311,20 @@ def test_each_form_carries_everything_but_its_own_part(mounted):
         _request(q="n", sort="-amount", status="paid", hide="customer", page="2"),
     )
     assert _carried(html, "invoices-filters") == {
-        "sort": "-amount",
-        "q": "n",
-        "hide": "customer",
+        "invoices-sort": "-amount",
+        "invoices-q": "n",
+        "invoices-hide": "customer",
     }
     assert _carried(html, "invoices-columns") == {
-        "sort": "-amount",
-        "q": "n",
-        "status": "paid",
+        "invoices-sort": "-amount",
+        "invoices-q": "n",
+        "invoices-status": "paid",
     }
     # Reset takes off what the panels put on, and only that.
-    assert _carried(html, "invoices-reset") == {"sort": "-amount", "q": "n"}
+    assert _carried(html, "invoices-reset") == {
+        "invoices-sort": "-amount",
+        "invoices-q": "n",
+    }
 
 
 def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
@@ -327,7 +336,9 @@ def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
 def test_pagination_links_keep_the_rest_of_the_state(mounted):
     html = _table(mounted(page_size=2).invoices, _request(sort="-amount", q="n"))
     hrefs = re.findall(r'href="([^"]*)"', html)
-    assert "/billing/?sort=-amount&amp;q=n&amp;page=2" in hrefs
+    assert (
+        "/billing/?invoices-sort=-amount&amp;invoices-q=n&amp;invoices-page=2" in hrefs
+    )
 
 
 def test_an_action_posts_the_state_it_was_done_in(mounted):
@@ -338,12 +349,16 @@ def test_an_action_posts_the_state_it_was_done_in(mounted):
         mounted(page_size=2).invoices, _request(sort="-amount", q="n", page="2")
     )
     assert 'formaction="/billing/invoices/archive/"' in html
-    assert _carried(html, "invoices-act") == {"sort": "-amount", "q": "n", "page": "2"}
+    assert _carried(html, "invoices-act") == {
+        "invoices-sort": "-amount",
+        "invoices-q": "n",
+        "invoices-page": "2",
+    }
 
 
 def _act(action: str, **posted: Any) -> Any:
     return Client().post(
-        f"/{MOUNT}invoices/{action}/", posted, HTTP_X_ALPINE_REQUEST="true"
+        f"/{MOUNT}invoices/{action}/", _ours(posted), HTTP_X_ALPINE_REQUEST="true"
     )
 
 
@@ -392,7 +407,7 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
 
     with pytest.raises(NoReverseMatch, match="somebodyelse:index") as error:
         _bind(view.invoices, elsewhere)
-    assert "its own fragments" in str(error.value)
+    assert "declared on a HueView" in str(error.value)
 
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
@@ -568,7 +583,7 @@ def test_a_page_past_the_last_is_the_last(mounted):
 def test_a_typed_answer_is_taken_whole(mounted):
     # 1,000 is one number, and only a list-shaped filter is spelled with
     # commas between its answers.
-    state = mounted().invoices._state_from({"min": ["1,000"]})
+    state, _ = mounted().invoices._read({"invoices-min": ["1,000"]})
     assert state.value("min") == "1,000"
 
 
@@ -578,7 +593,7 @@ def test_a_browser_repeating_a_name_is_read_the_same_as_a_comma(mounted):
     # the same question.
     view = mounted()
     request = MagicMock()
-    request.GET = QueryDict("status=paid&status=draft")
+    request.GET = QueryDict("invoices-status=paid&invoices-status=draft")
     request.resolver_match = resolve(f"/{MOUNT}")
     assert _bind(view.invoices, request).state.chosen("status") == ("paid", "draft")
 
@@ -776,7 +791,7 @@ def test_the_whole_table_is_one_component(mounted):
     # No parts to place: bound and rendered is the search box, the rows
     # and the pages.
     html = _table(mounted().invoices, _request())
-    assert re.search(r'type="search"[^>]*name="q"', html)
+    assert re.search(r'type="search"[^>]*name="invoices-q"', html)
     assert re.search(r"<table", html)
     assert re.search(r'aria-label="Pagination', html)
     # Welded: one frame, with the search in a band above the rows and the
@@ -894,11 +909,12 @@ def test_an_action_to_confirm_opens_a_dialog_first(urlpatterns_):
     assert "Delete these invoices?" in html
     # The bar's button only opens it; the one that posts is in the dialog.
     assert re.search(r'<button[^>]*aria-haspopup="dialog"[^>]*>', _bar(html))
-    submits = re.findall(r"<button[^>]*formaction=\"([^\"]*)\"[^>]*>", html)
-    assert submits == ["/billing/invoices/delete/"]
-    assert re.search(r'type="submit"[^>]*form="invoices-act"', html) or re.search(
-        r'form="invoices-act"[^>]*type="submit"', html
-    )
+    submits = [
+        _attrs(tag) for tag in re.findall(r"<button[^>]*formaction=[^>]*>", html)
+    ]
+    assert [(b["formaction"], b["form"], b["type"]) for b in submits] == [
+        ("/billing/invoices/delete/", "invoices-act", "submit")
+    ]
 
 
 def _bar(html: str) -> str:
@@ -925,8 +941,8 @@ def test_a_table_narrowed_to_nothing_says_so_and_the_way_out(mounted):
     assert "Nothing matches" in html
     way_out = _form(html, "Clear search and filters")
     # The order survives; the search does not.
-    assert 'name="sort" value="amount"' in way_out
-    assert 'name="q"' not in way_out
+    assert 'name="invoices-sort" value="amount"' in way_out
+    assert 'name="invoices-q"' not in way_out
 
 
 def test_an_empty_table_that_is_not_narrowed_is_just_empty(urlpatterns_):
@@ -955,14 +971,143 @@ def test_the_rows_are_counted_out_loud(mounted):
     # the region stays and only its words change.
     assert "invoices-rows" not in _ids_around(html, "invoices-summary", attr="id")
     assert re.search(r'<p id="invoices-summary"[^>]*x-sync', html)
-    assert _summary(html) == "4 rows, showing 1 to 2."
+    assert _summary(html) == "4 records, showing 1 to 2."
 
 
 def test_a_count_that_fits_one_page_is_just_the_count(mounted):
-    assert _summary(_table(mounted().invoices, _request(q="contoso"))) == "1 row."
+    assert _summary(_table(mounted().invoices, _request(q="contoso"))) == "1 record."
 
 
 def test_a_count_of_nothing_says_why(mounted):
     assert (
-        _summary(_table(mounted().invoices, _request(q="nobody"))) == "No rows match."
+        _summary(_table(mounted().invoices, _request(q="nobody")))
+        == "No records match."
     )
+
+
+def _attrs(tag: str) -> dict[str, str]:
+    return dict(re.findall(r'([\w:.@-]+)="([^"]*)"', tag))
+
+
+def test_a_count_of_an_empty_table_says_only_that(urlpatterns_):
+    html = _table(_plain(urlpatterns_, rows=lambda request, asked: []), _request())
+    assert _summary(html) == "No records."
+
+
+def test_a_filter_alone_is_narrowing_too(mounted):
+    # Not only a search: a filter that leaves nothing gets the way out.
+    view = mounted()
+    html = _table(view.invoices, _request(status="paid", min="999999"))
+    assert "Nothing matches" in html
+
+
+def test_the_rows_are_refreshed_by_any_response_that_carries_them(mounted):
+    # A sort on one table swaps only its rows; another table's links would
+    # otherwise carry the first one's old state.
+    html = _table(mounted().invoices, _request())
+    assert re.search(r'<div id="invoices-rows"[^>]*x-sync', html)
+
+
+def test_two_tables_on_a_page_keep_their_own_state(urlpatterns_):
+    class TwoTables(HueView):
+        router = Router[HttpRequest]()
+        first = build_datatable_state(
+            router,
+            key="first",
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("amount", "Amount", sort="amount"),
+            ],
+            rows=lambda request, asked: sorted(
+                _INVOICES,
+                key=lambda row: row["amount"],
+                reverse=(asked.sort or "").startswith("-"),
+            ),
+        )
+        second = build_datatable_state(
+            router,
+            key="second",
+            columns=[
+                Column("invoice", "Invoice"),
+                Column("amount", "Amount", sort="amount"),
+            ],
+            rows=lambda request, asked: _INVOICES,
+            page_size=2,
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
+
+    urlpatterns_.append(path(MOUNT, include(TwoTables.urls)))
+    clear_url_caches()
+    request = _request(**{"first-sort": "-amount", "second-page": "2"})
+
+    first = _bind(TwoTables.first, request)
+    second = _bind(TwoTables.second, request)
+    assert (first.state.sort, first.state.page) == ("-amount", 1)
+    assert (second.state.sort, second.state.page) == (None, 2)
+    # Paging the second table leaves the first one sorted, and the other way
+    # round.
+    assert second.href(page=1) == "/billing/?first-sort=-amount"
+    assert first.href(sort="amount") == "/billing/?second-page=2&first-sort=amount"
+
+
+def test_a_refused_permission_is_the_frameworks_answer(urlpatterns_):
+    # A 403 is an answer, not a failure: no toast, no error in the log.
+    def forbidden(request: Any, ids: list[str]) -> None:
+        raise PermissionDenied
+
+    _plain(
+        urlpatterns_, identifier="pk", actions={"send": BulkAction("Send", forbidden)}
+    )
+    assert _act("send", selected=["41"]).status_code == 403
+
+
+def test_a_table_with_no_page_fails_before_anything_is_written(urlpatterns_):
+    ran: list[bool] = []
+
+    class NoPage(HueFragmentsView):
+        router = Router[HttpRequest]()
+        invoices = build_datatable_state(
+            router,
+            key="invoices",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda request, asked: _INVOICES,
+            identifier="pk",
+            actions={"archive": BulkAction("Archive", lambda r, ids: ran.append(True))},
+        )
+
+    urlpatterns_.append(path(MOUNT, include(NoPage.urls)))
+    clear_url_caches()
+    with pytest.raises(NoReverseMatch, match="declared on a HueView"):
+        _act("archive", selected=["41"])
+    assert ran == []
+
+
+def test_the_page_is_registered_under_the_name_a_table_reverses():
+    view = _view()
+    assert "index" in [pattern.name for pattern in type(view).urls[0]]
+
+
+_SORTABLE = [Column("invoice", "Invoice"), Column("amount", "Amount", sort="amount")]
+
+
+def test_a_key_that_starts_another_keeps_to_its_own(urlpatterns_):
+    # a-b-sort starts with a-, and is still b's.
+    class Prefixed(HueView):
+        router = Router[HttpRequest]()
+        a = build_datatable_state(
+            router, key="a", columns=_SORTABLE, rows=lambda r, asked: _INVOICES
+        )
+        a_b = build_datatable_state(
+            router, key="a-b", columns=_SORTABLE, rows=lambda r, asked: _INVOICES
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
+
+    urlpatterns_.append(path(MOUNT, include(Prefixed.urls)))
+    clear_url_caches()
+    first = _bind(Prefixed.a, _request(**{"a-b-sort": "-amount"}))
+    assert first.state.sort is None
+    assert first.href(sort="amount") == "/billing/?a-b-sort=-amount&a-sort=amount"

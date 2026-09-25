@@ -184,6 +184,10 @@ class Table(ChainableComponent):
                 *self._get_prop("under", ()),
                 id=rows_id(frame_id),
                 class_=_LOADING,
+                # Refreshed by every response that carries it, not only the
+                # ones aimed at it. Each read loads the whole page, so another
+                # table's links and carried state keep up with this one's.
+                **({"x-sync": ""} if frame_id else {}),
             ),
         ]
         action: str | None = self._get_prop("form")

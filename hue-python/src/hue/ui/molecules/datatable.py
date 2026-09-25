@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -173,6 +174,10 @@ class _Value:
             return ""
         if isinstance(value, (str, int, float, bool)):
             return str(value)
+        if isinstance(value, Decimal):
+            # Fixed-point, so 2190.00 keeps the places it was stored with and
+            # a small one is 0.0000001 rather than 1E-7.
+            return format(value, "f")
         text = Formats.from_context(context).text(value)
         if text is not None:
             return text

@@ -1,6 +1,7 @@
 import inspect
 import json
 from collections.abc import Awaitable, Callable
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from functools import partialmethod
 from http import HTTPStatus
@@ -18,6 +19,10 @@ from hue.ui.molecules.datatable import resolve_value
 from hue.ui.molecules.toast import region_fragment
 
 DEFAULT_STATUS_CODE = HTTPStatus.OK
+
+# The name a view's page is registered under, so that something drawn on the
+# page, such as a declared table, can reverse the page it is on.
+PAGE_ROUTE = "index"
 
 
 @dataclass(slots=True, frozen=True)
@@ -233,6 +238,21 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _form_fields(self) -> AbstractSet[str]:
+        """
+        The fields a framework adds to a form that belong to no one's state,
+        such as its CSRF token, so they are not echoed back into links.
+        """
+        return frozenset()
+
+    def _passes_through(self, error: Exception) -> bool:
+        """
+        Whether an exception from a handler is an answer to send rather than a
+        failure to report, such as a framework's permission-denied or not-found.
+        The base router knows none.
+        """
+        return False
+
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
         """
         The rows whose value at key is one of values.
@@ -354,14 +374,18 @@ class Router[T_Request]:
         return wrapped_view
 
     def _request(
-        self, method: str, path: str, require_ajax: bool = True
+        self,
+        method: str,
+        path: str,
+        require_ajax: bool = True,
+        name: str | None = None,
     ) -> Callable[[ViewFunc], ViewFunc]:
         def decorator(view_func: ViewFunc) -> ViewFunc:
             parsed_path = self._parse_path_params(self._normalize_path(path))
 
             self._routes.append(
                 Route(
-                    name=view_func.__name__.lower(),
+                    name=name or view_func.__name__.lower(),
                     method=method.upper(),
                     path=parsed_path.path,
                     view_func=self._wrap_view(view_func, require_ajax=require_ajax),

@@ -69,6 +69,7 @@ the loop.
 from __future__ import annotations
 
 import logging
+from collections.abc import Set as AbstractSet
 from copy import copy
 from dataclasses import dataclass, field, replace
 from http import HTTPStatus
@@ -88,7 +89,7 @@ from htmy import Context, html
 from hue import toast
 from hue.context import HueContext
 from hue.js import call, close, unsafe
-from hue.router import HueResponse
+from hue.router import PAGE_ROUTE, HueResponse
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
@@ -98,7 +99,7 @@ from hue.ui.base import ChainableComponent
 from hue.ui.molecules.datatable import Column, DataTable, resolve_value
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
-from hue.ui.molecules.pagination import Pagination
+from hue.ui.molecules.pagination import Pagination, record_range
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import form_id, rows_id
 from hue.utils import classnames, render_when
@@ -116,11 +117,8 @@ _HIDE = "hide"
 
 # What a filter cannot be called, because the table is already using it.
 _RESERVED = (_SORT, _QUERY, _PAGE, _HIDE, _SELECTED)
-
-# The route a view serves its page on, which HueView registers as index.
-# Every link on a declared table points at the page, so the declaring view
-# has to have one.
-_PAGE_ROUTE = "index"
+# The parts of a table's state that are not filters.
+_STATE = (_SORT, _QUERY, _PAGE, _HIDE)
 
 # Long enough that a word typed at speed is one request rather than five,
 # short enough that the table has moved by the time you look at it.
@@ -177,6 +175,8 @@ class _Routes(Protocol):
     def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
     def _url_for(self, request: Any, name: str, **params: Any) -> str: ...
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any: ...
+    def _passes_through(self, error: Exception) -> bool: ...
+    def _form_fields(self) -> AbstractSet[str]: ...
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R: ...
 
 
@@ -411,6 +411,9 @@ class BoundTable:
     page: Rows
     total: int
     urls: _TableUrls
+    # Everything else the URL held, such as another table's state on the
+    # same page. Every link and form sends it back unchanged.
+    others: tuple[tuple[str, str], ...]
 
     @property
     def key(self) -> str:
@@ -421,8 +424,25 @@ class BoundTable:
         This table with one thing changed. Every link on the table is one of
         these.
         """
-        asked = self.state.replace(**changes).params()
+        asked = self._query(self.state.replace(**changes))
         return self.urls.read + (f"?{urlencode(asked)}" if asked else "")
+
+    def _query(
+        self,
+        state: TableState,
+        *,
+        without: AbstractSet[str] = frozenset(),
+    ) -> list[tuple[str, str]]:
+        """
+        The query string for this table in state, as pairs: its own part
+        under its key, apart from without, and everything else as it was.
+        """
+        own = [
+            (self.declaration.param(name), value)
+            for name, value in state.params().items()
+            if name not in without
+        ]
+        return [*self.others, *own]
 
 
 class _Declaration:
@@ -549,15 +569,68 @@ class _Declaration:
         The state, the page of rows and the total for one request, for code
         that wants the values instead of the table.
         """
-        return await self._bind(
-            request, self._state_from(self._router._get_query_values(request))
-        )
+        asked, others = self._read(self._router._get_query_values(request))
+        return await self._bind(request, asked, others)
 
-    async def _bind(self, request: Any, asked: TableState) -> BoundTable:
+    def param(self, name: str) -> str:
+        """
+        What one part of this table's state is called in the URL.
+
+        Under the table's key, because a page can hold two tables and a URL
+        holds both their states: sorting one must not sort the other.
+        """
+        return f"{self.key}-{name}"
+
+    def _names(self) -> dict[str, str]:
+        """
+        Each part of this table's state by the name the URL gives it.
+
+        Exact names rather than everything under the key's prefix, because
+        a key can start another: a table called a would otherwise take the
+        state of a table called a-b for its own.
+        """
+        return {
+            self.param(name): name
+            for name in (*_STATE, *(f.name for f in self.filters))
+        }
+
+    def _read(
+        self, values: Mapping[str, list[str]]
+    ) -> tuple[TableState, tuple[tuple[str, str], ...]]:
+        """
+        A query or a submitted form, split into this table's state and
+        everything else, which goes back out as it came: another table's
+        state, or the page's own.
+        """
+        names = self._names()
+        skipped = {_SELECTED, *self._router._form_fields()}
+        own = {names[name]: found for name, found in values.items() if name in names}
+        others = tuple(
+            (name, value)
+            for name, found in values.items()
+            if name not in names and name not in skipped
+            for value in found
+        )
+        return self._state_from(own), others
+
+    async def _bind(
+        self,
+        request: Any,
+        asked: TableState,
+        others: tuple[tuple[str, str], ...],
+        urls: _TableUrls | None = None,
+    ) -> BoundTable:
         page, total, number = await self._router._run_sync(self._fetch, request, asked)
         self._check_identifier(page)
         return BoundTable(
-            self, replace(asked, page=number), page, total, self._urls_for(request)
+            self,
+            replace(asked, page=number),
+            page,
+            total,
+            # Reversed after the rows are checked, unless the action route
+            # has reversed them already, before anything was written.
+            urls or self._urls_for(request),
+            others,
         )
 
     def _drawn(self, table: DataTable, bound: BoundTable) -> ComponentType:
@@ -649,7 +722,7 @@ class _Declaration:
         href on the table is one of these URLs with a different query string.
         """
         return _TableUrls(
-            read=self._router._url_for(request, _PAGE_ROUTE),
+            read=self._router._url_for(request, PAGE_ROUTE),
             act={
                 name: self._router._url_for(request, self._act_route, action=name)
                 for name in self.actions
@@ -749,17 +822,24 @@ class _Declaration:
                     component=html.p(f"{self.key} has no action called {action!r}."),
                     status_code=HTTPStatus.NOT_FOUND,
                 )
+            # Before the handler, so a view with no page to draw the table
+            # on is an error before anything is written, not after.
+            urls = self._urls_for(request)
             # The state comes with the selection, in the body, from fields
             # that are redrawn with every response, so the table comes back
             # the way the reader was looking at it.
             posted = self._router._get_form_values(request)
-            asked = self._state_from(posted)
+            asked, others = self._read(posted)
             picked = await self._router._run_sync(
                 self._picked, request, asked, posted.get(_SELECTED, [])
             )
             try:
                 await self._router._run_sync(chosen.handler, request, picked)
-            except Exception:
+            except Exception as error:
+                # A permission denied or a not found is the framework's own
+                # answer, and it gives it.
+                if self._router._passes_through(error):
+                    raise
                 # Logged with its traceback, since nothing is raised for an
                 # error tracker to catch. The reader is told on the page, and
                 # the selection stays for another try.
@@ -768,14 +848,14 @@ class _Declaration:
                     f"{chosen.label} failed",
                     description="The rows are shown as they are now.",
                 )
+                bound = await self._bind(request, asked, others, urls)
                 return HueResponse(
-                    component=self._drawn(
-                        DataTable(), await self._bind(request, asked)
-                    ),
+                    component=self._drawn(DataTable(), bound),
                     status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
             # Drawn after, because the rows have just changed under it.
-            return self._drawn(DataTable(), await self._bind(request, asked))
+            bound = await self._bind(request, asked, others, urls)
+            return self._drawn(DataTable(), bound)
 
         # Named before it is registered, not after: the router takes a
         # route's name off __name__ as it decorates.
@@ -797,12 +877,13 @@ def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
     The button in the bar for one action: the submit itself, or the button
     that opens its confirmation, with the submit in the dialog's footer.
     """
+    content = (*((action.icon,) if action.icon else ()), action.label)
     submit = (
         Button()
         .variant(action.variant)
         .size("sm")
         .type("submit")
-        .content(*((action.icon,) if action.icon else ()), action.label)
+        .content(*content)
         .form(form)
         .formaction(url)
     )
@@ -813,10 +894,7 @@ def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
     dialog = copy(action.confirm)
     dialog._props = dict(action.confirm._props)
     return dialog.trigger(
-        Button()
-        .variant(action.variant)
-        .size("sm")
-        .content(*((action.icon,) if action.icon else ()), action.label)
+        Button().variant(action.variant).size("sm").content(*content)
     ).footer(
         Button().variant("ghost").content("Cancel").x_on("click", close()),
         # The answer the dialog asks for, so it is the primary button there
@@ -839,18 +917,15 @@ def _nothing_matches(bound: BoundTable) -> ComponentType:
     # Everything but the search and the filters rides along, so the order
     # and the hidden columns survive the way back out. Drawn in the rows
     # region, which every response replaces, so the fields are never stale.
-    cleared = bound.state.replace(query="", filters={}).params()
+    cleared = bound.state.replace(query="", filters={})
     return (
         Empty()
         .compact()
         .title("Nothing matches")
-        .description("No rows match this search and these filters.")
+        .description("No records match this search and these filters.")
         .actions(
             html.form(
-                *(
-                    html.input_(type="hidden", name=name, value=value)
-                    for name, value in cleared.items()
-                ),
+                *_carried(bound, state=cleared),
                 Button()
                 .variant("outline")
                 .size("xs")
@@ -911,16 +986,19 @@ class _TableSummary(ChainableComponent):
 
 
 def _summary(bound: BoundTable) -> str:
+    """
+    The count in the words the pages use, so what is heard and what is
+    shown agree.
+    """
     total = bound.total
     if total == 0:
-        return "No rows match." if _narrowed(bound.state) else "No rows."
-    rows = "1 row" if total == 1 else f"{total} rows"
+        return "No records match." if _narrowed(bound.state) else "No records."
+    records = "1 record" if total == 1 else f"{total} records"
     size = bound.declaration.page_size
     if total <= size:
-        return f"{rows}."
-    first = (bound.state.page - 1) * size + 1
-    last = min(total, first + size - 1)
-    return f"{rows}, showing {first} to {last}."
+        return f"{records}."
+    first, last = record_range(bound.state.page, size, total)
+    return f"{records}, showing {first} to {last}."
 
 
 class _ToolbarForm(ChainableComponent):
@@ -1137,7 +1215,7 @@ def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
     """
     picked = bound.state.chosen(declared.name)
     if not declared.options:
-        answers: ComponentType = _filter_field(bound.key, declared, picked)
+        answers: ComponentType = _filter_field(bound, declared, picked)
     else:
         answers = html.div(*_filter_options(bound, declared, picked), class_=_OPTIONS)
     return html.div(
@@ -1154,7 +1232,7 @@ def _filter_options(
     """
     return [
         Checkbox()
-        .name(declared.name)
+        .name(bound.declaration.param(declared.name))
         .value(option)
         .label(label)
         .checked(option in picked)
@@ -1169,17 +1247,19 @@ def _filter_options(
     ]
 
 
-def _filter_field(key: str, declared: Filter, picked: tuple[str, ...]) -> ComponentType:
+def _filter_field(
+    bound: BoundTable, declared: Filter, picked: tuple[str, ...]
+) -> ComponentType:
     """
     A text or number field, for a filter with no options to tick.
 
-    The id carries the table's key and the name does not. The name is the
-    query parameter, which is the same on every table, while the id has to
-    be unique on the page.
+    Both the name and the id carry the table's key, so two tables on a page
+    keep their own answers.
     """
     field = NumberInput() if declared.numeric else TextInput()
-    field.name(declared.name).label(declared.label).hidden_label().size("sm")
-    field.id(f"{key}-filter-{declared.name}")
+    field.name(bound.declaration.param(declared.name))
+    field.label(declared.label).hidden_label().size("sm")
+    field.id(f"{bound.key}-filter-{declared.name}")
     field.value(picked[0] if picked else "")
     field.data("filter", declared.name).data("filter-label", declared.label)
     if declared.prefix is not None:
@@ -1281,7 +1361,9 @@ class _TableColumns(_ToolbarForm):
                 # submit itself while it is ticked and what the URL wants
                 # is the ones that are not.
                 html.input_(
-                    type="hidden", name=_HIDE, **{":value": "hidden.join(',')"}
+                    type="hidden",
+                    name=bound.declaration.param(_HIDE),
+                    **{":value": "hidden.join(',')"},
                 ),
                 id=self.form_of(bound),
                 method="get",
@@ -1398,15 +1480,19 @@ class _TableReset(_ToolbarForm):
 
 
 def _carried(
-    bound: BoundTable, *, form: str, without: set[str]
+    bound: BoundTable,
+    *,
+    form: str | None = None,
+    without: AbstractSet[str] = frozenset(),
+    state: TableState | None = None,
 ) -> tuple[ComponentType, ...]:
     """
-    The state apart from without, as hidden fields tied to one form.
+    The URL's state apart from this table's without, as hidden fields, tied
+    to form when they sit outside it.
     """
     return tuple(
         html.input_(type="hidden", name=name, value=value, form=form)
-        for name, value in bound.state.params().items()
-        if name not in without
+        for name, value in bound._query(state or bound.state, without=without)
     )
 
 
@@ -1428,7 +1514,7 @@ def _search_form(bound: BoundTable, form: str) -> ComponentType:
     """
     return html.form(
         _SearchField()
-        .name(_QUERY)
+        .name(bound.declaration.param(_QUERY))
         .id(f"{bound.key}-{_QUERY}")
         .size("sm")
         .x_ref("field")

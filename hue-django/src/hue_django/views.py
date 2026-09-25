@@ -16,7 +16,7 @@ from django.views import View
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.pages import BasePage
-from hue.router import RawResponse, Route
+from hue.router import PAGE_ROUTE, RawResponse, Route
 
 from hue_django.router import Router
 
@@ -179,7 +179,7 @@ class HueView(_BaseView):
         # class attribute, shared with subclasses) is never mutated, and each
         # subclass gets its own index.
         index_router = Router[HttpRequest]()
-        index_router.page("/")(index)
+        index_router.page("/", name=PAGE_ROUTE)(index)
 
         router: Router[HttpRequest] | None = getattr(cls, "router", None)
         routes = index_router.routes + (router.routes if router else [])

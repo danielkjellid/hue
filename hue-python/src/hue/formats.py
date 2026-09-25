@@ -9,12 +9,16 @@ and every component that writes a value reads the same answer.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Any
 
 from htmy import Context
+
+# The fields below are called date and datetime, which hides the types by
+# those names inside the class.
+type _Moment = datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,12 +27,14 @@ class Formats:
     The strftime formats for dates and for dates with a time, ISO 8601 by
     default because it is the one spelling no reader gets wrong.
 
-    An aware datetime is written in its own timezone. Convert it to the
-    reader's before it reaches the table if that is not the one it is in.
+    localize turns an aware datetime into the reader's time before it is
+    written, as a framework's templates would. Without one, an aware
+    datetime is written in its own timezone.
     """
 
     date: str = "%Y-%m-%d"
     datetime: str = "%Y-%m-%d %H:%M"
+    localize: Callable[[_Moment], _Moment] | None = None
 
     def text(self, value: Any) -> str | None:
         """
@@ -37,12 +43,11 @@ class Formats:
         """
         # datetime before date: every datetime is a date too.
         if isinstance(value, datetime):
+            if value.tzinfo is not None and self.localize is not None:
+                value = self.localize(value)
             return value.strftime(self.datetime)
         if isinstance(value, date):
             return value.strftime(self.date)
-        if isinstance(value, Decimal):
-            # As written, so 2190.00 keeps the places it was stored with.
-            return str(value)
         return None
 
     @classmethod

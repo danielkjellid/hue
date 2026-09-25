@@ -4,11 +4,18 @@ from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.core.exceptions import ValidationError
+from django.conf import settings as django_settings
+from django.core.exceptions import (
+    BadRequest,
+    PermissionDenied,
+    SuspiciousOperation,
+    ValidationError,
+)
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import Http404, HttpRequest
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 from hue.context import HueContext, HueContextArgs
 from hue.formats import Formats
 from hue.router import HueResponse, PathParseResult, ViewFunc
@@ -53,7 +60,11 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
             request=request,
             csrf_token=get_token(request),
             formats=Formats(
-                date=settings.HUE_DATE_FORMAT, datetime=settings.HUE_DATETIME_FORMAT
+                date=settings.HUE_DATE_FORMAT,
+                datetime=settings.HUE_DATETIME_FORMAT,
+                # The ORM hands aware datetimes over in UTC. Converted the way
+                # a template converts them, into the current timezone.
+                localize=timezone.localtime if django_settings.USE_TZ else None,
             ),
         )
 
@@ -90,12 +101,25 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
             return reverse(target, kwargs=params)
         except NoReverseMatch:
             raise NoReverseMatch(
-                f"Django knows no route called {target!r}. A fragment's URL "
-                f"is reversed through the namespace the request arrived in "
-                f"({namespace or 'none'}), so a view can only build the URLs "
-                f"of its own fragments, and only while it is the one serving "
-                f"the request."
+                f"Django knows no route called {target!r}. A view's URLs are "
+                f"reversed through the namespace the request arrived in "
+                f"({namespace or 'none'}), so a view can only build its own, "
+                f"and only while it is the one serving the request. A table "
+                f"links to the page it is drawn on, so it has to be declared "
+                f"on a HueView, whose index is that page."
             ) from None
+
+    def _form_fields(self) -> frozenset[str]:
+        return frozenset({"csrfmiddlewaretoken"})
+
+    def _passes_through(self, error: Exception) -> bool:
+        """
+        Django's own answers: a 403, a 404 or a 400 is sent as Django sends
+        it, not reported as a failure.
+        """
+        return isinstance(
+            error, (PermissionDenied, Http404, SuspiciousOperation, BadRequest)
+        )
 
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
         """
