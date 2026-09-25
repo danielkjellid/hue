@@ -73,12 +73,9 @@ class _Request:
 class _Router:
     """
     A stand-in, because a docs page has no view to hang routes on. A real
-    declaration is handed the view's own Router and registers two routes
-    on it; here they are registered on nothing and never called.
+    declaration is handed the view's own Router and registers its action
+    route on it; here it is registered on nothing and never called.
     """
-
-    def fragment_get(self, path: str) -> Any:
-        return lambda view_func: view_func
 
     def fragment_post(self, path: str) -> Any:
         return lambda view_func: view_func
@@ -216,8 +213,9 @@ def _build() -> ComponentType:
         pr.lead(
             "A table that knows where its own state lives. One declaration says what "
             "the columns are, where the rows come from and which actions can run on "
-            "picked rows. It registers the routes that serve all three, so nothing "
-            "between a click and a handler is wired by hand."
+            "picked rows. Every link on it is a URL of the page it sits on, and the "
+            "one route it registers is where its actions post, so nothing between a "
+            "click and a handler is wired by hand."
         ),
         pr.h2("The declaration"),
         pr.code(_DECLARATION),
@@ -260,10 +258,11 @@ def _build() -> ComponentType:
         pr.p(
             "The server does not need to hear about rows being picked, only about "
             "something being done with them. Actions are named, they post, and they "
-            "receive the ids of the ticked rows. The two routes a declaration "
-            "registers follow the usual HTTP split between reads and writes. Both go "
-            "through the same rows(), so after an action the table comes back in the "
-            "state it was in instead of as the first page of an unsorted list."
+            "receive the ids of the ticked rows. Reading is a GET of the page and "
+            "acting is a POST to the route the declaration registers, the usual HTTP "
+            "split between reads and writes. Both go through the same rows(), so "
+            "after an action the table comes back in the state it was in instead of "
+            "as the first page of an unsorted list."
         ),
         pr.p(
             "The state is posted with the selection, and the table checks the ids "
@@ -274,13 +273,15 @@ def _build() -> ComponentType:
             "and never walks every matching row."
         ),
         pr.code(
-            "GET   /invoices/?sort=-amount&q=contoso   -> the table\n"
-            "POST  /invoices/archive/                  -> the table, after archiving",
+            "GET   /billing/?sort=-amount&q=contoso   -> the page, in that state\n"
+            "POST  /billing/invoices/archive/          -> the table, after archiving",
             language="bash",
         ),
         pr.p(
-            "Both routes answer with the whole table. Sorting and archiving produce "
-            "the same kind of response, so the page has one way to update."
+            "A read answers with the page, and Alpine AJAX swaps in the part that "
+            "changed. The address bar then holds a URL that reloads to the same "
+            "table, can be sent to someone, and works with JavaScript off. An action "
+            "answers with the table, which replaces the one on the page."
         ),
         pr.h2("Identifying rows"),
         pr.p(
@@ -299,10 +300,9 @@ def _build() -> ComponentType:
         ),
         pr.h2("How it is wired"),
         pr.p(
-            "The key does all of the wiring. It names the fragment path, the element "
-            "each response replaces, and so the URL every link and form on the table "
-            "points at. It has to be unique on the page, and there is nothing else to "
-            "keep in sync."
+            "The key does all of the wiring. It names the action route and the "
+            "element each response replaces. It has to be unique on the page, and "
+            "there is nothing else to keep in sync."
         ),
         pr.code(
             '<div id="invoices" class="…">           <!-- the shell -->\n'
@@ -335,8 +335,8 @@ def _build() -> ComponentType:
             "panels."
         ),
         pr.p(
-            "None of these URLs is written by hand. The key names the two routes, and "
-            "binding the table reverses them through the namespace the request came in "
+            "None of these URLs is written by hand. Binding the table reverses the "
+            "page and the action route through the namespace the request came in "
             "on. A view included under a prefix, included with its own namespace, or "
             "mounted twice therefore links back into the mount the reader is using. A "
             "hard-coded path would break as soon as include() moved the view."
@@ -344,7 +344,7 @@ def _build() -> ComponentType:
         pr.code(
             'urlpatterns = [path("billing/", include(InvoicesView.urls))]\n'
             "\n"
-            "# /billing/invoices/?sort=-amount\n"
+            "# /billing/?sort=-amount\n"
             "# /billing/invoices/archive/",
             language="python",
         ),
@@ -474,14 +474,13 @@ def _build() -> ComponentType:
         pr.h2("Why it is declared on the class"),
         pr.p(
             "It would read more naturally to build the table inside index, "
-            "where the request already is. The routes are what stop it. A "
-            "declaration registers two routes on the view's router, and they "
-            "have to exist before the framework builds its URL table, which "
-            "Django does once, when the URLconf is imported and before the "
-            "first request arrives. A declaration built inside index would "
-            "register them on the first request, after the table was built, "
-            "so every sort, search and action would come back 404 and the "
-            "URLs could not be reversed."
+            "where the request already is. The action route is what stops it. "
+            "A declaration registers it on the view's router, and it has to "
+            "exist before the framework builds its URL table, which Django does "
+            "once, when the URLconf is imported and before the first request "
+            "arrives. A declaration built inside index would register it on the "
+            "first request, after the table was built, so every action would "
+            "come back 404 and its URL could not be reversed."
         ),
         pr.p(
             "FastAPI has the same constraint. Its include_router copies a "
@@ -516,7 +515,7 @@ def _build() -> ComponentType:
                     "time a route can be registered. Everything about a table is fixed "
                     "except which rows answer it, so everything else is stated once "
                     "and rows is a function. It is called for the page and again by "
-                    "the routes the declaration registered."
+                    "the action route the declaration registered."
                 ),
                 pr.p(
                     "Every state that matters is in the URL. That is what lets you "

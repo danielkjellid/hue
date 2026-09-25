@@ -45,12 +45,12 @@ is fixed except which rows answer it, and that one part is a function:
             return Page(title="Invoices", body=DataTable.from_state(self.invoices))
 
 It is declared at class scope because that is the only time a route can
-be registered, and the routes it registers call rows() the same way the
-page does. The page, a sort, a search, a page number and an action all
-go through that one function, so every response shows the table in the
-state it was in. An action posts the state with the selection, so
-archiving on page two of a sorted table comes back to page two of a
-sorted table.
+be registered, and the route its actions post to calls rows() the same
+way the page does. A sort, a search or a page number is a URL of the page
+itself, so the page and an action both go through that one function and
+every response shows the table in the state it was in. An action posts
+the state with the selection, so archiving on page two of a sorted table
+comes back to page two of a sorted table.
 
 rows returns everything that matches, and the page is sliced from it
 afterwards. A paginated queryset is then counted and sliced in the
@@ -110,6 +110,11 @@ _HIDE = "hide"
 # What a filter cannot be called, because the table is already using it.
 _RESERVED = (_SORT, _QUERY, _PAGE, _HIDE, _SELECTED)
 
+# The route a view serves its page on, which HueView registers as index.
+# Every link on a declared table points at the page, so the declaring view
+# has to have one.
+_PAGE_ROUTE = "index"
+
 # Long enough that a word typed at speed is one request rather than five,
 # short enough that the table has moved by the time you look at it.
 _SEARCH_DELAY = "300ms"
@@ -156,11 +161,10 @@ _CHIP = (
 class _Routes(Protocol):
     """
     What a declaration needs from the router it is handed: somewhere to
-    register its two routes, and the framework's answers to the questions
+    register its action route, and the framework's answers to the questions
     only the framework can answer.
     """
 
-    def fragment_get(self, path: str) -> Callable[[Any], Any]: ...
     def fragment_post(self, path: str) -> Callable[[Any], Any]: ...
     def _get_query_values(self, request: Any) -> dict[str, list[str]]: ...
     def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
@@ -360,12 +364,14 @@ def _bound_from(context: Context, component: object) -> BoundTable:
 @dataclass(frozen=True, slots=True)
 class _TableUrls:
     """
-    Where this table's two routes live, for one request.
+    Where this table lives, for one request: the page it is drawn on, which
+    every link and toolbar form points at, and the route of each action.
 
-    The URLs are reversed when the table is bound, because a path written
-    into a link would break as soon as include() moved the view under a
-    prefix. The routes are registered and looked up by the same name, so
-    each is spelled once and the framework fills in the rest.
+    Reading is the page itself. Alpine AJAX fetches it and swaps in the part
+    that changed, so the address bar holds a URL that reloads, can be sent
+    to someone, and works with JavaScript off. The URLs are reversed when
+    the table is bound, because a path written into a link would break as
+    soon as include() moved the view under a prefix.
     """
 
     read: str
@@ -404,7 +410,7 @@ class BoundTable:
 
 class _Declaration:
     """
-    A table declared once, at class scope, and the two routes that serve it.
+    A table declared once, at class scope, and the route its actions post to.
 
     key names the fragment path and the element every response is swapped
     into, so it has to be unique on the page. Every URL the table builds
@@ -456,11 +462,10 @@ class _Declaration:
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
-        # One spelling of each route name, used to register them and to
-        # find them again. Two tables on one view would otherwise both
-        # call their routes "read" and "act", since the router takes a
-        # route's name off the handler's __name__ as it decorates.
-        self._read_route = f"{key}_read"
+        # One spelling of the action route's name, used to register it and
+        # to find it again. Two tables on one view would otherwise both call
+        # theirs "act", since the router takes a route's name off the
+        # handler's __name__ as it decorates.
         self._act_route = f"{key}_act"
         # The toolbar's forms, in the order they sit in the band. Decided
         # once, here, and read by the toolbar and by what the forms carry.
@@ -621,14 +626,13 @@ class _Declaration:
 
     def _urls_for(self, request: Any) -> _TableUrls:
         """
-        Both routes, reversed for this request.
+        The page and the actions, reversed for this request.
 
         This happens once per binding instead of once per link, because every
-        href on the table is one of these two URLs with a different query
-        string.
+        href on the table is one of these URLs with a different query string.
         """
         return _TableUrls(
-            read=self._router._url_for(request, self._read_route),
+            read=self._router._url_for(request, _PAGE_ROUTE),
             act={
                 name: self._router._url_for(request, self._act_route, action=name)
                 for name in self.actions
@@ -716,15 +720,10 @@ class _Declaration:
 
     def _register(self) -> None:
         """
-        One route to read a state and one to act on a selection.
-
-        Both answer with the whole table drawn from the declaration, so the
-        response to a sort and the response to an archive are the same kind
-        of thing and the page has one way to update.
+        The route an action posts to. Reading needs no route of its own,
+        because the page the table is drawn on reads its state from the same
+        query string.
         """
-
-        async def read(view: Any, request: Any, context: Any) -> ComponentType:
-            return DataTable.from_state(self)
 
         async def act(view: Any, request: Any, context: Any, action: str) -> Any:
             chosen = self.actions.get(action)
@@ -745,11 +744,9 @@ class _Declaration:
             # Drawn after, because the rows have just changed under it.
             return self._drawn(DataTable(), await self._bind(request, asked))
 
-        # Named before they are registered, not after: the router takes
-        # a route's name off __name__ as it decorates.
-        read.__name__ = self._read_route
+        # Named before it is registered, not after: the router takes a
+        # route's name off __name__ as it decorates.
         act.__name__ = self._act_route
-        self._router.fragment_get(f"{self.key}/")(read)
         self._router.fragment_post(f"{self.key}/<str:action>/")(act)
 
 

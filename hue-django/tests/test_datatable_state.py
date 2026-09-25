@@ -28,6 +28,7 @@ from hue.datatable import (
 from hue.renderer import render_tree
 from hue.ui.molecules.datatable import Column, DataTable
 
+from hue_django.pages import Page
 from hue_django.router import Router
 from hue_django.views import HueView
 
@@ -75,8 +76,8 @@ def _view(page_size: int = 25) -> Any:
     class InvoicesView(HueView):
         router = Router[HttpRequest]()
 
-        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
-            raise NotImplementedError
+        async def index(self, request: Any, context: Any) -> Any:
+            return Page(title="Invoices", body=DataTable.from_state(self.invoices))
 
         invoices = build_datatable_state(
             router,
@@ -237,22 +238,31 @@ def _carried(html: str, form: str) -> dict[str, str]:
     )
 
 
-def test_the_declaration_registers_a_route_to_read_and_one_to_act():
+def test_the_declaration_registers_one_route_to_act():
+    # Reading is the page: every link and form points at it, so a URL in
+    # the address bar reloads.
     view = _view()
     assert [(route.method, route.path) for route in type(view).router.routes] == [
-        ("GET", "invoices/"),
         ("POST", "invoices/<str:action>/"),
     ]
 
 
-def test_the_routes_are_named_after_the_table():
+def test_the_route_is_named_after_the_table():
     # The router takes a route's name off __name__ as it decorates, so two
-    # tables on one view would otherwise both be called "read" and "act".
+    # tables on one view would otherwise both be called "act".
     view = _view()
-    assert [route.name for route in type(view).router.routes] == [
-        "invoices_read",
-        "invoices_act",
-    ]
+    assert [route.name for route in type(view).router.routes] == ["invoices_act"]
+
+
+def test_reading_the_table_is_loading_the_page(mounted):
+    # What the address bar holds after a sort, reloaded: the whole page,
+    # in that order, with no AJAX header to ask for it.
+    mounted()
+    response = Client().get(f"/{MOUNT}", {"sort": "-amount"})
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'aria-sort="descending"' in html
+    assert html.index("INV-2050") < html.index("INV-2048")
 
 
 def test_rows_is_handed_what_was_asked_for(mounted):
@@ -270,7 +280,7 @@ def test_rows_is_handed_what_was_asked_for(mounted):
 def test_a_sort_link_keeps_the_search(mounted):
     html = _table(mounted().invoices, _request(sort="amount", q="contoso"))
     hrefs = re.findall(r'<th[^>]*><a href="([^"]*)"', html)
-    assert "/billing/invoices/?sort=-amount&amp;q=contoso" in hrefs
+    assert "/billing/?sort=-amount&amp;q=contoso" in hrefs
 
 
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
@@ -316,7 +326,7 @@ def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
 def test_pagination_links_keep_the_rest_of_the_state(mounted):
     html = _table(mounted(page_size=2).invoices, _request(sort="-amount", q="n"))
     hrefs = re.findall(r'href="([^"]*)"', html)
-    assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
+    assert "/billing/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
 
 def test_an_action_posts_the_state_it_was_done_in(mounted):
@@ -362,13 +372,13 @@ def test_every_url_follows_the_mount_point(mounted):
     # The same declaration, included somewhere else. Nothing about the
     # table changed; where it lives did.
     bound = _bind(mounted(at="admin/reports/").invoices, _request(at="admin/reports/"))
-    assert bound.urls.read == "/admin/reports/invoices/"
+    assert bound.urls.read == "/admin/reports/"
     assert bound.urls.act == {"archive": "/admin/reports/invoices/archive/"}
 
 
 def test_the_search_form_posts_back_to_the_mounted_table(mounted):
     html = _table(mounted().invoices, _request())
-    assert 'action="/billing/invoices/"' in html
+    assert 'action="/billing/"' in html
 
 
 def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
@@ -379,7 +389,7 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
     elsewhere = _request()
     elsewhere.resolver_match.namespace = "somebodyelse"
 
-    with pytest.raises(NoReverseMatch, match="somebodyelse:invoices_read") as error:
+    with pytest.raises(NoReverseMatch, match="somebodyelse:index") as error:
         _bind(view.invoices, elsewhere)
     assert "its own fragments" in str(error.value)
 

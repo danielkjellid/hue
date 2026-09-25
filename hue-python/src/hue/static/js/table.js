@@ -25,6 +25,14 @@ export function registerTableSelection(Alpine) {
 
 		init() {
 			this.frame = this.$el;
+			// An action is done with the selection, which ends with it. The
+			// response is morphed into the frame rather than replacing it, so
+			// nothing else would clear a row that is still on the page.
+			this.frame.addEventListener("ajax:success", (event) => {
+				if (event.target.matches("form[method=post]")) {
+					this.clear();
+				}
+			});
 			this.onOtherSelection = (event) => {
 				if (event.detail !== this.frame && this.selected.length) {
 					this.selected = [];
@@ -243,7 +251,10 @@ export function registerTableColumns(Alpine) {
 				? this.hidden.filter((other) => other !== key)
 				: [...this.hidden, key];
 			narrowed(this.table, { hidden: this.hidden.length });
-			this.$refs.form.requestSubmit();
+			// The hidden field is bound to this list, and Alpine writes a
+			// binding on its next tick. Submitted now, it would send the
+			// columns as they were before the click.
+			this.$nextTick(() => this.$refs.form.requestSubmit());
 		},
 	}));
 }
