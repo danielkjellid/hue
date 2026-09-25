@@ -1,6 +1,7 @@
 from typing import Callable
 
 from django.conf import settings as django_settings
+from hue.formats import Formats
 
 
 class Settings:
@@ -28,6 +29,20 @@ class Settings:
             "HUE_HTML_TITLE_FACTORY",
             lambda title: f"{title} - Hue",
         )
+
+    @property
+    def HUE_DATE_FORMAT(self) -> str:
+        """
+        The strftime format components write a date in, ISO 8601 by default.
+        """
+        return getattr(django_settings, "HUE_DATE_FORMAT", Formats().date)
+
+    @property
+    def HUE_DATETIME_FORMAT(self) -> str:
+        """
+        The strftime format components write a date with a time in.
+        """
+        return getattr(django_settings, "HUE_DATETIME_FORMAT", Formats().datetime)
 
 
 settings = Settings()

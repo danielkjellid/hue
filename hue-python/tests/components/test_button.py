@@ -15,6 +15,15 @@ class TestButton:
         assert "Click" in html
 
     @pytest.mark.asyncio
+    async def test_a_button_can_post_somewhere_else(self, context_args):
+        # One form, several buttons, each posting to its own action.
+        html = await render_tree(
+            Button().type("submit").formaction("/archive/").content("Archive"),
+            context_args=context_args,
+        )
+        assert_attr(html, "button", "formaction", "/archive/")
+
+    @pytest.mark.asyncio
     async def test_render_submit_type(self, context_args):
         html = await render_tree(
             Button().type("submit").content("Send"), context_args=context_args

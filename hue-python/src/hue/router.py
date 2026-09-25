@@ -1,6 +1,7 @@
 import inspect
 import json
 from collections.abc import Awaitable, Callable
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from functools import partialmethod
 from http import HTTPStatus
@@ -14,9 +15,14 @@ from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.renderer import render_tree
 from hue.toast import toast
 from hue.types.core import Component, ComponentType
+from hue.ui.molecules.datatable import resolve_value
 from hue.ui.molecules.toast import region_fragment
 
 DEFAULT_STATUS_CODE = HTTPStatus.OK
+
+# The name a view's page is registered under, so that something drawn on the
+# page, such as a declared table, can reverse the page it is on.
+PAGE_ROUTE = "index"
 
 
 @dataclass(slots=True, frozen=True)
@@ -193,6 +199,72 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
+        """
+        The submitted form with every value kept, not just the last.
+
+        Separate from _get_form_data because the flat dict that returns keeps
+        only the last value under each name, and a column of checkboxes is
+        several values under one.
+        """
+        return {
+            name: [str(value)] for name, value in self._get_form_data(request).items()
+        }
+
+    def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
+        """
+        The query string with every value kept, not just the last.
+
+        A set of checkboxes sharing a name is how a browser submits a
+        list, and flattening that to a dict keeps one of them - which is
+        exactly the case a multiple-choice filter is.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
+    def _url_for(self, request: T_Request, name: str, **params: Any) -> str:
+        """
+        Where one of this router's own routes lives, for this request.
+
+        A route's path is written relative to wherever the view ends up
+        mounted, so nothing here can spell the whole URL - only the
+        framework knows what the view was included under. The request is
+        passed because the answer depends on it: the same view mounted
+        twice has two URLs, and the one you want is the one the reader is
+        already browsing.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
+    def _form_fields(self) -> AbstractSet[str]:
+        """
+        The fields a framework adds to a form that belong to no one's state,
+        such as its CSRF token, so they are not echoed back into links.
+        """
+        return frozenset()
+
+    def _passes_through(self, error: Exception) -> bool:
+        """
+        Whether an exception from a handler is an answer to send rather than a
+        failure to report, such as a framework's permission-denied or not-found.
+        The base router knows none.
+        """
+        return False
+
+    def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
+        """
+        The rows whose value at key is one of values.
+
+        This is how an action is kept to rows the reader could see: the ids
+        a browser posts are narrowed to the rows the table would show. Here
+        the rows are walked, which is what a list is for. An integration
+        whose rows are a query overrides it to filter in the database.
+        """
+        wanted = set(values)
+        return [row for row in rows if str(resolve_value(row, key)) in wanted]
+
     async def _call_view_func(
         self,
         view_func: ViewFunc,
@@ -211,6 +283,18 @@ class Router[T_Request]:
         if inspect.isawaitable(result):
             result = await result
         return result
+
+    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
+        """
+        Call a blocking function from inside an async route.
+
+        This is for work a route does on a handler's behalf, such as fetching
+        the rows a table needs or running an action. The base router calls it
+        directly. An integration whose ORM refuses to run on the event loop
+        overrides it to run the call in a thread, as _call_view_func does for a
+        sync handler.
+        """
+        return func(*args)
 
     def _parse_body(self, request: T_Request, adapter: TypeAdapter[Any]) -> Any:
         """
@@ -290,14 +374,18 @@ class Router[T_Request]:
         return wrapped_view
 
     def _request(
-        self, method: str, path: str, require_ajax: bool = True
+        self,
+        method: str,
+        path: str,
+        require_ajax: bool = True,
+        name: str | None = None,
     ) -> Callable[[ViewFunc], ViewFunc]:
         def decorator(view_func: ViewFunc) -> ViewFunc:
             parsed_path = self._parse_path_params(self._normalize_path(path))
 
             self._routes.append(
                 Route(
-                    name=view_func.__name__.lower(),
+                    name=name or view_func.__name__.lower(),
                     method=method.upper(),
                     path=parsed_path.path,
                     view_func=self._wrap_view(view_func, require_ajax=require_ajax),

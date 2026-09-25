@@ -3,6 +3,13 @@ import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { registerScrollAreaData } from "./scroll-area.js";
+import {
+	registerTableColumns,
+	registerTableSelection,
+	registerTableFilters,
+	registerTableReset,
+	registerTableSearch,
+} from "./table.js";
 import { registerThemeStore } from "./theme.js";
 import { registerToastMagic } from "./toast.js";
 import { registerTocData } from "./toc.js";
@@ -33,6 +40,11 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	});
 
 	registerScrollAreaData(Alpine);
+	registerTableSelection(Alpine);
+	registerTableSearch(Alpine);
+	registerTableFilters(Alpine);
+	registerTableColumns(Alpine);
+	registerTableReset(Alpine);
 	registerThemeStore(Alpine, themeStorageKey);
 	registerToastMagic(Alpine);
 	registerTocData(Alpine);
