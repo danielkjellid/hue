@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from hue_django import middleware
 
 from example.invoices.models import Customer, Invoice
 
@@ -25,3 +26,23 @@ def invoices(db: None) -> dict[str, Invoice]:
     ]
     Invoice.objects.bulk_create(made)
     return {invoice.reference: invoice for invoice in Invoice.objects.all()}
+
+
+@pytest.fixture(autouse=True)
+def _stub_assets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Stand-in assets, since a page links hue's by the hash of their content.
+
+    The stylesheet is generated, not committed, and these tests are about
+    the table's queries, so they do not build it.
+    """
+    monkeypatch.setitem(
+        middleware._ASSET_ROUTES,
+        middleware.CSS_URL,
+        (lambda: ".stub{}", "text/css; charset=utf-8"),
+    )
+    monkeypatch.setitem(
+        middleware._ASSET_ROUTES,
+        middleware.JS_URL,
+        (lambda: "export {};", "text/javascript; charset=utf-8"),
+    )
