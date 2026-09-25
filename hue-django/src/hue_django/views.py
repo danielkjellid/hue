@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Awaitable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from django.http import (
     HttpRequest,
@@ -21,18 +21,6 @@ from hue.router import RawResponse, Route
 from hue_django.router import Router
 
 type UrlPatterns = tuple[list[URLPattern], str]
-
-
-class IndexMethod(Protocol):
-    """
-    The signature of a HueView's index method, sync or async.
-    """
-
-    def __call__(
-        self,
-        request: HttpRequest,
-        context: HueContext[HttpRequest],
-    ) -> BasePage | Awaitable[BasePage]: ...
 
 
 class _BaseView(View):
@@ -162,7 +150,13 @@ class HueView(_BaseView):
     """
 
     if TYPE_CHECKING:
-        index: IndexMethod
+        # A method rather than an attribute of a callable type, so that the
+        # def a subclass writes, self and all, is an override mypy accepts.
+        # Declared for the type checker only: at runtime a view without one
+        # is refused by name below.
+        def index(
+            self, request: HttpRequest, context: HueContext[HttpRequest]
+        ) -> BasePage | Awaitable[BasePage]: ...
 
     @classmethod
     def _build_urls(cls) -> UrlPatterns:
