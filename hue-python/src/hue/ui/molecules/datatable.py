@@ -13,6 +13,7 @@ from typing import (
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.formats import Formats
 from hue.js import unsafe
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
@@ -156,18 +157,28 @@ def resolve_value(
     return value
 
 
-def _stringify(value: Any) -> str:
+class _Value:
     """
-    A resolved scalar as text. A value that is not a scalar needs a
+    A resolved value as text. Dates and decimals are written in the formats
+    the context holds, and anything else that is not a scalar needs a
     render() on its column, so this raises instead of guessing.
     """
-    if value is None:
-        return ""
-    if isinstance(value, (str, int, float, bool)):
-        return str(value)
-    raise ValueError(
-        f"Column value {value!r} is not a scalar - give the column a render()."
-    )
+
+    def __init__(self, value: Any) -> None:
+        self._value = value
+
+    def htmy(self, context: Context) -> Component:
+        value = self._value
+        if value is None:
+            return ""
+        if isinstance(value, (str, int, float, bool)):
+            return str(value)
+        text = Formats.from_context(context).text(value)
+        if text is not None:
+            return text
+        raise ValueError(
+            f"Column value {value!r} is not a scalar - give the column a render()."
+        )
 
 
 # Enough rows to read as a table that is filling in, and few enough that the
@@ -619,7 +630,7 @@ class DataTable(ChainableComponent):
         content = (
             column.render(row)
             if column.render is not None
-            else _stringify(resolve_value(row, column.key))
+            else _Value(resolve_value(row, column.key))
         )
         return TableCell().align(column.align).content(content)
 

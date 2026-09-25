@@ -1,5 +1,9 @@
+from datetime import date, datetime
+from decimal import Decimal
+
 import pytest
 
+from hue.formats import Formats
 from hue.renderer import render_tree
 from hue.ui import Badge, Button, Column, DataTable, Empty
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -62,6 +66,49 @@ class TestDataTable:
                 DataTable()
                 .columns([Column("customer.city", "City")])
                 .rows([{"customer": {}}]),
+                context_args=context_args,
+            )
+
+    # Values with more than one spelling: written in the context's formats
+    @pytest.mark.asyncio
+    async def test_dates_and_decimals_are_written_out(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("on", "On"), Column("at", "At"), Column("sum", "Sum")])
+            .rows(
+                [
+                    {
+                        "on": date(2026, 3, 1),
+                        "at": datetime(2026, 3, 1, 14, 5),
+                        "sum": Decimal("2190.00"),
+                    }
+                ]
+            ),
+            context_args=context_args,
+        )
+        cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
+        # ISO 8601 unless told otherwise, and the decimal as it was stored.
+        assert cells == ["2026-03-01", "2026-03-01 14:05", "2190.00"]
+
+    @pytest.mark.asyncio
+    async def test_the_context_says_how_a_date_is_written(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("on", "On"), Column("at", "At")])
+            .rows([{"on": date(2026, 3, 1), "at": datetime(2026, 3, 1, 14, 5)}]),
+            context_args={
+                **context_args,
+                "formats": Formats(date="%d.%m.%Y", datetime="%d.%m.%Y %H:%M"),
+            },
+        )
+        cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
+        assert cells == ["01.03.2026", "01.03.2026 14:05"]
+
+    @pytest.mark.asyncio
+    async def test_anything_else_asks_for_a_render(self, context_args):
+        with pytest.raises(ValueError, match="give the column a render"):
+            await render_tree(
+                DataTable().columns([Column("who", "Who")]).rows([{"who": object()}]),
                 context_args=context_args,
             )
 

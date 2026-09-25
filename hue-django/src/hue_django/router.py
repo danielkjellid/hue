@@ -10,8 +10,11 @@ from django.http import HttpRequest
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
 from hue.context import HueContext, HueContextArgs
+from hue.formats import Formats
 from hue.router import HueResponse, PathParseResult, ViewFunc
 from hue.router import Router as HueRouter
+
+from hue_django.conf import settings
 
 __all__ = ["HueResponse", "Router"]
 
@@ -46,7 +49,13 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         return PathParseResult(path=path, param_names=_PATH_PARAM_RE.findall(path))
 
     def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
-        return HueContextArgs(request=request, csrf_token=get_token(request))
+        return HueContextArgs(
+            request=request,
+            csrf_token=get_token(request),
+            formats=Formats(
+                date=settings.HUE_DATE_FORMAT, datetime=settings.HUE_DATETIME_FORMAT
+            ),
+        )
 
     def _get_request_body(self, request: T_Request) -> str:
         return request.body.decode("utf-8")
