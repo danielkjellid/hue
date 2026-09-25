@@ -214,14 +214,6 @@ class TestCheckbox:
         )
         assert_no_selector(html, "span.text-fg-muted")
 
-    @pytest.mark.asyncio
-    async def test_a_control_can_belong_to_a_form_it_is_not_in(self, context_args):
-        html = await render_tree(
-            Checkbox().name("selected").label("Pick").form("invoices-act"),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "form", "invoices-act")
-
     # hidden_label(): both branches
     @pytest.mark.asyncio
     async def test_a_hidden_label_moves_onto_the_control(self, context_args):

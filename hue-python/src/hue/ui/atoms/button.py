@@ -139,13 +139,6 @@ class Button(FormElementMixin, Clickable):
         self._props["disabled"] = value
         return self
 
-    def form(self, value: str) -> Self:
-        """
-        The id of the form this button submits, when it sits outside it.
-        """
-        self._attrs["form"] = value
-        return self
-
     def formaction(self, value: str) -> Self:
         """
         Where this button submits its form to, in place of the form's own
