@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.utils.cache import get_conditional_response
 from django.utils.http import quote_etag
@@ -20,20 +21,37 @@ _ASSET_ROUTES: dict[str, tuple[Callable[[], str], str]] = {
     JS_URL: (read_js, "text/javascript; charset=utf-8"),
 }
 
-# In-memory cache: asset path -> (encoded content, quoted etag)
+# In-memory cache: asset path -> (encoded content, content hash)
 _cache: dict[str, tuple[bytes, str]] = {}
+
+# For a URL that names the content it wants: it can never change, so a
+# browser need not ask again.
+_IMMUTABLE = "public, max-age=31536000, immutable"
 
 
 def _get_cached_asset(path: str) -> tuple[bytes, str]:
     """
-    Content and ETag for an asset, read from the hue package on first access.
+    Content and hash for an asset, read from the hue package on first access.
+
+    With DEBUG on it is read every time. The bundle is rebuilt while the
+    development server runs, and the autoreloader restarts it for Python
+    and nothing else.
     """
-    if path not in _cache:
+    if path not in _cache or settings.DEBUG:
         reader, _ = _ASSET_ROUTES[path]
         content = reader().encode("utf-8")
         digest = hashlib.md5(content, usedforsecurity=False).hexdigest()
-        _cache[path] = (content, quote_etag(digest))
+        _cache[path] = (content, digest)
     return _cache[path]
+
+
+def versioned_url(path: str) -> str:
+    """
+    An asset's URL with the hash of its content in it, which is the URL a
+    page links. A change to the asset is a new URL, so no browser holds on
+    to the old one after a deploy.
+    """
+    return f"{path}?v={_get_cached_asset(path)[1]}"
 
 
 def _asset_response(request: HttpRequest) -> HttpResponseBase | None:
@@ -43,12 +61,18 @@ def _asset_response(request: HttpRequest) -> HttpResponseBase | None:
     if request.path not in _ASSET_ROUTES or request.method not in ("GET", "HEAD"):
         return None
 
-    content, etag = _get_cached_asset(request.path)
+    content, digest = _get_cached_asset(request.path)
+    etag = quote_etag(digest)
     _, content_type = _ASSET_ROUTES[request.path]
 
     response = HttpResponse(content, content_type=content_type)
     response["ETag"] = etag
-    response["Cache-Control"] = "public, max-age=3600"
+    # Cached for good when the URL names this content. Anything else, such
+    # as a link written without the hash, asks again each time and gets a
+    # 304 while the ETag still matches.
+    response["Cache-Control"] = (
+        _IMMUTABLE if request.GET.get("v") == digest else "public, no-cache"
+    )
     # Turns the response into a 304 when If-None-Match matches, handling weak
     # validators, lists and "*" per RFC 7232.
     return get_conditional_response(request, etag=etag, response=response)
