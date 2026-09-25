@@ -4,6 +4,8 @@ from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.core.exceptions import ValidationError
+from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
@@ -55,11 +57,8 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     def _get_form_data(self, request: T_Request) -> dict[str, Any]:
         return request.POST.dict()
 
-    def _get_form_list(self, request: T_Request, name: str) -> list[str]:
-        return request.POST.getlist(name)
-
-    def _get_query_params(self, request: T_Request) -> dict[str, str]:
-        return request.GET.dict()
+    def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
+        return {name: request.POST.getlist(name) for name in request.POST}
 
     def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
         return {name: request.GET.getlist(name) for name in request.GET}
@@ -88,6 +87,22 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 f"of its own fragments, and only while it is the one serving "
                 f"the request."
             ) from None
+
+    def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
+        """
+        Filters a queryset in the database, rather than walking every row
+        that matches to find the few that were picked. Anything else is
+        walked, as the base router does.
+        """
+        if isinstance(rows, QuerySet):
+            try:
+                return rows.filter(**{f"{key.replace('.', '__')}__in": values})
+            except (ValueError, TypeError, ValidationError):
+                # An id the field cannot hold, such as "abc" for an integer
+                # key, is posted by nothing the table drew, so the whole
+                # post picks nothing rather than guessing at the rest.
+                return rows.none()
+        return super()._narrow_to(rows, key, values)
 
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
         """

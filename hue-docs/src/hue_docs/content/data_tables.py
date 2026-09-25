@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from hue.context import HueContext
-from hue.datatable import BulkAction, Filter, TableState, datatable
+from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.types.core import ComponentType
 from hue.ui import Alert, Column, DataTable
 
@@ -85,13 +86,20 @@ class _Router:
     def _get_query_values(self, request: Any) -> dict[str, list[str]]:
         return {name: [value] for name, value in request.params.items()}
 
+    def _get_form_values(self, request: Any) -> dict[str, list[str]]:
+        # Nothing is ever posted to a docs page.
+        return {}
+
+    def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
+        return [row for row in rows if str(row[key]) in values]
+
     def _url_for(self, request: Any, name: str, **params: Any) -> str:
         # Django reverses these against the URLconf. Here they are spelled
         # out, since there is nothing to reverse against.
         action = params.get("action")
         return f"/invoices/{action}/" if action else "/invoices/"
 
-    async def _run_sync(self, func: Any, /, *args: Any) -> Any:
+    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
         # A list of dictionaries has no event loop to keep off.
         return func(*args)
 
@@ -122,8 +130,8 @@ def _table(key: str) -> Any:
     The declaration, once per specimen: two tables on one page need two
     keys, because the key is the id every part of a table is named from.
     """
-    return datatable(
-        _Router(),  # type: ignore[arg-type]
+    return build_datatable_state(
+        _Router(),
         key=key,
         columns=[
             Column("invoice", "Invoice"),
@@ -135,7 +143,7 @@ def _table(key: str) -> Any:
         search="Search customers",
         filters=[
             Filter("status", "Status", options=_STATUS),
-            Filter("min", "Minimum amount", kind="number", prefix="USD"),
+            Filter("min", "Minimum amount", numeric=True, prefix="USD"),
         ],
         hideable=["customer", "amount"],
         actions={"archive": BulkAction("Archive", _archive)},
@@ -158,7 +166,9 @@ def _specimen(key: str, **params: str) -> ComponentType:
     )
 
 
-_DECLARATION = """def invoices_for(request, asked):
+_DECLARATION = """def invoices_for(
+    request: HttpRequest, asked: TableState
+) -> QuerySet[Invoice]:
     \"\"\"The one part of a table that is not fixed: which rows answer it.\"\"\"
     found = Invoice.objects.filter(customer__name__icontains=asked.query)
     if statuses := asked.chosen("status"):
@@ -168,10 +178,14 @@ _DECLARATION = """def invoices_for(request, asked):
     return found.order_by(asked.sort or "reference")
 
 
+def archive_invoices(request: HttpRequest, ids: list[str]) -> None:
+    Invoice.objects.filter(pk__in=ids).update(archived=True)
+
+
 class InvoicesView(HueView):
     router = Router[HttpRequest]()
 
-    invoices = datatable(
+    invoices = build_datatable_state(
         router,
         key="invoices",
         columns=[
@@ -184,13 +198,15 @@ class InvoicesView(HueView):
         search="Search customers",
         filters=[
             Filter("status", "Status", options=STATUS),
-            Filter("min", "Minimum amount", kind="number", prefix="USD"),
+            Filter("min", "Minimum amount", numeric=True, prefix="USD"),
         ],
         hideable=["customer", "amount"],
         actions={"archive": BulkAction("Archive", archive_invoices)},
     )
 
-    async def index(self, request, context):
+    async def index(
+        self, request: HttpRequest, context: HueContext[HttpRequest]
+    ) -> Page:
         return Page(title="Invoices", body=DataTable.from_state(self.invoices))"""
 
 
@@ -225,7 +241,9 @@ def _build() -> ComponentType:
             "rows. That is why a sortable header is a link and not a click handler."
         ),
         pr.code(
-            "def invoices_for(request, asked):\n"
+            "def invoices_for(\n"
+            "    request: HttpRequest, asked: TableState\n"
+            ") -> QuerySet[Invoice]:\n"
             "    found = Invoice.objects.filter(\n"
             "        customer__name__icontains=asked.query\n"
             "    )\n"
@@ -233,8 +251,10 @@ def _build() -> ComponentType:
         ),
         pr.p(
             "asked.sort uses the spelling Django and query strings already use: "
-            '"amount", or "-amount" for descending. A view can pass its own sort '
-            "parameter straight to order_by without parsing it."
+            '"amount", or "-amount" for descending. rows() can pass it straight to '
+            "order_by, because the table only accepts an order one of its columns "
+            "declares. Anything else typed into the URL arrives as None, so nobody "
+            "can sort by a field the table never shows."
         ),
         pr.h2("Acting on rows is a write"),
         pr.p(
@@ -244,6 +264,14 @@ def _build() -> ComponentType:
             "registers follow the usual HTTP split between reads and writes. Both go "
             "through the same rows(), so after an action the table comes back in the "
             "state it was in instead of as the first page of an unsorted list."
+        ),
+        pr.p(
+            "The state is posted with the selection, and the table checks the ids "
+            "against it before the handler sees them: it runs rows() for that state "
+            "and keeps only the posted ids it returns. Whatever was posted, a "
+            "handler only receives rows the reader could see. For a queryset the "
+            "check is a single filter on the identifier, which costs one extra query "
+            "and never walks every matching row."
         ),
         pr.code(
             "GET   /invoices/?sort=-amount&q=contoso   -> the table\n"
@@ -259,7 +287,10 @@ def _build() -> ComponentType:
             "identifier names the property a row is known by, and actions receive "
             "those values. It belongs to the rows instead of the columns because what "
             "identifies a row is usually not something anyone wants to see: a primary "
-            "key, say, instead of the reference printed on the invoice."
+            "key, say, instead of the reference printed on the invoice. The "
+            "identifier and the actions come as a pair. Actions put a checkbox in "
+            "every row, a table without them has no checkboxes, and an identifier "
+            "given without actions is refused."
         ),
         pr.p(
             "Every row has to carry it, whether or not a column shows it. If the rows "
@@ -283,12 +314,16 @@ def _build() -> ComponentType:
             '  <div id="invoices-rows">              <!-- replaced -->\n'
             "    <table>\n"
             '      <th aria-sort="descending">\n'
-            '        <a href="?sort=amount" x-target="invoices-rows">Amount</a>\n'
+            '        <a href="?sort=amount" x-target.push="invoices-rows">Amount</a>\n'
             "      </th>\n"
             '      <td><input type="checkbox" name="selected"\n'
             '                 value="41" form="invoices-act"></td>\n'
             "    </table>\n"
             "    [pages]\n"
+            "    <div hidden>                         <!-- what the forms carry -->\n"
+            '      <input type="hidden" name="sort" value="-amount"\n'
+            '             form="invoices-search">\n'
+            "    </div>\n"
             "  </div>\n"
             "</div>",
             language="html",
@@ -310,7 +345,7 @@ def _build() -> ComponentType:
             'urlpatterns = [path("billing/", include(InvoicesView.urls))]\n'
             "\n"
             "# /billing/invoices/?sort=-amount\n"
-            "# /billing/invoices/archive/?sort=-amount",
+            "# /billing/invoices/archive/",
             language="python",
         ),
         pr.p(
@@ -322,6 +357,15 @@ def _build() -> ComponentType:
             "Sorting, paging, searching and filtering all replace the rows, not the "
             "whole shell. No response ever replaces the toolbar, so the caret stays in "
             "the search box and an open panel stays open while the rows change."
+        ),
+        pr.p(
+            "It is also why the toolbar's forms keep the rest of the state outside "
+            "themselves. A hidden field inside the search form would keep sending "
+            "the order the table was first drawn in, so a search after a sort would "
+            "undo the sort. Those fields are drawn under the rows, each tied to its "
+            "form by the form's id, and every response redraws them. A browser "
+            "submits a field tied to a form wherever the field sits, with or "
+            "without Alpine."
         ),
         pr.p(
             "The selection is submitted through real checkboxes, so the browser sends "
@@ -357,7 +401,7 @@ def _build() -> ComponentType:
         ),
         pr.code(
             'Filter("status", "Status", options=STATUS)     # ?status=paid,draft\n'
-            'Filter("min", "Minimum amount", kind="number") # ?min=500'
+            'Filter("min", "Minimum amount", numeric=True) # ?min=500'
         ),
         pr.p(
             "The chips and the count on the trigger are read from the panel's own "
@@ -400,7 +444,9 @@ def _build() -> ComponentType:
             "an empty state of your own, stays on the table."
         ),
         pr.code(
-            "async def index(self, request, context):\n"
+            "async def index(\n"
+            "    self, request: HttpRequest, context: HueContext[HttpRequest]\n"
+            ") -> Page:\n"
             "    return Page(\n"
             '        title="Invoices",\n'
             '        body=DataTable.from_state(self.invoices).caption("Invoices"),\n'
@@ -518,12 +564,12 @@ def _build() -> ComponentType:
         .variant("warning")
         .title("What is not done yet")
         .content(
-            "The no-JavaScript fallback for an action will be refused by Django's CSRF "
-            "middleware, because the form carries no hidden token. The AJAX path "
-            "works, since the bundle sends the header the middleware reads. The panel "
-            "also does not show how many rows each filter answer would leave. That "
-            "count would have to be recomputed on the server and swapped into the one "
-            "band that is never swapped."
+            "Actions need JavaScript. Alpine draws the bar they sit in, so with it off "
+            "there is nothing to press. The form carries no CSRF token of its own "
+            "either, since the bundle sends the header Django reads. The panel also "
+            "does not show how many rows each filter answer would leave: that count "
+            "would have to be recomputed on the server and swapped into the one band "
+            "that is never swapped."
         ),
     )
 

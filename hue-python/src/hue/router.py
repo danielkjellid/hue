@@ -14,6 +14,7 @@ from hue.exceptions import AJAXRequiredError, BodyValidationError
 from hue.renderer import render_tree
 from hue.toast import toast
 from hue.types.core import Component, ComponentType
+from hue.ui.molecules.datatable import resolve_value
 from hue.ui.molecules.toast import region_fragment
 
 DEFAULT_STATUS_CODE = HTTPStatus.OK
@@ -193,25 +194,17 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
-    def _get_form_list(self, request: T_Request, name: str) -> list[str]:
+    def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
         """
-        Every value submitted under one name, which a set of checkboxes is.
+        The submitted form with every value kept, not just the last.
 
         Separate from _get_form_data because the flat dict that returns keeps
-        only the last of them, and the whole point of a column of checkboxes
-        is that several are ticked at once.
+        only the last value under each name, and a column of checkboxes is
+        several values under one.
         """
-        value = self._get_form_data(request).get(name)
-        return [] if value is None else [str(value)]
-
-    def _get_query_params(self, request: T_Request) -> dict[str, str]:
-        """
-        The query string, which is where the state of a page lives - the
-        order a table is in, the page of it being looked at.
-        """
-        raise NotImplementedError(
-            "This method must be overridden by framework-specific routers"
-        )
+        return {
+            name: [str(value)] for name, value in self._get_form_data(request).items()
+        }
 
     def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
         """
@@ -239,6 +232,18 @@ class Router[T_Request]:
         raise NotImplementedError(
             "This method must be overridden by framework-specific routers"
         )
+
+    def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
+        """
+        The rows whose value at key is one of values.
+
+        This is how an action is kept to rows the reader could see: the ids
+        a browser posts are narrowed to the rows the table would show. Here
+        the rows are walked, which is what a list is for. An integration
+        whose rows are a query overrides it to filter in the database.
+        """
+        wanted = set(values)
+        return [row for row in rows if str(resolve_value(row, key)) in wanted]
 
     async def _call_view_func(
         self,

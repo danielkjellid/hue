@@ -43,6 +43,7 @@ class TestChainableComponent:
             .aria_expanded("false")
             .aria_controls("panel-1")
             .aria_busy("true")
+            .aria_keyshortcuts("Escape")
             .role("dialog")
         )
         attrs = btn._get_base_html_attrs()
@@ -51,7 +52,16 @@ class TestChainableComponent:
         assert attrs["aria_expanded"] == "false"
         assert attrs["aria_controls"] == "panel-1"
         assert attrs["aria_busy"] == "true"
+        assert attrs["aria_keyshortcuts"] == "Escape"
         assert attrs["role"] == "dialog"
+
+    @pytest.mark.asyncio
+    async def test_data_is_a_data_attribute(self, context_args):
+        html = await render_tree(
+            Button().data("filter-label", "Status").content("Hi"),
+            context_args=context_args,
+        )
+        assert 'data-filter-label="Status"' in html
 
     def test_base_html_attrs_omits_none(self):
         btn = Button().id("my-id")

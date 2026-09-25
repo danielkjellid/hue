@@ -15,7 +15,7 @@
  * one bar would cover another while its rows stayed ticked, and Escape would
  * clear both.
  */
-export function registerTableData(Alpine) {
+export function registerTableSelection(Alpine) {
 	Alpine.data("hueTableSelection", () => ({
 		// Declared, so Alpine keeps them on this scope instead of writing
 		// them to the outermost one on the page.
@@ -160,8 +160,8 @@ export function registerTableFilters(Alpine) {
 			this.applied = this.controls()
 				.filter((el) => (el.type === "checkbox" ? el.checked : el.value))
 				.map((el) => ({
-					group: el.dataset.filter,
-					name: el.dataset.group || el.dataset.filter,
+					filter: el.dataset.filter,
+					filterLabel: el.dataset.filterLabel || el.dataset.filter,
 					value: el.type === "checkbox" ? el.value : "",
 					label: el.dataset.option || el.value,
 				}));
@@ -178,7 +178,7 @@ export function registerTableFilters(Alpine) {
 
 		remove(chip) {
 			for (const el of this.controls()) {
-				if (el.dataset.filter !== chip.group) continue;
+				if (el.dataset.filter !== chip.filter) continue;
 				if (el.type === "checkbox" && el.value !== chip.value) continue;
 				this.clearControl(el);
 			}

@@ -62,6 +62,14 @@ class Checkbox(FormControl):
         self._props["checked"] = value
         return self
 
+    def form(self, value: str) -> Self:
+        """
+        The id of the form this checkbox belongs to, when it sits outside
+        it: a checkbox in a table row, whose form cannot wrap the table.
+        """
+        self._attrs["form"] = value
+        return self
+
     def indeterminate(self, value: bool = True) -> Self:
         """
         The mixed state, for a checkbox standing for several others that do

@@ -15,6 +15,19 @@ class TestButton:
         assert "Click" in html
 
     @pytest.mark.asyncio
+    async def test_a_button_can_submit_a_form_it_is_not_in(self, context_args):
+        html = await render_tree(
+            Button()
+            .type("submit")
+            .form("invoices-act")
+            .formaction("/archive/")
+            .content("Archive"),
+            context_args=context_args,
+        )
+        assert_attr(html, "button", "form", "invoices-act")
+        assert_attr(html, "button", "formaction", "/archive/")
+
+    @pytest.mark.asyncio
     async def test_render_submit_type(self, context_args):
         html = await render_tree(
             Button().type("submit").content("Send"), context_args=context_args

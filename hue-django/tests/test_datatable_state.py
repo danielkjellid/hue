@@ -9,11 +9,13 @@ come back with the table in the state it was in.
 import asyncio
 import re
 from html.parser import HTMLParser
+from importlib.resources import files
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
 
 import pytest
+from django.db.models import QuerySet
 from django.http import HttpRequest, QueryDict
 from django.test import Client
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
@@ -21,10 +23,10 @@ from hue.context import HueContextArgs
 from hue.datatable import (
     BulkAction,
     Filter,
-    datatable,
+    build_datatable_state,
 )
 from hue.renderer import render_tree
-from hue.ui.molecules.table import Column, DataTable
+from hue.ui.molecules.datatable import Column, DataTable
 
 from hue_django.router import Router
 from hue_django.views import HueView
@@ -76,7 +78,7 @@ def _view(page_size: int = 25) -> Any:
         async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
             raise NotImplementedError
 
-        invoices = datatable(
+        invoices = build_datatable_state(
             router,
             key="invoices",
             columns=[
@@ -89,7 +91,7 @@ def _view(page_size: int = 25) -> Any:
             search="Search customers",
             filters=[
                 Filter("status", "Status", options=_STATUS),
-                Filter("min", "Minimum amount", kind="number"),
+                Filter("min", "Minimum amount", numeric=True),
             ],
             hideable=["customer", "amount"],
             actions={
@@ -155,8 +157,8 @@ def _render(component: Any, request: Any = None) -> str:
 
 class _Nesting(HTMLParser):
     """
-    The ids of every element open around the first one whose aria-label
-    starts with a given word.
+    The ids of every element open around the first one whose attr starts
+    with a given value, its aria-label unless told otherwise.
     """
 
     VOID: ClassVar[set[str]] = {
@@ -171,17 +173,16 @@ class _Nesting(HTMLParser):
         "circle",
     }
 
-    def __init__(self, label: str) -> None:
+    def __init__(self, label: str, attr: str = "aria-label") -> None:
         super().__init__()
         self.label = label
+        self.attr = attr
         self.open: list[str | None] = []
         self.found: list[str | None] | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         named = dict(attrs)
-        if self.found is None and (named.get("aria-label") or "").startswith(
-            self.label
-        ):
+        if self.found is None and (named.get(self.attr) or "").startswith(self.label):
             self.found = list(self.open)
         if tag not in self.VOID:
             self.open.append(named.get("id"))
@@ -191,8 +192,8 @@ class _Nesting(HTMLParser):
             self.open.pop()
 
 
-def _ids_around(html: str, label: str) -> list[str | None]:
-    nesting = _Nesting(label)
+def _ids_around(html: str, label: str, attr: str = "aria-label") -> list[str | None]:
+    nesting = _Nesting(label, attr)
     nesting.feed(html)
     assert nesting.found is not None, f"nothing labelled {label!r}"
     return nesting.found
@@ -216,12 +217,24 @@ def _table(declaration: Any, request: Any) -> str:
 def _form(html: str, marker: str) -> str:
     """
     The one form in a drawn table that carries marker. Every panel is a
-    form of its own, so a hidden field or a flag read off the whole table
-    could belong to any of them.
+    form of its own, so a flag read off the whole table could belong to
+    any of them.
     """
     found = [f for f in re.findall(r"<form.*?</form>", html, re.S) if marker in f]
     assert len(found) == 1, f"{len(found)} forms carry {marker!r}"
     return found[0]
+
+
+def _carried(html: str, form: str) -> dict[str, str]:
+    """
+    The hidden fields a form submits besides its own controls: the ones
+    tied to it by id, which are drawn under the rows.
+    """
+    return dict(
+        re.findall(
+            rf'<input type="hidden" name="(\w+)" value="([^"]*)" form="{form}"', html
+        )
+    )
 
 
 def test_the_declaration_registers_a_route_to_read_and_one_to_act():
@@ -263,9 +276,35 @@ def test_a_sort_link_keeps_the_search(mounted):
 def test_a_search_keeps_the_order_and_drops_the_page(mounted):
     # Page four of a different search is not a page anybody asked for.
     html = _table(mounted(page_size=2).invoices, _request(sort="-amount", page="2"))
-    html = _form(html, 'name="q"')
-    hidden = re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
-    assert hidden == [("sort", "-amount")]
+    assert _carried(html, "invoices-search") == {"sort": "-amount"}
+
+
+def test_what_the_forms_carry_is_redrawn_with_the_rows(mounted):
+    # The toolbar is left alone by a sort, a page or a search, so a field
+    # in there would go on sending the state the table was first drawn in:
+    # sort, then search, and the order would come undone.
+    html = _table(mounted().invoices, _request(sort="-amount"))
+    ids = _ids_around(html, "invoices-search", attr="form")
+    assert "invoices-rows" in ids
+
+
+def test_each_form_carries_everything_but_its_own_part(mounted):
+    html = _table(
+        mounted(page_size=2).invoices,
+        _request(q="n", sort="-amount", status="paid", hide="customer", page="2"),
+    )
+    assert _carried(html, "invoices-filters") == {
+        "sort": "-amount",
+        "q": "n",
+        "hide": "customer",
+    }
+    assert _carried(html, "invoices-columns") == {
+        "sort": "-amount",
+        "q": "n",
+        "status": "paid",
+    }
+    # Reset takes off what the panels put on, and only that.
+    assert _carried(html, "invoices-reset") == {"sort": "-amount", "q": "n"}
 
 
 def test_the_page_is_a_slice_and_the_count_is_everything(mounted):
@@ -280,16 +319,43 @@ def test_pagination_links_keep_the_rest_of_the_state(mounted):
     assert "/billing/invoices/?sort=-amount&amp;q=n&amp;page=2" in hrefs
 
 
-def test_an_action_posts_to_a_url_that_remembers_the_state(mounted):
+def test_an_action_posts_the_state_it_was_done_in(mounted):
     # Otherwise archiving on page two of a sorted table answers with the
-    # first page of an unsorted one.
+    # first page of an unsorted one. Page included, unlike the toolbar's
+    # forms: an action comes back to where it was done.
     html = _table(
         mounted(page_size=2).invoices, _request(sort="-amount", q="n", page="2")
     )
-    assert re.search(
-        r'formaction="/billing/invoices/archive/\?sort=-amount&amp;q=n&amp;page=2"',
-        html,
+    assert 'formaction="/billing/invoices/archive/"' in html
+    assert _carried(html, "invoices-act") == {"sort": "-amount", "q": "n", "page": "2"}
+
+
+def _act(action: str, **posted: Any) -> Any:
+    return Client().post(
+        f"/{MOUNT}invoices/{action}/", posted, HTTP_X_ALPINE_REQUEST="true"
     )
+
+
+def test_an_action_is_handed_only_rows_the_reader_could_see(mounted):
+    # 17 is a draft, and the table was filtered to paid: whoever posted it
+    # did not get it from a checkbox on this table.
+    mounted()
+    response = _act("archive", selected=["41", "17", "nonesuch", "41"], status="paid")
+    assert response.status_code == 200
+    assert _ARCHIVED == ["41"]
+
+
+def test_an_action_answers_with_the_table_in_the_posted_state(mounted):
+    mounted()
+    response = _act("archive", selected=["41"], sort="amount", status="paid")
+    html = response.content.decode()
+    assert 'aria-sort="ascending"' in html
+    assert "INV-2048" not in html
+
+
+def test_an_action_the_table_does_not_have_is_not_found(mounted):
+    mounted()
+    assert _act("nonesuch", selected=["41"]).status_code == 404
 
 
 def test_every_url_follows_the_mount_point(mounted):
@@ -313,13 +379,9 @@ def test_a_table_whose_view_is_not_serving_the_request_says_so(mounted):
     elsewhere = _request()
     elsewhere.resolver_match.namespace = "somebodyelse"
 
-    try:
+    with pytest.raises(NoReverseMatch, match="somebodyelse:invoices_read") as error:
         _bind(view.invoices, elsewhere)
-    except NoReverseMatch as error:
-        assert "somebodyelse:invoices_read" in str(error)
-        assert "its own fragments" in str(error)
-    else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a NoReverseMatch")
+    assert "its own fragments" in str(error.value)
 
 
 def test_the_checkboxes_carry_the_identifier_not_the_columns(mounted):
@@ -338,65 +400,80 @@ def test_the_search_box_submits_itself_after_a_pause(mounted):
 
 
 def test_actions_with_nothing_to_hand_them_are_refused():
-    try:
-        datatable(
+    with pytest.raises(ValueError, match="identifier"):
+        build_datatable_state(
             Router[HttpRequest](),
             key="nothing",
             columns=[Column("invoice", "Invoice")],
             rows=lambda request, asked: _INVOICES,
             actions={"archive": BulkAction("Archive", lambda request, ids: None)},
         )
-    except ValueError as error:
-        assert "identifier" in str(error)
-    else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a ValueError")
+
+
+_NOTHING_TO_DO = {"archive": BulkAction("Archive", lambda request, ids: None)}
+
+
+def test_an_identifier_with_no_actions_is_refused():
+    # It is what an action is handed, and a checkbox with nothing to do is
+    # not drawn, so on its own it would be a knob that does nothing.
+    with pytest.raises(ValueError, match="identifier but no actions"):
+        build_datatable_state(
+            Router[HttpRequest](),
+            key="idle",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda request, asked: _INVOICES,
+            identifier="pk",
+        )
 
 
 def test_rows_that_do_not_carry_the_identifier_are_refused():
-    bare = datatable(
+    bare = build_datatable_state(
         Router[HttpRequest](),
         key="bare",
         columns=[Column("invoice", "Invoice")],
         rows=lambda request, asked: [{"invoice": "INV-2050"}],
         identifier="pk",
+        actions=_NOTHING_TO_DO,
     )
 
-    try:
+    with pytest.raises(ValueError, match="identified by 'pk'") as error:
         _bind(bare, _request(at=None))
-    except ValueError as error:
-        assert "identified by 'pk'" in str(error)
-        assert "['invoice']" in str(error)
-    else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a ValueError")
+    assert "['invoice']" in str(error.value)
+
+
+def test_rows_that_are_not_mappings_are_refused_with_the_same_reason():
+    # A model instance has no keys to list, which is itself the answer.
+    class Invoice:
+        pk = "41"
+
+    models = build_datatable_state(
+        Router[HttpRequest](),
+        key="models",
+        columns=[Column("invoice", "Invoice")],
+        rows=lambda request, asked: [Invoice()],
+        identifier="pk",
+        actions=_NOTHING_TO_DO,
+    )
+    with pytest.raises(ValueError, match="they are Invoice and not mappings"):
+        _bind(models, _request(at=None))
 
 
 def test_the_search_box_answers_to_slash_and_escape(mounted):
     html = _table(mounted().invoices, _request())
     assert 'x-data="hueTableSearch"' in html
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
-    assert 'x-on:keydown.escape="clearField($event)"' in html
+    assert '@keydown.escape="clearField($event)"' in html
     # What the shortcut counts to decide whether it means anything: a
     # page-wide key with two candidates belongs to neither.
     assert "data-hue-table-search" in html
 
 
-def test_the_applied_row_comes_after_the_controls(mounted):
-    # basis-full puts it on a line of its own, and order-last keeps that
-    # line under the controls rather than splitting them.
-    html = _table(mounted().invoices, _request(status="paid"))
-    assert "order-last" in html
-    assert "basis-full" in html
-
-
-def test_the_pages_are_redrawn_with_the_rows(mounted):
+def test_the_pages_are_redrawn_with_the_rows_and_remembered(mounted):
     # A page, a sort or a search replaces the rows region; the bar saying
-    # which page of how many has to be inside it, or it goes stale.
+    # which page of how many has to be inside it, or it goes stale. push,
+    # so a page is somewhere to come back to.
     html = _table(mounted(page_size=2).invoices, _request())
     assert "invoices-rows" in _ids_around(html, "Pagination")
-
-
-def test_the_pages_land_in_the_rows_and_are_a_place_to_come_back_to(mounted):
-    html = _table(mounted(page_size=2).invoices, _request())
     assert 'x-target.push="invoices-rows"' in html
 
 
@@ -425,39 +502,63 @@ def test_a_filter_with_nothing_to_tick_takes_what_it_is_given(mounted):
     assert [row["pk"] for row in bound.page] == ["41", "17"]
 
 
-def test_a_filter_rides_in_every_url_the_table_builds(mounted):
-    bound = _bind(mounted().invoices, _request(status="paid", sort="amount"))
-    assert bound.href(sort="-amount") == "/billing/invoices/?sort=-amount&status=paid"
-
-
 def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
     html = _table(mounted().invoices, _request(status="paid"))
-    assert "hueTableFilters('invoices')" in html
+    assert """x-data='hueTableFilters("invoices")'""" in html
     # The count on the trigger and the chips in the band are the same
     # fact twice, both read off the controls rather than sent down.
     assert 'x-text="applied.length"' in html
     assert 'x-for="chip in applied"' in html
     assert 'data-filter="status"' in html
     assert 'data-option="Paid"' in html
-    assert re.search(r'id="invoices-status-paid"[^>]*checked', html) or re.search(
-        r'checked[^>]*id="invoices-status-paid"', html
-    )
+    assert re.search(
+        r'id="invoices-filter-status-paid"[^>]*checked', html
+    ) or re.search(r'checked[^>]*id="invoices-filter-status-paid"', html)
 
 
 def test_a_filter_cannot_be_called_what_the_table_already_calls_something():
-    for taken in ("sort", "q", "page"):
-        try:
-            datatable(
+    for taken in ("sort", "q", "page", "hide", "selected"):
+        with pytest.raises(ValueError, match=repr(taken)):
+            build_datatable_state(
                 Router[HttpRequest](),
                 key=f"clash_{taken}",
                 columns=[Column("invoice", "Invoice")],
                 rows=lambda request, asked: _INVOICES,
                 filters=[Filter(taken, "Clash")],
             )
-        except ValueError as error:
-            assert taken in str(error)
-        else:  # pragma: no cover - the raise is the behaviour under test
-            raise AssertionError(f"a filter called {taken!r} was accepted")
+
+
+def test_a_page_holds_at_least_one_row():
+    with pytest.raises(ValueError, match="page size of 0"):
+        build_datatable_state(
+            Router[HttpRequest](),
+            key="empty_pages",
+            columns=[Column("invoice", "Invoice")],
+            rows=lambda request, asked: _INVOICES,
+            page_size=0,
+        )
+
+
+def test_an_order_no_column_offers_is_dropped(mounted):
+    # rows() hands the sort to the database, and ordering by a field the
+    # table never shows would tell a reader things about it.
+    view = mounted()
+    assert _bind(view.invoices, _request(sort="-customer")).state.sort == "-customer"
+    assert _bind(view.invoices, _request(sort="invoice")).state.sort is None
+    assert _bind(view.invoices, _request(sort="secret")).state.sort is None
+
+
+def test_a_page_past_the_last_is_the_last(mounted):
+    bound = _bind(mounted(page_size=2).invoices, _request(page="99"))
+    assert bound.state.page == 2
+    assert [row["pk"] for row in bound.page] == ["23", "58"]
+
+
+def test_a_typed_answer_is_taken_whole(mounted):
+    # 1,000 is one number, and only a list-shaped filter is spelled with
+    # commas between its answers.
+    state = mounted().invoices._state_from({"min": ["1,000"]})
+    assert state.value("min") == "1,000"
 
 
 def test_a_browser_repeating_a_name_is_read_the_same_as_a_comma(mounted):
@@ -491,8 +592,8 @@ def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     # The way round anybody reads a list of columns, while the URL
     # carries the ones that are hidden.
     html = _table(mounted().invoices, _request(hide="customer"))
-    assert "hueTableColumns([&quot;customer&quot;], 'invoices')" in html
-    assert "x-effect=\"$el.checked = showing('customer')\"" in html
+    assert """x-data='hueTableColumns(["customer"], "invoices")'""" in html
+    assert """x-effect='$el.checked = showing("customer")'""" in html
     # Locked is a padlock to look at and a description to hear.
     assert re.search(
         r'id="invoices-hide-invoice"[^>]*aria-describedby="invoices-hide-invoice-locked"',
@@ -509,7 +610,7 @@ def test_reset_is_out_of_the_way_until_something_is_narrowed(mounted):
     html = _form(_table(mounted().invoices, _request(sort="amount")), "hueTableReset")
     assert 'x-show="narrowed"' in html
     assert "x-cloak" in html
-    assert "hueTableReset('invoices', 0, 0)" in html
+    assert """x-data='hueTableReset("invoices", 0, 0)'""" in html
 
 
 def test_reset_shows_once_a_filter_or_a_column_is_off(mounted):
@@ -517,22 +618,9 @@ def test_reset_shows_once_a_filter_or_a_column_is_off(mounted):
         _table(mounted().invoices, _request(status="paid,draft", hide="customer")),
         "hueTableReset",
     )
-    assert "hueTableReset('invoices', 2, 1)" in html
+    assert """x-data='hueTableReset("invoices", 2, 1)'""" in html
     assert "x-cloak" not in html
     assert 'aria-label="Reset filters and columns"' in html
-
-
-def test_reset_keeps_the_search_and_the_order(mounted):
-    # It takes off what the panels put on, and only that.
-    html = _table(
-        mounted().invoices,
-        _request(q="n", sort="-amount", status="paid", hide="customer", page="2"),
-    )
-    html = _form(html, "hueTableReset")
-    hidden = dict(
-        re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', html)
-    )
-    assert hidden == {"sort": "-amount", "q": "n"}
 
 
 def test_reset_redraws_the_whole_frame(mounted):
@@ -545,39 +633,44 @@ def test_reset_redraws_the_whole_frame(mounted):
 
 def test_the_panels_tell_the_reset_which_table_they_belong_to(mounted):
     html = _table(mounted().invoices, _request())
-    assert "hueTableFilters('invoices')" in html
-    assert "hueTableColumns([], 'invoices')" in html
+    assert """x-data='hueTableFilters("invoices")'""" in html
+    assert """x-data='hueTableColumns([], "invoices")'""" in html
+
+
+def test_every_name_the_markup_hands_the_script_is_one_it_reads(mounted):
+    # Spelled once in Python and once in table.js. A rename on one side
+    # would otherwise leave the chips or the reset button dead without a
+    # test noticing.
+    script = (files("hue") / "static" / "js" / "table.js").read_text()
+    html = _table(mounted().invoices, _request(status="paid"))
+    names = {
+        *re.findall(r"""x-data=["'](hueTable\w+)""", html),
+        *re.findall(r"x-on:(hue-table-[\w-]+)", html),
+    }
+    attributes = set(re.findall(r"data-(hue-[\w-]+|filter[\w-]*|option)=", html))
+    assert len(names) >= 5 and len(attributes) >= 5, (names, attributes)
+    missing = [name for name in sorted(names) if name not in script]
+    missing += [
+        name
+        for name in sorted(attributes)
+        # Read either as a selector or off dataset, where data-filter-label
+        # is spelled filterLabel.
+        if f"[data-{name}]" not in script
+        and "dataset." + re.sub(r"-(\w)", lambda m: m.group(1).upper(), name)
+        not in script
+    ]
+    assert not missing, f"table.js never reads {missing}"
 
 
 def test_hiding_a_column_nobody_declared_is_refused():
-    try:
-        datatable(
+    with pytest.raises(ValueError, match="nonesuch"):
+        build_datatable_state(
             Router[HttpRequest](),
             key="strangers",
             columns=[Column("invoice", "Invoice")],
             rows=lambda request, asked: _INVOICES,
             hideable=["nonesuch"],
         )
-    except ValueError as error:
-        assert "nonesuch" in str(error)
-    else:  # pragma: no cover - the raise is the behaviour under test
-        raise AssertionError("expected a ValueError")
-
-
-def test_the_declaration_draws_itself_for_the_page_it_is_on(mounted):
-    # Nothing to bind: the request is already in the context the page is
-    # rendered with, so a view hands over the declaration as it is.
-    view = mounted()
-    html = asyncio.run(
-        render_tree(
-            DataTable.from_state(view.invoices),
-            context_args=HueContextArgs(
-                request=_request(sort="-amount"), csrf_token="t"
-            ),
-        )
-    )
-    assert 'aria-sort="descending"' in html
-    assert html.index("INV-2050") < html.index("INV-2048")
 
 
 def test_what_is_chained_after_from_state_is_kept(mounted):
@@ -622,7 +715,7 @@ def test_the_rows_are_asked_for_off_the_event_loop(urlpatterns_):
 
     class ProbeView(HueView):
         router = Router[HttpRequest]()
-        invoices = datatable(
+        invoices = build_datatable_state(
             router, key="invoices", columns=[Column("invoice", "Invoice")], rows=rows
         )
 
@@ -641,7 +734,7 @@ def test_an_action_runs_off_the_event_loop_too(urlpatterns_):
 
     class ArchiveView(HueView):
         router = Router[HttpRequest]()
-        invoices = datatable(
+        invoices = build_datatable_state(
             router,
             key="invoices",
             columns=[Column("invoice", "Invoice")],
@@ -678,3 +771,67 @@ def test_the_whole_table_is_one_component(mounted):
     # Welded: one frame, with the search in a band above the rows and the
     # pages in a band below them.
     assert html.count("w-full rounded-lg border border-border bg-surface") == 1
+
+
+def test_a_queryset_is_narrowed_in_the_database():
+    # One query for the few ids that were posted, rather than every row
+    # that matches walked in Python to find them.
+    rows = MagicMock(spec=QuerySet)
+    Router[HttpRequest]()._narrow_to(rows, "customer.pk", ["41", "17"])
+    rows.filter.assert_called_once_with(customer__pk__in=["41", "17"])
+
+
+def test_anything_else_is_narrowed_by_walking_it():
+    kept = Router[HttpRequest]()._narrow_to(_INVOICES, "pk", ["41", "17"])
+    assert [row["pk"] for row in kept] == ["41", "17"]
+
+
+def _plain(urlpatterns_: list[Any], **declared: Any) -> Any:
+    """
+    A table with only what a test names, mounted like the others.
+    """
+
+    class PlainView(HueView):
+        router = Router[HttpRequest]()
+        invoices = build_datatable_state(
+            router,
+            key="invoices",
+            columns=[Column("invoice", "Invoice"), Column("amount", "Amount")],
+            rows=lambda request, asked: _INVOICES,
+            **declared,
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
+            raise NotImplementedError
+
+    urlpatterns_.append(path(MOUNT, include(PlainView.urls)))
+    clear_url_caches()
+    return PlainView.invoices
+
+
+def test_a_table_with_no_actions_posts_no_state(urlpatterns_):
+    html = _table(_plain(urlpatterns_, search="Search"), _request(q="n"))
+    assert _carried(html, "invoices-search") == {}
+    assert 'form="invoices-act"' not in html
+
+
+def test_a_table_with_nothing_to_narrow_carries_nothing(urlpatterns_):
+    html = _table(_plain(urlpatterns_), _request())
+    assert 'type="hidden"' not in html
+
+
+def test_an_id_the_key_cannot_hold_picks_nothing():
+    # Posted by nothing the table drew, and not worth a server error.
+    rows = MagicMock(spec=QuerySet)
+    rows.filter.side_effect = ValueError("Field 'id' expected a number but got 'abc'")
+    kept = Router[HttpRequest]()._narrow_to(rows, "pk", ["abc"])
+    assert kept is rows.none.return_value
+
+
+def test_a_filter_cannot_take_the_id_of_a_form_in_the_toolbar(mounted):
+    # A text filter called columns would otherwise be the element the
+    # columns form's carried fields point at.
+    html = _table(mounted().invoices, _request())
+    ids = re.findall(r' id="([^"]+)"', html)
+    assert "invoices-filter-min" in ids
+    assert len(ids) == len(set(ids)), sorted(i for i in ids if ids.count(i) > 1)

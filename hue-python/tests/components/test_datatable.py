@@ -225,13 +225,16 @@ class TestDataTable:
         )
         assert_selector(html, "tbody td > div.mx-auto")
 
-    # selectable(): both branches
+    # _bulk_actions(): both branches
     @pytest.mark.asyncio
     async def test_every_row_checkbox_names_its_own_row(self, context_args):
         # Three checkboxes all announcing "Select" gives a screen reader
         # nothing to select by.
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
@@ -245,18 +248,20 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            ._selectable("invoice")
-            ._name("ids"),
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
-        assert [box["name"] for box in boxes] == ["ids", "ids"]
+        assert [box["name"] for box in boxes] == ["selected", "selected"]
         assert [box["value"] for box in boxes] == ["INV-2050", "INV-2048"]
 
     @pytest.mark.asyncio
     async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
         html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         # On the frame, so a band above the rows is inside the scope too.
@@ -279,7 +284,6 @@ class TestDataTable:
         assert_no_selector(html, "input[type=checkbox]")
         assert_no_selector(html, "[x-data]")
 
-    # bulk_actions(): both branches
     @pytest.mark.asyncio
     async def test_what_to_do_with_the_picked_rows_floats_over_the_page(
         self, context_args
@@ -290,8 +294,7 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            ._selectable("invoice")
-            ._bulk_actions(Button().content("Delete")),
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         bar = "div[x-data] template[x-teleport=body] > div[role=group]"
@@ -307,8 +310,7 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            ._selectable("invoice")
-            ._bulk_actions(Button().content("Delete")),
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         bar = "template[x-teleport=body] > div[role=group]"
@@ -330,8 +332,7 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            ._selectable("invoice")
-            ._bulk_actions(Button().content("Delete")),
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         assert_attr(
@@ -349,8 +350,7 @@ class TestDataTable:
             DataTable()
             .columns(_COLUMNS)
             .rows(_ROWS)
-            ._selectable("invoice")
-            ._bulk_actions(Button().content("Delete")),
+            ._bulk_actions("invoice", Button().content("Delete")),
             context_args=context_args,
         )
         # Outside the bar, which is hidden until a row is picked: a region
@@ -362,16 +362,6 @@ class TestDataTable:
             "selected.length ? selected.length + ' selected' : ''",
         )
         assert_no_selector(html, "template [role=status]")
-
-    @pytest.mark.asyncio
-    async def test_no_actions_means_no_bar(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS)._selectable("invoice"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "template[x-teleport]")
-        assert_no_selector(html, "[role=status]")
-        assert_no_selector(html, "[role=status]")
 
     # sort: a header that goes somewhere, and one that does not
     @pytest.mark.asyncio
@@ -463,7 +453,7 @@ class TestDataTable:
             context_args=context_args,
         )
         # The rows, not the frame: a toolbar above them keeps its caret.
-        assert_attr(html, "th a", "x-target", "invoices-rows")
+        assert_attr(html, "th a", "x-target.push", "invoices-rows")
 
     @pytest.mark.asyncio
     async def test_without_an_id_the_header_is_just_a_link(self, context_args):

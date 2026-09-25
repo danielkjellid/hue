@@ -133,6 +133,46 @@ class TestTable:
         assert "No invoices" in html
 
     # TableRow selected(): both branches
+    # form(): both branches
+    @pytest.mark.asyncio
+    async def test_a_form_is_an_empty_element_the_checkboxes_name(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").form("/archive/").content(TableBody()),
+            context_args=context_args,
+        )
+        assert_attr(html, "form#invoices-act", "action", "/archive/")
+        assert_attr(html, "form#invoices-act", "method", "post")
+
+    @pytest.mark.asyncio
+    async def test_no_form_by_default(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").content(TableBody()), context_args=context_args
+        )
+        assert_no_selector(html, "form")
+
+    # toolbar(): both branches
+    @pytest.mark.asyncio
+    async def test_the_toolbar_sits_in_the_frame_above_the_rows(self, context_args):
+        html = await render_tree(
+            Table()
+            .id("invoices")
+            .toolbar(html_div("Search", id="bar"))
+            .content(TableBody()),
+            context_args=context_args,
+        )
+        frame = select(html, "#invoices")[0]
+        assert frame.select_one("#bar") is not None
+        assert frame.select_one("#invoices-rows #bar") is None
+
+    @pytest.mark.asyncio
+    async def test_no_toolbar_by_default(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").content(TableBody()), context_args=context_args
+        )
+        assert [child.get("id") for child in select(html, "#invoices > *")] == [
+            "invoices-rows"
+        ]
+
     @pytest.mark.asyncio
     async def test_a_selected_row_is_marked_for_the_screen_reader_too(
         self, context_args

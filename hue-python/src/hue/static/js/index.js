@@ -5,7 +5,7 @@ import Alpine from "alpinejs";
 import { registerScrollAreaData } from "./scroll-area.js";
 import {
 	registerTableColumns,
-	registerTableData,
+	registerTableSelection,
 	registerTableFilters,
 	registerTableReset,
 	registerTableSearch,
@@ -40,7 +40,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	});
 
 	registerScrollAreaData(Alpine);
-	registerTableData(Alpine);
+	registerTableSelection(Alpine);
 	registerTableSearch(Alpine);
 	registerTableFilters(Alpine);
 	registerTableColumns(Alpine);
