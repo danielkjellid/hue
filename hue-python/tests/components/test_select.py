@@ -58,7 +58,7 @@ class TestSelect:
         html = await render_tree(_select().value("pro"), context_args=context_args)
         assert_attr(html, "#plan-option-pro", "aria-selected", "true")
         assert_attr(html, "#plan-option-free", "aria-selected", "false")
-        label = select(html, "button#plan span")[0]
+        label = select(html, "button#plan span span")[0]
         assert label.get_text() == "Pro"
         assert "text-fg-subtle" not in label["class"]
 
@@ -68,7 +68,7 @@ class TestSelect:
     ):
         html = await render_tree(_select(), context_args=context_args)
         assert_no_selector(html, '[aria-selected="true"]')
-        label = select(html, "button#plan span")[0]
+        label = select(html, "button#plan span span")[0]
         assert label.get_text() == "Choose a plan"
         assert "text-fg-subtle" in label["class"]
 
@@ -85,7 +85,7 @@ class TestSelect:
             ),
             context_args=context_args,
         )
-        assert select(html, "button#plan span")[0].get_text() == "Pro"
+        assert select(html, "button#plan span span")[0].get_text() == "Pro"
 
     # required(): both branches
     @pytest.mark.asyncio
@@ -124,6 +124,14 @@ class TestSelect:
     async def test_enabled_by_default(self, context_args):
         html = await render_tree(_select(), context_args=context_args)
         assert_no_selector(html, "button[disabled]")
+
+    @pytest.mark.asyncio
+    async def test_the_trigger_is_as_wide_as_its_longest_option(self, context_args):
+        # Each label is drawn hidden in the same cell, so choosing a shorter
+        # one does not shrink the trigger.
+        html = await render_tree(_select().value("pro"), context_args=context_args)
+        hidden = [s.get_text() for s in select(html, "button#plan span.invisible")]
+        assert hidden == ["Choose a plan", "Free", "Pro"]
 
     @pytest.mark.asyncio
     async def test_the_chevron_is_decorative(self, context_args):

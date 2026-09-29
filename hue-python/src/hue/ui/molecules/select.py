@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -147,7 +148,8 @@ class Select(FieldControl):
         error: str | None = self._error(context)
         value: str | None = self._get_prop("value")
         placeholder: str = self._get_prop("placeholder", "")
-        chosen = _find(self._children, value)
+        options = list(_options(self._children))
+        chosen = next((o for o in options if o.option_value == value), None)
         listbox_id = f"{control_id}-listbox"
 
         attrs = self._control_attrs(
@@ -176,18 +178,28 @@ class Select(FieldControl):
         moved = {key: attrs.pop(key) for key in ("x-model", "form") if attrs.get(key)}
 
         trigger = html.button(
+            # Every label sits in the same grid cell, only the chosen one
+            # visible, so the trigger is as wide as its longest option the way
+            # a native select is, and choosing does not resize it.
             html.span(
-                chosen.option_label if chosen is not None else placeholder,
-                class_=classnames(
-                    "min-w-0 flex-1 truncate",
-                    classes_if(chosen is None, ["text-fg-subtle"]),
+                html.span(
+                    chosen.option_label if chosen is not None else placeholder,
+                    class_=classnames(
+                        "truncate [grid-area:1/1]",
+                        classes_if(chosen is None, ["text-fg-subtle"]),
+                    ),
+                    **{
+                        "x-text": "label || placeholder",
+                        # An object, since a string could not take away the
+                        # class the server drew the placeholder with.
+                        ":class": "{ 'text-fg-subtle': !label }",
+                    },
                 ),
-                **{
-                    "x-text": "label || placeholder",
-                    # An object, since a string could not take away the class
-                    # the server drew the placeholder with.
-                    ":class": "{ 'text-fg-subtle': !label }",
-                },
+                *(
+                    html.span(text, class_="invisible truncate [grid-area:1/1]")
+                    for text in [placeholder, *(o.option_label for o in options)]
+                ),
+                class_="grid min-w-0 flex-1",
             ),
             HueIcon("chevron-down").class_(
                 "size-4 flex-none text-fg-subtle transition-transform duration-150 "
@@ -235,23 +247,15 @@ class Select(FieldControl):
         )
 
 
-def _find(
-    children: tuple[ComponentType, ...], value: str | None
-) -> SelectOption | None:
+def _options(children: tuple[ComponentType, ...]) -> Iterator[SelectOption]:
     """
-    The option holding value, looked for through any groups, so the trigger
-    can say what is chosen before Alpine has started.
+    Every option among children, including those inside groups.
     """
-    if value is None:
-        return None
     for child in children:
-        if isinstance(child, SelectOption) and child.option_value == value:
-            return child
-        if isinstance(child, SelectGroup):
-            found = _find(child._children, value)
-            if found is not None:
-                return found
-    return None
+        if isinstance(child, SelectOption):
+            yield child
+        elif isinstance(child, SelectGroup):
+            yield from _options(child._children)
 
 
 class SelectGroup(ChainableComponent):
