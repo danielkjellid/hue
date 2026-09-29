@@ -17,14 +17,25 @@ def _references(html: str) -> list[str]:
     return re.findall(r">(INV-\d+)<", html)
 
 
+def _ours(params: dict[str, Any]) -> dict[str, Any]:
+    """
+    The table's state as the URL spells it, under the table's key. The
+    selection is nobody's state and keeps its own name.
+    """
+    return {
+        name if name == "selected" else f"invoices-{name}": value
+        for name, value in params.items()
+    }
+
+
 def _read(**params: str) -> str:
-    response = Client().get("/billing/", params, **_AJAX)
+    response = Client().get("/billing/", _ours(params), **_AJAX)
     assert response.status_code == 200
     return response.content.decode()
 
 
 def _act(action: str, **posted: Any) -> Any:
-    return Client().post(f"/billing/invoices/{action}/", posted, **_AJAX)
+    return Client().post(f"/billing/invoices/{action}/", _ours(posted), **_AJAX)
 
 
 def test_the_page_draws_the_table(invoices):
