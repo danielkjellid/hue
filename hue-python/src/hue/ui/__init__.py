@@ -56,6 +56,7 @@ from hue.ui.molecules.pagination import Pagination
 from hue.ui.molecules.panel import Panel
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
+from hue.ui.molecules.select import Select, SelectGroup, SelectOption
 from hue.ui.molecules.sidebar import (
     Sidebar,
     SidebarBody,
@@ -135,6 +136,9 @@ __all__ = [
     "ScrollArea",
     "SegmentedControl",
     "SegmentedOption",
+    "Select",
+    "SelectGroup",
+    "SelectOption",
     "Sidebar",
     "SidebarBody",
     "SidebarDivider",
