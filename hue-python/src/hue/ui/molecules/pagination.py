@@ -106,6 +106,14 @@ class Pagination(ChainableComponent):
         self._props["href"] = value
         return self
 
+    def target(self, value: str) -> Self:
+        """
+        The id a page lands in. Given one, the browser fetches the page and
+        swaps that element; without one every step is a plain navigation.
+        """
+        self._props["target"] = value
+        return self
+
     def _render(self, context: Context) -> Component:
         page: int = self._get_prop("page", 1)
         total_pages: int = self._get_prop("total_pages", 1)
@@ -206,6 +214,7 @@ class Pagination(ChainableComponent):
             href=href(number),
             aria_current="page" if current else None,
             class_=classes,
+            **self._target_attr(),
         )
 
     def _sizes(self, options: list[int]) -> ComponentType:
@@ -257,7 +266,14 @@ class Pagination(ChainableComponent):
             href=href(number),
             aria_label=label,
             class_=classnames(_ITEM, _IDLE, FOCUS_RING),
+            **self._target_attr(),
         )
+
+    def _target_attr(self) -> dict[str, str]:
+        target: str | None = self._get_prop("target")
+        # push, so a page is a place: the URL says which one, the back
+        # button goes to the last, and the link can be sent to somebody.
+        return {"x-target.push": target} if target else {}
 
 
 #: The range separator. An en dash, which is what a range takes.
@@ -274,9 +290,19 @@ def _cursor_step(label: str, enabled: bool) -> ComponentType:
     return button
 
 
-def _status(page: int, size: int, total: int) -> list[ComponentType]:
+def record_range(page: int, size: int, total: int) -> tuple[int, int]:
+    """
+    The first and last record a page shows, counted from one.
+    """
     first = (page - 1) * size + 1
-    last = min(page * size, total)
+    return first, min(page * size, total)
+
+
+def _status(page: int, size: int, total: int) -> list[ComponentType]:
+    if total == 0:
+        # There is no range of nothing, and "showing 1-0" reads as a bug.
+        return ["No records"]
+    first, last = record_range(page, size, total)
     return [
         "Showing ",
         html.strong(f"{first:,}{_RANGE}{last:,}"),

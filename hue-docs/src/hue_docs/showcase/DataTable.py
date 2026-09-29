@@ -64,11 +64,18 @@ SHOWCASES: list[Showcase] = [
             "into a nested record - customer.name and customer.plan below "
             "are two columns out of one - or a callable given the row. "
             "render() takes the row instead and returns whatever the cell "
-            "should hold. Numeric columns end themselves and switch to "
+            "should hold. Dates and decimals need no render(): a date is "
+            "written as 2026-03-01 unless the context says otherwise, which "
+            "hue-django fills from the HUE_DATE_FORMAT and "
+            "HUE_DATETIME_FORMAT settings, and a decimal keeps the places it "
+            "was stored with. Numeric columns end themselves and switch to "
             "tabular figures, because without them the decimal points drift "
             "and the column stops being scannable. Cells wrap rather than "
             "truncate: an invoice reference cut off without saying so is "
-            "worse than an uneven row."
+            "worse than an uneven row. Sorting, searching, filtering and "
+            "acting on picked rows all need the server, so they come with a "
+            "table drawn from a declaration, DataTable.from_state(). The "
+            "Data tables guide shows them working."
         ),
         variants=[
             variant(

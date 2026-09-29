@@ -139,6 +139,14 @@ class Button(FormElementMixin, Clickable):
         self._props["disabled"] = value
         return self
 
+    def formaction(self, value: str) -> Self:
+        """
+        Where this button submits its form to, in place of the form's own
+        action, so one form can post to several places.
+        """
+        self._attrs["formaction"] = value
+        return self
+
     def icon_only(self, label: str) -> Self:
         """
         Drop to a square button holding nothing but an icon.

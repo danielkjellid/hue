@@ -74,6 +74,36 @@ class TestPagination:
         assert_selector(html, "nav button")
         assert_no_selector(html, "nav a")
 
+    @pytest.mark.asyncio
+    async def test_no_records_is_said_as_such(self, context_args):
+        html = await render_tree(
+            Pagination().page(1).total_pages(1).total_records(0),
+            context_args=context_args,
+        )
+        assert "No records" in html
+        assert "Showing" not in html
+
+    # target(): both branches
+    @pytest.mark.asyncio
+    async def test_a_target_swaps_the_page_in_and_remembers_it(self, context_args):
+        html = await render_tree(
+            Pagination()
+            .page(3)
+            .total_pages(15)
+            .href(lambda p: f"?page={p}")
+            .target("invoices-rows"),
+            context_args=context_args,
+        )
+        assert_attr(html, 'nav a[href="?page=4"]', "x-target.push", "invoices-rows")
+
+    @pytest.mark.asyncio
+    async def test_without_a_target_a_step_is_a_navigation(self, context_args):
+        html = await render_tree(
+            Pagination().page(3).total_pages(15).href(lambda p: f"?page={p}"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[x-target\\.push]")
+
     # The one-page case
     @pytest.mark.asyncio
     async def test_one_page_keeps_the_control_and_makes_it_inert(self, context_args):

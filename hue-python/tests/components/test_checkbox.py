@@ -213,3 +213,39 @@ class TestCheckbox:
             Checkbox().name("plan").label("Pro"), context_args=context_args
         )
         assert_no_selector(html, "span.text-fg-muted")
+
+    # hidden_label(): both branches
+    @pytest.mark.asyncio
+    async def test_a_hidden_label_moves_onto_the_control(self, context_args):
+        # Nothing on the page left to point at, so the name goes on the box.
+        html = await render_tree(
+            Checkbox().name("selected").label("Select INV-2050").hidden_label(),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-label", "Select INV-2050")
+        assert_no_selector(html, "label")
+
+    @pytest.mark.asyncio
+    async def test_a_hidden_label_drops_an_id_nothing_points_at(self, context_args):
+        # A column of these would otherwise share one.
+        html = await render_tree(
+            Checkbox().name("selected").label("Select INV-2050").hidden_label(),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "input[id]")
+
+    @pytest.mark.asyncio
+    async def test_a_hidden_label_keeps_an_id_it_was_given(self, context_args):
+        html = await render_tree(
+            Checkbox().name("selected").label("Select all").hidden_label().id("all"),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "id", "all")
+
+    @pytest.mark.asyncio
+    async def test_a_visible_label_is_pointed_at_instead(self, context_args):
+        html = await render_tree(
+            Checkbox().name("terms").label("I accept"), context_args=context_args
+        )
+        assert_selector(html, "label")
+        assert_attr(html, "input", "aria-labelledby", "terms-label")

@@ -80,3 +80,15 @@ class TestOnClick:
     def test_a_string_is_refused(self):
         with pytest.raises(TypeError, match="takes an expression"):
             Button().on_click("send(1)")
+
+
+def test_an_expression_argument_goes_in_as_written():
+    # Quoting it back into a string would make the one way of passing a
+    # variable the one way that cannot work.
+    assert call("remove", unsafe("selected")) == "remove(selected)"
+
+
+def test_everything_else_is_still_quoted():
+    assert call("note", unsafe("selected"), "archived", 3) == (
+        'note(selected, "archived", 3)'
+    )

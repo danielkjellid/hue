@@ -43,6 +43,13 @@ class Popover(ChainableComponent):
         self._props["title"] = value
         return self
 
+    def label(self, value: str) -> Self:
+        """
+        The panel's accessible name, for a panel with no title to be named by.
+        """
+        self._props["label"] = value
+        return self
+
     def description(self, value: str) -> Self:
         self._props["description"] = value
         return self
@@ -131,6 +138,7 @@ class Popover(ChainableComponent):
                 # Named by its title where it has one; a panel that announces
                 # itself as "dialog" and nothing else is a dead end.
                 ":aria-labelledby": title_id if title is not None else None,
+                "aria-label": self._get_prop("label") if title is None else None,
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",

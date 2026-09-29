@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Literal, Mapping, Sequence
+from typing import (
+    ClassVar,
+    Literal,
+)
 
 from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.skeleton import Skeleton
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.empty import Empty
-from hue.utils import classes_if_else, classnames, render_if
+from hue.utils import classes_if_else, classnames
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
+type SortDirection = Literal["ascending", "descending"]
 
 # Ending a column and lining its digits up are one decision, not two: the
 # only thing that wants to sit against the right edge is a number, and
@@ -35,7 +36,27 @@ _GUTTERS = "[&_th]:px-4 [&_td]:px-4"
 _ROW_HEIGHT = ["[&_th]:py-[9px]", "[&_td]:py-[11px]"]
 _ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 
-_FRAME = "w-full overflow-x-auto rounded-lg border border-border bg-surface"
+# The shell owns the border and the radius; the toolbar, the table and the
+# footer are bands inside it, separated by hairlines. Only the band the
+# table is in scrolls: overflow on the shell would clip a popover opened
+# from the toolbar, and a filter panel that cannot leave the frame is no
+# panel at all. The bands square off the shell's corners unless the first
+# and the last are told to round with it - 11px, the 12px radius less the
+# border it sits inside.
+_FRAME = (
+    "w-full rounded-lg border border-border bg-surface "
+    "[&>*:first-child]:rounded-t-[11px] [&>*:last-child]:rounded-b-[11px]"
+)
+
+# Alpine AJAX marks what it is about to replace aria-busy for as long as the
+# request runs. Dimmed, so a slow query reads as working rather than as a
+# click that did nothing; the attribute itself tells a screen reader.
+_LOADING = (
+    "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:cursor-progress"
+)
+
+# The one band that scrolls, and the only place a table is ever too wide.
+_BODY_BAND = "overflow-x-auto"
 
 
 class Table(ChainableComponent):
@@ -84,34 +105,112 @@ class Table(ChainableComponent):
         self._props["compact"] = value
         return self
 
+    def form(self, action: str) -> Self:
+        """
+        Post what is ticked in the table to this URL.
+
+        The form is an empty element in the frame, and the checkboxes and
+        buttons name it with their own form attribute. A form wrapped around
+        the frame would contain the search box in the band above the rows,
+        which is a form of its own, and browsers discard a nested form.
+        """
+        self._props["form"] = action
+        return self
+
+    def toolbar(self, *values: ComponentType) -> Self:
+        """
+        What sits above the table inside the same frame, such as a bar of
+        actions for the rows. It is not a row of the table, because it is not
+        part of the grid and nothing in it lines up with a column.
+        """
+        self._props["toolbar"] = values
+        return self
+
     def footer(self, *values: ComponentType) -> Self:
         """
-        What sits under the table inside the same frame, which is where an
-        empty or an error state goes: a full-width message is not a cell, and
-        a table with a header and no rows is still a table. Not the same
-        thing as TableFooter, which is a row of the table itself.
+        What stands in for the rows when there are none, such as an empty
+        state or an error. It sits under the table inside the same id, so a
+        response that finds no rows replaces both at once. This is different
+        from TableFooter, which is a row of the table itself.
         """
         self._props["footer"] = values
         return self
 
+    def under(self, *values: ComponentType) -> Self:
+        """
+        The band along the bottom of the frame, such as the pages or a total.
+        It sits inside the region a response replaces, because what it says
+        is about the rows and changes when they do.
+        """
+        self._props["under"] = values
+        return self
+
     def _render(self, context: Context) -> Component:
-        return html.div(
-            html.table(
-                *self._children,
-                class_=classnames(
-                    "w-full border-collapse text-base",
-                    _GUTTERS,
-                    classes_if_else(
-                        self._get_prop("compact", False),
-                        _ROW_HEIGHT_COMPACT,
-                        _ROW_HEIGHT,
+        attrs = self._get_base_html_attrs()
+        # The id names the frame rather than the table inside it, because
+        # the frame is the whole of what a table is: swap only the table and
+        # an empty state left under it would still be there. The Alpine
+        # scope moves with it for the same reason - a toolbar above the
+        # rows is as much part of the table as the rows are, and a scope on
+        # the table element would leave it outside.
+        frame_id = attrs.pop("id", None)
+        scope = attrs.pop("x-data", None)
+
+        inside: list[ComponentType] = [
+            *self._get_prop("toolbar", ()),
+            # Everything a response replaces, under one id: the rows, and
+            # whatever stands in for them when there are none.
+            html.div(
+                html.div(
+                    html.table(
+                        *self._children,
+                        class_=classnames(
+                            "w-full border-collapse text-base",
+                            _GUTTERS,
+                            classes_if_else(
+                                self._get_prop("compact", False),
+                                _ROW_HEIGHT_COMPACT,
+                                _ROW_HEIGHT,
+                            ),
+                            self._get_prop("class_"),
+                        ),
+                        **attrs,
                     ),
-                    self._get_prop("class_"),
+                    class_=_BODY_BAND,
                 ),
-                **self._get_base_html_attrs(),
+                *self._get_prop("footer", ()),
+                # Replaced with the rows. The pages and the total describe
+                # them, so a response that changes the rows changes these.
+                *self._get_prop("under", ()),
+                id=rows_id(frame_id),
+                class_=_LOADING,
+                # Refreshed by every response that carries it, not only the
+                # ones aimed at it. Each read loads the whole page, so another
+                # table's links and carried state keep up with this one's.
+                **({"x-sync": ""} if frame_id else {}),
             ),
-            *self._get_prop("footer", ()),
-            class_=_FRAME,
+        ]
+        action: str | None = self._get_prop("form")
+        if action is not None:
+            # The whole frame, unlike a sort or a page: an action changes
+            # what is there rather than which of it is shown, and the
+            # selection it was done with is gone afterwards.
+            inside.insert(
+                0,
+                html.form(
+                    id=form_id(frame_id),
+                    method="post",
+                    action=action,
+                    hidden=True,
+                    **({"x-target": frame_id} if frame_id else {}),
+                ),
+            )
+
+        return html.div(
+            *inside,
+            id=frame_id,
+            class_=classnames(_FRAME, _LOADING),
+            **({"x-data": scope} if scope is not None else {}),
         )
 
 
@@ -216,6 +315,16 @@ class TableHead(ChainableComponent):
         self._props["align"] = value
         return self
 
+    def sorted(self, value: SortDirection | None) -> Self:
+        """
+        Which way this column is sorted, if it is the one the rows are in
+        the order of. One header at a time: aria-sort on two of them says
+        the rows are in two orders at once, and ARIA has no way to say which
+        of the two came first.
+        """
+        self._props["sorted"] = value
+        return self
+
     def colspan(self, value: int) -> Self:
         self._props["colspan"] = value
         return self
@@ -231,7 +340,10 @@ class TableHead(ChainableComponent):
             ),
             scope=self._get_prop("scope", "col"),
             colspan=self._get_prop("colspan"),
-            **self._get_base_html_attrs(),
+            **{
+                "aria_sort": self._get_prop("sorted"),
+                **self._get_base_html_attrs(),
+            },
         )
 
 
@@ -289,272 +401,18 @@ class TableCaption(ChainableComponent):
         )
 
 
-@dataclass(frozen=True)
-class Column:
+def rows_id(frame_id: str | None) -> str | None:
     """
-    One column of a DataTable: where its value comes from, and how it reads.
-
-    key resolves a row's value - a key, a dotted path into a nested record,
-    or a callable given the row. render takes the row instead and returns
-    whatever the cell should hold, for the columns that are a badge or a
-    button rather than a value. align is where the value sits in the cell,
-    and align="end" is what a column of numbers wants: it lines the digits
-    up as well as the edge.
+    The id of the region a response replaces: the rows, and whatever
+    stands in for them. It is derived from the frame's id, so naming a
+    table names every part of it.
     """
-
-    key: str | Callable[[Mapping[str, Any]], Any]
-    label: str
-    align: CellAlign = "start"
-    render: Callable[[Mapping[str, Any]], ComponentType] | None = None
+    return None if frame_id is None else f"{frame_id}-rows"
 
 
-def _resolve(
-    row: Mapping[str, Any],
-    key: str | Callable[[Mapping[str, Any]], Any],
-) -> Any:
+def form_id(frame_id: str | None) -> str | None:
     """
-    A row's value for one column, by callable or by (dotted) key path.
+    The id of the form a table posts through, derived from the frame's id
+    like the rows region.
     """
-    if callable(key):
-        return key(row)
-
-    value: Any = row
-    for part in key.split("."):
-        if not isinstance(value, Mapping) or part not in value:
-            raise ValueError(
-                f"Cannot resolve key {key!r}: {part!r} is not a key of {value!r}."
-            )
-        value = value[part]
-    return value
-
-
-def _stringify(value: Any) -> str:
-    """
-    A resolved scalar as text. Anything else is a render() the column is
-    missing, rather than something to guess at.
-    """
-    if value is None:
-        return ""
-    if isinstance(value, (str, int, float, bool)):
-        return str(value)
-    raise ValueError(
-        f"Column value {value!r} is not a scalar - give the column a render()."
-    )
-
-
-# Enough rows to read as a table that is filling in, and few enough that the
-# wait does not look longer than it is.
-_PLACEHOLDER_ROWS = 3
-
-
-class DataTable(ChainableComponent):
-    """
-    A Table built from a column definition and a list of records.
-
-    columns() and rows() are the shape of it; everything else is a state it
-    can be in instead. loading() puts placeholder rows under the header,
-    empty() and error() replace the rows with a message under it, and
-    compact() tightens the rows.
-    """
-
-    category = "Data"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._columns: list[Column] = []
-        self._rows: Sequence[Mapping[str, Any]] = []
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .columns(
-                [
-                    Column("invoice", "Invoice"),
-                    Column("customer", "Customer"),
-                    Column("amount", "Amount", align="end"),
-                ]
-            )
-            .rows(
-                [
-                    {"invoice": "INV-2050", "customer": "Contoso", "amount": "2190"},
-                    {"invoice": "INV-2048", "customer": "Northwind", "amount": "1200"},
-                ]
-            )
-        )
-
-    def columns(self, value: list[Column]) -> Self:
-        self._columns = value
-        return self
-
-    def rows(self, value: Sequence[Mapping[str, Any]]) -> Self:
-        self._rows = value
-        return self
-
-    def caption(self, value: str) -> Self:
-        """
-        What the table is, read before it and shown above it.
-        """
-        self._props["caption"] = value
-        return self
-
-    def compact(self, value: bool = True) -> Self:
-        """
-        Tighten the rows, for a table someone scans rather than reads.
-        """
-        self._props["compact"] = value
-        return self
-
-    def loading(self, value: bool = True) -> Self:
-        """
-        Placeholder rows under the header while the real ones are on their
-        way, keeping the columns where they are so the page does not jump
-        when they land.
-        """
-        self._props["loading"] = value
-        return self
-
-    def empty(self, value: ComponentType) -> Self:
-        """
-        What to show in place of the rows when there are none. An Empty that
-        says why there is nothing here and what to do about it beats the
-        default, which can only say that there is nothing.
-        """
-        self._props["empty"] = value
-        return self
-
-    def error(self, value: ComponentType) -> Self:
-        """
-        What to show when the rows could not be fetched at all. Set, it
-        replaces them whatever else is going on - there is nothing to say
-        about rows nobody has.
-        """
-        self._props["error"] = value
-        return self
-
-    def _render(self, context: Context) -> Component:
-        error: ComponentType | None = self._get_prop("error")
-        loading: bool = self._get_prop("loading", False)
-
-        table = (
-            Table()
-            .compact(self._get_prop("compact", False))
-            .content(
-                render_if(
-                    self._get_prop("caption"), lambda c: TableCaption().content(c)
-                ),
-                self._head(),
-                *self._body(loading=loading, failed=error is not None),
-            )
-        )
-
-        # Stated either way rather than only while it is true: a swap that
-        # leaves the table element in place and rewrites what is around it
-        # would otherwise leave a finished table busy for good.
-        table.aria_busy("true" if loading else "false")
-
-        if error is not None:
-            table.footer(error)
-        elif not loading and not self._rows:
-            table.footer(self._get_prop("empty") or _default_empty())
-
-        if class_ := self._get_prop("class_"):
-            table.class_(class_)
-        table._attrs.update(self._attrs)
-        return table
-
-    def _head(self) -> ComponentType:
-        return TableHeader().content(
-            TableRow().content(*[self._header_cell(column) for column in self._columns])
-        )
-
-    def _header_cell(self, column: Column) -> ComponentType:
-        return TableHead().align(column.align).content(column.label)
-
-    def _body(self, *, loading: bool, failed: bool) -> tuple[ComponentType, ...]:
-        """
-        The rows, the placeholders that stand in for them, or nothing at all -
-        a header with a message under it, which is what empty and error are.
-        """
-        if failed or (not loading and not self._rows):
-            return ()
-        if loading:
-            return (self._placeholders(),)
-        return (
-            TableBody().content(
-                *[
-                    TableRow().content(
-                        *[self._cell(column, row) for column in self._columns]
-                    )
-                    for row in self._rows
-                ]
-            ),
-        )
-
-    def _placeholders(self) -> ComponentType:
-        """
-        Bars where the values will be, as many rows as are already there so
-        the table keeps its height, and hidden from the screen reader that is
-        already being told the table is busy.
-        """
-        count = len(self._rows) or _PLACEHOLDER_ROWS
-        return (
-            TableBody()
-            .aria_hidden("true")
-            .content(
-                *[
-                    TableRow().content(
-                        *[
-                            self._placeholder(column, index)
-                            for index, column in enumerate(self._columns)
-                        ]
-                    )
-                    for _ in range(count)
-                ]
-            )
-        )
-
-    def _placeholder(self, column: Column, index: int) -> ComponentType:
-        """
-        One bar, standing where the value will.
-
-        Pushed to the column's own side by a margin rather than by the
-        alignment: a skeleton is a block with a width of its own, and
-        text-align does not move one of those. Without it an ended column
-        would fill in from the wrong side and jump across the moment the
-        rows arrived.
-        """
-        bar = Skeleton().width(_placeholder_width(index))
-        if column.align != "start":
-            bar.class_("mx-auto" if column.align == "center" else "ms-auto")
-        return TableCell().align(column.align).content(bar)
-
-    def _cell(self, column: Column, row: Mapping[str, Any]) -> ComponentType:
-        content = (
-            column.render(row)
-            if column.render is not None
-            else _stringify(_resolve(row, column.key))
-        )
-        return TableCell().align(column.align).content(content)
-
-
-def _placeholder_width(index: int) -> str:
-    """
-    Uneven widths down the row, so a loading table reads as content on its
-    way rather than as a grid of identical grey boxes.
-    """
-    return ("w-24", "w-32", "w-20", "w-28")[index % 4]
-
-
-def _default_empty() -> ComponentType:
-    """
-    All an empty table can say without being told anything: that it is empty.
-    Built fresh each time, because a component carries state a shared one
-    would carry between tables.
-    """
-    return (
-        Empty()
-        .compact()
-        .title("Nothing here yet")
-        .description("There are no records to show.")
-    )
+    return None if frame_id is None else f"{frame_id}-act"

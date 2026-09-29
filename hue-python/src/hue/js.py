@@ -54,13 +54,24 @@ def call(function: str, *args: Any) -> Expression:
     The arguments are JSON, so anything you can put in a dict goes; the
     function has to be a name or a path to one, not an expression, or there
     would be nothing left to quote.
+
+    An argument that is already an Expression goes in as written, because
+    that is the whole of what unsafe() said about it - quoting it back into
+    a string would make the one way of passing a variable the one way that
+    cannot work:
+
+        call("remove", unsafe("selected"))  # remove(selected)
     """
     if not _FUNCTION.match(function):
         raise ValueError(
             f"{function!r} is not a function name or a path to one. "
             "Write the whole thing with unsafe() if that is what you mean."
         )
-    return Expression(f"{function}({', '.join(dumps(arg) for arg in args)})")
+    return Expression(f"{function}({', '.join(_argument(arg) for arg in args)})")
+
+
+def _argument(value: Any) -> str:
+    return value if isinstance(value, Expression) else dumps(value)
 
 
 def close() -> Expression:

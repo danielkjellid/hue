@@ -1,4 +1,5 @@
 import pytest
+from htmy.html import div as html_div
 
 from hue.renderer import render_tree
 from hue.ui import (
@@ -78,9 +79,36 @@ class TestTable:
             Table().id("users").class_("custom-class").aria_label("Users"),
             context_args=context_args,
         )
-        assert_attr(html, "table", "id", "users")
         assert_attr(html, "table", "aria-label", "Users")
         assert_selector(html, "table.custom-class")
+
+    @pytest.mark.asyncio
+    async def test_the_id_names_the_frame_rather_than_the_table(self, context_args):
+        # Which is what a request has to aim at: swap only the table and an
+        # empty state sitting under it would still be there afterwards.
+        html = await render_tree(Table().id("users"), context_args=context_args)
+        assert_attr(html, "div#users > div#users-rows > div > table", "class")
+        assert_no_selector(html, "table#users")
+
+    @pytest.mark.asyncio
+    async def test_only_the_band_the_table_is_in_scrolls(self, context_args):
+        # Not the shell: a popover opened from the toolbar has to be able to
+        # leave the frame, and overflow on the shell would cut it off.
+        html = await render_tree(Table(), context_args=context_args)
+        assert "overflow" not in select(html, "div")[0]["class"]
+        assert_selector(html, "div.overflow-x-auto > table")
+
+    @pytest.mark.asyncio
+    async def test_the_band_along_the_bottom_is_replaced_with_the_rows(
+        self, context_args
+    ):
+        # It says which page of how many, so a response that changes the
+        # rows has to change it too.
+        html = await render_tree(
+            Table().id("users").under(html_div("1 of 3")), context_args=context_args
+        )
+        assert_selector(html, "div#users-rows > div.overflow-x-auto + div")
+        assert "1 of 3" in str(select(html, "#users-rows")[0])
 
     # compact(): both branches
     @pytest.mark.asyncio
@@ -99,10 +127,52 @@ class TestTable:
         html = await render_tree(
             Table().footer(Empty().title("No invoices")), context_args=context_args
         )
-        assert_selector(html, "div > table + div")
+        # The table is in a band of its own, the footer in the next one.
+        assert_selector(html, "div > div > table")
+        assert_selector(html, "div.overflow-x-auto + div")
         assert "No invoices" in html
 
     # TableRow selected(): both branches
+    # form(): both branches
+    @pytest.mark.asyncio
+    async def test_a_form_is_an_empty_element_the_checkboxes_name(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").form("/archive/").content(TableBody()),
+            context_args=context_args,
+        )
+        assert_attr(html, "form#invoices-act", "action", "/archive/")
+        assert_attr(html, "form#invoices-act", "method", "post")
+
+    @pytest.mark.asyncio
+    async def test_no_form_by_default(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").content(TableBody()), context_args=context_args
+        )
+        assert_no_selector(html, "form")
+
+    # toolbar(): both branches
+    @pytest.mark.asyncio
+    async def test_the_toolbar_sits_in_the_frame_above_the_rows(self, context_args):
+        html = await render_tree(
+            Table()
+            .id("invoices")
+            .toolbar(html_div("Search", id="bar"))
+            .content(TableBody()),
+            context_args=context_args,
+        )
+        frame = select(html, "#invoices")[0]
+        assert frame.select_one("#bar") is not None
+        assert frame.select_one("#invoices-rows #bar") is None
+
+    @pytest.mark.asyncio
+    async def test_no_toolbar_by_default(self, context_args):
+        html = await render_tree(
+            Table().id("invoices").content(TableBody()), context_args=context_args
+        )
+        assert [child.get("id") for child in select(html, "#invoices > *")] == [
+            "invoices-rows"
+        ]
+
     @pytest.mark.asyncio
     async def test_a_selected_row_is_marked_for_the_screen_reader_too(
         self, context_args

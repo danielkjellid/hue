@@ -119,6 +119,23 @@ class ChainableComponent(ABC):
         self._attrs["aria_describedby"] = value
         return self
 
+    def aria_keyshortcuts(self, value: str) -> Self:
+        """
+        The keys that do what this control does, such as Escape for a
+        button that closes something.
+        """
+        self._attrs["aria_keyshortcuts"] = value
+        return self
+
+    def data(self, name: str, value: str) -> Self:
+        """
+        A data attribute, data-name, for a script to find or read the
+        element by. HTML fixes no names for these, so one modifier covers
+        all of them.
+        """
+        self._attrs[f"data-{name}"] = value
+        return self
+
     def role(self, value: AriaRole) -> Self:
         self._attrs["role"] = value
         return self

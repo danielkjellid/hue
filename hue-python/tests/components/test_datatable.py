@@ -1,7 +1,11 @@
+from datetime import date, datetime
+from decimal import Decimal
+
 import pytest
 
+from hue.formats import Formats
 from hue.renderer import render_tree
-from hue.ui import Badge, Column, DataTable, Empty
+from hue.ui import Badge, Button, Column, DataTable, Empty
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _COLUMNS = [
@@ -62,6 +66,59 @@ class TestDataTable:
                 DataTable()
                 .columns([Column("customer.city", "City")])
                 .rows([{"customer": {}}]),
+                context_args=context_args,
+            )
+
+    # Values with more than one spelling: written in the context's formats
+    @pytest.mark.asyncio
+    async def test_dates_and_decimals_are_written_out(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("on", "On"), Column("at", "At"), Column("sum", "Sum")])
+            .rows(
+                [
+                    {
+                        "on": date(2026, 3, 1),
+                        "at": datetime(2026, 3, 1, 14, 5),
+                        "sum": Decimal("2190.00"),
+                    }
+                ]
+            ),
+            context_args=context_args,
+        )
+        cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
+        # ISO 8601 unless told otherwise, and the decimal as it was stored.
+        assert cells == ["2026-03-01", "2026-03-01 14:05", "2190.00"]
+
+    @pytest.mark.asyncio
+    async def test_a_small_decimal_is_written_out_in_full(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("rate", "Rate")])
+            .rows([{"rate": Decimal("1E-7")}]),
+            context_args=context_args,
+        )
+        assert select(html, "tbody td")[0].get_text(strip=True) == "0.0000001"
+
+    @pytest.mark.asyncio
+    async def test_the_context_says_how_a_date_is_written(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("on", "On"), Column("at", "At")])
+            .rows([{"on": date(2026, 3, 1), "at": datetime(2026, 3, 1, 14, 5)}]),
+            context_args={
+                **context_args,
+                "formats": Formats(date="%d.%m.%Y", datetime="%d.%m.%Y %H:%M"),
+            },
+        )
+        cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
+        assert cells == ["01.03.2026", "01.03.2026 14:05"]
+
+    @pytest.mark.asyncio
+    async def test_anything_else_asks_for_a_render(self, context_args):
+        with pytest.raises(ValueError, match="give the column a render"):
+            await render_tree(
+                DataTable().columns([Column("who", "Who")]).rows([{"who": object()}]),
                 context_args=context_args,
             )
 
@@ -202,7 +259,7 @@ class TestDataTable:
             DataTable().columns(_COLUMNS).rows(_ROWS).id("invoices").class_("mt-4"),
             context_args=context_args,
         )
-        assert_attr(html, "table", "id", "invoices")
+        assert_selector(html, "div#invoices")
         assert_selector(html, "table.mt-4")
 
     # The placeholder's own alignment: a block ignores text-align
@@ -224,3 +281,244 @@ class TestDataTable:
             context_args=context_args,
         )
         assert_selector(html, "tbody td > div.mx-auto")
+
+    # _bulk_actions(): both branches
+    @pytest.mark.asyncio
+    async def test_every_row_checkbox_names_its_own_row(self, context_args):
+        # Three checkboxes all announcing "Select" gives a screen reader
+        # nothing to select by.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        boxes = select(html, "tbody input[type=checkbox]")
+        labels = [box["aria-label"] for box in boxes]
+        assert labels == ["Select INV-2050", "Select INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):
+        # A form around the table posts them without any JavaScript at all.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        boxes = select(html, "tbody input[type=checkbox]")
+        assert [box["name"] for box in boxes] == ["selected", "selected"]
+        assert [box["value"] for box in boxes] == ["INV-2050", "INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        # On the frame, so a band above the rows is inside the scope too.
+        # The values are read off the rows, which a sort or a page replaces
+        # without replacing the scope.
+        assert_attr(html, "div[x-data]", "x-data", "hueTableSelection")
+        assert_selector(html, "tbody input[data-hue-row-select]", count=2)
+        assert_attr(
+            html,
+            "thead input",
+            "x-effect",
+            "$el.checked = all; $el.indeterminate = some",
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
+        )
+        assert_no_selector(html, "input[type=checkbox]")
+        assert_no_selector(html, "[x-data]")
+
+    @pytest.mark.asyncio
+    async def test_what_to_do_with_the_picked_rows_floats_over_the_page(
+        self, context_args
+    ):
+        # Moved to the end of the body so it is in reach wherever the page
+        # is scrolled, and declared inside the frame so it keeps the scope.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        bar = "div[x-data] template[x-teleport=body] > div[role=group]"
+        assert_selector(html, bar)
+        assert_attr(html, bar, "aria-label", "Selected rows")
+        assert_attr(html, bar, "x-show", "selected.length > 0")
+        assert_selector(html, f"{bar}.fixed")
+        assert_selector(html, f"{bar} button", count=2)
+
+    @pytest.mark.asyncio
+    async def test_the_bar_can_be_cleared_by_hand_or_by_escape(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        bar = "template[x-teleport=body] > div[role=group]"
+        assert_attr(
+            html,
+            f"{bar} button[aria-label='Clear selection']",
+            "aria-keyshortcuts",
+            "Escape",
+        )
+        assert_attr(
+            html, bar, "x-on:keydown.escape.window", "if (selected.length) clear()"
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_new_page_of_rows_drops_what_left_the_page(self, context_args):
+        # A sort or a page replaces the rows without replacing the scope, so
+        # the selection is pruned to what is still on screen.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_attr(
+            html,
+            "template[x-teleport=body] > div",
+            "x-on:ajax:merged.window",
+            "prune()",
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_count_announces_itself(self, context_args):
+        # Controls appearing after a checkbox is ticked are a change a
+        # screen reader has no other way of hearing about.
+        html = await render_tree(
+            DataTable()
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        # Outside the bar, which is hidden until a row is picked: a region
+        # shown at the moment it has something to say is not read out.
+        assert_attr(
+            html,
+            "span.sr-only[role=status]",
+            "x-text",
+            "selected.length ? selected.length + ' selected' : ''",
+        )
+        assert_no_selector(html, "template [role=status]")
+
+    # sort: a header that goes somewhere, and one that does not
+    @pytest.mark.asyncio
+    async def test_a_sortable_header_is_a_link_not_a_clickable_cell(self, context_args):
+        # A th with a click handler is not keyboard-operable; a link is, and
+        # it puts the order in the URL where it can be shared.
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            ._sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        assert_attr(html, "th a", "href", "?sort=amount")
+
+    @pytest.mark.asyncio
+    async def test_a_column_with_no_sort_is_only_its_label(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
+        )
+        assert_no_selector(html, "th a")
+        assert_no_selector(html, "[aria-sort]")
+
+    @pytest.mark.asyncio
+    async def test_only_the_column_the_rows_are_in_says_which_way(self, context_args):
+        # ARIA has no way to rank two sorted columns, so there is never more
+        # than one.
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column("invoice", "Invoice", sort="invoice"),
+                    Column("amount", "Amount", sort="amount"),
+                ]
+            )
+            .rows(_ROWS)
+            ._sorted("-amount")
+            ._sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        marked = select(html, "[aria-sort]")
+        assert len(marked) == 1
+        assert marked[0]["aria-sort"] == "descending"
+
+    @pytest.mark.asyncio
+    async def test_the_sorted_column_turns_around_and_the_others_replace_it(
+        self, context_args
+    ):
+        # One column at a time: clicking another column asks for its order
+        # instead, not for both.
+        html = await render_tree(
+            DataTable()
+            .columns(
+                [
+                    Column("invoice", "Invoice", sort="invoice"),
+                    Column("amount", "Amount", sort="amount"),
+                ]
+            )
+            .rows(_ROWS)
+            ._sorted("amount")
+            ._sort_href(lambda order: order),
+            context_args=context_args,
+        )
+        assert [link["href"] for link in select(html, "th a")] == ["invoice", "-amount"]
+
+    @pytest.mark.asyncio
+    async def test_a_sortable_column_needs_somewhere_to_go(self, context_args):
+        # Built by hand there is nowhere for the header to link to; the
+        # sentence says where there is.
+        with pytest.raises(ValueError, match="from_state"):
+            await render_tree(
+                DataTable()
+                .columns([Column("amount", "Amount", sort="amount")])
+                .rows(_ROWS),
+                context_args=context_args,
+            )
+
+    # x-target: the swap, and the plain navigation it falls back to
+    @pytest.mark.asyncio
+    async def test_a_table_with_an_id_is_fetched_and_swapped_in_place(
+        self, context_args
+    ):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            ._sort_href(lambda order: f"?sort={order}")
+            .id("invoices"),
+            context_args=context_args,
+        )
+        # The rows, not the frame: a toolbar above them keeps its caret.
+        assert_attr(html, "th a", "x-target.push", "invoices-rows")
+
+    @pytest.mark.asyncio
+    async def test_without_an_id_the_header_is_just_a_link(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .columns([Column("amount", "Amount", sort="amount")])
+            .rows(_ROWS)
+            ._sort_href(lambda order: f"?sort={order}"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "[x-target]")

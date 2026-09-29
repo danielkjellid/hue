@@ -1,8 +1,9 @@
-from typing import TypedDict, Unpack
+from typing import NotRequired, TypedDict, Unpack
 
 from htmy import Context, Formatter
 
 from hue.exceptions import MissingHueContextError
+from hue.formats import Formats
 from hue.types.core import Component, ComponentType
 
 _hue_formatter = Formatter()
@@ -11,6 +12,8 @@ _hue_formatter = Formatter()
 class HueContextArgs[T_Request](TypedDict):
     request: T_Request
     csrf_token: str
+    # How dates and the like are written out. ISO 8601 when not given.
+    formats: NotRequired[Formats]
 
 
 class HueContext[T_Request]:
@@ -20,9 +23,10 @@ class HueContext[T_Request]:
         self._children = children
         self.request = kwargs["request"]
         self.csrf_token = kwargs["csrf_token"]
+        self.formats = kwargs.get("formats", Formats())
 
     def htmy_context(self) -> Context:
-        return {HueContext: self, Formatter: _hue_formatter}
+        return {HueContext: self, Formatter: _hue_formatter, Formats: self.formats}
 
     def htmy(self, context: Context) -> Component:
         return self._children

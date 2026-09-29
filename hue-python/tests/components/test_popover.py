@@ -61,6 +61,24 @@ class TestPopover:
         )
         assert_no_selector(html, "[\\:aria-labelledby]")
 
+    # label(): both branches
+    @pytest.mark.asyncio
+    async def test_a_label_names_a_panel_with_no_title(self, context_args):
+        html = await render_tree(
+            Popover().label("Columns").trigger(Button().content("Columns")),
+            context_args=context_args,
+        )
+        assert_attr(html, '[role="dialog"]', "aria-label", "Columns")
+
+    @pytest.mark.asyncio
+    async def test_a_title_names_the_panel_instead_of_a_label(self, context_args):
+        # Two names for one panel, and a screen reader picks whichever one
+        # wins; the visible one should.
+        html = await render_tree(
+            _popover().label("Something else"), context_args=context_args
+        )
+        assert_no_selector(html, '[role="dialog"][aria-label]')
+
     # description(): both branches
     @pytest.mark.asyncio
     async def test_the_description_sits_under_the_title(self, context_args):

@@ -39,6 +39,7 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
+from hue.ui.molecules.datatable import Column, DataTable
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
 from hue.ui.molecules.drawer import Drawer
@@ -68,8 +69,6 @@ from hue.ui.molecules.sidebar import (
     SidebarSpacer,
 )
 from hue.ui.molecules.table import (
-    Column,
-    DataTable,
     Table,
     TableBody,
     TableCaption,
