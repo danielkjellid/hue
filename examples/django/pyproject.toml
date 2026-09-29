@@ -8,7 +8,6 @@ dependencies = [
     "django>=5.0",
     "hue>=0.1.0",
     "hue-django>=0.1.0",
-    "htmy>=0.8.2",
 ]
 
 [tool.uv.sources]

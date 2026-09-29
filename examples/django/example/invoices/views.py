@@ -12,8 +12,7 @@ from typing import Any
 
 from django.db.models import QuerySet
 from django.http import HttpRequest
-from htmy import html
-from hue import toast
+from hue import html, toast
 from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.types.core import ComponentType
@@ -123,17 +122,18 @@ class InvoicesView(HueView):
     ) -> Page:
         return Page(
             title="Invoices",
-            body=html.main(
+            body=html.main()
+            .class_("example-page")
+            .content(
                 Stack()
                 .spacing("lg")
                 .align_items("items-stretch")
                 .content(
-                    Text("Invoices").variant("title-2").tag(html.h1),
+                    Text("Invoices").variant("title-2").tag("h1"),
                     DataTable.from_state(self.invoices),
                 ),
                 # Once per page, and there before the first toast: a live
                 # region made together with its content is not read out.
                 ToastRegion(),
-                class_="example-page",
             ),
         )
