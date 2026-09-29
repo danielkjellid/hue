@@ -1,5 +1,4 @@
 import pytest
-from htmy import html as htmy_html
 
 from hue.renderer import render_tree
 from hue.ui import Label, Text
@@ -24,7 +23,7 @@ class TestText:
     @pytest.mark.asyncio
     async def test_render_custom_tag(self, context_args):
         html = await render_tree(
-            Text("Heading").tag(htmy_html.h1).variant("title-3"),
+            Text("Heading").tag("h1").variant("title-3"),
             context_args=context_args,
         )
         assert_selector(html, "h1")

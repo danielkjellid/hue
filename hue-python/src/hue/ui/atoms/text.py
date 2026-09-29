@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal, cast
+from collections.abc import Callable
+from typing import Literal
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -9,17 +10,19 @@ from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_when
 
-type TextTag = (
-    html.p
-    | html.span
-    | html.h1
-    | html.h2
-    | html.h3
-    | html.h4
-    | html.h5
-    | html.h6
-    | html.label
-)
+type TextTag = Literal["p", "span", "h1", "h2", "h3", "h4", "h5", "h6", "label"]
+
+_TAGS: dict[TextTag, Callable[..., Component]] = {
+    "p": html.p,
+    "span": html.span,
+    "h1": html.h1,
+    "h2": html.h2,
+    "h3": html.h3,
+    "h4": html.h4,
+    "h5": html.h5,
+    "h6": html.h6,
+    "label": html.label,
+}
 
 type TextVariant = Literal[
     "title-1",
@@ -51,7 +54,7 @@ class Text(ChainableComponent):
     label) using one of the design system's type scales via variant(). align()
     controls alignment and muted() / destructive() set the colour.
 
-        Text("Section title").variant("title-3").tag(html.h2).align("text-center")
+        Text("Section title").variant("title-3").tag("h2").align("text-center")
     """
 
     category = "Typography"
@@ -68,7 +71,7 @@ class Text(ChainableComponent):
         self._props["variant"] = value
         return self
 
-    def tag(self, value: type[TextTag]) -> Self:
+    def tag(self, value: TextTag) -> Self:
         self._props["tag"] = value
         return self
 
@@ -89,7 +92,7 @@ class Text(ChainableComponent):
         align: TextAlign = self._get_prop("align", "text-left")
         muted: bool = self._get_prop("muted", False)
         destructive: bool = self._get_prop("destructive", False)
-        html_tag: type[TextTag] = self._get_prop("tag", html.p)
+        tag: TextTag = self._get_prop("tag", "p")
 
         classes = classnames(
             _VARIANT_CLASSES[variant],
@@ -103,14 +106,11 @@ class Text(ChainableComponent):
             self._get_prop("class_"),
         )
 
-        return cast(
-            Component,
-            html_tag(
-                self._text,
-                *self._children,
-                class_=classes,
-                **self._get_base_html_attrs(),
-            ),
+        return _TAGS[tag](
+            self._text,
+            *self._children,
+            class_=classes,
+            **self._get_base_html_attrs(),
         )
 
 

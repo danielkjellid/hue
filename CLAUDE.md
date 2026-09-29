@@ -94,6 +94,11 @@ canonical templates. The shape:
   meaning you have to already know, and it happens to set the submitted name, the `id`,
   the `for` on the label, and the ids the hint and error hang off. The constructor form
   stays supported; it just isn't what we teach.
+- **Write markup with hue's own `html`, not htmy's.** Code built on hue (the examples, the
+  docs site, and anything a user writes) imports `from hue import html`, whose elements
+  chain like components do: `html.a("Docs").href("/docs")`. No public API should need an
+  htmy import either: where a component takes an element, it takes a name, as in
+  `Text().tag("h1")`. Components still use `htmy.html` inside their own `_render`.
 - Named form controls (inputs, checkbox) subclass `FormControl` (`hue-python/src/hue/ui/form.py`),
   which owns `name`/`label`/`disabled`/`required`/`help_text`/`error_text`, `x_model`, `form`, and
   the `aria-describedby` / `aria-errormessage` wiring — don't re-implement those per control.
