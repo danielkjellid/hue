@@ -27,3 +27,6 @@ Hue-Component-Library-Design-System/
 # Local toys rather than part of the docs; see the docstring in toc-demo.py.
 toc-demo.html
 toc-demo.py
+
+# The example app's database, made and seeded by `make serve`.
+examples/django/db.sqlite3
