@@ -54,7 +54,8 @@ FIELD_SHELL = (
     "enabled:hover:border-border-hover "
     "focus:outline-none focus:border-accent focus:ring-3 focus:ring-accent-subtle "
     "aria-invalid:border-danger aria-invalid:focus:ring-danger-subtle "
-    "read-only:bg-surface-sunken "
+    # The attribute, not :read-only, which every select and button matches.
+    "[&[readonly]]:bg-surface-sunken "
     "disabled:cursor-not-allowed disabled:bg-surface-sunken "
     "disabled:text-fg-disabled disabled:shadow-none"
 )
@@ -73,7 +74,7 @@ GROUP_SHELL = (
     "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
     "has-[input:focus]:ring-accent-subtle "
     "has-[[aria-invalid=true]]:border-danger "
-    "has-[:disabled]:bg-surface-sunken has-[:read-only]:bg-surface-sunken"
+    "has-[:disabled]:bg-surface-sunken has-[[readonly]]:bg-surface-sunken"
 )
 
 #: A control inside GROUP_SHELL: everything the group now owns, given up.
