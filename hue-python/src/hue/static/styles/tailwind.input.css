@@ -402,7 +402,9 @@
   --color-canvas-subtle: #0D0D11;
   --color-surface: #1A1A21;
   --color-surface-raised: #22222B;
-  --color-surface-hover: #22222B;
+  /* Above raised, not equal to it: a menu, a listbox and a dialog are raised,
+     and a hover the colour of the panel it is on does not show. */
+  --color-surface-hover: var(--hue-gray-800);
   --color-surface-active: #2C2C37;
   --color-surface-sunken: #0D0D11;
   --color-scrim: rgb(0 0 0 / 0.66);
