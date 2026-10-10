@@ -7,7 +7,6 @@ from typing_extensions import Self
 
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
-from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
@@ -169,14 +168,12 @@ class MenuItem(Clickable):
         self._props["icon"] = value
         return self
 
-    def shortcut(self, *steps: str) -> Self:
+    def shortcut(self, value: ComponentType) -> Self:
         """
-        Keys that pick the item from anywhere on the page, menu open or not,
-        shown at the end of its row. "mod+d" is a chord and "g", "b" is G
-        then B.
+        The keystroke this item answers to, at the end of the row. Pass a Kbd,
+        which gives each modifier a spoken name.
         """
-        _shortcut.parse(steps)
-        self._props["shortcut"] = steps
+        self._props["shortcut"] = value
         return self
 
     def variant(self, value: MenuItemVariant) -> Self:
@@ -214,7 +211,6 @@ class MenuItem(Clickable):
         checked: bool = self._get_prop("checked", False)
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
-        shortcut: tuple[str, ...] = self._get_prop("shortcut", ())
 
         children = (
             render_if(self._get_prop("icon"), lambda icon: icon),
@@ -228,7 +224,10 @@ class MenuItem(Clickable):
                 ),
             ),
             *self._children,
-            render_if(self._get_prop("shortcut"), _shortcut.keys),
+            render_if(
+                self._get_prop("shortcut"),
+                lambda keys: html.span(keys, class_="ms-auto inline-flex gap-[3px]"),
+            ),
         )
 
         attrs: dict[str, object] = {
@@ -264,7 +263,6 @@ class MenuItem(Clickable):
                 if checkable
                 else {"x-on:click": "close()"}
             ),
-            **(_shortcut.binding(shortcut) if shortcut else {}),
             **self._get_base_html_attrs(),
         }
 

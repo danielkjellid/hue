@@ -7,7 +7,6 @@ from typing_extensions import Self
 
 from hue.js import Expression, call, expect
 from hue.types.core import Component, ComponentType
-from hue.ui import _shortcut
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
@@ -41,11 +40,10 @@ class Command(ChainableComponent):
     opened from anywhere with a keyboard shortcut.
 
     The field keeps focus while the arrow keys move through the matching
-    items and Enter runs one. hotkey("mod+k") opens it from anywhere on the
-    page, Command-K on a Mac and Control-K elsewhere, and trigger() adds a
-    control that opens it as well. Items are CommandItem, optionally in a
-    CommandGroup, and an item's shortcut works whether the palette is open
-    or not.
+    items and Enter runs one. hotkey() takes keys the way Kbd does, so
+    hotkey("mod", "k") is Command-K on a Mac and Control-K elsewhere, and
+    trigger() adds a control that opens it as well. Items are CommandItem,
+    optionally in a CommandGroup.
     """
 
     category = "Overlays"
@@ -54,7 +52,7 @@ class Command(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .hotkey("mod+k")
+            .hotkey("mod", "k")
             .trigger(Button().variant("outline").content("Open command palette"))
             .content(
                 CommandGroup()
@@ -66,7 +64,7 @@ class Command(ChainableComponent):
                 CommandGroup()
                 .label("Actions")
                 .content(
-                    CommandItem().label("Create invoice").shortcut("alt+n"),
+                    CommandItem().label("Create invoice").shortcut(Kbd("mod", "N")),
                     CommandItem().label("Invite teammate"),
                 ),
             )
@@ -84,14 +82,12 @@ class Command(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def hotkey(self, *steps: str) -> Self:
+    def hotkey(self, *keys: str) -> Self:
         """
-        The keys that open and close it from anywhere on the page, written
-        the way shortcuts are: "mod+k" is Command-K on Apple platforms and
-        Control-K elsewhere.
+        The keys that open it from anywhere on the page, named as Kbd names
+        them: "mod" is Command on Apple platforms and Control elsewhere.
         """
-        _shortcut.parse(steps)
-        self._props["hotkey"] = steps
+        self._props["hotkey"] = keys
         return self
 
     def empty_message(self, value: str) -> Self:
@@ -208,18 +204,10 @@ class Command(ChainableComponent):
                 "x-data": call(
                     "hueCommand",
                     self._get_prop("open", False),
+                    [key.lower() for key in hotkey],
                     self._get_prop("empty_message", "No matching commands."),
                 ),
-                # The palette is not something to click, so it takes the
-                # shortcut's event and toggles instead.
-                **(
-                    {
-                        **_shortcut.binding(hotkey),
-                        "x-on:hue:shortcut.prevent": "open = !open",
-                    }
-                    if hotkey
-                    else {}
-                ),
+                "x-on:keydown.window": "hotkey($event)",
                 "x-on:keydown.escape.window": "close()",
                 **self._get_base_html_attrs(),
             },
@@ -276,14 +264,12 @@ class CommandItem(ChainableComponent):
         self._props["icon"] = value
         return self
 
-    def shortcut(self, *steps: str) -> Self:
+    def shortcut(self, value: ComponentType) -> Self:
         """
-        Keys that run the item from anywhere on the page, palette open or
-        not, shown at the end of its row. "mod+n" is a chord and "g", "b" is
-        G then B.
+        The keystroke this does elsewhere in the app, at the end of the row.
+        Pass a Kbd. It is shown, not bound: the app answers to it already.
         """
-        _shortcut.parse(steps)
-        self._props["shortcut"] = steps
+        self._props["shortcut"] = value
         return self
 
     def description(self, value: str) -> Self:
@@ -328,7 +314,6 @@ class CommandItem(ChainableComponent):
         action: Expression | None = self._get_prop("action")
         disabled: bool = self._get_prop("disabled", False)
         keywords: tuple[str, ...] = self._get_prop("keywords", ())
-        shortcut: tuple[str, ...] = self._get_prop("shortcut", ())
 
         attrs: dict[str, object] = {
             "role": "option",
@@ -349,7 +334,6 @@ class CommandItem(ChainableComponent):
             # How run() reaches the expression: it dispatches this event on the
             # item, so Alpine evaluates the action in the item's own scope.
             **({"x-on:command.stop": action} if action else {}),
-            **(_shortcut.binding(shortcut) if shortcut else {}),
             **self._get_base_html_attrs(),
         }
         children = (
@@ -366,7 +350,10 @@ class CommandItem(ChainableComponent):
                 ),
                 class_="min-w-0 flex-1",
             ),
-            render_if(shortcut or None, _shortcut.keys),
+            render_if(
+                self._get_prop("shortcut"),
+                lambda keys: html.span(keys, class_="ms-auto inline-flex gap-[3px]"),
+            ),
             render_if(
                 self._get_prop("meta"),
                 lambda text: html.span(text, class_="ms-auto text-2xs text-fg-subtle"),
