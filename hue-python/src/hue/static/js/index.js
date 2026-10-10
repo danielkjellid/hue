@@ -3,6 +3,7 @@ import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { registerComboboxData } from "./combobox.js";
+import { registerCommandData } from "./command.js";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerSelectData } from "./select.js";
 import {
@@ -42,6 +43,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	});
 
 	registerComboboxData(Alpine);
+	registerCommandData(Alpine);
 	registerScrollAreaData(Alpine);
 	registerSelectData(Alpine);
 	registerTableSelection(Alpine);
