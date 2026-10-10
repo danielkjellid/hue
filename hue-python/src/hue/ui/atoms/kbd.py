@@ -1,45 +1,14 @@
 from __future__ import annotations
 
-from typing import NamedTuple
-
 from htmy import Context, html
 from typing_extensions import Self
 
 from hue import html as hue_html
 from hue.js import unsafe
-from hue.shortcuts import FUNCTION_KEY
+from hue.shortcuts import FUNCTION_KEY, KEYS
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
-
-
-class _Key(NamedTuple):
-    glyph: str
-    #: Announced in place of the glyph. None when the glyph is already a word.
-    name: str | None
-
-
-# Glyphs a screen reader would otherwise read as its Unicode name - "place of
-# interest sign" for the command key - get a spoken name instead.
-_NAMED_KEYS: dict[str, _Key] = {
-    "shift": _Key("⇧", "Shift"),
-    "alt": _Key("⌥", "Alt"),
-    "ctrl": _Key("⌃", "Control"),
-    "enter": _Key("↵", "Enter"),
-    "backspace": _Key("⌫", "Backspace"),
-    "delete": _Key("⌦", "Delete"),
-    "up": _Key("↑", "Arrow up"),
-    "down": _Key("↓", "Arrow down"),
-    "left": _Key("←", "Arrow left"),
-    "right": _Key("→", "Arrow right"),
-    "esc": _Key("Esc", None),
-    "space": _Key("Space", None),
-    "home": _Key("Home", None),
-    "end": _Key("End", None),
-    "pageup": _Key("PgUp", "Page up"),
-    "pagedown": _Key("PgDn", "Page down"),
-    "tab": _Key("Tab", None),
-}
 
 # Which key "mod" means is only knowable in the browser. The server renders the
 # Apple glyph and Alpine corrects it, so the markup is right either way and
@@ -102,14 +71,14 @@ class Kbd(ChainableComponent):
         if key == "mod":
             return self._mod_key()
 
-        named = _NAMED_KEYS.get(key.lower())
+        named = KEYS.get(key.lower())
         if named is None:
             return html.kbd(self._printed(key), class_=_KEY_CLASSES)
-        if named.name is None:
+        if named.spoken is None:
             return html.kbd(named.glyph, class_=_KEY_CLASSES)
         return html.kbd(
             html.span(named.glyph, aria_hidden="true"),
-            html.span(named.name, class_="sr-only"),
+            html.span(named.spoken, class_="sr-only"),
             class_=_KEY_CLASSES,
         )
 

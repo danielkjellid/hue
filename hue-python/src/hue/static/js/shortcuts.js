@@ -20,34 +20,16 @@ const IS_APPLE = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 const SEQUENCE_MS = 1000;
 const STORAGE_KEY = "hue-shortcut-letters";
 
-// Each key with a name, as hue.shortcuts writes it, mapped to how
-// KeyboardEvent.key spells it and how aria-keyshortcuts does. Python refuses
-// every other name, so a single character or a function key is all that
-// reaches here besides these.
-const NAMED = {
-	esc: ["escape", "Escape"],
-	enter: ["enter", "Enter"],
-	tab: ["tab", "Tab"],
-	space: [" ", "Space"],
-	backspace: ["backspace", "Backspace"],
-	delete: ["delete", "Delete"],
-	up: ["arrowup", "ArrowUp"],
-	down: ["arrowdown", "ArrowDown"],
-	left: ["arrowleft", "ArrowLeft"],
-	right: ["arrowright", "ArrowRight"],
-	home: ["home", "Home"],
-	end: ["end", "End"],
-	pageup: ["pageup", "PageUp"],
-	pagedown: ["pagedown", "PageDown"],
-};
-
+// Python writes each key the way KeyboardEvent.key spells it, ArrowUp and F5,
+// which is also how aria-keyshortcuts spells it, so there is no table of
+// key names here: the key is matched lower-cased, and announced as written.
 function parse(step) {
 	const parts = step.split("+");
 	const name = parts.pop();
 	const mods = new Set(parts);
 	return {
-		key: NAMED[name]?.[0] ?? name,
-		aria: NAMED[name]?.[1] ?? name.toUpperCase(),
+		key: name.toLowerCase(),
+		aria: name === " " ? "Space" : name.length === 1 ? name.toUpperCase() : name,
 		meta: IS_APPLE && mods.has("mod"),
 		ctrl: mods.has("ctrl") || (!IS_APPLE && mods.has("mod")),
 		alt: mods.has("alt"),
@@ -55,8 +37,6 @@ function parse(step) {
 	};
 }
 
-// Character keys, in WCAG 2.1.4's sense: no modifier that makes a press
-// deliberate. These are what the off switch turns off.
 const isLetters = (steps) => steps.every((step) => !step.meta && !step.ctrl && !step.alt);
 
 // What can run while someone types in a field: only a chord with Command or

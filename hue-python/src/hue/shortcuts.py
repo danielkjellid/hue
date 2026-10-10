@@ -25,7 +25,7 @@ from collections.abc import Callable, Iterable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from itertools import combinations
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Final, NamedTuple
 
 from htmy import Component, Context, html
 
@@ -34,26 +34,46 @@ from hue.types.core import ComponentType
 
 _MODIFIERS = frozenset({"mod", "ctrl", "alt", "shift"})
 
-#: The keys with names, as they are written in a shortcut and drawn by Kbd.
-#: Anything else is a single character, or a function key.
-NAMED_KEYS = frozenset(
-    {
-        "esc",
-        "enter",
-        "tab",
-        "space",
-        "backspace",
-        "delete",
-        "up",
-        "down",
-        "left",
-        "right",
-        "home",
-        "end",
-        "pageup",
-        "pagedown",
-    }
-)
+
+class Key(NamedTuple):
+    """
+    A key with a name: what Kbd draws for it, and what the browser calls it.
+    """
+
+    glyph: str
+    #: Announced in place of the glyph, which a screen reader would otherwise
+    #: read by its Unicode name. None when the glyph is already a word.
+    spoken: str | None
+    #: How KeyboardEvent.key spells it, which aria-keyshortcuts uses too. None
+    #: for a modifier, which is held rather than pressed.
+    event: str | None = None
+
+
+#: Every key with a name, as a shortcut writes it. The one place they are
+#: listed: Kbd draws from it, and binding() writes the browser's spelling
+#: from it, so the script that matches the keys needs no table of its own.
+KEYS: dict[str, Key] = {
+    "shift": Key("⇧", "Shift"),
+    "alt": Key("⌥", "Alt"),
+    "ctrl": Key("⌃", "Control"),
+    "esc": Key("Esc", None, "Escape"),
+    "enter": Key("↵", "Enter", "Enter"),
+    "tab": Key("Tab", None, "Tab"),
+    "space": Key("Space", None, " "),
+    "backspace": Key("⌫", "Backspace", "Backspace"),
+    "delete": Key("⌦", "Delete", "Delete"),
+    "up": Key("↑", "Arrow up", "ArrowUp"),
+    "down": Key("↓", "Arrow down", "ArrowDown"),
+    "left": Key("←", "Arrow left", "ArrowLeft"),
+    "right": Key("→", "Arrow right", "ArrowRight"),
+    "home": Key("Home", None, "Home"),
+    "end": Key("End", None, "End"),
+    "pageup": Key("PgUp", "Page up", "PageUp"),
+    "pagedown": Key("PgDn", "Page down", "PageDown"),
+}
+
+#: The keys with names a shortcut can press, the modifiers being held instead.
+NAMED_KEYS = frozenset(name for name, key in KEYS.items() if key.event is not None)
 
 # Other names people reach for, each the same key as one of the above. Written
 # down so "escape" and "esc" cannot be declared as two shortcuts that the
@@ -163,9 +183,19 @@ def binding(steps: Steps, *, describe: bool = False) -> dict[str, str]:
     """
     The x-shortcut attribute for steps. describe only announces them, for a
     visible row whose keys are bound somewhere else.
+
+    Each key is written the way KeyboardEvent.key spells it, ArrowUp for up
+    and F5 for f5, which is also how aria-keyshortcuts spells it, so the
+    browser matches and announces what it is given as it is.
     """
     name = "x-shortcut.describe" if describe else "x-shortcut"
-    return {name: json.dumps(["+".join(step) for step in steps])}
+    return {name: json.dumps(["+".join(map(_spelled, step)) for step in steps])}
+
+
+def _spelled(key: str) -> str:
+    if key in NAMED_KEYS:
+        return str(KEYS[key].event)
+    return key.upper() if FUNCTION_KEY.fullmatch(key) else key
 
 
 class Shortcut:

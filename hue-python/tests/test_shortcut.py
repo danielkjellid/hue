@@ -1,18 +1,13 @@
-import re
-from pathlib import Path
-
 import pytest
 
-import hue
 from hue import scope, shortcuts
 from hue.context import HueContextArgs
 from hue.js import unsafe
 from hue.pages import create_page_base
 from hue.renderer import render_tree
 from hue.router import HueResponse
-from hue.shortcuts import NAMED_KEYS, Shortcut, ShortcutRegistry, parse_keys
+from hue.shortcuts import Shortcut, ShortcutRegistry, binding, parse_keys
 from hue.ui import MenuItem
-from hue.ui.atoms.kbd import _NAMED_KEYS
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 from tests._shortcuts import Shortcuts
 from tests.conftest import MockRouter
@@ -215,16 +210,14 @@ class TestPage:
         assert_no_selector(html, "[x-shortcut]")
 
 
-class TestKeyNames:
-    def test_every_name_a_shortcut_takes_is_drawn_and_matched(self):
-        # Three tables, in Python, in the browser and in Kbd. A name missing
-        # from either of the others would be matched but drawn as a word, or
-        # drawn but never matched.
-        source = (Path(hue.__file__).parent / "static/js/shortcuts.js").read_text()
-        table = source[source.index("const NAMED = {") : source.index("};")]
-        in_browser = set(re.findall(r"^\t(\w+):", table, re.MULTILINE))
-        assert in_browser == NAMED_KEYS
-        assert NAMED_KEYS <= set(_NAMED_KEYS)
+class TestBinding:
+    def test_keys_are_written_as_the_browser_spells_them(self):
+        # KeyboardEvent.key, which aria-keyshortcuts uses too, so the browser
+        # needs no table of key names to match or announce them.
+        steps = parse_keys(("ctrl+esc", "alt+up", "f5", "mod+k"))
+        assert binding(steps) == {
+            "x-shortcut": '["ctrl+Escape", "alt+ArrowUp", "F5", "mod+k"]'
+        }
 
 
 class _AppRouter(MockRouter):
