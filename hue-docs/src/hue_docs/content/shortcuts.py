@@ -137,7 +137,10 @@ def _build() -> ComponentType:
                     "space, backspace, delete, up, down, left, right, home, "
                     "end, pageup and pagedown. escape, return, del and the "
                     "arrowup family are read as the same keys. Letters can be "
-                    "written in either case."
+                    "written in either case, and a plain letter is drawn in "
+                    "lower case, as the key to type: g is g, and a capital G "
+                    "would read as Shift+G, which it does not match. In a "
+                    "chord a letter is a capital, as in ⌘K."
                 ),
                 pr.p(
                     "Shift changes which character a digit or a symbol types, "

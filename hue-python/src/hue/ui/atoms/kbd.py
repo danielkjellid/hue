@@ -104,10 +104,7 @@ class Kbd(ChainableComponent):
 
         named = _NAMED_KEYS.get(key.lower())
         if named is None:
-            # A letter or a function key is printed in capitals on the key.
-            capitals = len(key) == 1 or FUNCTION_KEY.fullmatch(key.lower())
-            printed = key.upper() if capitals else key
-            return html.kbd(printed, class_=_KEY_CLASSES)
+            return html.kbd(self._printed(key), class_=_KEY_CLASSES)
         if named.name is None:
             return html.kbd(named.glyph, class_=_KEY_CLASSES)
         return html.kbd(
@@ -115,6 +112,22 @@ class Kbd(ChainableComponent):
             html.span(named.name, class_="sr-only"),
             class_=_KEY_CLASSES,
         )
+
+    def _printed(self, key: str) -> str:
+        """
+        The key as it should read on its cap: what to type.
+
+        A letter on its own is drawn as written, so a shortcut's plain "g"
+        shows g, and nobody holds Shift for a capital G that never matches.
+        In a chord a letter is a capital, the way ⌘K and ⇧G are written,
+        since the modifier beside it already says what to hold. A function
+        key is a capital either way.
+        """
+        if FUNCTION_KEY.fullmatch(key.lower()):
+            return key.upper()
+        if len(key) == 1 and len(self._keys) > 1:
+            return key.upper()
+        return key
 
     def _render(self, context: Context) -> Component:
         # Always wrapped, even for one key, so the caller's class_ and
