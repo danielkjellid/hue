@@ -3,10 +3,10 @@
  *
  * Focus never leaves the trigger. The option the keys are on is named by
  * aria-activedescendant instead, which is what lets a screen reader follow
- * the arrows through a list it cannot focus. The options are read from the
- * listbox each time rather than kept in a list here, so the server can draw
- * whatever options it likes and nothing has to be kept in step.
+ * the arrows through a list it cannot focus.
  */
+
+import { listbox } from "./listbox.js";
 
 // How long a pause ends a typed word: "ca" finds Canada, "c" then "a" a
 // second later finds the next option starting with a.
@@ -15,6 +15,7 @@ const PAGE = 10;
 
 export function registerSelectData(Alpine) {
 	Alpine.data("hueSelect", (value, placeholder) => ({
+		...listbox,
 		open: false,
 		value,
 		placeholder,
@@ -26,14 +27,10 @@ export function registerSelectData(Alpine) {
 			return this.selected()?.dataset.label ?? "";
 		},
 
-		options() {
-			return [...this.$refs.listbox.querySelectorAll('[role="option"]')];
-		},
-
-		enabled() {
-			return this.options().filter(
-				(option) => option.getAttribute("aria-disabled") !== "true",
-			);
+		// Asked by each option, so an option reads the same inside a Select
+		// and a Combobox, which can hold several values.
+		chosen(value) {
+			return this.value === value;
 		},
 
 		selected() {
@@ -61,21 +58,6 @@ export function registerSelectData(Alpine) {
 			this.active = null;
 		},
 
-		activate(option) {
-			if (!option || option.getAttribute("aria-disabled") === "true") return;
-			this.active = option.id;
-			option.scrollIntoView({ block: "nearest" });
-		},
-
-		// Stops at either end rather than wrapping, as the pattern asks: a
-		// list that wraps gives no sign of having reached its last option.
-		move(step) {
-			const enabled = this.enabled();
-			const at = enabled.findIndex((option) => option.id === this.active);
-			const next = Math.min(Math.max(at + step, 0), enabled.length - 1);
-			this.activate(enabled[at === -1 ? 0 : next]);
-		},
-
 		choose(option) {
 			if (!option || option.getAttribute("aria-disabled") === "true") return;
 			this.commit(option);
@@ -92,10 +74,6 @@ export function registerSelectData(Alpine) {
 			input.value = this.value;
 			input.dispatchEvent(new Event("input", { bubbles: true }));
 			input.dispatchEvent(new Event("change", { bubbles: true }));
-		},
-
-		current() {
-			return this.options().find((option) => option.id === this.active);
 		},
 
 		// Typing moves to the next option that starts with what was typed.

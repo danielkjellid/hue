@@ -64,7 +64,7 @@ class SelectState:
     """
 
     control_id: str
-    value: str | None
+    values: frozenset[str]
 
     def option_id(self, value: str) -> str:
         return f"{self.control_id}-option-{_slug(value)}"
@@ -138,7 +138,9 @@ class Select(FieldControl):
         return self
 
     def htmy_context(self) -> Context:
-        return {SelectState: SelectState(self._input_id(), self._get_prop("value"))}
+        value: str | None = self._get_prop("value")
+        values = frozenset() if value is None else frozenset([value])
+        return {SelectState: SelectState(self._input_id(), values)}
 
     def _render(self, context: Context) -> Component:
         name = self._require_name()
@@ -197,7 +199,7 @@ class Select(FieldControl):
                 ),
                 *(
                     html.span(text, class_="invisible truncate [grid-area:1/1]")
-                    for text in [placeholder, *(o.option_label for o in options)]
+                    for text in _widest(placeholder, *(o.option_label for o in options))
                 ),
                 class_="grid min-w-0 flex-1",
             ),
@@ -245,6 +247,18 @@ class Select(FieldControl):
                 },
             ),
         )
+
+
+def _widest(*texts: str) -> list[str]:
+    """
+    The few longest of texts, which are what a field drawn as wide as its
+    longest option needs to measure.
+
+    Counted in characters, which only approximates width in a proportional
+    font, so the top few are kept rather than one. Drawing every label would
+    make a list of two hundred options two hundred more elements.
+    """
+    return sorted(filter(None, texts), key=len, reverse=True)[:3]
 
 
 def _options(children: tuple[ComponentType, ...]) -> Iterator[SelectOption]:
@@ -353,13 +367,13 @@ class SelectOption(ChainableComponent):
             ),
             id=option_id,
             role="option",
-            aria_selected="true" if value == state.value else "false",
+            aria_selected="true" if value in state.values else "false",
             aria_disabled="true" if disabled else None,
             class_=classnames(_OPTION, self._get_prop("class_")),
             **{
                 "data-value": value,
                 "data-label": self.option_label,
-                ":aria-selected": f"value === {json.dumps(value)}",
+                ":aria-selected": f"chosen({json.dumps(value)})",
                 ":data-active": f"active === {json.dumps(option_id)} || null",
                 "x-on:click": "choose($el)",
                 "x-on:mousemove": "activate($el)",

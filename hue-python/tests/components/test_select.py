@@ -134,6 +134,19 @@ class TestSelect:
         assert hidden == ["Choose a plan", "Free", "Pro"]
 
     @pytest.mark.asyncio
+    async def test_only_the_longest_labels_are_measured(self, context_args):
+        html = await render_tree(
+            Select()
+            .name("size")
+            .content(
+                *(SelectOption().value(v).label(v) for v in ["S", "M", "XL", "XXL"])
+            ),
+            context_args=context_args,
+        )
+        hidden = [s.get_text() for s in select(html, "button#size span.invisible")]
+        assert hidden == ["XXL", "XL", "S"]
+
+    @pytest.mark.asyncio
     async def test_the_chevron_is_decorative(self, context_args):
         html = await render_tree(_select(), context_args=context_args)
         assert_attr(html, "button#plan svg", "aria-hidden", "true")
@@ -184,7 +197,7 @@ class TestSelectOption:
     async def test_the_value_is_quoted_for_alpine(self, context_args):
         # A quote in a value must not end the expression it is compared in.
         html = await self._option(SelectOption().value('a"b'), context_args)
-        assert_attr(html, '[role="option"]', ":aria-selected", 'value === "a\\"b"')
+        assert_attr(html, '[role="option"]', ":aria-selected", 'chosen("a\\"b")')
 
     # disabled(): both branches
     @pytest.mark.asyncio

@@ -39,6 +39,7 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
+from hue.ui.molecules.combobox import Combobox
 from hue.ui.molecules.datatable import Column, DataTable
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
@@ -105,6 +106,7 @@ __all__ = [
     "ChainableComponent",
     "Checkbox",
     "Column",
+    "Combobox",
     "CurrentPage",
     "DataTable",
     "Dialog",
