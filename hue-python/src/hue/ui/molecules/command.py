@@ -119,7 +119,7 @@ class Command(ChainableComponent):
             _overlay.open_on_click(trigger)
 
         search = html.div(
-            HueIcon("search").class_("size-5 flex-none text-fg-subtle"),
+            HueIcon("search").class_("size-4 flex-none text-fg-subtle"),
             html.input_(
                 type="text",
                 role="combobox",
