@@ -636,6 +636,6 @@ PAGE = ProsePage(
     title="Data tables",
     nav_label="Data tables",
     group="Guides",
-    order=4,
+    order=5,
     build=_build,
 )

@@ -12,7 +12,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.db.models import QuerySet
-from django.http import Http404, HttpRequest
+from django.http import Http404, HttpRequest, QueryDict
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -75,10 +75,10 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         return request.content_type or "application/json"
 
     def _get_form_data(self, request: T_Request) -> dict[str, Any]:
-        return request.POST.dict()
+        return _form(request).dict()
 
     def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
-        return {name: request.POST.getlist(name) for name in request.POST}
+        return dict(_form(request).lists())
 
     def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
         return {name: request.GET.getlist(name) for name in request.GET}
@@ -165,3 +165,18 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         if inspect.iscoroutinefunction(view_func):
             return await view_func(view_instance, request, context, **kwargs)
         return await sync_to_async(view_func)(view_instance, request, context, **kwargs)
+
+
+def _form(request: HttpRequest) -> QueryDict:
+    """
+    The fields a request's body carries, whatever its method.
+
+    Django parses a body into request.POST for POST alone, so a PUT, PATCH or
+    DELETE sent with fields, as ajax(method="delete", body=...) sends one,
+    would otherwise arrive empty.
+    """
+    if request.method == "POST":
+        return request.POST
+    if request.content_type == "application/x-www-form-urlencoded":
+        return QueryDict(request.body, encoding=request.encoding)
+    return QueryDict()

@@ -24,12 +24,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Final, Literal
 
-from hue.js import Expression
+from hue.js import Expression, expect
 
 type ToastVariant = Literal["success", "danger", "warning", "info", "loading"]
 
-# A label and the expression the button runs, e.g. ("Retry", "$ajax('/send/')").
-type ToastAction = tuple[str, str]
+# A label and the expression the button runs, e.g.
+# ("Retry", ajax("/invoices/2048/send/", method="post", target="invoice")).
+type ToastAction = tuple[str, Expression]
 
 
 class Inherit(Enum):
@@ -62,6 +63,7 @@ def _expression(
         options.append(f"duration: {json.dumps(duration)}")
     if action is not None:
         label, expression = action
+        expect(expression, modifier="A toast's action")
         # The label is text and is quoted; the expression is code and is not.
         options.append(
             f"action: {{ label: {json.dumps(label)}, onClick: () => {expression} }}"

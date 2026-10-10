@@ -176,6 +176,6 @@ PAGE = ProsePage(
     title="Icons",
     nav_label="Icons",
     group="Guides",
-    order=1,
+    order=2,
     build=_build,
 )

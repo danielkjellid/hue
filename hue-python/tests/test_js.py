@@ -1,6 +1,6 @@
 import pytest
 
-from hue.js import Expression, call, close, unsafe
+from hue.js import Expression, ajax, call, close, unsafe
 from hue.ui import Button, Card, MenuItem, Stack
 
 
@@ -28,6 +28,54 @@ class TestExpressions:
 
     def test_call_takes_a_path_to_a_function(self):
         assert call("$store.cart.add", 7) == "$store.cart.add(7)"
+
+
+class TestAjax:
+    def test_a_request_is_written_with_every_value_quoted(self):
+        # sync, so the toast region a route's toast arrives in is updated too.
+        assert ajax("/invoices/2048/", method="delete", target="invoices") == (
+            '$ajax("/invoices/2048/", '
+            '{method: "delete", target: "invoices", sync: true})'
+        )
+
+    def test_a_body_is_quoted_except_what_only_the_browser_knows(self):
+        request = ajax(
+            "/invoices/archive/",
+            method="post",
+            target=["rows", "summary"],
+            body={"reason": 'a "duplicate"', "ids": unsafe("selected")},
+        )
+        assert request == (
+            '$ajax("/invoices/archive/", '
+            '{method: "post", target: "rows summary", sync: true, '
+            'body: {"reason": "a \\"duplicate\\"", "ids": selected}})'
+        )
+
+    def test_a_none_is_left_out_so_the_default_applies(self):
+        # $ajax would send it as the text "null".
+        request = ajax(
+            "/invoices/", method="post", target="t", body={"q": None, "page": 2}
+        )
+        assert 'body: {"page": 2}' in request
+
+    def test_it_defaults_to_get_like_ajax_itself(self):
+        assert 'method: "get"' in ajax("/invoices/", target="invoices")
+
+    def test_an_unknown_method_is_refused(self):
+        # "GET" would slip past the check on a GET's body, and still be one.
+        with pytest.raises(ValueError, match="not a method"):
+            ajax("/invoices/", target="t", method="GET", body={"q": 1})  # type: ignore[arg-type]
+
+    def test_a_get_takes_no_body(self):
+        # $ajax would turn it into the query string, which no body model reads.
+        with pytest.raises(ValueError, match="query string"):
+            ajax("/invoices/", target="invoices", body={"q": "contoso"})
+
+    @pytest.mark.parametrize("target", ["", [], ["rows summary"]])
+    def test_it_needs_ids_to_update(self, target):
+        # $ajax would fall back to the id of whatever runs it, often none.
+        with pytest.raises(ValueError):
+            ajax("/invoices/", target=target)
 
 
 class TestModifiersRefuseStrings:

@@ -20,7 +20,7 @@ def _build() -> ComponentType:
         pr.p(
             "ToastRegion is the thing that collects toasts, announces them "
             "and times them. It goes in your page base once, so every page "
-            "has exactly one and toasts always arrive in the same corner - "
+            "has exactly one and toasts always arrive in the same corner, since "
             "moving them between screens destroys the reflex to look there."
         ),
         pr.code(
@@ -70,7 +70,7 @@ def _build() -> ComponentType:
             "One method per variant, the same five as in the browser, and the "
             "same options: description, duration, dismissible and action. The "
             "queue lives exactly as long as the request, so a toast cannot "
-            "surface in somebody else's response - and calling toast.success() "
+            "surface in somebody else's response, and calling toast.success() "
             "outside a request raises rather than dropping it quietly."
         ),
         pr.h2("Across a redirect"),
@@ -92,7 +92,7 @@ def _build() -> ComponentType:
         pr.p(
             "It also opens the queue for the whole request, so toast.success() "
             "works in a plain Django view and not only inside a hue router. "
-            "Only what nothing rendered is kept - a toast a page already "
+            "Only what nothing rendered is kept: a toast a page already "
             "showed is not shown again on the next one. An action cannot "
             "cross, because an action is a component rather than data, and a "
             "toast carrying one says so rather than arriving without its "
@@ -100,10 +100,11 @@ def _build() -> ComponentType:
         ),
         pr.h2("Raise one from the browser"),
         pr.p(
-            "Use it for things the server never hears about - a copy to the "
-            "clipboard, going offline, a confirmation that costs nothing to "
-            "produce - where a round trip would exist only to make a sentence "
-            "appear. toast.js builds the expression to hand to on_click:"
+            "Use it where a round trip would exist only to make a sentence "
+            "appear: for things the server never hears about, such as a copy "
+            "to the clipboard, going offline, or a confirmation that costs "
+            "nothing to produce. toast.js builds the expression to hand to "
+            "on_click:"
         ),
         pr.code(
             "from hue import toast\n"
@@ -115,12 +116,14 @@ def _build() -> ComponentType:
         ),
         pr.p(
             "There is one method per variant, and the values are quoted for "
-            "you - an apostrophe in a description is a word rather than a "
+            "you: an apostrophe in a description is a word rather than a "
             "syntax error in your page. duration is milliseconds, None is a "
             "toast that stays, and leaving it out takes the region's own. "
             "action is a label and the expression its button runs:"
         ),
         pr.code(
+            "from hue import toast\n"
+            "from hue.js import ajax\n\n"
             "toast.js.loading(\n"
             '    "Exporting 2,481 rows",\n'
             '    description="This usually takes about a minute.",\n'
@@ -129,7 +132,10 @@ def _build() -> ComponentType:
             "toast.js.danger(\n"
             '    "Could not send invoice",\n'
             '    description="The mail server rejected the address.",\n'
-            '    action=("Retry", "$ajax(\'/invoices/2048/send/\')"),\n'
+            "    action=(\n"
+            '        "Retry",\n'
+            '        ajax("/invoices/2048/send/", method="post", target="invoice"),\n'
+            "    ),\n"
             ")"
         ),
         Alert()
@@ -138,11 +144,12 @@ def _build() -> ComponentType:
         .content(
             "Titles, descriptions and action labels are quoted for you and "
             "written into the page as text, so building them from user input "
-            "is fine. The second half of action is not: it is spliced into "
-            "an Alpine expression and evaluated, exactly like anything you "
-            "wrap in unsafe(). Never build it out of user input. Note too "
+            "is fine. The second half of action is code, so it has to be an "
+            "expression, built with ajax(), call() or unsafe(); a plain "
+            "string is refused. Never build one with unsafe() out of user "
+            "input. Note too "
             "that the region accepts toasts from any response carrying its id, which "
-            "is what makes server-raised toasts work without wiring - so "
+            "is what makes server-raised toasts work without wiring, so "
             "fetch fragments only from your own app."
         ),
         pr.p(
@@ -167,8 +174,8 @@ def _build() -> ComponentType:
         pr.p(
             "The markup is cloned from templates the region renders, not "
             "written in JavaScript, so a toast raised in the browser is the "
-            "same element as one rendered by Python - same classes, same "
-            "timer, same dismiss button. If there is no region on the page, "
+            "same element as one rendered by Python, with the same classes, the same "
+            "timer and the same dismiss button. If there is no region on the page, "
             "$toast warns in the console and drops the message rather than "
             "failing silently."
         ),
@@ -176,7 +183,7 @@ def _build() -> ComponentType:
         pr.p(
             "5200 milliseconds by default, which is about as long as it "
             "takes to read two short lines twice. The number lives on the "
-            "region, because the region is what times a toast - one rendered "
+            "region, because the region is what times a toast: one rendered "
             "on its own, as a specimen in a page, has no timer and stays. "
             "Set the page-wide number with default_duration(), and override "
             "it on a toast that needs longer or should not leave at all:"
@@ -188,7 +195,7 @@ def _build() -> ComponentType:
         ),
         pr.p(
             "The timer stops while a pointer is over the toast or focus is "
-            "inside it, and restarts at 2600ms when they leave - shorter, "
+            "inside it, and restarts at 2600ms when they leave. It is shorter "
             "because by then the toast has already been on screen. WCAG "
             "2.2.1 requires this: a message that leaves on its own has to be "
             "stoppable by whoever is still reading it."
@@ -225,6 +232,6 @@ PAGE = ProsePage(
     title="Toasts",
     nav_label="Toasts",
     group="Guides",
-    order=2,
+    order=3,
     build=_build,
 )

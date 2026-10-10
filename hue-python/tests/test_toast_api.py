@@ -1,4 +1,7 @@
+import pytest
+
 from hue import toast
+from hue.js import call
 
 
 class TestToastJs:
@@ -31,10 +34,16 @@ class TestToastJs:
     # action: both branches
     def test_an_action_is_a_label_and_the_code_it_runs(self):
         # The label is text and is quoted; the expression is code and is not.
-        assert toast.js.danger("Could not send", action=("Retry", "send()")) == (
+        action = ("Retry", call("send"))
+        assert toast.js.danger("Could not send", action=action) == (
             '$toast.danger("Could not send", '
             '{ action: { label: "Retry", onClick: () => send() } })'
         )
+
+    def test_an_action_must_be_an_expression(self):
+        # It is spliced into code, so a string from anywhere would run.
+        with pytest.raises(TypeError):
+            toast.js.danger("Could not send", action=("Retry", "send()"))  # type: ignore[arg-type]
 
     def test_without_one_there_is_no_button(self):
         assert "action" not in toast.js.danger("Could not send")
