@@ -2,9 +2,9 @@
 Curated showcases for the Command molecule.
 
 The example has four plain items. These show what a palette in an app looks
-like: icons and shortcuts, a description under a label, recent records with
-an amount at the end, items that run something rather than go somewhere, and
-keywords that find an item by another name.
+like: icons, a description under a label, recent records with an amount at
+the end, items that run something rather than go somewhere, and keywords that
+find an item by another name.
 """
 
 from __future__ import annotations
@@ -32,17 +32,14 @@ SHOWCASES: list[Showcase] = [
                         CommandGroup().label("Navigate").content(
                             CommandItem().label("Go to Billing")
                             .icon(HueIcon("credit-card"))
-                            .shortcut(Kbd("G", "B"))
                             .href("#billing"),
                             CommandItem().label("Go to Members")
                             .icon(HueIcon("users"))
-                            .shortcut(Kbd("G", "M"))
                             .href("#members"),
                         ),
                         CommandGroup().label("Actions").content(
                             CommandItem().label("Create invoice")
                             .icon(HueIcon("file-text"))
-                            .shortcut(Kbd("mod", "N"))
                             .action(toast.js.success("Invoice created")),
                             CommandItem().label("Copy invoice link")
                             .icon(HueIcon("copy"))

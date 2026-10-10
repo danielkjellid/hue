@@ -2,7 +2,7 @@ import pytest
 
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, Command, CommandGroup, CommandItem, Kbd
+from hue.ui import Button, Command, CommandGroup, CommandItem
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -144,21 +144,19 @@ class TestCommandItem:
         html = await self._item(CommandItem().label("Theme"), context_args)
         assert_no_selector(html, "[data-keywords]")
 
-    # description(), shortcut() and meta(): both branches
+    # description() and meta(): both branches
     @pytest.mark.asyncio
-    async def test_description_shortcut_and_meta_are_drawn(self, context_args):
+    async def test_description_and_meta_are_drawn(self, context_args):
         html = await self._item(
             CommandItem()
             .label("Create invoice")
             .description("Starts a draft")
-            .shortcut(Kbd("mod", "N"))
             .meta("$1,200"),
             context_args,
         )
         text = select(html, '[role="option"]')[0].get_text()
         assert "Starts a draft" in text
         assert "$1,200" in text
-        assert_selector(html, '[role="option"] kbd')
 
     @pytest.mark.asyncio
     async def test_a_plain_item_is_only_its_label(self, context_args):

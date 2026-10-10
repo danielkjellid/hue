@@ -64,7 +64,7 @@ class Command(ChainableComponent):
                 CommandGroup()
                 .label("Actions")
                 .content(
-                    CommandItem().label("Create invoice").shortcut(Kbd("mod", "N")),
+                    CommandItem().label("Create invoice"),
                     CommandItem().label("Invite teammate"),
                 ),
             )
@@ -264,14 +264,6 @@ class CommandItem(ChainableComponent):
         self._props["icon"] = value
         return self
 
-    def shortcut(self, value: ComponentType) -> Self:
-        """
-        The keystroke this does elsewhere in the app, at the end of the row.
-        Pass a Kbd. It is shown, not bound: the app answers to it already.
-        """
-        self._props["shortcut"] = value
-        return self
-
     def description(self, value: str) -> Self:
         """
         A line under the label, for what the label alone does not say.
@@ -349,10 +341,6 @@ class CommandItem(ChainableComponent):
                     ),
                 ),
                 class_="min-w-0 flex-1",
-            ),
-            render_if(
-                self._get_prop("shortcut"),
-                lambda keys: html.span(keys, class_="ms-auto inline-flex gap-[3px]"),
             ),
             render_if(
                 self._get_prop("meta"),
