@@ -109,9 +109,19 @@ function matches(event, step) {
 	);
 }
 
-// Somewhere that takes typing: a text field, and a control whose letters
-// jump to an option, as a Select, a Combobox and a menu all do.
-const TYPED_INTO = 'input, textarea, select, [role="combobox"], [role="listbox"], [role="menu"]';
+// Somewhere that takes typing: a field for text, and a control whose letters
+// jump to an option, as a Select, a Combobox and a menu all do. An input that
+// takes no text, a checkbox or a switch say, is left out: with one focused,
+// a letter is a shortcut like anywhere else.
+const NO_TEXT = ["checkbox", "radio", "button", "submit", "reset", "range", "color", "file", "image"];
+const TYPED_INTO = [
+	`input${NO_TEXT.map((type) => `:not([type="${type}"])`).join("")}`,
+	"textarea",
+	"select",
+	'[role="combobox"]',
+	'[role="listbox"]',
+	'[role="menu"]',
+].join(", ");
 
 function editable(target) {
 	return (
