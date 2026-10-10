@@ -83,6 +83,26 @@ class TestCombobox:
         assert_no_selector(html, "input#country[value]")
 
     @pytest.mark.asyncio
+    async def test_the_list_opens_when_the_field_gets_focus(self, context_args):
+        html = await render_tree(_combobox(), context_args=context_args)
+        assert_attr(html, "input#country", "x-on:focus", "focused()")
+
+    @pytest.mark.asyncio
+    async def test_a_multiple_field_has_room_for_tokens(self, context_args):
+        # Tokens wrap inside a width of their own instead of widening it.
+        html = await render_tree(_combobox().multiple(), context_args=context_args)
+        assert_selector(html, ".invisible.w-64")
+
+    @pytest.mark.asyncio
+    async def test_a_single_field_is_as_wide_as_its_options(self, context_args):
+        html = await render_tree(_combobox(), context_args=context_args)
+        assert_no_selector(html, ".invisible.w-64")
+        assert [s.get_text(strip=True) for s in select(html, ".invisible")] == [
+            "Norway",
+            "Sweden",
+        ]
+
+    @pytest.mark.asyncio
     async def test_single_has_no_tokens(self, context_args):
         html = await render_tree(_combobox().value("se"), context_args=context_args)
         assert_no_selector(html, "[aria-multiselectable]")

@@ -13,6 +13,7 @@ from hue.ui.molecules.select import (
     SelectOption,
     SelectState,
     _options,
+    _widest,
 )
 from hue.utils import classnames, render_when
 
@@ -24,10 +25,10 @@ _SIZES: dict[ControlSize, str] = {
     "lg": "min-h-control-lg ps-[14px] pe-2 text-md",
 }
 
-# GROUP_SHELL's frame, laid out to wrap: the tokens and the text field flow
-# along a line and onto the next, centred on it.
+# GROUP_SHELL's frame around two things in a row: what is typed and chosen,
+# and the toggle at the end.
 _SHELL = (
-    "flex w-full cursor-text flex-wrap items-center gap-1 rounded-md border "
+    "flex w-full cursor-text items-center gap-1 rounded-md border "
     "border-border-input bg-surface py-[3px] shadow-field "
     "transition-[border-color,box-shadow] duration-150 hover:border-border-hover "
     "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
@@ -41,6 +42,14 @@ _FIELD = (
     "h-6 min-w-20 flex-1 border-none bg-transparent px-0.5 text-fg outline-none "
     "placeholder:text-fg-subtle disabled:cursor-not-allowed disabled:text-fg-disabled"
 )
+
+# The tokens and the text field flow along a line and onto the next. Contained,
+# so they wrap within the width the labels behind them set rather than
+# widening the field as tokens are added.
+_ENTRY = "flex flex-wrap items-center gap-1 [contain:inline-size] [grid-area:1/1]"
+
+# Height zero, so the labels give the field its width and nothing else.
+_SIZER = "invisible h-0 overflow-hidden whitespace-nowrap px-0.5 [grid-area:1/1]"
 
 _POPUP = (
     "z-70 max-w-[calc(100vw-2rem)] rounded-lg border border-border "
@@ -146,6 +155,7 @@ class Combobox(FieldControl):
         error: str | None = self._error(context)
         label: str = self._get_prop("label") or name
         listbox_id = f"{control_id}-listbox"
+        placeholder: str = self._get_prop("placeholder", "")
 
         values = self._values()
         labels = {o.option_value: o.option_label for o in _options(self._children)}
@@ -163,7 +173,7 @@ class Combobox(FieldControl):
             aria_required="true" if self._get_prop("required", False) else None,
             aria_invalid="true" if error is not None else None,
             aria_describedby=self._describedby(context),
-            placeholder=self._get_prop("placeholder"),
+            placeholder=placeholder or None,
             disabled=disabled or None,
             # What a single combobox shows before Alpine starts is what it holds.
             value=None if multiple or not chosen else chosen[0]["label"],
@@ -173,6 +183,7 @@ class Combobox(FieldControl):
                 "x-model": "query",
                 ":aria-expanded": "open",
                 ":aria-activedescendant": "active",
+                "x-on:focus": "focused()",
                 "x-on:input": "search()",
                 "x-on:keydown": "key($event)",
             },
@@ -226,15 +237,33 @@ class Combobox(FieldControl):
             **{
                 ":aria-expanded": "open",
                 "x-on:mousedown.prevent": "",
-                "x-on:click": "toggle()",
+                # Kept from the field, whose click would open what this closed.
+                "x-on:click.stop": "toggle()",
             },
         )
         shell = html.div(
-            render_when(multiple, tokens),
-            html.input_(**attrs),
+            # As wide as the longest option or the placeholder, the way a
+            # Select is, whatever is chosen or typed. The labels are drawn
+            # invisibly in the same grid cell as the entry to set that width.
+            html.div(
+                html.div(
+                    render_when(multiple, tokens),
+                    html.input_(**attrs),
+                    class_=_ENTRY,
+                ),
+                *(
+                    html.div(text, class_=_SIZER)
+                    for text in _widest(placeholder, *labels.values())
+                ),
+                # A label is too narrow a measure for a row of tokens, so a
+                # multiple field is never narrower than this - unless its
+                # container is, since the column can shrink to nothing.
+                render_when(multiple, html.div(class_=classnames(_SIZER, "w-64"))),
+                class_="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)]",
+            ),
             toggle,
             class_=classnames(_SHELL, _SIZES[size], self._get_prop("class_")),
-            **{"x-ref": "shell", "x-on:click": "$refs.input.focus()"},
+            **{"x-ref": "shell", "x-on:click": "$refs.input.focus(); show()"},
         )
         popup = html.div(
             html.div(

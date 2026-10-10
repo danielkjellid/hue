@@ -25,6 +25,7 @@ export function registerComboboxData(Alpine) {
 		// that should not filter the list down to the one option.
 		filtering: false,
 		empty: false,
+		returning: false,
 		query: multiple ? "" : (selected[0]?.label ?? ""),
 		// What x-modelable hands a parent's x-model: the value, or for a
 		// multiple combobox the list of values.
@@ -143,9 +144,21 @@ export function registerComboboxData(Alpine) {
 
 		remove(value) {
 			this.selected = this.selected.filter((item) => item.value !== value);
-			// The button that was pressed is gone, and focus with it.
-			this.$refs.input.focus();
+			// The button that was pressed is gone, and focus with it. Moved to
+			// the field without opening the list, which removing a token did
+			// not ask for.
+			if (document.activeElement !== this.$refs.input) {
+				this.returning = true;
+				this.$refs.input.focus();
+			}
 			this.changed();
+		},
+
+		// The list opens as the field gets focus, so every option is in view
+		// before anything is typed.
+		focused() {
+			if (this.returning) this.returning = false;
+			else this.show();
 		},
 
 		changed() {
