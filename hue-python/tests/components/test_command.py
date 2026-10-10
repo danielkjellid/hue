@@ -59,16 +59,17 @@ class TestCommand:
 
     # hotkey(): both branches
     @pytest.mark.asyncio
-    async def test_the_hotkey_reaches_the_browser_in_lower_case(self, context_args):
-        html = await render_tree(
-            _command().hotkey("mod", "K"), context_args=context_args
-        )
-        assert '["mod", "k"]' in select(html, "[x-data]")[0]["x-data"]
+    async def test_the_hotkey_toggles_the_palette(self, context_args):
+        html = await render_tree(_command().hotkey("mod+K"), context_args=context_args)
+        root = select(html, "[x-shortcut]")[0]
+        assert root["x-shortcut"] == '["mod+k"]'
+        # The palette is not something to click, so it takes the event.
+        assert root["x-on:hue:shortcut.prevent"] == "open = !open"
 
     @pytest.mark.asyncio
     async def test_without_a_hotkey_none_is_bound(self, context_args):
         html = await render_tree(_command(), context_args=context_args)
-        assert "[]" in select(html, "[x-data]")[0]["x-data"]
+        assert_no_selector(html, "[x-shortcut]")
 
     # trigger(): both branches
     @pytest.mark.asyncio

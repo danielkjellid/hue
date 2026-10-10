@@ -14,6 +14,7 @@ from hue.ui import (
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
+from tests._shortcuts import OnPage, Shortcuts
 
 
 def _menu(*items):
@@ -222,18 +223,50 @@ class TestMenuItem:
 
     # icon() and shortcut(): both branches
     @pytest.mark.asyncio
-    async def test_an_item_can_carry_an_icon_and_a_shortcut(self, context_args):
+    async def test_an_item_can_carry_an_icon(self, context_args):
         html = await render_tree(
-            _menu(
-                MenuItem()
-                .icon(HueIcon("copy"))
-                .shortcut(Kbd("mod", "D"))
-                .content("Duplicate")
-            ),
+            _menu(MenuItem().icon(HueIcon("copy")).content("Duplicate")),
             context_args=context_args,
         )
         assert_selector(html, '[role="menuitem"] svg')
-        assert_selector(html, '[role="menuitem"] kbd')
+
+    # shortcut(): both branches, and the page it needs
+    @pytest.mark.asyncio
+    async def test_a_shortcut_is_shown_announced_and_run(self, context_args):
+        html = await render_tree(
+            OnPage(_menu(MenuItem().shortcut(Shortcuts.duplicate))),
+            context_args=context_args,
+        )
+        item = '[role="menuitem"]'
+        assert_selector(html, f"{item} kbd")
+        # Its label, since the item has none of its own.
+        assert "Duplicate" in select(html, item)[0].get_text()
+        assert_attr(html, item, "@click", "duplicate()")
+        # Announced, not bound: the page binds every shortcut once.
+        assert_attr(html, item, "x-shortcut.describe", '["mod+d"]')
+        assert_no_selector(html, "[x-shortcut]")
+
+    @pytest.mark.asyncio
+    async def test_a_shortcut_with_an_href_makes_a_link(self, context_args):
+        html = await render_tree(
+            OnPage(_menu(MenuItem().shortcut(Shortcuts.billing))),
+            context_args=context_args,
+        )
+        assert_attr(html, 'a[role="menuitem"]', "href", "/billing/")
+
+    @pytest.mark.asyncio
+    async def test_a_shortcut_the_page_does_not_bind_is_refused(self, context_args):
+        # Keys that do nothing are worse than no keys.
+        with pytest.raises(ValueError):
+            await render_tree(
+                _menu(MenuItem().shortcut(Shortcuts.duplicate)),
+                context_args=context_args,
+            )
+        with pytest.raises(ValueError):
+            await render_tree(
+                OnPage(_menu(MenuItem().shortcut(Shortcuts.archive))),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_a_bare_item_is_just_its_label(self, context_args):

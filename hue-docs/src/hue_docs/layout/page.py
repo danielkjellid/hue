@@ -10,6 +10,7 @@ from hue.ui import ThemeSwitcher, ToastRegion
 
 from hue_docs.layout.sidebar import sidebar
 from hue_docs.models import NavGroup
+from hue_docs.shortcuts import Shortcuts
 from hue_docs.site import url
 
 _Page = create_page_base(
@@ -17,6 +18,7 @@ _Page = create_page_base(
     js_url=url("/js/alpine-bundle.js"),
     html_title_factory=lambda title: f"{title} · Hue",
     extra_css_urls=[url("/styles/highlight.css")],
+    shortcuts=Shortcuts,
 )
 
 

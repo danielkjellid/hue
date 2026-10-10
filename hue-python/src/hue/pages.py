@@ -7,7 +7,9 @@ from htmy import Context, SafeStr, html
 
 from hue import html as hue_html
 from hue.context import HueContext
+from hue.shortcuts import ShortcutHost, ShortcutRegistry
 from hue.types.core import Component, ComponentType
+from hue.utils import render_if
 
 
 def _script_json(value: Any) -> str:
@@ -39,6 +41,10 @@ class BasePage:
     #: Where the visitor's light/dark/system choice is remembered. Give it an
     #: app-specific value when one origin serves several apps that theme apart.
     theme_storage_key: ClassVar[str] = "hue-theme"
+
+    #: The app's shortcuts, bound on every page and offered to the palette
+    #: and menus inside it. None for an app without any.
+    shortcut_registry: ClassVar[type[ShortcutRegistry] | None] = None
 
     def __init__(
         self,
@@ -135,8 +141,12 @@ class BasePage:
         """
         return json.dumps({**self.base_x_data, **self.x_data})
 
+    def htmy_context(self) -> Context:
+        return {ShortcutRegistry: self.shortcut_registry}
+
     def htmy(self, context: Context) -> Component:
         ctx = HueContext.from_context(context)
+        registry = self.shortcut_registry
 
         extra_css_links = [
             html.link(rel="stylesheet", href=url, type="text/css")
@@ -158,7 +168,11 @@ class BasePage:
                 hue_html.body()
                 .class_("min-h-screen bg-canvas relative")
                 .x_data(self.inject_x_data())
-                .content(self.body, self.configure_alpine(ctx)),
+                .content(
+                    self.body,
+                    render_if(registry, ShortcutHost),
+                    self.configure_alpine(ctx),
+                ),
             ),
         )
 
@@ -170,16 +184,20 @@ def create_page_base(
     html_title_factory: Callable[[str], str],
     extra_css_urls: list[str] | None = None,
     theme_storage_key: str = BasePage.theme_storage_key,
+    shortcuts: type[ShortcutRegistry] | None = None,
 ) -> type[BasePage]:
     """
-    Bind the asset URLs and title formatter for an app and return its Page class.
+    Bind the asset URLs, title formatter and shortcuts for an app and return
+    its Page class.
     """
     html_title_factory_func = html_title_factory
     _extra_css_urls = extra_css_urls or []
     _theme_storage_key = theme_storage_key
+    _shortcuts = shortcuts
 
     class Page(BasePage):
         theme_storage_key = _theme_storage_key
+        shortcut_registry = _shortcuts
 
         @cached_property
         def css_url(self) -> str:

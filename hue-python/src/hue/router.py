@@ -18,6 +18,7 @@ from pydantic.json_schema import (
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
 from hue.renderer import render_tree
+from hue.shortcuts import shortcuts
 from hue.toast import toast
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules.datatable import resolve_value
@@ -448,8 +449,10 @@ class Router[T_Request]:
 
             # The queue lives exactly as long as the request, so toast() is a
             # plain call from anywhere in the handler and nothing it raises
-            # can reach the next one.
+            # can reach the next one. The scoped shortcuts a handler switches
+            # on live the same length, for the same reason.
             token = toast.open()
+            used = shortcuts.open()
             try:
                 context = HueContext(**self._get_context_args(request))
                 result = await self._call_view_func(
@@ -481,6 +484,7 @@ class Router[T_Request]:
                 return rendered_html, status_code
             finally:
                 toast.close(token)
+                shortcuts.close(used)
 
         return wrapped_view
 

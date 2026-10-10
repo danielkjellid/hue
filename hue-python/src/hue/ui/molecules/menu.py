@@ -5,7 +5,11 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.context import HueContext
+from hue.js import unsafe
+from hue.shortcuts import Active, Shortcut, ShortcutRegistry, binding
 from hue.types.core import Component, ComponentType
+from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
@@ -167,10 +171,12 @@ class MenuItem(Clickable):
         self._props["icon"] = value
         return self
 
-    def shortcut(self, value: ComponentType) -> Self:
+    def shortcut(self, value: Shortcut) -> Self:
         """
-        The keystroke this item answers to, at the end of the row. Pass a Kbd,
-        which gives each modifier a spoken name.
+        Make the item a way to run one of the page's shortcuts: it shows the
+        keys, does what the shortcut does, and takes its label when it has no
+        content of its own. The page binds the keys, so they work with the
+        menu closed.
         """
         self._props["shortcut"] = value
         return self
@@ -210,6 +216,13 @@ class MenuItem(Clickable):
         checked: bool = self._get_prop("checked", False)
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
+        shortcut: Shortcut | None = self._get_prop("shortcut")
+        runs: Active | None = None
+        if shortcut is not None:
+            runs = _active(shortcut, context)
+            href = runs.url(HueContext.from_context(context).request)
+            if runs.action is not None:
+                self.on_click(runs.action)
 
         children = (
             render_if(self._get_prop("icon"), lambda icon: icon),
@@ -222,11 +235,8 @@ class MenuItem(Clickable):
                     **{"x-show": "checked"},
                 ),
             ),
-            *self._children,
-            render_if(
-                self._get_prop("shortcut"),
-                lambda keys: html.span(keys, class_="ms-auto inline-flex gap-[3px]"),
-            ),
+            *(self._children or ((shortcut.label,) if shortcut else ())),
+            render_if(shortcut, lambda each: _shortcut.keys(each.steps)),
         )
 
         attrs: dict[str, object] = {
@@ -269,6 +279,9 @@ class MenuItem(Clickable):
                 if disabled
                 else {"x-on:click": "checked = !checked" if checkable else "close()"}
             ),
+            # Announced here and bound by the page, which binds every shortcut
+            # once whether or not a menu shows it.
+            **(binding(shortcut.steps, describe=True) if shortcut else {}),
             **self._get_clickable_attrs(disabled),
         }
 
@@ -277,6 +290,27 @@ class MenuItem(Clickable):
             # should do. It stays focusable through its tabindex.
             return html.a(*children, href=None if disabled else href, **attrs)
         return html.button(*children, type="button", **attrs)
+
+
+def _active(shortcut: Shortcut, context: Context) -> Active:
+    """
+    The shortcut as the page has it, refusing one the page does not bind:
+    the item would show keys that do nothing.
+    """
+    registry = ShortcutRegistry.from_context(context)
+    if registry is None:
+        raise ValueError(
+            f"A MenuItem shows {shortcut!r}, but this page binds no shortcuts. "
+            "Make its base with create_page_base(shortcuts=...)."
+        )
+    for item in registry.active():
+        if item.shortcut is shortcut:
+            return item
+    raise ValueError(
+        f"A MenuItem shows {shortcut!r}, which is not on for this page: it is "
+        "scoped and nothing called shortcuts.use() for it, or it belongs to "
+        "another registry."
+    )
 
 
 class MenuLabel(ChainableComponent):
