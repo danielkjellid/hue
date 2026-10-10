@@ -9,6 +9,7 @@ from hue.assets import css_built_path
 
 from hue.context import HueContextArgs
 from hue.router import PathParseResult, Router
+from tests._shortcuts import Shortcuts
 
 
 class MockRequest:
@@ -74,6 +75,16 @@ class _ComponentRequest:
 def context_args() -> HueContextArgs[_ComponentRequest]:
     """Minimal render context shared by every component test."""
     return HueContextArgs(request=_ComponentRequest(), csrf_token="tok")
+
+
+@pytest.fixture
+def shortcut_context_args(
+    context_args: HueContextArgs[_ComponentRequest],
+) -> HueContextArgs[_ComponentRequest]:
+    """
+    The render context of an app with the tests' shortcut registry.
+    """
+    return HueContextArgs(**context_args, shortcuts=Shortcuts)
 
 
 @pytest.fixture

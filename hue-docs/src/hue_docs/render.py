@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import asyncio
 
-from htmy import Context, Fragment, SafeStr
+from htmy import SafeStr
 from hue import html
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
-from hue.shortcuts import ShortcutRegistry
 from hue.types.core import ComponentType
 
 from hue_docs.shortcuts import Shortcuts
@@ -31,31 +30,15 @@ class _StubRequest:
     """
 
 
-class _WithShortcuts:
-    """
-    Offers the docs site's shortcut registry, the way its pages do.
-
-    Previews are rendered on their own and dropped into the page as markup,
-    so they never sit under the page that would offer it, and a palette or
-    menu showing the site's shortcuts would find none.
-    """
-
-    def __init__(self, *children: ComponentType) -> None:
-        self.children = children
-
-    def htmy_context(self) -> Context:
-        return {ShortcutRegistry: Shortcuts}
-
-    def htmy(self, context: Context) -> ComponentType:
-        return Fragment(*self.children)
-
-
 async def render_html(*components: ComponentType) -> str:
     return await render_tree(
-        _WithShortcuts(*components),
+        *components,
         context_args=HueContextArgs(
             request=_StubRequest(),
             csrf_token=PLACEHOLDER_CSRF,
+            # The site's own, which its pages bind and the Command and
+            # DropdownMenu showcases list and run.
+            shortcuts=Shortcuts,
         ),
     )
 

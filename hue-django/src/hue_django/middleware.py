@@ -8,6 +8,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.utils.cache import get_conditional_response
 from django.utils.http import quote_etag
 from hue.assets import read_css, read_js
+from hue.scope import request_scope
 from hue.toast import ToastMessage, toast
 
 # URL prefix for hue's built-in asset endpoints.
@@ -139,21 +140,22 @@ def _save(request: HttpRequest) -> None:
     session[SESSION_KEY] = [message.as_dict() for message in pending]
 
 
-class HueToastMiddleware:
+class HueRequestMiddleware:
     """
-    Carry toasts across a redirect.
+    Open hue's request-scoped state for the whole request, and carry toasts
+    across a redirect.
 
-    Without it, toast.success() works for anything that renders - a page or a
-    fragment carries its own - and a hue route that redirects after raising
-    one is an error. With it, that toast waits in the session and arrives
-    with the page after it.
-
-    It also opens the queue for the whole request, so toast.success() works in
-    a plain Django view, not only inside a hue router.
+    The toast queue and the list shortcuts.use() writes to are opened here
+    as well as in the router, so toast.success() and shortcuts.use() work in a
+    plain Django view and not only inside a hue route. Without it, a toast
+    still works for anything that renders, since a page or a fragment carries
+    its own, and a hue route that redirects after raising one is an error.
+    With it, that toast waits in the session and arrives with the page after
+    it.
 
         MIDDLEWARE = [
             "django.contrib.sessions.middleware.SessionMiddleware",
-            "hue_django.middleware.HueToastMiddleware",
+            "hue_django.middleware.HueRequestMiddleware",
             ...
         ]
     """
@@ -169,21 +171,19 @@ class HueToastMiddleware:
     def __call__(self, request: HttpRequest) -> Any:
         if iscoroutinefunction(self):
             return self.__acall__(request)
-        token = toast.open()
-        try:
-            _load(request)
-            response = self.get_response(request)
-        finally:
-            _save(request)
-            toast.close(token)
+        with request_scope():
+            try:
+                _load(request)
+                response = self.get_response(request)
+            finally:
+                _save(request)
         return response
 
     async def __acall__(self, request: HttpRequest) -> HttpResponseBase:
-        token = toast.open()
-        try:
-            _load(request)
-            response = await self.get_response(request)
-        finally:
-            _save(request)
-            toast.close(token)
+        with request_scope():
+            try:
+                _load(request)
+                response = await self.get_response(request)
+            finally:
+                _save(request)
         return response

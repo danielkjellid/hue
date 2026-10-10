@@ -35,7 +35,7 @@ SHOWCASES: list[Showcase] = [
                     )
                     .content(
                         MenuLabel().content("Project"),
-                        MenuItem().icon(HueIcon("copy")).shortcut(Shortcuts.copy_link),
+                        MenuItem().shortcut(Shortcuts.copy_link),
                         MenuItem().icon(HueIcon("file-text")).content("Export as CSV"),
                         MenuSeparator(),
                         MenuLabel().content("Sharing"),

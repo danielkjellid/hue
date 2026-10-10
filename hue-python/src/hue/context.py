@@ -4,6 +4,7 @@ from htmy import Context, Formatter
 
 from hue.exceptions import MissingHueContextError
 from hue.formats import Formats
+from hue.shortcuts import ShortcutRegistry
 from hue.types.core import Component, ComponentType
 
 _hue_formatter = Formatter()
@@ -14,6 +15,9 @@ class HueContextArgs[T_Request](TypedDict):
     csrf_token: str
     # How dates and the like are written out. ISO 8601 when not given.
     formats: NotRequired[Formats]
+    # The app's keyboard shortcuts, bound on every page and shown by the
+    # palettes and menus that list them. None for an app without any.
+    shortcuts: NotRequired[type[ShortcutRegistry] | None]
 
 
 class HueContext[T_Request]:
@@ -24,6 +28,7 @@ class HueContext[T_Request]:
         self.request = kwargs["request"]
         self.csrf_token = kwargs["csrf_token"]
         self.formats = kwargs.get("formats", Formats())
+        self.shortcuts = kwargs.get("shortcuts")
 
     def htmy_context(self) -> Context:
         return {HueContext: self, Formatter: _hue_formatter, Formats: self.formats}

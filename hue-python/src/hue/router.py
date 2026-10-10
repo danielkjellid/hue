@@ -18,7 +18,8 @@ from pydantic.json_schema import (
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
 from hue.renderer import render_tree
-from hue.shortcuts import shortcuts
+from hue.scope import request_scope
+from hue.shortcuts import ShortcutHost, ShortcutRegistry, shortcuts
 from hue.toast import toast
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules.datatable import resolve_value
@@ -250,6 +251,26 @@ class Router[T_Request]:
             return ""
         return await self.render(region_fragment(pending), request)
 
+    async def _render_scoped_shortcuts(
+        self, registry: type[ShortcutRegistry] | None, request: T_Request
+    ) -> str:
+        """
+        The page's shortcut bindings again, behind a fragment, for an app with
+        scoped shortcuts.
+
+        The latest response decides which scoped shortcuts are on, so every
+        fragment brings a fresh copy of the bindings, which replaces the
+        page's: they are synced, like the toast region. One whose handler
+        switched none on turns them off, so a key never acts on content that
+        has been swapped away. A page binds its own, wrapped in another
+        component or not, and that is noted, so it is not bound twice.
+        """
+        if registry is None or shortcuts.bound():
+            return ""
+        if not any(shortcut.scoped for shortcut in registry.shortcuts):
+            return ""
+        return await self.render(ShortcutHost(registry), request)
+
     def _is_ajax_request(self, request: T_Request) -> bool:
         """
         True when the request carries an X-Requested-With: XMLHttpRequest or an
@@ -451,9 +472,7 @@ class Router[T_Request]:
             # plain call from anywhere in the handler and nothing it raises
             # can reach the next one. The scoped shortcuts a handler switches
             # on live the same length, for the same reason.
-            token = toast.open()
-            used = shortcuts.open()
-            try:
+            with request_scope():
                 context = HueContext(**self._get_context_args(request))
                 result = await self._call_view_func(
                     view_func, view_instance, request, context, **kwargs
@@ -472,7 +491,7 @@ class Router[T_Request]:
                             "A toast was raised by a handler that returned a "
                             "response with no markup to carry it, such as a "
                             "redirect. Add a middleware that carries toasts "
-                            "across a response like that (HueToastMiddleware "
+                            "across a response like that (HueRequestMiddleware "
                             "in hue_django), or return a fragment instead."
                         )
                     return RawResponse(response=result)
@@ -481,10 +500,10 @@ class Router[T_Request]:
 
                 rendered_html = await self.render(cast(ComponentType, result), request)
                 rendered_html += await self._render_pending_toasts(request)
+                rendered_html += await self._render_scoped_shortcuts(
+                    context.shortcuts, request
+                )
                 return rendered_html, status_code
-            finally:
-                toast.close(token)
-                shortcuts.close(used)
 
         return wrapped_view
 

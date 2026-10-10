@@ -1,23 +1,32 @@
+import re
+from pathlib import Path
+
 import pytest
 
-from hue import shortcuts
+import hue
+from hue import scope, shortcuts
+from hue.context import HueContextArgs
 from hue.js import unsafe
 from hue.pages import create_page_base
 from hue.renderer import render_tree
-from hue.shortcuts import Shortcut, ShortcutRegistry, parse_keys
-from hue.ui import Command, CommandShortcuts
-from tests._a11y import assert_attr, assert_no_selector, select
-from tests._shortcuts import OnPage, Shortcuts
+from hue.router import HueResponse
+from hue.shortcuts import NAMED_KEYS, Shortcut, ShortcutRegistry, parse_keys
+from hue.ui import MenuItem
+from hue.ui.atoms.kbd import _NAMED_KEYS
+from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._shortcuts import Shortcuts
+from tests.conftest import MockRouter
+
+_Page = create_page_base(css_url="/s.css", js_url="/a.js", html_title_factory=str)
 
 
 @pytest.fixture
 def request_scope():
     """
-    The list shortcuts.use() writes to, open as the router opens it.
+    The request's state, open as the router and the middleware open it.
     """
-    token = shortcuts.open()
-    yield
-    shortcuts.close(token)
+    with scope.request_scope():
+        yield
 
 
 class TestKeys:
@@ -25,10 +34,48 @@ class TestKeys:
         assert parse_keys(("Mod+K",)) == (("mod", "k"),)
         assert parse_keys(("g", "b")) == (("g",), ("b",))
 
+    def test_modifiers_keep_the_order_they_were_written_in(self):
+        # It is the order Kbd draws them in.
+        assert parse_keys(("shift+mod+k",)) == (("shift", "mod", "k"),)
+
+    def test_another_name_for_a_key_becomes_its_own(self):
+        assert parse_keys(("ctrl+escape", "alt+arrowup")) == (
+            ("ctrl", "esc"),
+            ("alt", "up"),
+        )
+
     @pytest.mark.parametrize(
         "steps",
-        [(), ("mod",), ("mod+",), ("cmd+k",)],
-        ids=["nothing", "a modifier alone", "no key", "an unknown modifier"],
+        [
+            (),
+            ("mod",),
+            ("mod+",),
+            ("mod++",),
+            ("cmd+k",),
+            ("spcae",),
+            ("shift+1",),
+            ("shift+é",),
+            ("é",),
+            ("alt+/",),
+            ("tab",),
+            ("shift+enter",),
+            ("esc",),
+        ],
+        ids=[
+            "nothing",
+            "a modifier alone",
+            "no key",
+            "the plus key",
+            "an unknown modifier",
+            "a key that is not one",
+            "shift on a digit, which types another character",
+            "shift on a letter outside ASCII",
+            "a character outside ASCII",
+            "alt on a symbol, which Option composes",
+            "tab on its own, which moves focus",
+            "enter with only shift, which presses a control",
+            "esc on its own, which closes overlays",
+        ],
     )
     def test_what_could_never_match_is_refused(self, steps):
         with pytest.raises(ValueError):
@@ -43,19 +90,17 @@ class TestRegistry:
             "archive",
         ]
 
-    def test_the_same_keys_twice_are_refused_when_the_class_is_made(self):
+    @pytest.mark.parametrize(
+        ("first", "second"),
+        [("mod+k", "mod+k"), ("mod+k", "ctrl+k"), ("mod+esc", "mod+escape")],
+        ids=["the same", "mod and ctrl away from Apple", "two names for one key"],
+    )
+    def test_the_same_press_twice_is_refused(self, first, second):
         with pytest.raises(ValueError, match="same keys"):
 
             class _(ShortcutRegistry):
-                a = Shortcut("A", "mod+k", href="/a/")
-                b = Shortcut("B", "mod+k", href="/b/")
-
-    def test_mod_and_ctrl_are_the_same_keys_away_from_apple(self):
-        with pytest.raises(ValueError, match="same keys"):
-
-            class _(ShortcutRegistry):
-                a = Shortcut("A", "mod+k", href="/a/")
-                b = Shortcut("B", "ctrl+k", href="/b/")
+                a = Shortcut("A", first, href="/a/")
+                b = Shortcut("B", second, href="/b/")
 
     def test_a_key_that_starts_a_sequence_is_refused(self):
         # G would run on the first press, so G then B could never finish.
@@ -64,6 +109,35 @@ class TestRegistry:
             class _(ShortcutRegistry):
                 a = Shortcut("A", "g", href="/a/")
                 b = Shortcut("B", "g", "b", href="/b/")
+
+    def test_a_key_inside_a_sequence_is_refused(self):
+        # B would run as soon as G then B was pressed, and G then B then C
+        # could never get its last key.
+        with pytest.raises(ValueError, match="never could finish"):
+
+            class _(ShortcutRegistry):
+                a = Shortcut("A", "b", href="/a/")
+                b = Shortcut("B", "g", "b", "c", href="/b/")
+
+    def test_a_shortcut_cannot_take_a_name_the_registry_uses(self):
+        with pytest.raises(ValueError, match="uses itself"):
+
+            class _(ShortcutRegistry):
+                active = Shortcut("A", "a", href="/a/")
+
+    def test_a_subclass_can_take_an_inherited_shortcut_out(self):
+        class Fewer(Shortcuts):
+            duplicate = None
+
+        assert Shortcuts.duplicate not in Fewer.shortcuts
+
+    def test_a_key_that_ends_a_sequence_is_allowed(self):
+        # The browser prefers the longer match, so both stay reachable.
+        class Both(ShortcutRegistry):
+            a = Shortcut("A", "b", href="/a/")
+            b = Shortcut("B", "g", "b", href="/b/")
+
+        assert len(Both.shortcuts) == 2
 
     def test_a_shortcut_needs_something_to_do_unless_scoped(self):
         with pytest.raises(ValueError):
@@ -86,6 +160,14 @@ class TestUse:
         with pytest.raises(ValueError):
             shortcuts.use(Shortcuts.billing)
 
+    def test_a_scoped_shortcut_can_keep_what_it_was_declared_with(self, request_scope):
+        class Declared(ShortcutRegistry):
+            archive = Shortcut("Archive", "e", href="/archive/", scoped=True)
+
+        shortcuts.use(Declared.archive)
+        (archive,) = Declared.active()
+        assert archive.href == "/archive/"
+
     def test_a_scoped_shortcut_needs_something_to_do(self, request_scope):
         with pytest.raises(ValueError):
             shortcuts.use(Shortcuts.archive)
@@ -96,30 +178,23 @@ class TestUse:
 
 
 class TestPage:
-    def _page(self, registry=None):
-        return create_page_base(
-            css_url="/s.css",
-            js_url="/a.js",
-            html_title_factory=str,
-            shortcuts=registry,
-        )
-
     @pytest.mark.asyncio
     async def test_a_page_binds_each_shortcut_that_is_on(
-        self, context_args, request_scope
+        self, shortcut_context_args, request_scope
     ):
         shortcuts.use(Shortcuts.archive, href="/invoices/2048/archive/")
-        Page = self._page(Shortcuts)
         html = await render_tree(
-            Page(title="Invoices", body="Hello"), context_args=context_args
+            _Page(title="Invoices", body="Hello"),
+            context_args=shortcut_context_args,
         )
         assert_attr(html, 'a[x-shortcut=\'["g", "b"]\']', "href", "/billing/")
-        assert_attr(
-            html, "button[x-shortcut='[\"mod+d\"]']", "x-on:click", "duplicate()"
-        )
+        duplicate = "button[x-shortcut='[\"mod+d\"]']"
+        assert_attr(html, duplicate, "x-on:click", "duplicate()")
         assert_attr(html, "a[x-shortcut='[\"e\"]']", "href", "/invoices/2048/archive/")
         # Hidden, and out of the accessibility tree: the rows announce them.
-        assert_attr(html, "div[hidden]", "aria-hidden", "true")
+        assert_attr(html, "#hue-shortcuts", "aria-hidden", "true")
+        # Synced, so a fragment that brings its own replaces this one.
+        assert_attr(html, "#hue-shortcuts", "x-sync")
 
     @pytest.mark.asyncio
     async def test_an_href_can_be_built_from_the_request(self, context_args):
@@ -127,47 +202,99 @@ class TestPage:
             home = Shortcut("Home", "g", "h", href=lambda request: "/from-request/")
 
         html = await render_tree(
-            self._page(Reversed)(title="Home", body="Hello"),
-            context_args=context_args,
+            _Page(title="Home", body="Hello"),
+            context_args=HueContextArgs(**context_args, shortcuts=Reversed),
         )
         assert_attr(html, "a[x-shortcut]", "href", "/from-request/")
 
     @pytest.mark.asyncio
-    async def test_a_page_without_a_registry_binds_nothing(self, context_args):
+    async def test_an_app_without_a_registry_binds_nothing(self, context_args):
         html = await render_tree(
-            self._page()(title="Home", body="Hello"), context_args=context_args
+            _Page(title="Home", body="Hello"), context_args=context_args
         )
         assert_no_selector(html, "[x-shortcut]")
 
 
-class TestCommand:
-    @pytest.mark.asyncio
-    async def test_the_palette_lists_the_shortcuts_with_their_keys(self, context_args):
-        html = await render_tree(
-            OnPage(Command().content(CommandShortcuts())), context_args=context_args
+class TestKeyNames:
+    def test_every_name_a_shortcut_takes_is_drawn_and_matched(self):
+        # Three tables, in Python, in the browser and in Kbd. A name missing
+        # from either of the others would be matched but drawn as a word, or
+        # drawn but never matched.
+        source = (Path(hue.__file__).parent / "static/js/shortcuts.js").read_text()
+        table = source[source.index("const NAMED = {") : source.index("};")]
+        in_browser = set(re.findall(r"^\t(\w+):", table, re.MULTILINE))
+        assert in_browser == NAMED_KEYS
+        assert NAMED_KEYS <= set(_NAMED_KEYS)
+
+
+class _AppRouter(MockRouter):
+    """
+    A router for an app with a shortcut registry, as hue-django's is with
+    HUE_SHORTCUTS set.
+    """
+
+    def __init__(self, registry: type[ShortcutRegistry]) -> None:
+        super().__init__()
+        self.registry = registry
+
+    def _get_context_args(self, request):
+        return HueContextArgs(
+            **super()._get_context_args(request), shortcuts=self.registry
         )
-        labels = [o["data-label"] for o in select(html, '[role="option"]')]
-        assert labels == ["Duplicate", "Go to Billing"]
-        assert "Navigate" in select(html, '[role="group"]')[0].get_text()
-        billing = 'a[role="option"]'
-        assert_attr(html, billing, "href", "/billing/")
-        assert_attr(html, billing, "x-shortcut.describe", '["g", "b"]')
-        assert select(html, f"{billing} kbd")
-        # The page binds them; the palette only shows them.
-        assert_no_selector(html, '[role="option"][x-shortcut]')
+
+
+class TestFragments:
+    async def _fragment(self, view, mock_request, registry=Shortcuts):
+        wrapped = _AppRouter(registry)._wrap_view(view, require_ajax=True)
+        request = mock_request(headers={"X-Alpine-Request": "true"})
+        html, _ = await wrapped(None, request)
+        return html
 
     @pytest.mark.asyncio
-    async def test_listing_shortcuts_needs_a_page_with_some(self, context_args):
-        with pytest.raises(ValueError):
-            await render_tree(
-                Command().content(CommandShortcuts()), context_args=context_args
+    async def test_a_fragment_that_uses_a_shortcut_rebinds_the_page(self, mock_request):
+        # The swapped-in invoice says what its archive key archives now.
+        async def invoice(view, request, context):
+            shortcuts.use(Shortcuts.archive, action=unsafe("archive(2049)"))
+            return MenuItem().shortcut(Shortcuts.archive)
+
+        html = await self._fragment(invoice, mock_request)
+        assert_attr(html, "#hue-shortcuts", "x-sync")
+        archive = "button[x-shortcut='[\"e\"]']"
+        assert_attr(html, archive, "x-on:click", "archive(2049)")
+
+    @pytest.mark.asyncio
+    async def test_a_page_wrapped_in_a_response_is_bound_once(self, mock_request):
+        async def missing(view, request, context):
+            shortcuts.use(Shortcuts.archive, action=unsafe("archive(1)"))
+            return HueResponse(
+                component=_Page(title="Gone", body="Gone"), status_code=404
             )
 
+        html = await self._fragment(missing, mock_request)
+        assert_selector(html, "#hue-shortcuts", count=1)
+
     @pytest.mark.asyncio
-    async def test_a_hotkey_that_collides_with_a_shortcut_is_refused(
-        self, context_args
+    async def test_a_fragment_that_uses_none_turns_the_scoped_ones_off(
+        self, mock_request
     ):
-        with pytest.raises(ValueError, match="same keys"):
-            await render_tree(
-                OnPage(Command().hotkey("mod+d")), context_args=context_args
-            )
+        # The invoice it archived has been swapped away, so the key must not
+        # go on archiving it.
+        async def listing(view, request, context):
+            return MenuItem().shortcut(Shortcuts.duplicate)
+
+        html = await self._fragment(listing, mock_request)
+        assert_attr(html, "#hue-shortcuts", "x-sync")
+        assert_no_selector(html, "button[x-shortcut='[\"e\"]']")
+
+    @pytest.mark.asyncio
+    async def test_an_app_without_scoped_shortcuts_sends_no_bindings(
+        self, mock_request
+    ):
+        class Global(ShortcutRegistry):
+            home = Shortcut("Home", "g", "h", href="/")
+
+        async def listing(view, request, context):
+            return "Invoices"
+
+        html = await self._fragment(listing, mock_request, registry=Global)
+        assert_no_selector(html, "#hue-shortcuts")

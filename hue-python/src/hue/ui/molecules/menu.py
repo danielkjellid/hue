@@ -5,9 +5,8 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.context import HueContext
 from hue.js import unsafe
-from hue.shortcuts import Active, Shortcut, ShortcutRegistry, binding
+from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
@@ -173,10 +172,10 @@ class MenuItem(Clickable):
 
     def shortcut(self, value: Shortcut) -> Self:
         """
-        Make the item a way to run one of the page's shortcuts: it shows the
-        keys, does what the shortcut does, and takes its label when it has no
-        content of its own. The page binds the keys, so they work with the
-        menu closed.
+        Make the item a way to run one of the app's shortcuts: it shows the
+        keys, does what the shortcut does, and takes the shortcut's label and
+        icon where it has none of its own. The page binds the keys, so they
+        work with the menu closed.
         """
         self._props["shortcut"] = value
         return self
@@ -217,15 +216,28 @@ class MenuItem(Clickable):
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
         shortcut: Shortcut | None = self._get_prop("shortcut")
-        runs: Active | None = None
+        # What the shortcut runs, kept in this render rather than written onto
+        # the item, which may be rendered again for another request.
+        runs_action: dict[str, object] = {}
         if shortcut is not None:
-            runs = _active(shortcut, context)
-            href = runs.url(HueContext.from_context(context).request)
-            if runs.action is not None:
-                self.on_click(runs.action)
+            # Any spelling of a click handler, modifiers included.
+            clicks = any(
+                key.startswith(("@click", "x-on:click")) for key in self._attrs
+            )
+            href, action = _shortcut.resolve(
+                context,
+                shortcut,
+                own=href is not None or checkable or clicks,
+                disabled=disabled,
+            )
+            if action is not None:
+                runs_action = {"@click": action}
 
         children = (
-            render_if(self._get_prop("icon"), lambda icon: icon),
+            render_if(
+                self._get_prop("icon", shortcut.icon if shortcut else None),
+                lambda icon: icon,
+            ),
             render_when(
                 checkable,
                 html.span(
@@ -283,6 +295,7 @@ class MenuItem(Clickable):
             # once whether or not a menu shows it.
             **(binding(shortcut.steps, describe=True) if shortcut else {}),
             **self._get_clickable_attrs(disabled),
+            **runs_action,
         }
 
         if href is not None:
@@ -290,27 +303,6 @@ class MenuItem(Clickable):
             # should do. It stays focusable through its tabindex.
             return html.a(*children, href=None if disabled else href, **attrs)
         return html.button(*children, type="button", **attrs)
-
-
-def _active(shortcut: Shortcut, context: Context) -> Active:
-    """
-    The shortcut as the page has it, refusing one the page does not bind:
-    the item would show keys that do nothing.
-    """
-    registry = ShortcutRegistry.from_context(context)
-    if registry is None:
-        raise ValueError(
-            f"A MenuItem shows {shortcut!r}, but this page binds no shortcuts. "
-            "Make its base with create_page_base(shortcuts=...)."
-        )
-    for item in registry.active():
-        if item.shortcut is shortcut:
-            return item
-    raise ValueError(
-        f"A MenuItem shows {shortcut!r}, which is not on for this page: it is "
-        "scoped and nothing called shortcuts.use() for it, or it belongs to "
-        "another registry."
-    )
 
 
 class MenuLabel(ChainableComponent):

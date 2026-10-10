@@ -47,17 +47,18 @@ class TestKbd:
 
     @pytest.mark.asyncio
     async def test_unknown_key_needs_no_spoken_name(self, context_args):
-        html = await render_tree(Kbd("F5"), context_args=context_args)
+        html = await render_tree(Kbd("f5", "k"), context_args=context_args)
         assert_no_selector(html, "kbd > span.sr-only")
-        assert "F5" in html
+        # Printed in capitals, as on the keys themselves.
+        assert [k.get_text() for k in select(html, "kbd")] == ["F5", "K"]
 
     # mod: only the browser knows which key it is, so the server renders the
     # Apple glyph and Alpine corrects both the glyph and the spoken name.
     @pytest.mark.asyncio
     async def test_mod_resolves_in_the_browser(self, context_args):
         html = await render_tree(Kbd("mod"), context_args=context_args)
-        kbd = select(html, "kbd")[0]
-        assert "navigator.platform" in kbd["x-data"]
+        # The same answer the shortcuts are matched by.
+        assert "$store.shortcuts?.apple" in html
         assert "⌘" in html and "Ctrl" in html
         assert "Command" in html and "Control" in html
 

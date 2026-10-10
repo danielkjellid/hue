@@ -2,21 +2,25 @@
 Keyboard shortcuts, declared once for an app.
 
 An app lists its shortcuts as attributes of a ShortcutRegistry subclass and
-hands the class to create_page_base. Every page made from that base binds
-them, so a shortcut works on every page, and the command palette and the
-menus that show one refer to the attribute rather than repeating its keys.
-The whole set is checked when the class is defined, so two shortcuts on the
-same keys fail at startup and not in somebody's browser.
+puts the class in the render context, the way it gives its date formats:
+hue-django reads it from the HUE_SHORTCUTS setting. Every page binds them,
+so a shortcut works on every page, and the command palette and the menus
+that show one refer to the attribute rather than repeating its keys. The
+whole set is checked when the class is defined, so two shortcuts on the same
+keys fail at startup and not in somebody's browser.
 
 A shortcut that only makes sense on some pages is declared scoped, and a
 handler switches it on for its own response with shortcuts.use(), the way
 toast.success() queues a toast: no context to pass, because the request's
-list lives in a ContextVar the router opens and closes.
+list lives in a ContextVar that request_scope opens around each request.
+The latest response decides: a fragment whose handler does not switch it on
+turns it off.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Iterable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
@@ -25,11 +29,55 @@ from typing import Any, ClassVar, Final
 
 from htmy import Component, Context, html
 
-from hue.context import HueContext
 from hue.js import Expression, expect
 from hue.types.core import ComponentType
 
 _MODIFIERS = frozenset({"mod", "ctrl", "alt", "shift"})
+
+#: The keys with names, as they are written in a shortcut and drawn by Kbd.
+#: Anything else is a single character, or a function key.
+NAMED_KEYS = frozenset(
+    {
+        "esc",
+        "enter",
+        "tab",
+        "space",
+        "backspace",
+        "delete",
+        "up",
+        "down",
+        "left",
+        "right",
+        "home",
+        "end",
+        "pageup",
+        "pagedown",
+    }
+)
+
+# Other names people reach for, each the same key as one of the above. Written
+# down so "escape" and "esc" cannot be declared as two shortcuts that the
+# browser would then see as one.
+_ALIASES = {
+    "escape": "esc",
+    "return": "enter",
+    "del": "delete",
+    "arrowup": "up",
+    "arrowdown": "down",
+    "arrowleft": "left",
+    "arrowright": "right",
+}
+
+#: A function key, f1 to f12.
+FUNCTION_KEY = re.compile(r"f([1-9]|1[0-2])")
+
+# Keys that move focus, press the focused control, scroll or close an
+# overlay. Taken on their own they would stop doing that on every page, so
+# they need mod, ctrl or alt.
+_NEEDS_A_MODIFIER = frozenset(
+    {"tab", "enter", "space", "esc", "up", "down", "left", "right"}
+    | {"home", "end", "pageup", "pagedown"}
+)
 
 #: Where a shortcut goes: a URL, or a function of the request that returns
 #: one, for a URL that has to be reversed per request.
@@ -38,10 +86,30 @@ type Href = str | Callable[[Any], str]
 type Steps = tuple[tuple[str, ...], ...]
 
 
+def _key(name: str, step: str) -> str:
+    key = _ALIASES.get(name, name)
+    # ASCII only: a character outside it sits on a different key on every
+    # layout that has it, and on the rest cannot be typed.
+    if len(key) == 1 and key.isascii() and key.isprintable() and key != " ":
+        return key
+    if key in NAMED_KEYS or FUNCTION_KEY.fullmatch(key):
+        return key
+    raise ValueError(
+        f"{step!r} presses {name!r}, which is not a key. Use a single ASCII "
+        "character, a function key, or one of "
+        f"{', '.join(sorted(NAMED_KEYS))}."
+    )
+
+
+def _is_letter(key: str) -> bool:
+    # ASCII only: the browser's shift rules for other letters vary by layout.
+    return key.isascii() and key.isalpha()
+
+
 def parse_keys(steps: Iterable[str]) -> Steps:
     """
-    Each key press as its keys, lower-cased, refusing what the browser could
-    never match: no steps, an unknown modifier, or a modifier on its own.
+    Each key press as its keys, lower-cased and with one name per key,
+    refusing what the browser could never match.
 
     A step is one key press, with the keys of a chord joined by plus signs:
     ("mod+k",) is Command-K, or Control-K away from Apple platforms, and
@@ -49,9 +117,13 @@ def parse_keys(steps: Iterable[str]) -> Steps:
     """
     parsed = []
     for step in steps:
-        keys = tuple(key.strip().lower() for key in step.split("+"))
-        *modifiers, key = keys
-        if not key or key in _MODIFIERS:
+        if step.endswith("+"):
+            raise ValueError(
+                f"{step!r} ends in a plus sign, which joins keys and cannot be "
+                "one: the plus key cannot be bound."
+            )
+        *modifiers, name = (part.strip().lower() for part in step.split("+"))
+        if not name or name in _MODIFIERS:
             raise ValueError(f"{step!r} has no key to press, only modifiers.")
         unknown = set(modifiers) - _MODIFIERS
         if unknown:
@@ -59,7 +131,29 @@ def parse_keys(steps: Iterable[str]) -> Steps:
                 f"{step!r} uses {', '.join(sorted(unknown))} as a modifier; "
                 "the modifiers are mod, ctrl, alt and shift."
             )
-        parsed.append(keys)
+        key = _key(name, step)
+        # Shift turns a digit or a symbol into another character, and the
+        # browser reports the character: shift+1 arrives as "!".
+        if "shift" in modifiers and len(key) == 1 and not _is_letter(key):
+            raise ValueError(
+                f"{step!r} adds shift to {key!r}. Write the character shift "
+                "types instead, such as '?' rather than 'shift+/'."
+            )
+        if key in _NEEDS_A_MODIFIER and not {"mod", "ctrl", "alt"} & set(modifiers):
+            raise ValueError(
+                f"{step!r} would take {key} from every page, where it moves "
+                "focus, presses a control, scrolls or closes something. Add "
+                "mod, ctrl or alt."
+            )
+        # Option on a Mac types a character of its own, and only a letter or
+        # a digit can be told apart by the key it was typed on.
+        if "alt" in modifiers and len(key) == 1 and not key.isalnum():
+            raise ValueError(
+                f"{step!r} adds alt to {key!r}, which Option on a Mac turns into "
+                "another character. Use alt with a letter, a digit or a named key."
+            )
+        # In the order written, which is the order Kbd draws them in.
+        parsed.append((*dict.fromkeys(modifiers), key))
     if not parsed:
         raise ValueError("A shortcut needs at least one key, such as 'mod+k'.")
     return tuple(parsed)
@@ -80,10 +174,11 @@ class Shortcut:
     that do it, and where it goes or what it runs.
 
     Declared as an attribute of a ShortcutRegistry. href is a URL or a
-    function of the request; action is an Alpine expression. group, icon,
-    description and keywords are for the palette that lists it. A scoped
-    shortcut is off until a handler calls shortcuts.use() for it, and may
-    leave its href or action to that call.
+    function of the request; action is an Alpine expression, which runs in
+    the page's scope when the keys are pressed. icon is drawn by the rows
+    that show it, and group, description and keywords are for the palette. A
+    scoped shortcut is off until a handler calls shortcuts.use() for it, and
+    may leave its href or action to that call.
     """
 
     def __init__(
@@ -153,23 +248,32 @@ def _as_pressed(steps: Steps, *, apple: bool) -> tuple[frozenset[str], ...]:
     )
 
 
-def _check(shortcuts: tuple[Shortcut, ...]) -> None:
+def _clash(first: tuple[str, Steps], second: tuple[str, Steps]) -> None:
     """
     Refuse two shortcuts that would fight over a key press on either kind of
-    platform: the same keys, or one whose keys start the other's, which would
-    run before the other could finish.
+    platform, given as what to call each in an error and its steps.
+
+    The same keys clash, and so does a shorter one found anywhere in the
+    longer one's sequence but at its end: it runs as soon as it is pressed,
+    and the longer one never gets the rest. One that ends the other's is
+    fine, because the browser prefers the longer of two that both match what
+    was just pressed, so B on its own and G then B both stay reachable.
     """
-    for first, second in combinations(shortcuts, 2):
-        for apple in (True, False):
-            a = _as_pressed(first.steps, apple=apple)
-            b = _as_pressed(second.steps, apple=apple)
-            if a == b:
-                raise ValueError(f"{first!r} and {second!r} use the same keys.")
-            shorter, longer = sorted(((first, a), (second, b)), key=lambda x: len(x[1]))
-            if longer[1][: len(shorter[1])] == shorter[1]:
+    for apple in (True, False):
+        a = _as_pressed(first[1], apple=apple)
+        b = _as_pressed(second[1], apple=apple)
+        if a == b:
+            raise ValueError(f"{first[0]} and {second[0]} use the same keys.")
+        (short, short_keys), (long, long_keys) = sorted(
+            ((first[0], a), (second[0], b)), key=lambda pair: len(pair[1])
+        )
+        width = len(short_keys)
+        # Every place the shorter one could sit, the end excepted.
+        for start in range(len(long_keys) - width):
+            if long_keys[start : start + width] == short_keys:
                 raise ValueError(
-                    f"{shorter[0]!r} runs as soon as it is pressed, so "
-                    f"{longer[0]!r}, which starts with the same keys, never could."
+                    f"{short} runs as soon as it is pressed, so {long}, which "
+                    "has the same keys partway through, never could finish."
                 )
 
 
@@ -195,16 +299,28 @@ class ShortcutRegistry:
             for name, value in vars(klass).items():
                 if isinstance(value, Shortcut):
                     found[name] = value
+                else:
+                    # A subclass that sets an inherited one to anything else,
+                    # None say, has taken it out.
+                    found.pop(name, None)
+        taken = set(found) & set(vars(ShortcutRegistry))
+        if taken:
+            raise ValueError(
+                f"{cls.__name__} names a shortcut {', '.join(sorted(taken))}, "
+                "which the registry uses itself. Call it something else."
+            )
         cls.shortcuts = tuple(found.values())
-        _check(cls.shortcuts)
+        for first, second in combinations(cls.shortcuts, 2):
+            _clash((repr(first), first.steps), (repr(second), second.steps))
 
     @classmethod
-    def check(cls, shortcut: Shortcut) -> None:
+    def check(cls, what: str, steps: Steps) -> None:
         """
-        Refuse a shortcut declared somewhere else, such as a palette's hotkey,
-        whose keys would fight with one of these.
+        Refuse keys declared somewhere else, such as a palette's hotkey, that
+        would fight with one of these. what names them in the error.
         """
-        _check((*cls.shortcuts, shortcut))
+        for existing in cls.shortcuts:
+            _clash((repr(existing), existing.steps), (what, steps))
 
     @classmethod
     def active(cls) -> list[Active]:
@@ -217,7 +333,7 @@ class ShortcutRegistry:
             if item.shortcut not in cls.shortcuts:
                 raise ValueError(
                     f"{item.shortcut!r} was switched on, but it is not in "
-                    f"{cls.__name__}, the registry this page binds."
+                    f"{cls.__name__}, the registry this app binds."
                 )
         return [
             used.get(shortcut) or Active(shortcut, shortcut.href, shortcut.action)
@@ -225,16 +341,19 @@ class ShortcutRegistry:
             if not shortcut.scoped or shortcut in used
         ]
 
-    @classmethod
-    def from_context(cls, context: Context) -> type[ShortcutRegistry] | None:
-        """
-        The registry the page being rendered binds, if it has one.
-        """
-        found = context.get(ShortcutRegistry)
-        return found if isinstance(found, type) else None
+
+@dataclass(slots=True)
+class _Request:
+    """
+    What one request has done with its shortcuts: the scoped ones it switched
+    on, and whether anything rendered their bindings yet.
+    """
+
+    used: list[Active]
+    bound: bool = False
 
 
-_USED: ContextVar[list[Active]] = ContextVar("hue_shortcuts_used")
+_REQUEST: ContextVar[_Request] = ContextVar("hue_shortcuts_request")
 
 
 class _Shortcuts:
@@ -270,36 +389,45 @@ class _Shortcuts:
                 "action, or give the Shortcut one."
             )
         try:
-            _USED.get().append(Active(shortcut, href, action))
+            _REQUEST.get().used.append(Active(shortcut, href, action))
         except LookupError:
             raise RuntimeError(
                 "shortcuts.use() was called with no request to carry it. The "
-                "router opens the list for the length of a request."
+                "router opens the list for the length of a request, and "
+                "HueRequestMiddleware for a plain Django view."
             ) from None
 
     def used(self) -> list[Active]:
         """
         The scoped shortcuts switched on so far in this request.
         """
-        try:
-            return list(_USED.get())
-        except LookupError:
-            return []
+        request = _REQUEST.get(None)
+        return list(request.used) if request is not None else []
 
-    def open(self) -> Token[list[Active]] | None:
+    def bound(self) -> bool:
+        """
+        Whether this request has rendered its shortcut bindings, which a page
+        does and a fragment does not.
+        """
+        request = _REQUEST.get(None)
+        return request is not None and request.bound
+
+    def _bind(self) -> None:
+        if (request := _REQUEST.get(None)) is not None:
+            request.bound = True
+
+    def open(self) -> Token[_Request] | None:
         """
         Start a request's list, unless one is already open; None means the
         list somebody else opened, and theirs to close.
         """
-        try:
-            _USED.get()
-        except LookupError:
-            return _USED.set([])
-        return None
+        if _REQUEST.get(None) is not None:
+            return None
+        return _REQUEST.set(_Request(used=[]))
 
-    def close(self, token: Token[list[Active]] | None) -> None:
+    def close(self, token: Token[_Request] | None) -> None:
         if token is not None:
-            _USED.reset(token)
+            _REQUEST.reset(token)
 
 
 shortcuts: Final = _Shortcuts()
@@ -307,23 +435,33 @@ shortcuts: Final = _Shortcuts()
 
 class ShortcutHost:
     """
-    The elements a page's shortcuts are bound to: a hidden link or button for
+    The elements an app's shortcuts are bound to: a hidden link or button for
     each one that is on, which the shortcut clicks.
 
-    BasePage renders it for a page made with a registry; nothing else needs
-    to. Hidden, and out of the accessibility tree, because the rows that show
-    a shortcut are where it is announced.
+    BasePage renders it when the render context has a registry. For an app
+    with scoped shortcuts the router appends it to every fragment as well:
+    it is synced, so that copy replaces the page's, and the scoped shortcuts
+    on are the ones the latest handler switched on.
+
+    Hidden, and out of the accessibility tree, because the rows that show a
+    shortcut are where it is announced.
     """
 
     def __init__(self, registry: type[ShortcutRegistry]) -> None:
         self.registry = registry
 
     def htmy(self, context: Context) -> Component:
+        # Imported here: hue.context imports this module for the registry type.
+        from hue.context import HueContext  # noqa: PLC0415
+
         request = HueContext.from_context(context).request
+        shortcuts._bind()
         return html.div(
             *(self._element(item, request) for item in self.registry.active()),
+            id="hue-shortcuts",
             hidden="",
             aria_hidden="true",
+            **{"x-sync": ""},
         )
 
     def _element(self, item: Active, request: Any) -> ComponentType:

@@ -9,14 +9,12 @@
 
 import { listbox } from "./listbox.js";
 
-const IS_APPLE = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-
 // Counted here rather than given by the server, which would have to keep two
 // palettes on a page from sharing ids.
 let palettes = 0;
 
 export function registerCommandData(Alpine) {
-	Alpine.data("hueCommand", (startsOpen, hotkey, emptyMessage) => {
+	Alpine.data("hueCommand", (startsOpen, emptyMessage) => {
 		// The items as they are shown, worked out by filter(), the only thing
 		// that changes them. Kept out of the component's state, which would
 		// wrap each element in a proxy.
@@ -25,7 +23,6 @@ export function registerCommandData(Alpine) {
 		return {
 			...listbox,
 			open: startsOpen,
-			hotkeyKeys: hotkey,
 			emptyMessage,
 			query: "",
 			active: null,
@@ -64,20 +61,6 @@ export function registerCommandData(Alpine) {
 				// here, so the focus trap moves focus into it and remembers the
 				// control that opened the palette to give focus back to.
 				this.$nextTick(() => this.activate(this.enabled()[0]));
-			},
-
-			hotkey(event) {
-				if (!this.hotkeyKeys.length) return;
-				const keys = new Set(this.hotkeyKeys);
-				const mod = IS_APPLE ? event.metaKey : event.ctrlKey;
-				const wanted =
-					keys.has("mod") === mod &&
-					keys.has("shift") === event.shiftKey &&
-					keys.has("alt") === event.altKey &&
-					keys.has(event.key.toLowerCase());
-				if (!wanted) return;
-				event.preventDefault();
-				this.open = !this.open;
 			},
 
 			search() {

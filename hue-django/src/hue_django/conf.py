@@ -1,7 +1,10 @@
+from functools import cache
 from typing import Callable
 
 from django.conf import settings as django_settings
+from django.utils.module_loading import import_string
 from hue.formats import Formats
+from hue.shortcuts import ShortcutRegistry
 
 
 class Settings:
@@ -43,6 +46,26 @@ class Settings:
         The strftime format components write a date with a time in.
         """
         return getattr(django_settings, "HUE_DATETIME_FORMAT", Formats().datetime)
+
+    @property
+    def HUE_SHORTCUTS(self) -> type[ShortcutRegistry] | None:
+        """
+        The app's ShortcutRegistry, as a dotted path or the class itself.
+        Every page binds it, and palettes and menus can show its shortcuts.
+        """
+        value = getattr(django_settings, "HUE_SHORTCUTS", None)
+        return _registry(value) if isinstance(value, str) else value
+
+
+# Imported once per path rather than on every request.
+@cache
+def _registry(path: str) -> type[ShortcutRegistry]:
+    registry = import_string(path)
+    if not (isinstance(registry, type) and issubclass(registry, ShortcutRegistry)):
+        raise TypeError(
+            f"HUE_SHORTCUTS points at {path}, which is not a ShortcutRegistry."
+        )
+    return registry
 
 
 settings = Settings()

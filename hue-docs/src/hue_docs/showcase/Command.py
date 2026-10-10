@@ -68,7 +68,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Command()
-                    .trigger(Button().variant("outline").content("Search the docs"))
+                    .trigger(Button().variant("outline").content("Site shortcuts"))
                     .content(CommandShortcuts())
                 )
                 """,

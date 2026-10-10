@@ -98,13 +98,13 @@ class TestTooltip:
         html = await render_tree(_tooltip(), context_args=context_args)
         assert_attr(html, '[role="tooltip"] span', "aria-hidden", "true")
 
-    # shortcut(): both branches
+    # keys(): both branches
     @pytest.mark.asyncio
-    async def test_a_shortcut_sits_after_the_label(self, context_args):
+    async def test_the_keys_sit_after_the_label(self, context_args):
         # A Kbd, which renders real kbd elements and gives each modifier a
         # spoken name - a glyph alone is announced by its Unicode name.
         html = await render_tree(
-            _tooltip().shortcut(Kbd("mod", "K")), context_args=context_args
+            _tooltip().keys(Kbd("mod", "K")), context_args=context_args
         )
         assert_selector(html, '[role="tooltip"] kbd')
 
@@ -117,6 +117,6 @@ class TestTooltip:
         assert_selector(html, "span.border-t-surface-inverse")
 
     @pytest.mark.asyncio
-    async def test_no_shortcut_by_default(self, context_args):
+    async def test_no_keys_by_default(self, context_args):
         html = await render_tree(_tooltip(), context_args=context_args)
         assert_no_selector(html, "kbd")

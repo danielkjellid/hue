@@ -1,9 +1,9 @@
 """
 The docs site's own keyboard shortcuts.
 
-Real ones, bound on every page, so the Command and DropdownMenu showcases
-and the Keyboard shortcuts guide have a registry to show and the keys in
-them work.
+Real ones, put in the render context by render.py and so bound on every
+page, which gives the Command and DropdownMenu showcases and the Keyboard
+shortcuts guide a registry to show, with keys that work.
 """
 
 from __future__ import annotations

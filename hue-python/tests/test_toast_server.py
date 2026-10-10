@@ -198,7 +198,7 @@ class TestRawResponses:
         # toast would vanish without a word.
         wrapped = router._wrap_view(_redirecting_view(raises=True), require_ajax=True)
         request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-        with pytest.raises(RuntimeError, match="HueToastMiddleware"):
+        with pytest.raises(RuntimeError, match="HueRequestMiddleware"):
             await wrapped(Mock(), request)
 
     @pytest.mark.asyncio
