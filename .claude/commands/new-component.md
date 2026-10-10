@@ -37,6 +37,11 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
    rebuild docs (`cd hue-docs && PYTHONPATH=src uv run python -m hue_docs`) to confirm the
    component is auto-discovered.
 
+6. **Run `/prepare-pr` before committing.** Every component goes through its review and
+   simplification passes before anything is committed, and the fixes it makes get the
+   same lint and test run as step 5. Commit only once it reports clean, and only when
+   the user asks.
+
 ## Quality checklist (self-review before finishing)
 
 - Accessibility: semantic element, ARIA wired via base helpers, keyboard + visible focus,
