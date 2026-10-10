@@ -198,6 +198,6 @@ PAGE = ProsePage(
     title="Contexts",
     nav_label="Contexts",
     group="Guides",
-    order=3,
+    order=4,
     build=_build,
 )

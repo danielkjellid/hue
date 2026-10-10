@@ -8,15 +8,16 @@ only way to build one out of your own text is to say unsafe() - which is what
 makes that decision greppable in a review rather than invisible in an
 f-string.
 
-The builders here quote their arguments with json.dumps, so the short way to
+call() and ajax() quote their arguments with json.dumps, so the short way to
 write an action is also the safe one.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from json import dumps
-from typing import Any
+from typing import Any, Literal, get_args
 
 # A function or a path to one: sendInvoice, $store.cart.add, window.print.
 _FUNCTION = re.compile(r"^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$")
@@ -27,8 +28,8 @@ class Expression(str):
     A fragment of JavaScript for Alpine to evaluate.
 
     A str subclass, so it goes wherever a string goes; the type is the whole
-    point of it. Build one with call(), with a helper that returns one such
-    as toast.js, or with unsafe().
+    point of it. Build one with call(), ajax() or close(), with a helper that
+    returns one such as toast.js, or with unsafe().
     """
 
     __slots__ = ()
@@ -74,6 +75,75 @@ def _argument(value: Any) -> str:
     return value if isinstance(value, Expression) else dumps(value)
 
 
+type Method = Literal["get", "post", "put", "patch", "delete"]
+
+_METHODS: tuple[str, ...] = get_args(Method.__value__)
+
+
+def ajax(
+    url: str | Expression,
+    *,
+    target: str | Sequence[str],
+    method: Method = "get",
+    body: Mapping[str, Any] | None = None,
+) -> Expression:
+    """
+    A request to one of your routes, with the response merged into the page.
+
+        ajax(f"/invoices/{invoice.id}/", method="delete", target="invoices")
+
+    Alpine AJAX's $ajax, written for you. target is the id, or the ids, of the
+    elements whose contents the response replaces. It is required because
+    $ajax would fall back to the id of the element the expression runs on,
+    and fail on one without an id.
+
+    body is sent as form fields, which a route's body model validates. A list
+    or a dict in it arrives as one field holding JSON, the way $ajax sends
+    them, so the route reads [3, 4] from "[3,4]". A None is left out, so the
+    model's default applies rather than the text "null". A GET takes no body.
+
+    Every value is quoted, the URL and the body's included. One that is
+    already an Expression goes in as written, for what only the browser
+    knows, as with call():
+
+        ajax(url, method="post", target="invoices", body={"ids": unsafe("selected")})
+    """
+    targets = [target] if isinstance(target, str) else list(target)
+    if not targets or not all(targets):
+        raise ValueError("ajax() needs the id of at least one element to update.")
+    # $ajax reads the ids out of one string split on spaces.
+    if any(re.search(r"\s", each) for each in targets):
+        raise ValueError(f"{targets!r} has an id with a space in it, which no id has.")
+    # For a caller without a type checker: "GET" would slip past the check on
+    # a GET's body below, and still be sent as a GET.
+    if method not in _METHODS:
+        raise ValueError(
+            f"{method!r} is not a method; use one of {', '.join(_METHODS)}."
+        )
+    if body is not None and method == "get":
+        raise ValueError(
+            "A GET takes no body: $ajax would send it as the query string, which "
+            "a route's body model never reads. Put the values in the URL, or "
+            "send them with post."
+        )
+    options = [
+        f"method: {dumps(method)}",
+        f"target: {dumps(' '.join(targets))}",
+        # Without it $ajax leaves the page's x-sync elements alone, and a toast
+        # the route raised, which arrives in the synced toast region, is
+        # dropped. Forms and links sync by default; this matches them.
+        "sync: true",
+    ]
+    if body is not None:
+        fields = ", ".join(
+            f"{dumps(str(name))}: {_argument(value)}"
+            for name, value in body.items()
+            if value is not None
+        )
+        options.append(f"body: {{{fields}}}")
+    return Expression(f"$ajax({_argument(url)}, {{{', '.join(options)}}})")
+
+
 def close() -> Expression:
     """
     Close the overlay this sits inside.
@@ -94,7 +164,7 @@ def expect(value: Expression, *, modifier: str) -> Expression:
     if not isinstance(value, Expression):
         raise TypeError(
             f"{modifier} takes an expression, not a string. Build one with "
-            "call() or another helper, or wrap it in unsafe() if it really is "
-            "code you wrote."
+            "call(), ajax() or another helper, or wrap it in unsafe() if it "
+            "really is code you wrote."
         )
     return value

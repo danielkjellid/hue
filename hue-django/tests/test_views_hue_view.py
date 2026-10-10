@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 import pytest
 from django.http import HttpRequest, HttpResponseRedirect
@@ -6,6 +7,7 @@ from django.test import Client, override_settings
 from django.urls import URLPattern, include, path
 from htmy import html
 from hue.context import HueContext
+from pydantic import Json
 
 from hue_django.pages import Page
 from hue_django.router import Router
@@ -411,6 +413,69 @@ def test_hue_view_body_validation(urlpatterns_: list[URLPattern]):
 
     bad = client.post("/myview/save/", {"name": "Ada", "age": "x"}, **AJAX_HEADERS)
     assert bad.status_code == 422
+
+
+def test_a_body_arrives_with_any_method(urlpatterns_: list[URLPattern]):
+    # A DELETE's fields, as ajax() sends them. A list arrives as one field of
+    # JSON, the way $ajax sends it.
+    @dataclass
+    class Archive:
+        reason: str
+        ids: Json[list[int]]
+
+    class MyView(HueView):
+        router = Router[HttpRequest]()
+
+        async def index(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return Page(title="", body=html.div("Index"))
+
+        @router.fragment_delete("invoices/")
+        async def delete(
+            self, request: HttpRequest, context: HueContext[HttpRequest], body: Archive
+        ):
+            return html.div(f"{body.reason}: {body.ids}")
+
+    urlpatterns_.append(path("myview/", include(MyView.urls)))
+    response = Client().delete(
+        "/myview/invoices/",
+        urlencode({"reason": "duplicate", "ids": "[3,4]"}),
+        content_type="application/x-www-form-urlencoded",
+        **AJAX_HEADERS,
+    )
+    assert response.status_code == HTTP_OK
+    assert b"duplicate: [3, 4]" in response.content
+
+
+def test_a_body_that_is_not_a_form_is_not_read_as_one(
+    urlpatterns_: list[URLPattern],
+):
+    # Only a form-encoded body is parsed into fields: plain text that looks
+    # like one leaves the model on its defaults.
+    @dataclass
+    class Archive:
+        reason: str = "none given"
+
+    class MyView(HueView):
+        router = Router[HttpRequest]()
+
+        async def index(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return Page(title="", body=html.div("Index"))
+
+        @router.fragment_delete("invoices/")
+        async def delete(
+            self, request: HttpRequest, context: HueContext[HttpRequest], body: Archive
+        ):
+            return html.div(body.reason)
+
+    urlpatterns_.append(path("myview/", include(MyView.urls)))
+    response = Client().delete(
+        "/myview/invoices/",
+        "reason=duplicate",
+        content_type="text/plain",
+        **AJAX_HEADERS,
+    )
+    assert response.status_code == HTTP_OK
+    assert b"none given" in response.content
 
 
 def test_hue_view_csrf_header_accepted_on_ajax_post(urlpatterns_: list[URLPattern]):
