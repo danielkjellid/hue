@@ -40,6 +40,7 @@ from hue.ui.molecules.card import (
     CardMedia,
 )
 from hue.ui.molecules.combobox import Combobox
+from hue.ui.molecules.command import Command, CommandGroup, CommandItem
 from hue.ui.molecules.datatable import Column, DataTable
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
@@ -107,6 +108,9 @@ __all__ = [
     "Checkbox",
     "Column",
     "Combobox",
+    "Command",
+    "CommandGroup",
+    "CommandItem",
     "CurrentPage",
     "DataTable",
     "Dialog",
