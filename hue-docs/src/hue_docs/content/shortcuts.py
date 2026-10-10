@@ -327,6 +327,6 @@ PAGE = ProsePage(
     title="Keyboard shortcuts",
     nav_label="Keyboard shortcuts",
     group="Guides",
-    order=5,
+    order=6,
     build=_build,
 )
