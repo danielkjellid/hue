@@ -6,6 +6,7 @@ import { registerComboboxData } from "./combobox.js";
 import { registerCommandData } from "./command.js";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerSelectData } from "./select.js";
+import { registerShortcuts } from "./shortcuts.js";
 import {
 	registerTableColumns,
 	registerTableSelection,
@@ -46,6 +47,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerCommandData(Alpine);
 	registerScrollAreaData(Alpine);
 	registerSelectData(Alpine);
+	registerShortcuts(Alpine);
 	registerTableSelection(Alpine);
 	registerTableSearch(Alpine);
 	registerTableFilters(Alpine);

@@ -32,17 +32,17 @@ SHOWCASES: list[Showcase] = [
                         CommandGroup().label("Navigate").content(
                             CommandItem().label("Go to Billing")
                             .icon(HueIcon("credit-card"))
-                            .shortcut(Kbd("G", "B"))
+                            .shortcut("g", "b")
                             .href("#billing"),
                             CommandItem().label("Go to Members")
                             .icon(HueIcon("users"))
-                            .shortcut(Kbd("G", "M"))
+                            .shortcut("g", "m")
                             .href("#members"),
                         ),
                         CommandGroup().label("Actions").content(
                             CommandItem().label("Create invoice")
                             .icon(HueIcon("file-text"))
-                            .shortcut(Kbd("mod", "N"))
+                            .shortcut("alt+n")
                             .action(toast.js.success("Invoice created")),
                             CommandItem().label("Copy invoice link")
                             .icon(HueIcon("copy"))

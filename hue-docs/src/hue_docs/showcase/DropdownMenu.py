@@ -37,7 +37,7 @@ SHOWCASES: list[Showcase] = [
                         MenuLabel().content("Project"),
                         MenuItem()
                         .icon(HueIcon("copy"))
-                        .shortcut(Kbd("mod", "D"))
+                        .shortcut("mod+d")
                         .content("Duplicate"),
                         MenuItem().icon(HueIcon("file-text")).content("Export as CSV"),
                         MenuSeparator(),

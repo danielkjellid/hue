@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Button, DropdownMenu, Kbd, MenuItem, MenuLabel, MenuSeparator
+from hue.ui import Button, DropdownMenu, MenuItem, MenuLabel, MenuSeparator
 from hue.ui.atoms.icon import HueIcon
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
@@ -164,15 +164,14 @@ class TestMenuItem:
     async def test_an_item_can_carry_an_icon_and_a_shortcut(self, context_args):
         html = await render_tree(
             _menu(
-                MenuItem()
-                .icon(HueIcon("copy"))
-                .shortcut(Kbd("mod", "D"))
-                .content("Duplicate")
+                MenuItem().icon(HueIcon("copy")).shortcut("mod+d").content("Duplicate")
             ),
             context_args=context_args,
         )
         assert_selector(html, '[role="menuitem"] svg')
         assert_selector(html, '[role="menuitem"] kbd')
+        # Drawn and bound from the same keys.
+        assert_attr(html, '[role="menuitem"]', "x-shortcut", '["mod+d"]')
 
     @pytest.mark.asyncio
     async def test_a_bare_item_is_just_its_label(self, context_args):

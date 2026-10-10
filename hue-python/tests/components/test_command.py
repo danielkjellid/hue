@@ -2,7 +2,7 @@ import pytest
 
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, Command, CommandGroup, CommandItem, Kbd
+from hue.ui import Button, Command, CommandGroup, CommandItem
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -39,16 +39,17 @@ class TestCommand:
 
     # hotkey(): both branches
     @pytest.mark.asyncio
-    async def test_the_hotkey_reaches_the_browser_in_lower_case(self, context_args):
-        html = await render_tree(
-            _command().hotkey("mod", "K"), context_args=context_args
-        )
-        assert '["mod", "k"]' in select(html, "[x-data]")[0]["x-data"]
+    async def test_the_hotkey_toggles_the_palette(self, context_args):
+        html = await render_tree(_command().hotkey("mod+K"), context_args=context_args)
+        root = select(html, "[x-shortcut]")[0]
+        assert root["x-shortcut"] == '["mod+k"]'
+        # The palette is not something to click, so it takes the event.
+        assert root["x-on:hue:shortcut.prevent"] == "open = !open"
 
     @pytest.mark.asyncio
     async def test_without_a_hotkey_none_is_bound(self, context_args):
         html = await render_tree(_command(), context_args=context_args)
-        assert "[]" in select(html, "[x-data]")[0]["x-data"]
+        assert_no_selector(html, "[x-shortcut]")
 
     # trigger(): both branches
     @pytest.mark.asyncio
@@ -151,18 +152,22 @@ class TestCommandItem:
             CommandItem()
             .label("Create invoice")
             .description("Starts a draft")
-            .shortcut(Kbd("mod", "N"))
+            .shortcut("g", "n")
             .meta("$1,200"),
             context_args,
         )
         text = select(html, '[role="option"]')[0].get_text()
         assert "Starts a draft" in text
         assert "$1,200" in text
-        assert_selector(html, '[role="option"] kbd')
+        assert_selector(html, '[role="option"] kbd', count=2)
+        assert_attr(html, '[role="option"]', "x-shortcut", '["g", "n"]')
+        # The gap between the presses is a word to a screen reader.
+        assert "then" in select(html, '[role="option"] .sr-only')[0].get_text()
 
     @pytest.mark.asyncio
     async def test_a_plain_item_is_only_its_label(self, context_args):
         html = await self._item(CommandItem().label("Create invoice"), context_args)
+        assert_no_selector(html, "[x-shortcut]")
         assert select(html, '[role="option"]')[0].get_text(strip=True) == (
             "Create invoice"
         )
