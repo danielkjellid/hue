@@ -184,7 +184,7 @@ class TestSelectOption:
     async def test_the_value_is_quoted_for_alpine(self, context_args):
         # A quote in a value must not end the expression it is compared in.
         html = await self._option(SelectOption().value('a"b'), context_args)
-        assert_attr(html, '[role="option"]', ":aria-selected", 'value === "a\\"b"')
+        assert_attr(html, '[role="option"]', ":aria-selected", 'chosen("a\\"b")')
 
     # disabled(): both branches
     @pytest.mark.asyncio

@@ -64,7 +64,7 @@ class SelectState:
     """
 
     control_id: str
-    value: str | None
+    values: frozenset[str]
 
     def option_id(self, value: str) -> str:
         return f"{self.control_id}-option-{_slug(value)}"
@@ -138,7 +138,9 @@ class Select(FieldControl):
         return self
 
     def htmy_context(self) -> Context:
-        return {SelectState: SelectState(self._input_id(), self._get_prop("value"))}
+        value: str | None = self._get_prop("value")
+        values = frozenset() if value is None else frozenset([value])
+        return {SelectState: SelectState(self._input_id(), values)}
 
     def _render(self, context: Context) -> Component:
         name = self._require_name()
@@ -353,13 +355,13 @@ class SelectOption(ChainableComponent):
             ),
             id=option_id,
             role="option",
-            aria_selected="true" if value == state.value else "false",
+            aria_selected="true" if value in state.values else "false",
             aria_disabled="true" if disabled else None,
             class_=classnames(_OPTION, self._get_prop("class_")),
             **{
                 "data-value": value,
                 "data-label": self.option_label,
-                ":aria-selected": f"value === {json.dumps(value)}",
+                ":aria-selected": f"chosen({json.dumps(value)})",
                 ":data-active": f"active === {json.dumps(option_id)} || null",
                 "x-on:click": "choose($el)",
                 "x-on:mousemove": "activate($el)",
