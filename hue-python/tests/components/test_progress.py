@@ -8,7 +8,9 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector
 class TestProgress:
     @pytest.mark.asyncio
     async def test_reports_its_position(self, context_args):
-        html = await render_tree(Progress().value(64), context_args=context_args)
+        html = await render_tree(
+            Progress().value(64).aria_label("Upload"), context_args=context_args
+        )
         assert_attr(html, '[role="progressbar"]', "aria-valuenow", "64")
         assert_attr(html, '[role="progressbar"]', "aria-valuemin", "0")
         assert_attr(html, '[role="progressbar"]', "aria-valuemax", "100")
@@ -19,7 +21,9 @@ class TestProgress:
     async def test_indeterminate_omits_the_position(self, context_args):
         # aria-valuenow="0" would announce "0 percent", which reads as stalled
         # rather than unknown.
-        html = await render_tree(Progress().indeterminate(), context_args=context_args)
+        html = await render_tree(
+            Progress().indeterminate().aria_label("Upload"), context_args=context_args
+        )
         assert_no_selector(html, "[aria-valuenow]")
         assert_selector(html, "div.animate-progress")
 
@@ -28,7 +32,8 @@ class TestProgress:
         # So a bar handed a percentage it no longer trusts can say so without
         # having to unset it first.
         html = await render_tree(
-            Progress().value(64).indeterminate(), context_args=context_args
+            Progress().value(64).indeterminate().aria_label("Upload"),
+            context_args=context_args,
         )
         assert_no_selector(html, "[aria-valuenow]")
         assert_selector(html, "div.animate-progress")
@@ -37,20 +42,45 @@ class TestProgress:
     async def test_a_bar_with_no_value_is_indeterminate(self, context_args):
         # Nothing to report is the same as not knowing, as it is for a native
         # progress element with no value attribute.
-        html = await render_tree(Progress(), context_args=context_args)
+        html = await render_tree(
+            Progress().aria_label("Upload"), context_args=context_args
+        )
         assert_no_selector(html, "[aria-valuenow]")
         assert_selector(html, "div.animate-progress")
 
     @pytest.mark.asyncio
+    async def test_reduced_motion_fills_the_track_rather_than_stopping_at_40(
+        self, context_args
+    ):
+        # The global reduced-motion rule ends the sweep after one pass, which
+        # would leave a still 40% fill that reads as 40% done.
+        html = await render_tree(
+            Progress().indeterminate().aria_label("Upload"), context_args=context_args
+        )
+        assert_selector(html, "div.motion-reduce\\:w-full")
+
+    @pytest.mark.asyncio
     async def test_determinate_does_not_animate_the_sweep(self, context_args):
-        html = await render_tree(Progress().value(40), context_args=context_args)
+        html = await render_tree(
+            Progress().value(40).aria_label("Upload"), context_args=context_args
+        )
         assert_no_selector(html, "div.animate-progress")
 
     @pytest.mark.asyncio
     async def test_value_is_clamped_to_the_track(self, context_args):
-        html = await render_tree(Progress().value(140), context_args=context_args)
+        html = await render_tree(
+            Progress().value(140).aria_label("Upload"), context_args=context_args
+        )
         assert_attr(html, '[role="progressbar"]', "aria-valuenow", "100")
         assert "width:100%" in html
+
+    @pytest.mark.asyncio
+    async def test_nan_is_refused_rather_than_reported_complete(self, context_args):
+        with pytest.raises(ValueError, match="NaN"):
+            await render_tree(
+                Progress().value(float("nan")).aria_label("Upload"),
+                context_args=context_args,
+            )
 
     # label(): both branches
     @pytest.mark.asyncio
@@ -67,8 +97,20 @@ class TestProgress:
 
     @pytest.mark.asyncio
     async def test_unlabelled_bar_is_just_the_track(self, context_args):
-        html = await render_tree(Progress().value(64), context_args=context_args)
+        html = await render_tree(
+            Progress().value(64).aria_label("Upload").class_("w-40"),
+            context_args=context_args,
+        )
         assert_no_selector(html, "span.tabular-nums")
+        assert_attr(html, '[role="progressbar"]', "aria-label", "Upload")
+        # With no wrapper to carry them, the caller's classes go on the track.
+        assert_selector(html, '[role="progressbar"].w-40')
+
+    @pytest.mark.asyncio
+    async def test_a_bar_with_no_name_is_refused(self, context_args):
+        # A progressbar must have an accessible name.
+        with pytest.raises(ValueError, match="aria_label"):
+            await render_tree(Progress().value(64), context_args=context_args)
 
     @pytest.mark.asyncio
     async def test_indeterminate_label_shows_no_percentage(self, context_args):
@@ -81,14 +123,16 @@ class TestProgress:
     # variant() and size()
     @pytest.mark.asyncio
     async def test_default_variant_and_size(self, context_args):
-        html = await render_tree(Progress().value(10), context_args=context_args)
+        html = await render_tree(
+            Progress().value(10).aria_label("Upload"), context_args=context_args
+        )
         assert_selector(html, "div.bg-accent")
         assert_selector(html, "div.h-1\\.5")
 
     @pytest.mark.asyncio
     async def test_explicit_variant_and_size(self, context_args):
         html = await render_tree(
-            Progress().value(10).variant("danger").size("lg"),
+            Progress().value(10).variant("danger").size("lg").aria_label("Upload"),
             context_args=context_args,
         )
         assert_selector(html, "div.bg-danger")
@@ -119,6 +163,13 @@ class TestProgressRing:
         # A full ring has no gap left; an empty one is all gap.
         assert 'stroke-dashoffset="0.00"' in full
         assert 'stroke-dashoffset="131.95"' in empty
+
+    @pytest.mark.asyncio
+    async def test_nan_is_refused_rather_than_reported_complete(self, context_args):
+        with pytest.raises(ValueError, match="NaN"):
+            await render_tree(
+                ProgressRing().value(float("nan")), context_args=context_args
+            )
 
     # show_value(): both branches
     @pytest.mark.asyncio

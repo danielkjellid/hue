@@ -38,6 +38,9 @@ _RING_CIRCUMFERENCE = 2 * math.pi * _RING_RADIUS
 
 
 def _clamp(value: float) -> float:
+    # min(100, nan) is 100, so a NaN would otherwise report itself complete.
+    if math.isnan(value):
+        raise ValueError("A progress value must be a number, not NaN.")
     return max(0.0, min(100.0, value))
 
 
@@ -47,7 +50,8 @@ class Progress(ChainableComponent):
 
     indeterminate() is for work whose length is unknown: the bar sweeps and
     omits aria-valuenow rather than reporting zero. label() shows above the bar
-    and names it.
+    and names it; a bar without one needs aria_label() instead, since a
+    progressbar with no name is announced as nothing more than a percentage.
 
         Progress().value(64).label("Uploading archive.zip")
     """
@@ -98,13 +102,22 @@ class Progress(ChainableComponent):
         indeterminate: bool = self._get_prop("indeterminate", False)
         value = None if indeterminate or raw is None else _clamp(raw)
 
+        if label is None and self._attrs.get("aria_label") is None:
+            raise ValueError(
+                "Progress needs an accessible name: call label() to show one, "
+                "or aria_label() to name a bare bar."
+            )
+
         fill = html.div(
             class_=classnames(
                 "h-full rounded-[inherit]",
                 _VARIANT_CLASSES[variant],
                 # Indeterminate: a short bar sweeping the track, since there is
-                # no width to animate to.
-                "w-[40%] animate-progress"
+                # no width to animate to. With motion reduced the sweep stops,
+                # and a still 40% bar would read as 40% done, so it fills the
+                # track faintly instead.
+                "w-[40%] animate-progress motion-reduce:w-full "
+                "motion-reduce:animate-none motion-reduce:opacity-40"
                 if value is None
                 else "transition-[width] duration-260 ease-out",
             ),
@@ -116,6 +129,8 @@ class Progress(ChainableComponent):
             class_=classnames(
                 "relative w-full overflow-hidden rounded-full bg-border",
                 _TRACK_CLASSES[size],
+                # A bare bar has no wrapper, so the caller's classes land here.
+                self._get_prop("class_") if label is None else None,
             ),
             **{
                 "role": "progressbar",
