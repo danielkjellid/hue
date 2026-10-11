@@ -73,6 +73,13 @@ class Drawer(ChainableComponent):
         self._props["title"] = value
         return self
 
+    def label(self, value: str) -> Self:
+        """
+        The panel's accessible name, for a drawer with no title to be named by.
+        """
+        self._props["label"] = value
+        return self
+
     def description(self, value: str) -> Self:
         self._props["description"] = value
         return self
@@ -161,7 +168,7 @@ class Drawer(ChainableComponent):
             **{
                 "role": "dialog",
                 "aria_modal": "true",
-                ":aria-labelledby": _overlay.TITLE_ID if title is not None else None,
+                **_overlay.accessible_name("Drawer", title, self._get_prop("label")),
                 # inert takes the page behind out of the tab order, noscroll
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
