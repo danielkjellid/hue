@@ -587,6 +587,31 @@ def test_each_box_has_an_id_of_its_own_whatever_its_value(mounted):
         assert all(f'id="{each}"' in html for each in named.split())
 
 
+def _filter_inputs(html: str) -> list[str]:
+    return re.findall(r'<input[^>]*data-filter="status"[^>]*>', html)
+
+
+def test_a_filter_of_several_answers_draws_boxes(mounted):
+    inputs = _filter_inputs(_table(mounted().invoices, _request()))
+    assert len(inputs) == 2
+    assert all('type="checkbox"' in one for one in inputs)
+
+
+def test_a_filter_of_one_answer_draws_radios(urlpatterns_):
+    # The server keeps only the first answer, so the panel must not let a
+    # reader tick a second one and see a chip for a filter that is not on.
+    declaration = _plain(
+        urlpatterns_,
+        filters=[Filter("status", "Status", options=_STATUS, multiple=False)],
+    )
+    inputs = _filter_inputs(_table(declaration, _request(status="paid")))
+    assert len(inputs) == 2
+    assert all('type="radio"' in one for one in inputs)
+    assert all('name="invoices-status"' in one for one in inputs)
+    paid = next(one for one in inputs if 'id="invoices-filter-status-paid"' in one)
+    assert "checked" in paid
+
+
 def test_a_filter_cannot_be_called_what_the_table_already_calls_something():
     for taken in ("sort", "q", "page", "hide", "selected"):
         with pytest.raises(ValueError, match=repr(taken)):

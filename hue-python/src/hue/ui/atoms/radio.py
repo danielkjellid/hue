@@ -89,7 +89,10 @@ class Radio(ChainableComponent):
         name: str = self._get_prop("name", "")
         disabled: bool = self._get_prop("disabled", False)
         card: bool = self._get_prop("card", False)
-        input_id = f"{name}-{value}"
+        attrs = self._get_base_html_attrs()
+        # Name and value make an id that is unique within one group, which
+        # is not enough where two groups could share a prefix.
+        input_id = attrs.pop("id", None) or f"{name}-{value}"
 
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
@@ -111,7 +114,7 @@ class Radio(ChainableComponent):
                 aria_describedby=(
                     description_id(input_id) if description is not None else None
                 ),
-                **self._get_base_html_attrs(),
+                **attrs,
             ),
             control_id=input_id,
             label=label,

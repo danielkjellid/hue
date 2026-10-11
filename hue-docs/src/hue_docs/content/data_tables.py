@@ -344,8 +344,9 @@ def _build() -> ComponentType:
             'Filter("min", "Minimum amount", numeric=True, prefix="USD")'
         ),
         pr.p(
-            "A filter with options is a list of boxes to tick, several at a time "
-            "unless multiple=False. Without options it is a field to type into, and "
+            "A filter with options is a list of boxes to tick, several at a time, "
+            "or a set of radios when multiple=False. Without options it is a field "
+            "to type into, and "
             "numeric=True makes that a number field. prefix and placeholder decorate "
             "the field. An answer a list does not offer, or a number field's answer "
             "that is not a number, is dropped before rows sees it, so rows can hand "
