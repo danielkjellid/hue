@@ -1,14 +1,26 @@
 import inspect
 import json
-from collections.abc import Awaitable, Callable
+import types
+from collections.abc import Awaitable, Callable, MutableSequence, MutableSet, Sequence
 from collections.abc import Set as AbstractSet
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 from functools import partialmethod
 from http import HTTPStatus
-from typing import Any, cast, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    NotRequired,
+    Required,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+    is_typeddict,
+)
 
 from htmy import html
-from pydantic import TypeAdapter, ValidationError
+from pydantic import Json, TypeAdapter, ValidationError
 
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError
@@ -117,6 +129,55 @@ def _resolve_body_type(view_func: ViewFunc) -> type | None:
     return body_type
 
 
+_SEQUENCE_TYPES = frozenset(
+    {list, tuple, set, frozenset, Sequence, MutableSequence, AbstractSet, MutableSet}
+)
+
+
+def _is_json(metadata: Sequence[Any]) -> bool:
+    # A Json field is posted as one string however its contents are typed,
+    # which is how ajax() sends a list.
+    return any(type(item) is Json for item in metadata)
+
+
+def _is_sequence(annotation: Any) -> bool:
+    """
+    Whether a field typed this way holds several values, so a form has to
+    hand it every value posted under its name.
+    """
+    if get_origin(annotation) is Annotated:
+        inner, *metadata = get_args(annotation)
+        return not _is_json(metadata) and _is_sequence(inner)
+    if get_origin(annotation) in (Required, NotRequired):
+        return _is_sequence(get_args(annotation)[0])
+    if get_origin(annotation) in (Union, types.UnionType):
+        return any(_is_sequence(arm) for arm in get_args(annotation))
+    return (get_origin(annotation) or annotation) in _SEQUENCE_TYPES
+
+
+def _sequence_fields(body_type: Any) -> frozenset[str]:
+    """
+    The names in a form that a body of this type reads as a list.
+
+    A form is only names and strings, and a name posted twice means a list
+    to one field and a mistake to another, so the body's own type decides.
+    A pydantic model or dataclass answers with its fields, aliases included;
+    a plain dataclass or TypedDict with its annotations.
+    """
+    pydantic_fields = getattr(body_type, "__pydantic_fields__", None)
+    if pydantic_fields is not None:
+        names: set[str] = set()
+        for name, info in pydantic_fields.items():
+            if not _is_json(info.metadata) and _is_sequence(info.annotation):
+                aliases = (name, info.alias, info.validation_alias)
+                names.update(alias for alias in aliases if isinstance(alias, str))
+        return frozenset(names)
+    if is_dataclass(body_type) or is_typeddict(body_type):
+        hints = get_type_hints(body_type, include_extras=True)
+        return frozenset(name for name, hint in hints.items() if _is_sequence(hint))
+    return frozenset()
+
+
 class Router[T_Request]:
     """
     Framework-agnostic base router for defining routes on a view.
@@ -194,22 +255,16 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
-    def _get_form_data(self, request: T_Request) -> dict[str, Any]:
-        raise NotImplementedError(
-            "This method must be overridden by framework-specific routers"
-        )
-
     def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
         """
         The submitted form with every value kept, not just the last.
 
-        Separate from _get_form_data because the flat dict that returns keeps
-        only the last value under each name, and a column of checkboxes is
-        several values under one.
+        A column of checkboxes, or a multiple Combobox, is several values
+        under one name, so flattening the form here would lose all but one.
         """
-        return {
-            name: [str(value)] for name, value in self._get_form_data(request).items()
-        }
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
 
     def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
         """
@@ -296,11 +351,18 @@ class Router[T_Request]:
         """
         return func(*args)
 
-    def _parse_body(self, request: T_Request, adapter: TypeAdapter[Any]) -> Any:
+    def _parse_body(
+        self,
+        request: T_Request,
+        adapter: TypeAdapter[Any],
+        sequence_fields: AbstractSet[str],
+    ) -> Any:
         """
         Parse the request body with the given Pydantic adapter.
 
-        JSON bodies are decoded first; anything else is treated as form data.
+        JSON bodies are decoded first; anything else is treated as form data,
+        where the names in sequence_fields keep every value posted under them
+        and the rest keep the last.
         Raises BodyValidationError when decoding or validation fails.
         """
         content_type = self._get_request_content_type(request)
@@ -314,7 +376,11 @@ class Router[T_Request]:
                     errors=[{"type": "json_invalid", "msg": str(e)}]
                 ) from e
         else:
-            data = self._get_form_data(request)
+            data = {
+                name: values if name in sequence_fields else values[-1]
+                for name, values in self._get_form_values(request).items()
+                if values
+            }
 
         try:
             return adapter.validate_python(data)
@@ -337,6 +403,7 @@ class Router[T_Request]:
         body_adapter: TypeAdapter[Any] | None = (
             TypeAdapter(body_type) if body_type is not None else None
         )
+        sequence_fields = _sequence_fields(body_type)
 
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
@@ -345,7 +412,9 @@ class Router[T_Request]:
                 raise AJAXRequiredError()
 
             if body_adapter is not None:
-                kwargs["body"] = self._parse_body(request, body_adapter)
+                kwargs["body"] = self._parse_body(
+                    request, body_adapter, sequence_fields
+                )
 
             # The queue lives exactly as long as the request, so toast() is a
             # plain call from anywhere in the handler and nothing it raises

@@ -1,13 +1,14 @@
 from dataclasses import dataclass as stdlib_dataclass
+from typing import Annotated, NotRequired, TypedDict
 from unittest.mock import Mock
 
 import pytest
 from htmy import html
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, Json
 
 from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError
-from hue.router import HueResponse, PathParseResult, RawResponse
+from hue.router import HueResponse, PathParseResult, RawResponse, _sequence_fields
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter
 
@@ -916,6 +917,61 @@ async def test_body_parsing_form_data_missing_field(
 
     with pytest.raises(BodyValidationError):
         await wrapped(view_instance, request)
+
+
+@stdlib_dataclass
+class Tagged:
+    tags: list[str]
+    title: str
+
+
+@pytest.mark.asyncio
+async def test_form_data_repeated_name_fills_a_list_field_and_keeps_the_last_otherwise(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """
+    A list field gets every value posted under its name, as a multiple Combobox
+    or a set of checkboxes posts them; any other field gets the last one.
+    """
+
+    async def view_func(view_instance, request, context, body: Tagged):
+        return html.div(f"{','.join(body.tags)}|{body.title}")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        content_type="application/x-www-form-urlencoded",
+        form_data={"tags": ["a", "b"], "title": ["first", "second"]},
+    )
+    html_result, _ = await wrapped(Mock(), request)
+
+    assert "a,b|second" in html_result
+
+
+class TaggedTypedDict(TypedDict):
+    tags: NotRequired[Annotated[tuple[str, ...], "doc"]]
+    ids: Json[list[int]]
+    title: str
+
+
+class TaggedModel(BaseModel):
+    tags: set[str] | None = Field(default=None, alias="tag")
+    ids: Json[list[int]]
+    title: str
+
+
+@pytest.mark.parametrize(
+    "body_type, expected",
+    [
+        (Tagged, {"tags"}),
+        (TaggedTypedDict, {"tags"}),
+        (TaggedModel, {"tags", "tag"}),
+        (int, set()),
+    ],
+)
+def test_sequence_fields_are_read_from_the_body_type(body_type, expected):
+    # A Json field is one string on the wire, which is how ajax() sends a list.
+    assert _sequence_fields(body_type) == expected
 
 
 @pytest.mark.asyncio

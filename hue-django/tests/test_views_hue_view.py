@@ -446,6 +446,30 @@ def test_a_body_arrives_with_any_method(urlpatterns_: list[URLPattern]):
     assert b"duplicate: [3, 4]" in response.content
 
 
+def test_a_name_posted_twice_fills_a_list_field(urlpatterns_: list[URLPattern]):
+    # How a multiple Combobox, or checkboxes sharing a name, submit a list.
+    @dataclass
+    class Tags:
+        tags: list[str]
+
+    class MyView(HueView):
+        router = Router[HttpRequest]()
+
+        async def index(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return Page(title="", body=html.div("Index"))
+
+        @router.fragment_post("tags/")
+        async def tags(
+            self, request: HttpRequest, context: HueContext[HttpRequest], body: Tags
+        ):
+            return html.div(",".join(body.tags))
+
+    urlpatterns_.append(path("myview/", include(MyView.urls)))
+    response = Client().post("/myview/tags/", {"tags": ["a", "b"]}, **AJAX_HEADERS)
+    assert response.status_code == HTTP_OK
+    assert b"a,b" in response.content
+
+
 def test_a_body_that_is_not_a_form_is_not_read_as_one(
     urlpatterns_: list[URLPattern],
 ):

@@ -56,9 +56,12 @@ class MockRouter(Router[MockRequest]):
         """Return the mock request content type."""
         return request.content_type
 
-    def _get_form_data(self, request: MockRequest) -> dict[str, Any]:
-        """Return the mock form data."""
-        return request.form_data
+    def _get_form_values(self, request: MockRequest) -> dict[str, list[str]]:
+        """Return the mock form data, a list standing for a repeated name."""
+        return {
+            name: value if isinstance(value, list) else [value]
+            for name, value in request.form_data.items()
+        }
 
 
 class _ComponentRequest:
