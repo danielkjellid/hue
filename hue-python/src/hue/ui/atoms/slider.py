@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from decimal import Decimal
+
 from htmy import Context, html
 from typing_extensions import Self
 
@@ -16,6 +19,13 @@ _READOUT = (
 )
 
 _TICKS = "mt-0.5 flex justify-between text-2xs tabular-nums text-fg-subtle"
+
+
+def _number(value: float) -> str:
+    """
+    The value as a person writes it: 1000000 rather than 1e+06, 12 rather than 12.0.
+    """
+    return format(Decimal(str(value)), "f").removesuffix(".0")
 
 
 class Slider(FieldControl):
@@ -98,6 +108,18 @@ class Slider(FieldControl):
         span = high - low or 1
         fill = f"`--slider-fill: ${{((value - {low}) / {span}) * 100}}%`"
 
+        # With a unit, the number alone is not what the readout says, so the
+        # track announces the same text. The unit stays out of every other
+        # expression; here it has to be in one, so it goes in as JSON strings.
+        unit: dict[str, str] = {}
+        if prefix or suffix:
+            unit = {
+                "aria-valuetext": f"{prefix}{_number(current)}{suffix}",
+                ":aria-valuetext": (
+                    f"{json.dumps(prefix)} + value + {json.dumps(suffix)}"
+                ),
+            }
+
         track = html.input_(
             **self._control_attrs(
                 context,
@@ -113,7 +135,7 @@ class Slider(FieldControl):
                 aria_describedby=self._describedby(
                     context,
                 ),
-                **{"x-model.number": "value", ":style": fill},
+                **{"x-model.number": "value", ":style": fill, **unit},
             )
         )
 
@@ -135,11 +157,13 @@ class Slider(FieldControl):
         if show_value:
             field.trailing(
                 html.span(
-                    # Rendered as well as bound, so the number is right before
-                    # Alpine runs rather than an empty box that fills in.
-                    f"{prefix}{current:g}{suffix}",
+                    # Only the number is bound, so the prefix and suffix are
+                    # text and never part of an expression. It is rendered as
+                    # well, so the box is right before Alpine runs.
+                    prefix,
+                    html.span(_number(current), x_text="value"),
+                    suffix,
                     class_=_READOUT,
-                    **{"x-text": f"'{prefix}' + value + '{suffix}'"},
                 )
             )
 
