@@ -271,7 +271,8 @@ class Filter:
     one can be on at once. Without options it is a field to type a value
     into, and numeric makes that a number field. Either way the answers
     arrive in the state rows() is handed, and the table draws the panel,
-    the count on the trigger and the chips that undo it.
+    the count on the trigger and the chips that undo it. An option's value
+    cannot hold a comma, which is what the URL puts between answers.
 
         Filter("status", "Status", options=[("paid", "Paid")])
         Filter("min", "Minimum amount", numeric=True, prefix="USD")
@@ -569,6 +570,14 @@ class _Declaration:
                 f"{self.key} has a filter called {taken!r}, which is what "
                 f"the table already calls the order, the search, the page, "
                 f"the hidden columns or the selection. Name it something else."
+            )
+        commas = [(f.name, o) for f in self.filters for o, _ in f.options if "," in o]
+        for name, option in commas:
+            raise ValueError(
+                f"{self.key} has a {name!r} option of {option!r}. The URL "
+                f"joins a filter's answers with a comma, so it would come back "
+                f"as two answers and never be ticked. Give it a value without "
+                f"a comma; the label can say anything."
             )
 
     async def draw(self, table: DataTable, context: Context) -> Component:
