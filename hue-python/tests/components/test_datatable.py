@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -34,6 +35,17 @@ def _selectable() -> DataTable:
         .rows(_ROWS)
         ._bulk_actions("invoice", Button().content("Delete"))
     )
+
+
+@dataclass
+class _Customer:
+    name: str
+
+
+@dataclass
+class _Invoice:
+    reference: str
+    customer: _Customer
 
 
 class TestDataTable:
@@ -84,6 +96,32 @@ class TestDataTable:
                 DataTable()
                 .columns([Column("customer.city", "City")])
                 .rows([{"customer": {}}]),
+                context_args=context_args,
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_path_reads_attributes_of_a_row_that_is_not_a_mapping(
+        self, context_args
+    ):
+        # A model instance or a dataclass, as rows() usually returns.
+        html = await render_tree(
+            DataTable()
+            .columns([Column("reference", "Invoice"), Column("customer.name", "To")])
+            .rows([_Invoice("INV-2050", _Customer("Contoso"))]),
+            context_args=context_args,
+        )
+        assert "INV-2050" in html
+        assert "Contoso" in html
+
+    @pytest.mark.asyncio
+    async def test_an_attribute_that_is_not_there_says_which_part_was_missing(
+        self, context_args
+    ):
+        with pytest.raises(ValueError, match="'city' is not an attribute of _Customer"):
+            await render_tree(
+                DataTable()
+                .columns([Column("customer.city", "City")])
+                .rows([_Invoice("INV-2050", _Customer("Contoso"))]),
                 context_args=context_args,
             )
 

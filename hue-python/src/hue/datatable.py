@@ -29,8 +29,8 @@ is fixed except which rows answer it, and that one part is a function:
             router,
             key="invoices",
             columns=[
-                Column("invoice", "Invoice"),
-                Column("customer", "Customer", sort="customer__name"),
+                Column("reference", "Invoice", sort="reference"),
+                Column("customer.name", "Customer", sort="customer__name"),
                 Column("amount", "Amount", align="end", sort="amount"),
             ],
             rows=invoices_for,
@@ -54,7 +54,9 @@ comes back to page two of a sorted table.
 
 rows returns everything that matches, and the page is sliced from it
 afterwards. A paginated queryset is then counted and sliced in the
-database without being walked.
+database without being walked. A row can be a model instance, as here, or
+a dict from values(): a column's key is read as an attribute of one and a
+key of the other, and customer.name follows the relation.
 
 DataTable.from_state() draws the table a declaration describes, bound
 to the request the page is rendered for. The request is already in the
@@ -178,7 +180,7 @@ class _Routes(Protocol):
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R: ...
 
 
-type Rows = Sequence[Mapping[str, Any]]
+type Rows = Sequence[Any]
 type ActionHandler = Callable[[Any, list[str]], Any]
 # Given the request and what it asked for, everything that matches.
 type RowsFor = Callable[[Any, "TableState"], Any]
@@ -801,7 +803,7 @@ class _Declaration:
             carried = (
                 f"they have {sorted(first)}"
                 if isinstance(first, Mapping)
-                else f"they are {type(first).__name__} and not mappings"
+                else f"they are {type(first).__name__} objects, read by attribute"
             )
             raise ValueError(
                 f"{self.key} is identified by {self.identifier!r}, and its "
