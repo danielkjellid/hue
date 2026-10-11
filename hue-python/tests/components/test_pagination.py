@@ -56,6 +56,30 @@ class TestPagination:
         assert_no_selector(html, 'button[aria-label="Previous page"]')
         assert_selector(html, 'button[aria-label="Next page"]')
 
+    # A page past either end lands on the nearest real one
+    @pytest.mark.asyncio
+    async def test_a_page_before_the_first_is_the_first(self, context_args):
+        html = await render_tree(
+            Pagination().page(0).total_pages(7).total_records(148),
+            context_args=context_args,
+        )
+        assert "1\u201310" in str(html)
+        assert select(html, '[aria-current="page"]')[0].get_text().strip() == "1"
+
+    @pytest.mark.asyncio
+    async def test_a_page_past_the_last_is_the_last(self, context_args):
+        html = await render_tree(
+            Pagination()
+            .page(20)
+            .total_pages(15)
+            .total_records(148)
+            .href(lambda p: f"?page={p}"),
+            context_args=context_args,
+        )
+        assert "141\u2013148" in str(html)
+        assert select(html, '[aria-current="page"]')[0].get_text().strip() == "15"
+        assert_selector(html, 'nav a[href="?page=14"][aria-label="Previous page"]')
+
     # href(): both branches
     @pytest.mark.asyncio
     async def test_with_a_destination_the_steps_are_links(self, context_args):
@@ -163,6 +187,32 @@ class TestPagination:
         # marked as decoration rather than announced a second time.
         assert_selector(html, 'label[for="page_size"]')
         assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
+
+    @pytest.mark.asyncio
+    async def test_rows_per_page_shows_beside_numbered_steps_too(self, context_args):
+        html = await render_tree(
+            Pagination().page(2).total_pages(5).page_sizes([10, 25]),
+            context_args=context_args,
+        )
+        assert_selector(html, "select")
+
+    @pytest.mark.asyncio
+    async def test_without_page_sizes_there_is_no_select(self, context_args):
+        html = await render_tree(
+            Pagination().page(2).total_pages(5), context_args=context_args
+        )
+        assert_no_selector(html, "select")
+
+    @pytest.mark.asyncio
+    async def test_the_select_takes_its_id_from_the_pagination(self, context_args):
+        # One pagination above a table and one below must not share an id,
+        # or the second label points at the first select.
+        html = await render_tree(
+            Pagination().id("top").page(2).total_pages(5).page_sizes([10, 25]),
+            context_args=context_args,
+        )
+        assert_selector(html, 'select[id="top-page-size"]')
+        assert_selector(html, 'label[for="top-page-size"]')
 
     @pytest.mark.asyncio
     async def test_a_cursor_counts_rather_than_ranges(self, context_args):

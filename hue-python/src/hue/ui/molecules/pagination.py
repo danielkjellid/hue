@@ -93,6 +93,8 @@ class Pagination(SwapsTarget):
     def page_sizes(self, value: list[int]) -> Self:
         """
         The rows-per-page choices, rendered as a select beside the steps.
+        Two paginations on one page each need an id, which the select takes
+        its own id from.
         """
         self._props["page_sizes"] = value
         return self
@@ -107,8 +109,10 @@ class Pagination(SwapsTarget):
         return self
 
     def _render(self, context: Context) -> Component:
-        page: int = self._get_prop("page", 1)
         total_pages: int = self._get_prop("total_pages", 1)
+        # A page past either end is a stale link or a hand-edited URL, and
+        # the nearest real page says more than a range of negative records.
+        page = min(max(self._get_prop("page", 1), 1), max(total_pages, 1))
         total_records: int | None = self._get_prop("total_records")
         size: int = self._get_prop("page_size", 10)
 
@@ -129,15 +133,13 @@ class Pagination(SwapsTarget):
                         class_="text-sm tabular-nums text-fg-muted",
                     ),
                 ),
-                html.div(
-                    render_if(self._get_prop("page_sizes"), self._sizes),
+                self._controls(
                     html.nav(
                         _cursor_step("Previous", cursor[0]),
                         _cursor_step("Next", cursor[1]),
                         aria_label="Pagination",
                         class_="flex items-center gap-2",
-                    ),
-                    class_="flex flex-wrap items-center gap-3",
+                    )
                 ),
                 class_=classnames(_BAR, self._get_prop("class_")),
                 **self._sync_attrs(),
@@ -149,12 +151,14 @@ class Pagination(SwapsTarget):
         if total_pages <= 1:
             return html.div(
                 status,
-                html.nav(
-                    self._step(0, "Previous page", "chevron-left", False),
-                    self._number(1, current=True, inert=True),
-                    self._step(2, "Next page", "chevron-right", False),
-                    aria_label="Pagination, single page",
-                    class_="flex items-center gap-1",
+                self._controls(
+                    html.nav(
+                        self._step(0, "Previous page", "chevron-left", False),
+                        self._number(1, current=True, inert=True),
+                        self._step(2, "Next page", "chevron-right", False),
+                        aria_label="Pagination, single page",
+                        class_="flex items-center gap-1",
+                    )
                 ),
                 class_=classnames(_BAR, self._get_prop("class_")),
                 **self._sync_attrs(),
@@ -163,16 +167,30 @@ class Pagination(SwapsTarget):
 
         return html.div(
             status,
-            html.nav(
-                self._step(page - 1, "Previous page", "chevron-left", page > 1),
-                *self._numbers(page, total_pages),
-                self._step(page + 1, "Next page", "chevron-right", page < total_pages),
-                aria_label="Pagination",
-                class_="flex items-center gap-1",
+            self._controls(
+                html.nav(
+                    self._step(page - 1, "Previous page", "chevron-left", page > 1),
+                    *self._numbers(page, total_pages),
+                    self._step(
+                        page + 1, "Next page", "chevron-right", page < total_pages
+                    ),
+                    aria_label="Pagination",
+                    class_="flex items-center gap-1",
+                )
             ),
             class_=classnames(_BAR, self._get_prop("class_")),
             **self._sync_attrs(),
             **self._get_base_html_attrs(),
+        )
+
+    def _controls(self, nav: ComponentType) -> ComponentType:
+        """
+        The steps, with the rows-per-page select before them when there is one.
+        """
+        return html.div(
+            render_if(self._get_prop("page_sizes"), self._sizes),
+            nav,
+            class_="flex flex-wrap items-center gap-3",
         )
 
     def _numbers(self, page: int, total_pages: int) -> list[ComponentType]:
@@ -218,15 +236,18 @@ class Pagination(SwapsTarget):
         it are the same words and are marked as decoration, so the control is
         announced once and reads the way it looks.
         """
+        select = NativeSelect().name("page_size")
+        # The select's id follows the pagination's own, so a table with one
+        # above it and one below gets two labels that each find their select.
+        if own_id := self._attrs.get("id"):
+            select.id(f"{own_id}-page-size")
         return html.div(
             html.span(
                 "Rows per page",
                 aria_hidden="true",
                 class_="text-sm text-fg-muted",
             ),
-            NativeSelect()
-            .name("page_size")
-            .label("Rows per page")
+            select.label("Rows per page")
             .hidden_label()
             .size("sm")
             .value(str(self._get_prop("page_size", 10)))
