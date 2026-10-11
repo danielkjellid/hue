@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import ClassVar
@@ -52,10 +52,6 @@ _GROUP_LABEL = (
 )
 
 
-def _slug(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-") or "option"
-
-
 @dataclass(frozen=True, slots=True)
 class SelectState:
     """
@@ -67,7 +63,12 @@ class SelectState:
     values: frozenset[str]
 
     def option_id(self, value: str) -> str:
-        return f"{self.control_id}-option-{_slug(value)}"
+        # A digest rather than a slug of the value: a slug folds "a b" and
+        # "a-b", and every value written in another script, into one id, and
+        # the keys find the active option by its id. It stays the same across
+        # renders, so a Combobox that redraws its options keeps its place.
+        digest = hashlib.blake2s(value.encode(), digest_size=4).hexdigest()
+        return f"{self.control_id}-option-{digest}"
 
     @classmethod
     def from_context(cls, context: Context) -> SelectState:
@@ -284,15 +285,21 @@ class SelectGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        state = SelectState.from_context(context)
-        label: str = self._get_prop("label", "")
-        label_id = f"{state.control_id}-group-{_slug(label)}"
+        # Two groups may share a label, so the id comes from Alpine rather
+        # than from what the group is called.
         return html.div(
-            html.div(label, id=label_id, class_=_GROUP_LABEL),
+            html.div(
+                self._get_prop("label", ""),
+                class_=_GROUP_LABEL,
+                **{":id": "$id('hue-select-group')"},
+            ),
             *self._children,
             role="group",
-            aria_labelledby=label_id,
-            **self._get_base_html_attrs(),
+            **{
+                "x-id": "['hue-select-group']",
+                ":aria-labelledby": "$id('hue-select-group')",
+                **self._get_base_html_attrs(),
+            },
         )
 
 
