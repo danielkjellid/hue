@@ -52,7 +52,7 @@ class TestCheckbox:
         )
         assert_no_selector(html, "input[checked]")
         assert_no_selector(html, "input[required]")
-        assert_no_selector(html, "span.text-destructive")
+        assert_no_selector(html, "span.text-danger-text")
 
     # disabled() — both branches
     @pytest.mark.asyncio

@@ -122,7 +122,7 @@ SHOWCASES: list[Showcase] = [
         variants=[
             _variant("Default", 'Icon("bell").class_("size-8")'),
             _variant("Primary", 'Icon("bell").class_("size-8 text-primary")'),
-            _variant("Destructive", 'Icon("heart").class_("size-8 text-destructive")'),
+            _variant("Destructive", 'Icon("heart").class_("size-8 text-danger-text")'),
             _variant("Muted", 'Icon("star").class_("size-8 text-surface-400")'),
         ],
     ),

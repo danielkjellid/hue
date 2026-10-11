@@ -48,7 +48,7 @@ def _build() -> ComponentType:
         ),
         pr.code(
             'Icon("calendar").class_("size-4 text-primary")\n'
-            'Icon("trash").class_("size-5 text-destructive")'
+            'Icon("trash").class_("size-5 text-danger-text")'
         ),
         pr.p(
             "Any width or height baked into the SVG file is stripped on render "
