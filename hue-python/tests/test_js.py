@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from hue.js import Expression, ajax, call, close, unsafe
@@ -29,13 +31,23 @@ class TestExpressions:
     def test_call_takes_a_path_to_a_function(self):
         assert call("$store.cart.add", 7) == "$store.cart.add(7)"
 
+    def test_an_expression_goes_in_as_written_at_any_depth(self):
+        # Quoted whole, one inside a dict or a list would arrive as a string.
+        assert call("save", {"ids": unsafe("selected"), "tags": [unsafe("t")]}) == (
+            'save({"ids": selected, "tags": [t]})'
+        )
+
+    def test_plain_nested_values_are_written_as_json(self):
+        value = {"page": 2, "flags": [True, None], "q": "O'Hara"}
+        assert call("f", value) == f"f({json.dumps(value)})"
+
 
 class TestAjax:
     def test_a_request_is_written_with_every_value_quoted(self):
         # sync, so the toast region a route's toast arrives in is updated too.
         assert ajax("/invoices/2048/", method="delete", target="invoices") == (
             '$ajax("/invoices/2048/", '
-            '{method: "delete", target: "invoices", sync: true})'
+            '{"method": "delete", "target": "invoices", "sync": true})'
         )
 
     def test_a_body_is_quoted_except_what_only_the_browser_knows(self):
@@ -47,8 +59,8 @@ class TestAjax:
         )
         assert request == (
             '$ajax("/invoices/archive/", '
-            '{method: "post", target: "rows summary", sync: true, '
-            'body: {"reason": "a \\"duplicate\\"", "ids": selected}})'
+            '{"method": "post", "target": "rows summary", "sync": true, '
+            '"body": {"reason": "a \\"duplicate\\"", "ids": selected}})'
         )
 
     def test_a_none_is_left_out_so_the_default_applies(self):
@@ -56,10 +68,10 @@ class TestAjax:
         request = ajax(
             "/invoices/", method="post", target="t", body={"q": None, "page": 2}
         )
-        assert 'body: {"page": 2}' in request
+        assert '"body": {"page": 2}' in request
 
     def test_it_defaults_to_get_like_ajax_itself(self):
-        assert 'method: "get"' in ajax("/invoices/", target="invoices")
+        assert '"method": "get"' in ajax("/invoices/", target="invoices")
 
     def test_an_unknown_method_is_refused(self):
         # "GET" would slip past the check on a GET's body, and still be one.
