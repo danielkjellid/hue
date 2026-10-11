@@ -148,7 +148,7 @@ SHOWCASES: list[Showcase] = [
                         Combobox().name("bound_markets")
                         .label("Markets")
                         .multiple()
-                        .x_model("markets")
+                        .x_model(unsafe("markets"))
                         .content({_at(_NORDICS, 24)}),
                         Text().x_text(unsafe("'Chosen: ' + markets.join(', ')")),
                     )

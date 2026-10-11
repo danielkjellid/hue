@@ -475,7 +475,7 @@ class TestAlpineModel:
     @pytest.mark.asyncio
     async def test_select_x_model(self):
         result = await render_tree(
-            html.select().name("country").x_model("form.country"),
+            html.select().name("country").x_model(unsafe("form.country")),
             context_args=_context_args(),
         )
         assert "x-model" in result
@@ -483,7 +483,7 @@ class TestAlpineModel:
     @pytest.mark.asyncio
     async def test_textarea_x_model(self):
         result = await render_tree(
-            html.textarea().name("bio").x_model("form.bio"),
+            html.textarea().name("bio").x_model(unsafe("form.bio")),
             context_args=_context_args(),
         )
         assert "x-model" in result
@@ -498,7 +498,7 @@ class TestAlpineModel:
     async def test_input_v2_x_model(self):
         """x_model works on v2 input components."""
         result = await render_tree(
-            TextInput().name("email").label("Email").x_model("form.email"),
+            TextInput().name("email").label("Email").x_model(unsafe("form.email")),
             context_args=_context_args(),
         )
         assert "x-model" in result

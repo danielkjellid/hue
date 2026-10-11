@@ -2,8 +2,9 @@ import json
 
 import pytest
 
+from hue import html
 from hue.js import Expression, ajax, call, close, unsafe
-from hue.ui import Button, Card, MenuItem, Stack
+from hue.ui import Button, Card, MenuItem, Stack, TextInput
 
 
 class TestExpressions:
@@ -92,24 +93,26 @@ class TestAjax:
 
 class TestModifiersRefuseStrings:
     @pytest.mark.parametrize(
-        ("modifier", "args"),
+        ("component", "modifier", "args"),
         [
-            ("x_on", ("click", "open = true")),
-            ("x_bind", ("aria-expanded", "open")),
-            ("x_show", ("open",)),
-            ("x_text", ("label",)),
-            ("x_html", ("body",)),
-            ("x_effect", ("open && go()",)),
-            ("x_init", ("go()",)),
-            ("x_trap", ("open",)),
-            ("x_anchor", ("$refs.trigger",)),
+            (Button, "x_on", ("click", "open = true")),
+            (Button, "x_bind", ("aria-expanded", "open")),
+            (Button, "x_show", ("open",)),
+            (Button, "x_text", ("label",)),
+            (Button, "x_html", ("body",)),
+            (Button, "x_effect", ("open && go()",)),
+            (Button, "x_init", ("go()",)),
+            (Button, "x_trap", ("open",)),
+            (Button, "x_anchor", ("$refs.trigger",)),
+            (TextInput, "x_model", ("q; window.x++",)),
+            (html.form, "x_target_dynamic", ("'rows'",)),
         ],
     )
-    def test_a_plain_string_is_refused(self, modifier, args):
+    def test_a_plain_string_is_refused(self, component, modifier, args):
         # There is no escaping that makes code safe, so the only way in is to
         # say so.
         with pytest.raises(TypeError, match="takes an expression"):
-            getattr(Button(), modifier)(*args)
+            getattr(component(), modifier)(*args)
 
     def test_an_expression_goes_through(self):
         attrs = Button().x_on("click", unsafe("open = true"))._get_base_html_attrs()

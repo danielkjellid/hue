@@ -96,8 +96,12 @@ class _AlpineAjaxRequestMixin:
         self._attrs["x-target.error"] = value
         return self
 
-    def x_target_dynamic(self, value: str) -> Self:
-        self._attrs["x-target:dynamic"] = value
+    def x_target_dynamic(self, value: Expression) -> Self:
+        """
+        Target ids worked out in the browser, since Alpine AJAX evaluates this
+        one rather than reading it as a list of ids.
+        """
+        self._attrs["x-target:dynamic"] = expect(value, modifier="x_target_dynamic()")
         return self
 
     def x_target_replace(self, value: str) -> Self:

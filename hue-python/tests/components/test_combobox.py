@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Combobox, SelectOption
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -117,7 +118,7 @@ class TestCombobox:
     @pytest.mark.asyncio
     async def test_x_model_binds_the_value_not_the_search(self, context_args):
         html = await render_tree(
-            _combobox().x_model("country"), context_args=context_args
+            _combobox().x_model(unsafe("country")), context_args=context_args
         )
         assert_attr(html, "[x-modelable]", "x-modelable", "value")
         assert_attr(html, "[x-modelable]", "x-model", "country")
@@ -126,7 +127,8 @@ class TestCombobox:
     @pytest.mark.asyncio
     async def test_a_multiple_binding_holds_the_list(self, context_args):
         html = await render_tree(
-            _combobox().multiple().x_model("countries"), context_args=context_args
+            _combobox().multiple().x_model(unsafe("countries")),
+            context_args=context_args,
         )
         assert_attr(html, "[x-modelable]", "x-modelable", "values")
 

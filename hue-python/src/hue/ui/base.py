@@ -463,11 +463,11 @@ class AlpineModelMixin:
 
     _attrs: dict[str, Any]  # provided by ChainableComponent
 
-    def x_model(self, value: str) -> Self:
+    def x_model(self, value: Expression) -> Self:
         """
         Two-way bind this control to Alpine data.
         """
-        self._attrs["x-model"] = value
+        self._attrs["x-model"] = expect(value, modifier="x_model()")
         return self
 
 

@@ -579,7 +579,7 @@ class DataTable(ChainableComponent):
             .value(value)
             .label("Select")
             .hidden_label()
-            .x_model("selected")
+            .x_model(unsafe("selected"))
             .data("hue-row-select", "")
         )
         if name_id is not None:

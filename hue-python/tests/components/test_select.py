@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Select, SelectGroup, SelectOption
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -51,7 +52,9 @@ class TestSelect:
 
     @pytest.mark.asyncio
     async def test_x_model_binds_the_submitted_field(self, context_args):
-        html = await render_tree(_select().x_model("plan"), context_args=context_args)
+        html = await render_tree(
+            _select().x_model(unsafe("plan")), context_args=context_args
+        )
         assert_attr(html, 'input[type="hidden"]', "x-model", "plan")
         assert_no_selector(html, "button[x-model]")
 
