@@ -97,6 +97,31 @@ class TestRadioGroup:
         assert_selector(html, '[role="alert"]#region-error')
 
     @pytest.mark.asyncio
+    async def test_the_description_follows_an_id_set_on_the_group(self, context_args):
+        # Built from the name, the hint's id would not be the one pointed at.
+        html = await render_tree(
+            _group().id("billing").hint("Where you pay tax."),
+            context_args=context_args,
+        )
+        assert_attr(html, "fieldset", "aria-describedby", "billing-hint")
+        assert_selector(html, "#billing-hint")
+
+    @pytest.mark.asyncio
+    async def test_a_description_of_the_callers_own_is_added(self, context_args):
+        html = await render_tree(
+            _group().hint("Where you pay tax.").aria_describedby("extra"),
+            context_args=context_args,
+        )
+        assert_attr(html, "fieldset", "aria-describedby", "region-hint extra")
+
+    @pytest.mark.asyncio
+    async def test_x_model_binds_the_options(self, context_args):
+        # Alpine ignores x-model on a fieldset, which holds no value.
+        html = await render_tree(_group().x_model("region"), context_args=context_args)
+        assert_selector(html, 'input[type="radio"][x-model="region"]', count=2)
+        assert_no_selector(html, "fieldset[x-model]")
+
+    @pytest.mark.asyncio
     async def test_valid_by_default(self, context_args):
         html = await render_tree(_group(), context_args=context_args)
         assert_no_selector(html, "[aria-invalid]")

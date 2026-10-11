@@ -69,6 +69,7 @@ class Radio(ChainableComponent):
         disabled: bool,
         required: bool,
         form: str | None,
+        model: str | None,
     ) -> None:
         """
         Called by the group, which owns everything a radio shares with its
@@ -84,6 +85,8 @@ class Radio(ChainableComponent):
         # The inputs are what a form submits, and a form attribute on the
         # fieldset around them ties only the fieldset to it.
         self._props["form"] = form
+        # x-model binds a value, which the inputs hold and a fieldset does not.
+        self._props["model"] = model
         if disabled:
             self._props["disabled"] = True
 
@@ -111,6 +114,7 @@ class Radio(ChainableComponent):
             "disabled": disabled or None,
             "required": self._get_prop("required", False) or None,
             "form": self._get_prop("form"),
+            "x-model": self._get_prop("model"),
             # An explicit name, so the description inside the label does not
             # become part of it.
             "aria_labelledby": label_id(input_id) if label is not None else None,
@@ -193,18 +197,20 @@ class RadioGroup(FieldControl):
         required: bool = self._get_prop("required", False)
         error: str | None = self._error(context)
         hint: str | None = self._get_prop("hint")
+        control_id = self._input_id()
 
         options: list[ComponentType] = []
         for child in self._children:
             if isinstance(child, Radio):
                 child._apply_group(
                     name=name,
-                    group_id=self._input_id(),
+                    group_id=control_id,
                     selected=self._get_prop("value"),
                     card=card,
                     disabled=disabled,
                     required=required,
                     form=self._attrs.get("form"),
+                    model=self._attrs.get("x-model"),
                 )
             options.append(child)
 
@@ -233,16 +239,15 @@ class RadioGroup(FieldControl):
                     "gap-2" if card else "gap-3",
                 ),
             ),
-            render_if(hint, lambda text: hint_component(text, name)),
-            render_if(error, lambda text: error_component(text, name)),
-            class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
-            **{
+            render_if(hint, lambda text: hint_component(text, control_id)),
+            render_if(error, lambda text: error_component(text, control_id)),
+            **self._control_attrs(
+                context,
+                class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
                 # The legend names the group, so no aria-label as well.
-                "aria_describedby": self._describedby(
-                    context,
-                ),
-                "aria_invalid": "true" if error is not None else None,
-                "disabled": disabled or None,
-                **self._get_base_html_attrs(),
-            },
+                aria_describedby=self._describedby(context),
+                aria_invalid="true" if error is not None else None,
+                disabled=disabled or None,
+                **{"x-model": None},
+            ),
         )
