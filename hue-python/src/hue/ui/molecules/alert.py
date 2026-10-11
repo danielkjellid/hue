@@ -178,7 +178,7 @@ class Alert(ChainableComponent):
                 "hover:bg-black/6 dark:hover:bg-black/24",
                 FOCUS_RING,
             ),
-            **{"x-on:click": "shown = false"},
+            **{"x-on:click": "dismiss()"},
         )
 
         alert = html.div(
@@ -214,7 +214,9 @@ class Alert(ChainableComponent):
 
         if not dismissible:
             return alert
-        return html.div(alert, **{"x-data": "{ shown: true }", "x-show": "shown"})
+        # hueDismissible moves focus off the close button before hiding it,
+        # or it would fall to the top of the page with the button.
+        return html.div(alert, **{"x-data": "hueDismissible", "x-show": "shown"})
 
 
 class Banner(Alert):

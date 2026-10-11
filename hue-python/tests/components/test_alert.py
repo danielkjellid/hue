@@ -87,7 +87,9 @@ class TestAlert:
             Alert().title("T").dismissible(), context_args=context_args
         )
         assert_attr(html, "button", "aria-label", "Dismiss")
-        assert_selector(html, "[x-data] [x-on\\:click]")
+        # Through hueDismissible, which moves focus off the button before the
+        # alert hides it; hiding it directly drops focus to the body.
+        assert_selector(html, '[x-data="hueDismissible"] [x-on\\:click="dismiss()"]')
 
     @pytest.mark.asyncio
     async def test_not_dismissible_by_default(self, context_args):
