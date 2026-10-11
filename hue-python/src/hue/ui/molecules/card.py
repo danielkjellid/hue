@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.types.core import Component
-from hue.ui._styles import FOCUS_RING
+from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
@@ -18,20 +18,50 @@ _VARIANT_CLASSES: dict[CardVariant, str] = {
     "flat": "bg-surface-sunken border-transparent",
 }
 
-_INTERACTIVE_CLASSES = classnames(
-    "cursor-pointer text-start transition-[border-color,box-shadow]",
+# The ring answers the title's own control only. A plain has-focus-visible
+# would also light the whole card up when one of its footer buttons is
+# focused. Every other control in the card is lifted above the title's
+# overlay, or the overlay would swallow its clicks.
+_LINKED_CLASSES = classnames(
+    "relative transition-[border-color,box-shadow]",
     "hover:border-border-hover hover:shadow-raised",
-    FOCUS_RING,
+    "has-[[data-card-link]:focus-visible]:ring-2",
+    "has-[[data-card-link]:focus-visible]:ring-accent",
+    "has-[[data-card-link]:focus-visible]:ring-offset-2",
+    "has-[[data-card-link]:focus-visible]:ring-offset-canvas",
+    "[&_:is(a,button,input,select,textarea,summary):not([data-card-link])]:relative",
 )
+
+# The overlay is what makes the whole surface clickable while only the title
+# is the control. The card is its containing block, so this element must stay
+# unpositioned.
+_STRETCHED_CONTROL = (
+    "cursor-pointer text-start outline-none after:absolute after:inset-0"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CardLink:
+    """
+    What a linked card's title turns into, offered to the header inside it.
+    """
+
+    href: str | None
+    attrs: dict[str, Any]
+
+    @classmethod
+    def from_context(cls, context: Context) -> CardLink | None:
+        found = context.get(cls)
+        return found if isinstance(found, cls) else None
 
 
 class Card(ChainableComponent):
     """
     A container assembled from CardMedia, CardHeader, CardBody and CardFooter.
 
-    variant() picks the edge treatment. href() renders the whole surface as a
-    link and interactive() as a button, making it a single tab stop - so it
-    cannot also hold its own buttons, which would nest interactive elements.
+    variant() picks the edge treatment. href() makes the header's title a link
+    and interactive() a button, stretched over the whole card so it can be
+    clicked anywhere. Other buttons in the card stay clickable on top of it.
 
         Card().content(CardHeader().title("Monthly revenue"), CardBody()...)
     """
@@ -51,44 +81,61 @@ class Card(ChainableComponent):
 
     def href(self, value: str) -> Self:
         """
-        Turn the whole card into a link.
+        Make the card a link to this URL.
 
-        A real anchor, so middle-click and "open in new tab" work - a div with
-        a click handler breaks both.
+        The link is a real anchor around the title, so middle-click and "open
+        in new tab" work, and a screen reader reads the title rather than the
+        whole card as its name.
         """
         self._props["href"] = value
         return self
 
     def interactive(self, value: bool = True) -> Self:
         """
-        Make the whole surface a button, for a card that acts rather than
-        navigates. href() already implies this.
+        Make the card a button, for one that acts rather than navigates.
+        href() already implies this.
         """
         self._props["interactive"] = value
         return self
 
+    def _link(self) -> CardLink | None:
+        href: str | None = self._get_prop("href")
+        if href is None and not self._get_prop("interactive", False):
+            return None
+        # The title is the control, so whatever was set on the card (a label,
+        # a click handler, a dialog trigger) belongs on it.
+        return CardLink(href, self._get_base_html_attrs())
+
+    def htmy_context(self) -> Context:
+        # Always set, so a static card nested in a linked one is not linked.
+        return {CardLink: self._link()}
+
     def _render(self, context: Context) -> Component:
         variant: CardVariant = self._get_prop("variant", "bordered")
-        href: str | None = self._get_prop("href")
-        interactive: bool = self._get_prop("interactive", False)
+        link = self._link()
 
         classes = classnames(
             "flex flex-col overflow-hidden rounded-lg border",
             _VARIANT_CLASSES[variant],
-            _INTERACTIVE_CLASSES if (href is not None or interactive) else "",
+            _LINKED_CLASSES if link is not None else "",
             self._get_prop("class_"),
         )
 
-        attrs = self._get_base_html_attrs()
+        if link is None:
+            return html.div(
+                *self._children, class_=classes, **self._get_base_html_attrs()
+            )
 
-        # A real anchor or button, never a div with a handler: one tab stop,
-        # real keyboard activation, and middle-click still opens a new tab.
-        if href is not None:
-            return html.a(*self._children, href=href, class_=classes, **attrs)
-        if interactive:
-            return html.button(*self._children, type="button", class_=classes, **attrs)
+        if not any(
+            isinstance(child, CardHeader) and child._get_prop("title") is not None
+            for child in self._children
+        ):
+            raise ValueError(
+                "A card with href() or interactive() needs a CardHeader with a "
+                "title: the title is the link, and the text that names it."
+            )
 
-        return html.div(*self._children, class_=classes, **attrs)
+        return html.div(*self._children, class_=classes)
 
 
 class CardMedia(ChainableComponent):
@@ -146,7 +193,7 @@ class CardHeader(ChainableComponent):
         if title is not None:
             heading.append(
                 html.div(
-                    title,
+                    _title_control(title, CardLink.from_context(context)),
                     class_="font-ui text-md font-bold tracking-[-0.01em] text-fg",
                 )
             )
@@ -166,6 +213,26 @@ class CardHeader(ChainableComponent):
             ),
             **self._get_base_html_attrs(),
         )
+
+
+def _title_control(title: str, link: CardLink | None) -> ComponentType:
+    if link is None:
+        return title
+    if link.href is not None:
+        return html.a(
+            title,
+            href=link.href,
+            data_card_link="",
+            class_=_STRETCHED_CONTROL,
+            **link.attrs,
+        )
+    return html.button(
+        title,
+        type="button",
+        data_card_link="",
+        class_=_STRETCHED_CONTROL,
+        **link.attrs,
+    )
 
 
 class CardBody(ChainableComponent):

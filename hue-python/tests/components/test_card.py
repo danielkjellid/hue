@@ -1,8 +1,8 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Card, CardBody, CardFooter, CardHeader, CardMedia
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from hue.ui import Button, Card, CardBody, CardFooter, CardHeader, CardMedia
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestCard:
@@ -34,32 +34,106 @@ class TestCard:
         html = await render_tree(Card().variant("flat"), context_args=context_args)
         assert_selector(html, "div.bg-surface-sunken")
 
-    # href() / interactive(): the whole surface becomes one real control
+    # href() / interactive(): the title is the one real control, and its
+    # overlay stretches it across the card, so the card itself stays a plain
+    # container that can still hold buttons of its own.
     @pytest.mark.asyncio
-    async def test_href_renders_a_real_anchor(self, context_args):
+    async def test_href_puts_a_real_anchor_in_the_title(self, context_args):
         # A real link, so middle-click and "open in new tab" still work.
         html = await render_tree(
-            Card().href("/invoices/2050"), context_args=context_args
+            Card().href("/invoices/2050").content(CardHeader().title("INV-2050")),
+            context_args=context_args,
         )
-        assert_attr(html, "a", "href", "/invoices/2050")
-        assert "focus-visible:ring-2" in html
+        assert_attr(html, "div.relative > div a", "href", "/invoices/2050")
+        assert select(html, "a")[0].get_text(strip=True) == "INV-2050"
+        assert_selector(html, "a.after\\:absolute.after\\:inset-0")
 
     @pytest.mark.asyncio
-    async def test_interactive_renders_a_real_button(self, context_args):
-        html = await render_tree(Card().interactive(), context_args=context_args)
+    async def test_interactive_puts_a_real_button_in_the_title(self, context_args):
+        html = await render_tree(
+            Card().interactive().content(CardHeader().title("Pro plan")),
+            context_args=context_args,
+        )
         assert_attr(html, "button", "type", "button")
-        assert "focus-visible:ring-2" in html
+        assert select(html, "button")[0].get_text(strip=True) == "Pro plan"
 
     @pytest.mark.asyncio
-    async def test_a_static_card_gets_no_focus_ring(self, context_args):
-        html = await render_tree(Card(), context_args=context_args)
-        assert "focus-visible:ring-2" not in html
+    async def test_a_linked_card_can_hold_its_own_buttons(self, context_args):
+        # Siblings rather than nested: the footer button sits beside the
+        # link instead of inside it.
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .content(
+                CardHeader().title("Report"),
+                CardFooter().content(Button().content("Delete")),
+            ),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "a button")
+        assert_no_selector(html, "button a")
+        assert_selector(html, "button", count=1)
+
+    @pytest.mark.asyncio
+    async def test_attributes_land_on_the_control(self, context_args):
+        # The card is the control as far as a caller is concerned, so a label
+        # or a handler set on it belongs to the link, not the container.
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .aria_label("Open report")
+            .content(CardHeader().title("Report")),
+            context_args=context_args,
+        )
+        assert_attr(html, "a", "aria-label", "Open report")
+        assert_no_selector(html, "div[aria-label]")
+
+    @pytest.mark.asyncio
+    async def test_a_linked_card_gets_a_focus_ring(self, context_args):
+        html = await render_tree(
+            Card().href("/x").content(CardHeader().title("Report")),
+            context_args=context_args,
+        )
+        assert "focus-visible]:ring-2" in html
+
+    @pytest.mark.asyncio
+    async def test_a_static_card_gets_no_link_or_focus_ring(self, context_args):
+        html = await render_tree(
+            Card().content(CardHeader().title("Report")), context_args=context_args
+        )
+        assert "ring-2" not in html
+        assert_no_selector(html, "div.relative")
+        assert_no_selector(html, "a")
+
+    @pytest.mark.asyncio
+    async def test_a_static_card_inside_a_linked_one_stays_static(self, context_args):
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .content(
+                CardHeader().title("Outer"),
+                CardBody().content(Card().content(CardHeader().title("Inner"))),
+            ),
+            context_args=context_args,
+        )
+        assert_selector(html, "a", count=1)
+
+    @pytest.mark.asyncio
+    async def test_a_linked_card_needs_a_title(self, context_args):
+        # The title is the link's text; without one there is nothing to name
+        # it or to click.
+        with pytest.raises(ValueError, match="CardHeader"):
+            await render_tree(
+                Card().href("/x").content(CardBody().content("Hi")),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_href_wins_over_interactive(self, context_args):
         # Navigating and acting are the same affordance; one element, not two.
         html = await render_tree(
-            Card().href("/x").interactive(), context_args=context_args
+            Card().href("/x").interactive().content(CardHeader().title("Report")),
+            context_args=context_args,
         )
         assert_selector(html, "a")
         assert_no_selector(html, "button")

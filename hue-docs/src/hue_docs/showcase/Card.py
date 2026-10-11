@@ -90,11 +90,11 @@ SHOWCASES: list[Showcase] = [
         title="Interactive",
         layout="stack",
         description=(
-            "href() or interactive() makes the whole surface one link or "
-            "button: one tab stop, real keyboard activation, a real focus "
-            "ring. Such a card must not contain its own buttons - nested "
-            "interactive elements break keyboard navigation. Keep the card "
-            "static and put the actions in its footer instead."
+            "href() turns the title into a link and interactive() into a "
+            "button, stretched over the card so a click anywhere on it lands. "
+            "The title is the one tab stop and the name a screen reader "
+            "reads, and a button of the card's own still works on top of it "
+            "rather than nested inside it."
         ),
         variants=[
             variant(
@@ -107,6 +107,23 @@ SHOWCASES: list[Showcase] = [
                         CardHeader()
                         .title("INV-2050")
                         .description("Contoso Ltd - $2,190.00"),
+                    )
+                )
+                """,
+            ),
+            variant(
+                "With its own actions",
+                """
+                (
+                    Card()
+                    .href("/reports/q3")
+                    .content(
+                        CardHeader()
+                        .title("Q3 revenue report")
+                        .description("Published 14 September"),
+                        CardFooter().content(
+                            Button().variant("ghost").content("Archive"),
+                        ),
                     )
                 )
                 """,
