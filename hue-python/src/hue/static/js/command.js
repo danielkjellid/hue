@@ -46,14 +46,23 @@ export function registerCommandData(Alpine) {
 
 		// In the order they are shown, which the ranking can change within
 		// a group: by group, then by rank, then as the server drew them.
+		// Run on every key press, so each item's group is found once up front
+		// rather than inside the comparison.
 		options() {
-			const top = (item) =>
-				[...this.$refs.listbox.children].findIndex((child) => child.contains(item));
-			return this.all()
-				.filter((item) => !item.hidden)
-				.sort(
-					(a, b) => top(a) - top(b) || (+a.style.order || 0) - (+b.style.order || 0),
-				);
+			const shown = this.all().filter((item) => !item.hidden);
+			// Document order is already group order, so only a rank can change it.
+			if (!shown.some((item) => item.style.order)) return shown;
+			const list = this.$refs.listbox;
+			const index = new Map([...list.children].map((child, at) => [child, at]));
+			const top = new Map(
+				shown.map((item) => {
+					let node = item;
+					while (node.parentElement !== list) node = node.parentElement;
+					return [item, index.get(node)];
+				}),
+			);
+			const rank = (item) => +item.style.order || 0;
+			return shown.sort((a, b) => top.get(a) - top.get(b) || rank(a) - rank(b));
 		},
 
 		opened() {
