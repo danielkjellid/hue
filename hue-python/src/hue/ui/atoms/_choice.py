@@ -7,6 +7,8 @@ line of description under that. Only the control differs, so it is passed in.
 
 from __future__ import annotations
 
+import re
+
 from htmy import html
 
 from hue.types.core import UNDEFINED, ComponentType
@@ -50,6 +52,18 @@ CHOICE_BOX = classnames(
     "aria-invalid:border-danger",
     FOCUS_RING,
 )
+
+
+def choice_id(name: str, value: str) -> str:
+    """
+    The id of one choice among several sharing a name.
+
+    The value tells them apart, since the name alone would give every box in
+    the set the same id, and a label pointing at it would toggle the first.
+    Whitespace becomes a hyphen: an id cannot hold it, and an aria-labelledby
+    built from one would read as two ids.
+    """
+    return f"{name}-{re.sub(r'\s+', '-', value.strip())}"
 
 
 def label_id(control_id: str) -> str:

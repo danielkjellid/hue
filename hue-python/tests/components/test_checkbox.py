@@ -33,6 +33,24 @@ class TestCheckbox:
         )
         assert_label_for(html, "subscribe")
 
+    @pytest.mark.asyncio
+    async def test_boxes_sharing_a_name_are_told_apart_by_value(self, context_args):
+        # One id between them, and the label of the second toggles the first.
+        html = await render_tree(
+            Checkbox().name("tags").value("north america").label("NA"),
+            context_args=context_args,
+        )
+        assert_label_for(html, "tags-north-america")
+        assert_attr(html, "input", "aria-labelledby", "tags-north-america-label")
+
+    @pytest.mark.asyncio
+    async def test_an_explicit_id_wins_over_the_value(self, context_args):
+        html = await render_tree(
+            Checkbox().name("tags").value("a").label("A").id("own"),
+            context_args=context_args,
+        )
+        assert_label_for(html, "own")
+
     # checked() / required() — present vs absent
     @pytest.mark.asyncio
     async def test_checked_and_required(self, context_args):

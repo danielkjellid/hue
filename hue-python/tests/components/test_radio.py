@@ -173,6 +173,33 @@ class TestRadio:
         assert_attr(html, "input", "aria-describedby", "r-a-description")
 
     @pytest.mark.asyncio
+    async def test_an_id_holds_no_whitespace(self, context_args):
+        # An aria-labelledby built from "r-north america" would name two ids.
+        html = await render_tree(
+            RadioGroup("r").content(Radio().value("north america").label("NA")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "r-north-america-label")
+
+    @pytest.mark.asyncio
+    async def test_options_take_their_ids_from_the_group(self, context_args):
+        # So two groups sharing a name stay apart once one is given an id.
+        html = await render_tree(
+            RadioGroup("r").id("billing").content(Radio().value("a").label("A")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "id", "billing-a")
+
+    @pytest.mark.asyncio
+    async def test_an_option_keeps_an_id_of_its_own(self, context_args):
+        html = await render_tree(
+            RadioGroup("r").content(Radio().value("a").label("A").id("own")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "id", "own")
+        assert_attr(html, "input", "aria-labelledby", "own-label")
+
+    @pytest.mark.asyncio
     async def test_the_group_keeps_a_hint(self, context_args):
         # Group-level, unlike an option's description: it is about the
         # question, not about one of the answers.

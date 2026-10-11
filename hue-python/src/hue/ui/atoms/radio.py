@@ -8,6 +8,7 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
+    choice_id,
     choice_row,
     description_id,
     label_id,
@@ -62,6 +63,7 @@ class Radio(ChainableComponent):
         self,
         *,
         name: str,
+        group_id: str,
         selected: str | None,
         card: bool,
         disabled: bool,
@@ -73,6 +75,7 @@ class Radio(ChainableComponent):
         siblings.
         """
         self._props["name"] = name
+        self._props["group_id"] = group_id
         self._props["card"] = card
         self._props["checked"] = self._get_prop("value") == selected
         # Required goes on the options rather than the fieldset, which has no
@@ -89,32 +92,37 @@ class Radio(ChainableComponent):
         name: str = self._get_prop("name", "")
         disabled: bool = self._get_prop("disabled", False)
         card: bool = self._get_prop("card", False)
-        attrs = self._get_base_html_attrs()
-        # Name and value make an id that is unique within one group, which
-        # is not enough where two groups could share a prefix.
-        input_id = attrs.pop("id", None) or f"{name}-{value}"
+        # From the group's id rather than its name, so two groups sharing a
+        # name are told apart by giving one of them an id.
+        input_id = self._attrs.get("id") or choice_id(
+            self._get_prop("group_id", name), value
+        )
 
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
 
         return choice_row(
             html.input_(
-                type="radio",
-                name=name,
-                id=input_id,
-                value=value,
-                class_=classnames(CHOICE_BOX, "rounded-full", _DOT),
-                checked=self._get_prop("checked", False) or None,
-                disabled=disabled or None,
-                required=self._get_prop("required", False) or None,
-                form=self._get_prop("form"),
-                # An explicit name, so the description inside the label does
-                # not become part of it.
-                aria_labelledby=label_id(input_id) if label is not None else None,
-                aria_describedby=(
-                    description_id(input_id) if description is not None else None
-                ),
-                **attrs,
+                **{
+                    **self._get_base_html_attrs(),
+                    "type": "radio",
+                    "name": name,
+                    "id": input_id,
+                    "value": value,
+                    "class_": classnames(CHOICE_BOX, "rounded-full", _DOT),
+                    "checked": self._get_prop("checked", False) or None,
+                    "disabled": disabled or None,
+                    "required": self._get_prop("required", False) or None,
+                    "form": self._get_prop("form"),
+                    # An explicit name, so the description inside the label
+                    # does not become part of it.
+                    "aria_labelledby": (
+                        label_id(input_id) if label is not None else None
+                    ),
+                    "aria_describedby": (
+                        description_id(input_id) if description is not None else None
+                    ),
+                }
             ),
             control_id=input_id,
             label=label,
@@ -186,6 +194,7 @@ class RadioGroup(FieldControl):
             if isinstance(child, Radio):
                 child._apply_group(
                     name=name,
+                    group_id=self._input_id(),
                     selected=self._get_prop("value"),
                     card=card,
                     disabled=disabled,
