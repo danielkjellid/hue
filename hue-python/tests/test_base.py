@@ -67,6 +67,24 @@ class TestChainableComponent:
         )
         assert 'data-filter-label="Status"' in html
 
+    def test_attribute_name_that_breaks_out_raises(self):
+        with pytest.raises(ValueError, match="may only hold"):
+            Button().data('a" onmouseover="alert(1)', "v")
+
+    def test_attribute_name_with_underscore_raises(self):
+        with pytest.raises(ValueError, match="hyphen"):
+            Button().x_on("my_event", unsafe("go()"))
+
+    def test_dotted_and_namespaced_event_names_pass(self):
+        attrs = (
+            Button()
+            .x_on("keydown.escape.window", unsafe("close()"))
+            .x_on("ajax:success", unsafe("done()"))
+            ._get_base_html_attrs()
+        )
+        assert "@keydown.escape.window" in attrs
+        assert "@ajax:success" in attrs
+
     def test_base_html_attrs_omits_none(self):
         btn = Button().id("my-id")
         assert btn._get_base_html_attrs() == {"id": "my-id"}

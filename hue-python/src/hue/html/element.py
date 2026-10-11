@@ -30,8 +30,13 @@ class Element(ChainableComponent):
 
     def attr(self, key: str, value: Any) -> Self:
         """
-        Set an arbitrary HTML attribute.
+        Set an arbitrary HTML attribute, named as it appears in the markup
+        (aria-labelledby, for). A class goes through class_(), so it merges
+        with classes set there rather than rendering a second attribute.
         """
+        key = self._check_attribute_name(key, "attr()")
+        if key == "class":
+            return self.class_(value)
         self._attrs[key] = value
         return self
 
@@ -235,7 +240,7 @@ class TextareaElement(_FormControlElement):
 
 class LabelElement(Element):
     def for_(self, value: str) -> Self:
-        return self.attr("for_", value)
+        return self.attr("for", value)
 
 
 # Maps htmy tag names to the specialised Element subclass.

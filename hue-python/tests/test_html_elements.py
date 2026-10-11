@@ -152,6 +152,15 @@ class TestElementRendering:
         assert 'data-value="42"' in result
 
     @pytest.mark.asyncio
+    async def test_attr_class_merges_with_class_(self):
+        result = await render_tree(
+            html.div().attr("class", "a").class_("b"),
+            context_args=_context_args(),
+        )
+        assert result.count("class=") == 1
+        assert 'class="a b"' in result
+
+    @pytest.mark.asyncio
     async def test_render_with_aria(self):
         result = await render_tree(
             html.div().aria_label("Navigation").role("navigation"),
