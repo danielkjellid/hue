@@ -120,7 +120,7 @@ class Tooltip(ChainableComponent):
             ),
             **{
                 ":id": bubble_id,
-                "x-show": "open",
+                "x-show": "shown",
                 "x-cloak": True,
                 "x-transition.opacity": "",
             },
@@ -131,7 +131,10 @@ class Tooltip(ChainableComponent):
             bubble,
             class_=classnames("relative inline-flex", self._get_prop("class_")),
             **{
-                "x-data": "{ open: false }",
+                # shown rather than open: a menu or dialog the trigger opens
+                # names its own state open, and the trigger sits in this
+                # scope, where the nearer name would win.
+                "x-data": "{ shown: false }",
                 "x-id": "['hue-tooltip']",
                 # Focus as well as hover, because a keyboard never hovers. The
                 # bubble sits inside the wrapper, so the pointer can move onto
@@ -141,11 +144,11 @@ class Tooltip(ChainableComponent):
                 # hover has to close while focus is somewhere else entirely. It
                 # drops a pending open too, which would otherwise undo it.
                 "x-on:mouseenter": f"clearTimeout($el._t); "
-                f"$el._t = setTimeout(() => open = true, {_OPEN_DELAY_MS})",
-                "x-on:mouseleave": "clearTimeout($el._t); open = false",
-                "x-on:focusin": "open = true",
-                "x-on:focusout": "open = false",
-                "x-on:keydown.escape.window": "clearTimeout($el._t); open = false",
+                f"$el._t = setTimeout(() => shown = true, {_OPEN_DELAY_MS})",
+                "x-on:mouseleave": "clearTimeout($el._t); shown = false",
+                "x-on:focusin": "shown = true",
+                "x-on:focusout": "shown = false",
+                "x-on:keydown.escape.window": "clearTimeout($el._t); shown = false",
                 **self._get_base_html_attrs(),
             },
         )

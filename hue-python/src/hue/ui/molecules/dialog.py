@@ -132,7 +132,7 @@ class Dialog(ChainableComponent):
         starts_open: bool = self._get_prop("open", False)
 
         if trigger is not None:
-            _overlay.open_on_click(trigger)
+            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
 
         panel = html.div(
             _overlay.grabber("sm:hidden"),

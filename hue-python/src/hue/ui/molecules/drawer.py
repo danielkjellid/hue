@@ -140,7 +140,7 @@ class Drawer(ChainableComponent):
         starts_open: bool = self._get_prop("open", False)
 
         if trigger is not None:
-            _overlay.open_on_click(trigger)
+            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
 
         panel = html.aside(
             # The grabber belongs to the sheet, so a side drawer loses it at

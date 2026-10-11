@@ -5,7 +5,6 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.js import unsafe
 from hue.types.core import Component
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
@@ -93,13 +92,12 @@ class Popover(ChainableComponent):
         title_id = "$id('hue-popover-title')"
 
         if trigger is not None:
-            (
-                trigger.x_ref("trigger")
-                .x_on("click", unsafe("open = !open"))
-                .x_bind("aria-expanded", unsafe("open"))
-                .x_bind("aria-controls", unsafe(panel_id))
+            _overlay.wire_trigger(
+                trigger,
+                popup="dialog",
+                on={"click": "open = !open"},
+                bind={"aria-controls": panel_id},
             )
-            trigger._attrs.setdefault("aria_haspopup", "dialog")
 
         panel = html.div(
             render_if(
@@ -143,7 +141,7 @@ class Popover(ChainableComponent):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                f"x-anchor.{placement}.offset.{_OFFSET}": "$refs.trigger",
+                f"x-anchor.{placement}.offset.{_OFFSET}": _overlay.TRIGGER,
                 **_overlay.HOLDS_FOCUS,
             },
         )
@@ -156,7 +154,8 @@ class Popover(ChainableComponent):
                 # close() puts focus back where it came from, which a click
                 # outside must not do - focus is wherever that click landed.
                 "x-data": "{ open: false, "
-                "close() { this.open = false; this.$refs.trigger?.focus() } }",
+                "close() { this.open = false; "
+                f"this.{_overlay.TRIGGER}?.focus() }} }}",
                 "x-id": "['hue-popover', 'hue-popover-title']",
                 **_overlay.CLOSE_ON_ESCAPE,
                 "x-on:click.outside": "open = false",

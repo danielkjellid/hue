@@ -33,7 +33,7 @@ class TestTooltip:
     async def test_it_opens_on_focus_as_well_as_hover(self, context_args):
         # A keyboard never hovers, so hover alone hides it from half the users.
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-on:focusin", "open = true")
+        assert_attr(html, "[x-data]", "x-on:focusin", "shown = true")
         assert_attr(html, "[x-data]", "x-on:mouseenter")
 
     @pytest.mark.asyncio
@@ -45,14 +45,14 @@ class TestTooltip:
             html,
             "[x-data]",
             "x-on:keydown.escape.window",
-            "clearTimeout($el._t); open = false",
+            "clearTimeout($el._t); shown = false",
         )
 
     @pytest.mark.asyncio
     async def test_it_waits_before_opening(self, context_args):
         # A pointer crossing a toolbar would otherwise trail bubbles behind it.
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert "open = true, 400)" in html
+        assert "shown = true, 400)" in html
 
     @pytest.mark.parametrize(
         ("placement", "position"),

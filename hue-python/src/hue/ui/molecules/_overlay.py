@@ -16,6 +16,7 @@ from hue.types.core import ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.tooltip import Tooltip
 from hue.utils import classnames, render_if, render_when
 
 # Alpine mints the ids, so two overlays on a page cannot share one.
@@ -75,12 +76,42 @@ def overlay_state(starts_open: bool) -> str:
     return f"{{ open: {str(starts_open).lower()}, close() {{ this.open = false }} }}"
 
 
-def open_on_click(trigger: ChainableComponent) -> None:
+#: The control that opens an anchored overlay, as found from inside it. A
+#: query rather than x-ref, because a ref registers on the nearest x-data,
+#: and a control wrapped in a Tooltip sits inside the tooltip's, out of the
+#: overlay's sight. The trigger renders before the panel, so the first match
+#: is the overlay's own rather than one nested in its content.
+TRIGGER = "$root.querySelector('[data-hue-trigger]')"
+
+
+def wire_trigger(
+    trigger: ChainableComponent,
+    *,
+    popup: str,
+    on: dict[str, str],
+    bind: dict[str, str] | None = None,
+) -> None:
     """
-    Wire a control to open the overlay it belongs to.
+    Put an overlay's listeners and state on the control that opens it.
+
+    Listeners go on as x-on rather than @, so a handler the control already
+    has through on_click runs alongside them instead of being overwritten
+    under the same key. A Tooltip is looked through to the control it labels,
+    because the control gets the click, the focus and the announcement, and
+    the span the tooltip wraps it in gets none of them.
     """
-    trigger.x_on("click", unsafe("open = true")).x_bind("aria-expanded", unsafe("open"))
-    trigger._attrs.setdefault("aria_haspopup", "dialog")
+    control: ChainableComponent | None = trigger
+    while isinstance(control, Tooltip):
+        control = control._get_prop("trigger")
+    if control is None:
+        return
+
+    for event, expression in on.items():
+        control._attrs[f"x-on:{event}"] = expression
+    for attr, expression in {"aria-expanded": "open", **(bind or {})}.items():
+        control.x_bind(attr, unsafe(expression))
+    control._attrs.setdefault("aria_haspopup", popup)
+    control._attrs["data-hue-trigger"] = ""
 
 
 def grabber(hidden_class: str = "") -> ComponentType:

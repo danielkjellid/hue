@@ -116,7 +116,7 @@ class Command(ChainableComponent):
         hotkey: tuple[str, ...] = self._get_prop("hotkey", ())
         trigger: ChainableComponent | None = self._get_prop("trigger")
         if trigger is not None:
-            _overlay.open_on_click(trigger)
+            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
 
         search = html.div(
             HueIcon("search").class_("size-4 flex-none text-fg-subtle"),

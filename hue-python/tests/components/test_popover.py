@@ -2,6 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Button, Popover
+from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
@@ -17,7 +18,7 @@ class TestPopover:
     @pytest.mark.asyncio
     async def test_the_trigger_toggles_it_and_says_so(self, context_args):
         html = await render_tree(_popover(), context_args=context_args)
-        assert_attr(html, "button", "@click", "open = !open")
+        assert_attr(html, "button", "x-on:click", "open = !open")
         assert_attr(html, "button", "aria-haspopup", "dialog")
         assert_attr(html, "button", ":aria-expanded", "open")
         assert_attr(html, "button", ":aria-controls", "$id('hue-popover')")
@@ -50,7 +51,7 @@ class TestPopover:
             _popover().placement("top-end"), context_args=context_args
         )
         assert_attr(
-            html, '[role="dialog"]', "x-anchor.top-end.offset.6", "$refs.trigger"
+            html, '[role="dialog"]', "x-anchor.top-end.offset.6", _overlay.TRIGGER
         )
 
     # title(): both branches

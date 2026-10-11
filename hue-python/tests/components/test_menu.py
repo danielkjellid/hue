@@ -2,8 +2,17 @@ import pytest
 
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, DropdownMenu, Kbd, MenuItem, MenuLabel, MenuSeparator
+from hue.ui import (
+    Button,
+    DropdownMenu,
+    Kbd,
+    MenuItem,
+    MenuLabel,
+    MenuSeparator,
+    Tooltip,
+)
 from hue.ui.atoms.icon import HueIcon
+from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -23,7 +32,7 @@ class TestDropdownMenu:
         assert_attr(html, "button[aria-haspopup]", "aria-haspopup", "menu")
         assert_attr(html, "button[aria-haspopup]", ":aria-expanded", "open")
         assert_attr(
-            html, "button[aria-haspopup]", "@keydown.down.prevent", "open = true"
+            html, "button[aria-haspopup]", "x-on:keydown.down.prevent", "open = true"
         )
 
     @pytest.mark.asyncio
@@ -85,8 +94,30 @@ class TestDropdownMenu:
             _menu().placement("bottom-end"), context_args=context_args
         )
         assert_attr(
-            html, '[role="menu"]', "x-anchor.bottom-end.offset.6", "$refs.trigger"
+            html, '[role="menu"]', "x-anchor.bottom-end.offset.6", _overlay.TRIGGER
         )
+        assert_selector(html, "button[aria-haspopup][data-hue-trigger]", count=1)
+
+    @pytest.mark.asyncio
+    async def test_a_tooltip_trigger_is_wired_through_to_its_control(
+        self, context_args
+    ):
+        # The icon-only "More actions" button. Wired onto the tooltip's span,
+        # the click lands in the tooltip's scope and aria-expanded on a span.
+        menu = _menu().trigger(
+            Tooltip().content("More actions").trigger(Button().icon_only("More"))
+        )
+        html = await render_tree(menu, context_args=context_args)
+        assert_attr(html, "button[data-hue-trigger]", "x-on:click", "open = !open")
+        assert_attr(html, "button[data-hue-trigger]", "aria-haspopup", "menu")
+        assert_attr(html, "button[data-hue-trigger]", ":aria-describedby")
+        assert_no_selector(html, "span[aria-haspopup], span[data-hue-trigger]")
+
+    @pytest.mark.asyncio
+    async def test_a_tooltip_with_no_control_wires_nothing(self, context_args):
+        menu = _menu().trigger(Tooltip().content("More actions"))
+        html = await render_tree(menu, context_args=context_args)
+        assert_no_selector(html, "[aria-haspopup], [data-hue-trigger]")
 
 
 class TestMenuItem:

@@ -5,7 +5,6 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
@@ -100,15 +99,16 @@ class DropdownMenu(ChainableComponent):
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
         if trigger is not None:
-            (
-                trigger.x_ref("trigger")
-                .x_on("click", unsafe("open = !open"))
-                # Down opens it as well as clicking, which is how a menu
-                # button is expected to behave from the keyboard.
-                .x_on("keydown.down.prevent", unsafe("open = true"))
-                .x_bind("aria-expanded", unsafe("open"))
+            _overlay.wire_trigger(
+                trigger,
+                popup="menu",
+                on={
+                    "click": "open = !open",
+                    # Down opens it as well as clicking, which is how a menu
+                    # button is expected to behave from the keyboard.
+                    "keydown.down.prevent": "open = true",
+                },
             )
-            trigger._attrs.setdefault("aria_haspopup", "menu")
 
         menu = html.div(
             *self._children,
@@ -129,7 +129,7 @@ class DropdownMenu(ChainableComponent):
                 "x-on:keydown.up.prevent": "$focus.wrap().previous()",
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
-                f"x-anchor.{placement}.offset.{_OFFSET}": "$refs.trigger",
+                f"x-anchor.{placement}.offset.{_OFFSET}": _overlay.TRIGGER,
                 **_overlay.HOLDS_FOCUS,
             },
         )
@@ -140,7 +140,8 @@ class DropdownMenu(ChainableComponent):
             class_=classnames("inline-flex", self._get_prop("class_")),
             **{
                 "x-data": "{ open: false, "
-                "close() { this.open = false; this.$refs.trigger?.focus() } }",
+                "close() { this.open = false; "
+                f"this.{_overlay.TRIGGER}?.focus() }} }}",
                 **_overlay.CLOSE_ON_ESCAPE,
                 # Tab leaves the menu rather than walking it. The items are
                 # out of the tab order, so the browser's own Tab already goes

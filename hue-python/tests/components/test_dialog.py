@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, Dialog
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
@@ -23,9 +24,19 @@ class TestDialog:
     async def test_the_trigger_opens_it_and_says_so(self, context_args):
         # Without this the dialog renders and nothing can ever show it.
         html = await render_tree(_dialog(), context_args=context_args)
-        assert_attr(html, "button", "@click", "open = true")
+        assert_attr(html, "button", "x-on:click", "open = true")
         assert_attr(html, "button", "aria-haspopup", "dialog")
         assert_attr(html, "button", ":aria-expanded", "open")
+
+    @pytest.mark.asyncio
+    async def test_the_triggers_own_click_handler_survives(self, context_args):
+        # Both used to be written under @click, so the dialog's replaced it.
+        dialog = _dialog().trigger(
+            Button().content("Invite").on_click(unsafe("track('invite')"))
+        )
+        html = await render_tree(dialog, context_args=context_args)
+        assert_attr(html, "button", "@click", "track('invite')")
+        assert_attr(html, "button", "x-on:click", "open = true")
 
     @pytest.mark.asyncio
     async def test_it_is_modal_and_named_by_its_title(self, context_args):
