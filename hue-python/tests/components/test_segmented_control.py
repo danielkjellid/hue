@@ -48,6 +48,23 @@ class TestSegmentedControl:
         assert_no_selector(html, "div[x-data]")
         assert_no_selector(html, "button[\\@click]")
 
+    @pytest.mark.asyncio
+    async def test_an_empty_value_still_gets_an_alpine_root(self, context_args):
+        # An "All" option is commonly valued "", which is falsy but still a
+        # value, so its click bindings need state to act on.
+        html = await render_tree(
+            SegmentedControl()
+            .label("Status")
+            .value("")
+            .content(
+                SegmentedOption().value("").content("All"),
+                SegmentedOption().value("open").content("Open"),
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, 'div[role="group"]', "x-data", "{ selected: '' }")
+        assert_selector(html, "button[\\@click]", count=2)
+
     # size(): the control owns it, since the options are its own
     @pytest.mark.asyncio
     async def test_default_size(self, context_args):

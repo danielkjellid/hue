@@ -188,7 +188,11 @@ class SegmentedControl(ChainableComponent):
             "aria_label": label,
             # The server-rendered aria-pressed above is what paints first, so
             # the right option is already on before Alpine takes over.
-            **({"x-data": f"{{ selected: {selected!r} }}"} if selected else {}),
+            **(
+                {"x-data": f"{{ selected: {selected!r} }}"}
+                if selected is not None
+                else {}
+            ),
             **self._get_base_html_attrs(),
         }
 
