@@ -3,7 +3,7 @@ import pytest
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import create_icon_base
-from hue.ui.atoms.icon import _format_attr_name
+from hue.ui.atoms.icon import _format_attr_name, directory_resolver
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 # A minimal icon set used by the tests — exercises elements (rect, line, g)
@@ -88,6 +88,23 @@ class TestIcon:
         Icon = create_icon_base(icons_dir="/tmp/hue-no-such-icons")
         with pytest.raises(RuntimeError, match="not found"):
             await render_tree(Icon("ghost"), context_args=context_args)
+
+    def test_directory_resolver_reads_an_icon_in_the_directory(self, tmp_path):
+        (tmp_path / "box.svg").write_text(_BOX_SVG)
+        assert directory_resolver(str(tmp_path))("box") == _BOX_SVG
+
+    @pytest.mark.parametrize("name", ["../secret", "{root}/secret"])
+    def test_directory_resolver_rejects_a_name_outside_the_directory(
+        self, tmp_path, name
+    ):
+        # An icon name can come from request data, and the markup is inlined
+        # unescaped, so reading an svg from elsewhere on disk would be stored XSS.
+        icons = tmp_path / "icons"
+        icons.mkdir()
+        (tmp_path / "secret.svg").write_text(_BOX_SVG)
+        resolve = directory_resolver(str(icons))
+        with pytest.raises(ValueError, match="outside the icon directory"):
+            resolve(name.format(root=tmp_path))
 
     @pytest.mark.asyncio
     async def test_svg_without_viewbox_raises(self, context_args):
