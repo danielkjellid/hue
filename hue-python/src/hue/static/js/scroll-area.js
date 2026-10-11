@@ -15,6 +15,7 @@ export function registerScrollAreaData(Alpine) {
 		// instead of to this component, and the next scroll area would then
 		// disconnect this one's observer as its own.
 		sizes: null,
+		arrivals: null,
 
 		init() {
 			this.edges();
@@ -24,10 +25,26 @@ export function registerScrollAreaData(Alpine) {
 			this.sizes = new ResizeObserver(() => this.edges());
 			this.sizes.observe(this.$el);
 			for (const child of this.$el.children) this.sizes.observe(child);
+			// The observer above only knows the children it was handed, so a
+			// swap that replaces them would leave it watching nodes that are
+			// gone. Hand it each new child as it lands.
+			this.arrivals = new MutationObserver((records) => {
+				for (const record of records) {
+					for (const node of record.removedNodes) {
+						if (node instanceof Element) this.sizes.unobserve(node);
+					}
+					for (const node of record.addedNodes) {
+						if (node instanceof Element) this.sizes.observe(node);
+					}
+				}
+				this.edges();
+			});
+			this.arrivals.observe(this.$el, { childList: true });
 		},
 
 		destroy() {
 			this.sizes?.disconnect();
+			this.arrivals?.disconnect();
 		},
 
 		edges() {
