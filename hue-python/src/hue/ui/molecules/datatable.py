@@ -45,6 +45,11 @@ if TYPE_CHECKING:
     from hue.datatable import _Declaration
 
 
+# The name every row checkbox is submitted under, which the action route
+# reads the picked ids from. Here rather than in hue.datatable, which
+# imports this module.
+SELECTED = "selected"
+
 # A band of controls welded into the shell, above the rows or below them.
 # Its sides match the cells' gutters, so a control's edge lines up with the
 # column under it.
@@ -556,7 +561,7 @@ class DataTable(ChainableComponent):
         value = str(resolve_value(row, self._get_prop("selectable")))
         box = (
             Checkbox()
-            .name("selected")
+            .name(SELECTED)
             .value(value)
             .label(f"Select {value}")
             .hidden_label()

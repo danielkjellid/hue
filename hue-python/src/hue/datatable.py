@@ -97,7 +97,7 @@ from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.datatable import Column, DataTable, resolve_value
+from hue.ui.molecules.datatable import SELECTED, Column, DataTable, resolve_value
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.pagination import Pagination, record_range
@@ -107,9 +107,6 @@ from hue.utils import classnames, render_when
 
 _log = logging.getLogger(__name__)
 
-# The name every row checkbox is submitted under.
-_SELECTED = "selected"
-
 # What each part of the state is called in the query string.
 _SORT = "sort"
 _QUERY = "q"
@@ -117,7 +114,7 @@ _PAGE = "page"
 _HIDE = "hide"
 
 # What a filter cannot be called, because the table is already using it.
-_RESERVED = (_SORT, _QUERY, _PAGE, _HIDE, _SELECTED)
+_RESERVED = (_SORT, _QUERY, _PAGE, _HIDE, SELECTED)
 # The parts of a table's state that are not filters.
 _STATE = (_SORT, _QUERY, _PAGE, _HIDE)
 
@@ -235,19 +232,6 @@ class TableState:
             hidden=changes.get("hidden", self.hidden),
         )
 
-    def without(self, name: str, value: str | None = None) -> TableState:
-        """
-        The same state with one filter off, or one answer removed from it,
-        which is what a chip in the applied band undoes.
-        """
-        left = {
-            key: tuple(v for v in values if key != name or v != value)
-            for key, values in self.filters.items()
-        }
-        if value is None:
-            left.pop(name, None)
-        return self.replace(filters={k: v for k, v in left.items() if v})
-
     def params(self) -> dict[str, str]:
         asked = {_SORT: self.sort or "", _QUERY: self.query}
         # One parameter per filter, answers comma-joined, which is how a
@@ -312,16 +296,6 @@ class Filter:
             except InvalidOperation:
                 return False
         return True
-
-    def labelled(self, value: str) -> str:
-        """
-        What one answer is called on the chip that undoes it: the option's
-        label when it came from a list, or the value itself when it was typed.
-        """
-        for option, label in self.options:
-            if option == value:
-                return label
-        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -632,7 +606,7 @@ class _Declaration:
         state, or the page's own.
         """
         names = self._names()
-        skipped = {_SELECTED, *self._router._form_fields()}
+        skipped = {SELECTED, *self._router._form_fields()}
         own = {names[name]: found for name, found in values.items() if name in names}
         others = tuple(
             (name, value)
@@ -859,7 +833,7 @@ class _Declaration:
             posted = self._router._get_form_values(request)
             asked, others = self._read(posted)
             picked = await self._router._run_sync(
-                self._picked, request, asked, posted.get(_SELECTED, [])
+                self._picked, request, asked, posted.get(SELECTED, [])
             )
             try:
                 await self._router._run_sync(chosen.handler, request, picked)
