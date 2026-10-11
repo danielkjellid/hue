@@ -62,8 +62,15 @@ class TestDropdownMenu:
 
     @pytest.mark.asyncio
     async def test_escape_closes_it_and_hands_focus_back(self, context_args):
+        # Stopped, so a dialog the menu sits in stays open.
         html = await render_tree(_menu(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "if (open) close()")
+        assert_attr(
+            html,
+            "[x-data]",
+            "x-on:keydown.escape",
+            "if (open) { $event.stopPropagation(); close() }",
+        )
+        assert_attr(html, '[role="menu"]', "tabindex", "-1")
 
     @pytest.mark.asyncio
     async def test_the_menu_is_named(self, context_args):

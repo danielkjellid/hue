@@ -146,9 +146,6 @@ export function registerCommandData(Alpine) {
 				event.stopPropagation();
 				this.query = "";
 				this.search();
-			} else if (key === "Escape") {
-				event.preventDefault();
-				this.close();
 			}
 		},
 	}));

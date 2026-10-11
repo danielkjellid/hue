@@ -44,6 +44,19 @@ class TestCommand:
         assert_selector(html, '[role="status"]')
         assert "No luck." in html
 
+    @pytest.mark.asyncio
+    async def test_escape_closes_it_and_goes_no_further(self, context_args):
+        # Stopped on the palette, so a page-wide Escape behind it hears
+        # nothing; the scrim keeps a click's focus inside for it to work.
+        html = await render_tree(_command(), context_args=context_args)
+        assert_attr(
+            html,
+            "[x-data]",
+            "x-on:keydown.escape",
+            "if (open) { $event.stopPropagation(); close() }",
+        )
+        assert_attr(html, "[x-on\\:click\\.self]", "tabindex", "-1")
+
     # hotkey(): both branches
     @pytest.mark.asyncio
     async def test_the_hotkey_reaches_the_browser_in_lower_case(self, context_args):
