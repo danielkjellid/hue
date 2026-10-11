@@ -41,6 +41,20 @@ class _Textarea(html.textarea):
 
 _AUTOSIZE = "$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
 
+# The counter as a sentence, for screen readers: "12 / 10" read aloud says
+# nothing about which number is the limit. It mirrors _count_message below.
+_COUNT_MESSAGE = (
+    "(n => `You have ${Math.abs(n)} character${Math.abs(n) === 1 ? '' : 's'} "
+    "${n < 0 ? 'too many' : 'remaining'}`)(limit - said)"
+)
+
+
+def _count_message(limit: int, count: int) -> str:
+    left = limit - count
+    plural = "" if abs(left) == 1 else "s"
+    state = "too many" if left < 0 else "remaining"
+    return f"You have {abs(left)} character{plural} {state}"
+
 
 class Textarea(FieldControl):
     """
@@ -87,7 +101,8 @@ class Textarea(FieldControl):
         A counter appears in the label row and turns red past the limit, and
         the control marks itself invalid - but the text is still accepted, so
         the user can see what has to go rather than wondering why typing
-        stopped working.
+        stopped working. Screen readers hear the count as a sentence, read
+        with the control and announced once typing pauses.
         """
         self._props["max_length"] = value
         return self
@@ -120,6 +135,7 @@ class Textarea(FieldControl):
         error: str | None = self._error(context)
         value: str = self._get_prop("value", "")
         control_id = self._input_id()
+        count_id = f"{control_id}-count" if limit is not None else None
 
         # Counting here rather than in a bundled component: it is one number
         # read two ways, and the expressions stay next to the markup they drive.
@@ -141,27 +157,45 @@ class Textarea(FieldControl):
             required=required or None,
             readonly=self._get_prop("readonly", False) or None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(
-                context,
-            ),
+            aria_describedby=self._describedby(context, count_id),
             **(
-                {":aria-invalid": f"count > {limit} ? 'true' : null"}
+                {":aria-invalid": "count > limit ? 'true' : null"}
                 if limit is not None and error is None
                 else {}
             ),
             **({"x-on:input": on_input} if on_input else {}),
+            # The spoken count waits for a pause in typing, so a screen reader
+            # is not talked over on every keystroke.
+            **(
+                {"x-on:input.debounce.1000ms": "said = count"}
+                if limit is not None
+                else {}
+            ),
             **({"x-init": _AUTOSIZE} if autosize else {}),
         )
 
         field = self._field(context, _Textarea(value, **textarea_attrs))
         if limit is not None:
-            field.x_data({"count": len(value)}).trailing(
+            count = len(value)
+            field.x_data({"count": count, "said": count, "limit": limit}).trailing(
                 html.span(
+                    f"{count} / {limit}",
                     **{
-                        "x-text": f"count + ' / {limit}'",
-                        ":class": f"count > {limit} && 'text-danger-text'",
+                        "x-text": "count + ' / ' + limit",
+                        ":class": "count > limit && 'text-danger-text'",
                         "class": "tabular-nums",
-                    }
-                )
+                        "aria-hidden": "true",
+                    },
+                ),
+                # Polite, and described by the control too, so the limit is
+                # read on focus and a crossing is announced without stealing
+                # focus.
+                html.span(
+                    _count_message(limit, count),
+                    id=count_id,
+                    class_="sr-only",
+                    aria_live="polite",
+                    **{"x-text": _COUNT_MESSAGE},
+                ),
             )
         return field
