@@ -5,6 +5,7 @@ from htmy import html
 
 from hue.context import HueContext
 from hue.renderer import render_tree
+from hue.router import RawResponse
 from hue.toast import INHERIT, ToastMessage, toast
 from hue.types.core import Component
 from hue.ui import ToastRegion
@@ -165,3 +166,59 @@ class TestRendering:
         quiet = router._wrap_view(_view(raises=False), require_ajax=True)
         html_result, _ = await quiet(Mock(), request)
         assert "Invoice sent" not in html_result
+
+
+class _Redirect:
+    """
+    A framework response: a status code and no markup.
+    """
+
+    status_code = 302
+
+
+def _redirecting_view(*, raises: bool):
+    def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+    ) -> _Redirect:
+        if raises:
+            toast.success("Invoice sent")
+        return _Redirect()
+
+    return view_func
+
+
+class TestRawResponses:
+    @pytest.mark.asyncio
+    async def test_a_toast_nothing_can_carry_is_an_error(
+        self, router: MockRouter, mock_request: type[MockRequest]
+    ):
+        # The router opened the queue and a redirect has no markup, so the
+        # toast would vanish without a word.
+        wrapped = router._wrap_view(_redirecting_view(raises=True), require_ajax=True)
+        request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+        with pytest.raises(RuntimeError, match="HueToastMiddleware"):
+            await wrapped(Mock(), request)
+
+    @pytest.mark.asyncio
+    async def test_a_queue_opened_outside_is_left_to_carry_it(
+        self, router: MockRouter, mock_request: type[MockRequest]
+    ):
+        # A middleware opened it, so the toast stays queued for it to keep.
+        wrapped = router._wrap_view(_redirecting_view(raises=True), require_ajax=True)
+        request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+        token = toast.open()
+        try:
+            assert isinstance(await wrapped(Mock(), request), RawResponse)
+            assert [message.title for message in toast.drain()] == ["Invoice sent"]
+        finally:
+            toast.close(token)
+
+    @pytest.mark.asyncio
+    async def test_a_redirect_that_raised_nothing_goes_through(
+        self, router: MockRouter, mock_request: type[MockRequest]
+    ):
+        wrapped = router._wrap_view(_redirecting_view(raises=False), require_ajax=True)
+        request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
+        assert isinstance(await wrapped(Mock(), request), RawResponse)
