@@ -1,4 +1,7 @@
+import functools
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlencode
 
 import pytest
@@ -366,6 +369,36 @@ def test_hue_view_sync_handlers(urlpatterns_: list[URLPattern]):
 
     assert b"Sync index" in client.get("/myview/").content
     assert b"Sync fragment" in client.get("/myview/frag/", **AJAX_HEADERS).content
+
+
+def test_hue_view_async_handler_behind_a_sync_decorator(
+    urlpatterns_: list[URLPattern],
+):
+    # A plain decorator hides the coroutine function behind a sync one, so the
+    # handler only shows itself as async once called.
+    def logged(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    class MyView(HueView):
+        router = Router[HttpRequest]()
+
+        async def index(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return Page(title="", body=html.div("Index"))
+
+        @router.fragment_get("frag/")
+        @logged
+        async def frag(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return html.div("Wrapped fragment")
+
+    urlpatterns_.append(path("myview/", include(MyView.urls)))
+
+    response = Client().get("/myview/frag/", **AJAX_HEADERS)
+    assert response.status_code == HTTP_OK
+    assert b"Wrapped fragment" in response.content
 
 
 def test_hue_view_passes_framework_responses_through(urlpatterns_: list[URLPattern]):

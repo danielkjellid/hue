@@ -161,10 +161,18 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         target, so Alpine AJAX falls back to a native form resubmit, which the
         server then rejects as non-AJAX. Running sync handlers in a thread avoids
         the whole cascade.
+
+        An async handler behind a plain sync decorator looks sync until it is
+        called, so a result that turns out to be awaitable is awaited here.
         """
         if inspect.iscoroutinefunction(view_func):
             return await view_func(view_instance, request, context, **kwargs)
-        return await sync_to_async(view_func)(view_instance, request, context, **kwargs)
+        result = await sync_to_async(view_func)(
+            view_instance, request, context, **kwargs
+        )
+        if inspect.isawaitable(result):
+            result = await result
+        return result
 
 
 def _form(request: HttpRequest) -> QueryDict:
