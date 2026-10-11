@@ -307,11 +307,12 @@ class DataTable(ChainableComponent):
         to pick them with. The two come together, because a checkbox with
         nothing to do is not worth drawing.
 
-        Each checkbox is named after what key resolves to for its row, so
-        "Select INV-2050" gives a screen reader something to pick by. The
-        actions sit in a bar that floats at the foot of the page once a row
-        is picked, inside the table's Alpine scope, so an expression in one
-        can read selected, the list of values the checkboxes carry.
+        Each checkbox submits what key resolves to for its row, and is named
+        after the row's first cell, so a screen reader hears "Select
+        INV-2050" rather than a pk nobody can see. The actions sit in a bar
+        that floats at the foot of the page once a row is picked, inside the
+        table's Alpine scope, so an expression in one can read selected, the
+        list of values the checkboxes carry.
         """
         self._props["selectable"] = key
         self._props["bulk_actions"] = values
@@ -557,17 +558,24 @@ class DataTable(ChainableComponent):
             )
         )
 
-    def _select_cell(self, row: Mapping[str, Any]) -> ComponentType:
+    def _select_cell(self, row: Mapping[str, Any], line: str) -> ComponentType:
         value = str(resolve_value(row, self._get_prop("selectable")))
+        box_id = f"{line}-select"
         box = (
             Checkbox()
             .name(SELECTED)
+            .id(box_id)
             .value(value)
-            .label(f"Select {value}")
+            .label("Select")
             .hidden_label()
             .x_model("selected")
             .data("hue-row-select", "")
         )
+        if self._columns:
+            # "Select" and then whatever the row's first cell shows. The
+            # identifier is usually a pk nobody can see, so naming the box
+            # after it would read out a number tied to nothing on screen.
+            box.aria_labelledby(f"{box_id} {line}-name")
         # Named rather than wrapped: the form is an empty element in the
         # frame, because a form around the band above the rows would
         # swallow the search box, which is a form of its own.
@@ -585,19 +593,25 @@ class DataTable(ChainableComponent):
             return ()
         if loading:
             return (self._placeholders(),)
-        return (TableBody().content(*[self._row(row) for row in self._rows]),)
+        rows = [self._row(row, index) for index, row in enumerate(self._rows)]
+        return (TableBody().content(*rows),)
 
-    def _row(self, row: Mapping[str, Any]) -> ComponentType:
-        line = TableRow().content(
-            self._select_cell(row)
-            if self._get_prop("selectable") is not None
-            else UNDEFINED,
-            *[self._cell(column, row) for column in self._columns],
+    def _row(self, row: Mapping[str, Any], index: int) -> ComponentType:
+        cells = [self._cell(column, row) for column in self._columns]
+        if (key := self._get_prop("selectable")) is None:
+            return TableRow().content(*cells)
+        # By position rather than by the row's value, which can be anything
+        # and is not safe to spell an id with. Under the table's id, which a
+        # declared table always has, so two tables on a page keep apart.
+        line = f"{self._attrs.get('id') or 'table'}-row-{index}"
+        if cells:
+            cells[0].id(f"{line}-name")
+        value = json.dumps(str(resolve_value(row, key)))
+        return (
+            TableRow()
+            .content(self._select_cell(row, line), *cells)
+            .x_bind("aria-selected", unsafe(f"isSelected({value})"))
         )
-        if (key := self._get_prop("selectable")) is not None:
-            value = json.dumps(str(resolve_value(row, key)))
-            line.x_bind("aria-selected", unsafe(f"isSelected({value})"))
-        return line
 
     def _placeholders(self) -> ComponentType:
         """
@@ -636,7 +650,7 @@ class DataTable(ChainableComponent):
             bar.class_("mx-auto" if column.align == "center" else "ms-auto")
         return TableCell().align(column.align).content(bar)
 
-    def _cell(self, column: Column, row: Mapping[str, Any]) -> ComponentType:
+    def _cell(self, column: Column, row: Mapping[str, Any]) -> TableCell:
         content = (
             column.render(row)
             if column.render is not None

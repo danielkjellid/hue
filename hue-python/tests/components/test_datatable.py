@@ -3,10 +3,17 @@ from decimal import Decimal
 
 import pytest
 
+from hue import html as hue_html
 from hue.formats import Formats
 from hue.renderer import render_tree
 from hue.ui import Badge, Button, Column, DataTable, Empty
-from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
+from tests._a11y import (
+    assert_attr,
+    assert_no_selector,
+    assert_selector,
+    select,
+    soup,
+)
 
 _COLUMNS = [
     Column("invoice", "Invoice"),
@@ -284,19 +291,48 @@ class TestDataTable:
 
     # _bulk_actions(): both branches
     @pytest.mark.asyncio
-    async def test_every_row_checkbox_names_its_own_row(self, context_args):
-        # Three checkboxes all announcing "Select" gives a screen reader
-        # nothing to select by.
+    async def test_every_row_checkbox_is_named_by_what_its_row_shows(
+        self, context_args
+    ):
+        # The identifier is usually a pk nobody sees, so the name comes from
+        # the row's first cell: "Select INV-2050", not "Select 41".
         html = await render_tree(
             DataTable()
+            .id("invoices")
             .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            .rows([{**row, "pk": str(index)} for index, row in enumerate(_ROWS)])
+            ._bulk_actions("pk", Button().content("Delete")),
             context_args=context_args,
         )
-        boxes = select(html, "tbody input[type=checkbox]")
-        labels = [box["aria-label"] for box in boxes]
-        assert labels == ["Select INV-2050", "Select INV-2048"]
+        page = soup(html)
+
+        def name(box):
+            refs = box["aria-labelledby"].split()
+            parts = [page.find(id=ref) for ref in refs]
+            return " ".join(
+                part["aria-label"] if part is box else part.get_text(strip=True)
+                for part in parts
+            )
+
+        names = [name(box) for box in page.select("tbody input[type=checkbox]")]
+        assert names == ["Select INV-2050", "Select INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_two_tables_on_a_page_name_their_rows_apart(self, context_args):
+        def table(key):
+            return (
+                DataTable()
+                .id(key)
+                .columns(_COLUMNS)
+                .rows(_ROWS)
+                ._bulk_actions("invoice", Button().content("Delete"))
+            )
+
+        html = await render_tree(
+            hue_html.div(table("a"), table("b")), context_args=context_args
+        )
+        ids = [tag["id"] for tag in soup(html).select("[id]")]
+        assert len(ids) == len(set(ids))
 
     @pytest.mark.asyncio
     async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):

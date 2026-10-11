@@ -243,6 +243,20 @@ class TestCheckbox:
         assert_attr(html, "input", "id", "all")
 
     @pytest.mark.asyncio
+    async def test_a_hidden_label_keeps_a_labelledby_it_was_given(self, context_args):
+        # The box names itself "Select" and borrows the rest from its row.
+        html = await render_tree(
+            Checkbox()
+            .name("selected")
+            .label("Select")
+            .hidden_label()
+            .id("r1-select")
+            .aria_labelledby("r1-select r1-name"),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "r1-select r1-name")
+
+    @pytest.mark.asyncio
     async def test_a_visible_label_is_pointed_at_instead(self, context_args):
         html = await render_tree(
             Checkbox().name("terms").label("I accept"), context_args=context_args

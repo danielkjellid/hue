@@ -119,6 +119,10 @@ class ChainableComponent(ABC):
         self._attrs["aria_describedby"] = value
         return self
 
+    def aria_labelledby(self, value: str) -> Self:
+        self._attrs["aria_labelledby"] = value
+        return self
+
     def aria_keyshortcuts(self, value: str) -> Self:
         """
         The keys that do what this control does, such as Escape for a
