@@ -110,11 +110,21 @@ class Pagination(ChainableComponent):
         """
         The id a page lands in. Given one, the browser fetches the page and
         swaps that element; without one every step is a plain navigation.
+
+        The pagination is swapped with it, so the page you land on is the
+        one marked: it needs an id of its own, and the response has to
+        render it with that id too, or the swap removes it.
         """
         self._props["target"] = value
         return self
 
     def _render(self, context: Context) -> Component:
+        if self._get_prop("target") and "id" not in self._attrs:
+            raise ValueError(
+                "Pagination with a target() needs an id() of its own: it is "
+                "swapped along with the page, which is how the page you land "
+                "on comes to be the one marked."
+            )
         page: int = self._get_prop("page", 1)
         total_pages: int = self._get_prop("total_pages", 1)
         total_records: int | None = self._get_prop("total_records")
@@ -271,9 +281,12 @@ class Pagination(ChainableComponent):
 
     def _target_attr(self) -> dict[str, str]:
         target: str | None = self._get_prop("target")
+        if not target:
+            return {}
         # push, so a page is a place: the URL says which one, the back
         # button goes to the last, and the link can be sent to somebody.
-        return {"x-target.push": target} if target else {}
+        # Its own id too, so the mark moves to the page you land on.
+        return {"x-target.push": f"{target} {self._attrs['id']}"}
 
 
 #: The range separator. An en dash, which is what a range takes.

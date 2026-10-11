@@ -137,6 +137,10 @@ class Tabs(ChainableComponent):
         The id a tab's section lands in. Given one, the browser fetches
         the section and swaps that element; without one it follows the
         link the long way round.
+
+        The row is swapped with it, so the tab you land on is the one
+        marked: the Tabs needs an id of its own, and the response has to
+        render the row with that id too, or the swap removes it.
         """
         self._props["target"] = value
         return self
@@ -144,10 +148,25 @@ class Tabs(ChainableComponent):
     def htmy_context(self) -> Context:
         return {
             CurrentPage: CurrentPage(self._get_prop("current")),
-            TabsState: TabsState(
-                self._get_prop("segmented", False), self._get_prop("target")
-            ),
+            TabsState: TabsState(self._get_prop("segmented", False), self._targets()),
         }
+
+    def _targets(self) -> str | None:
+        """
+        What a tab swaps: the section, and the row itself, so the mark moves
+        to the tab you land on rather than staying on the one you left.
+        """
+        target: str | None = self._get_prop("target")
+        if target is None:
+            return None
+        own_id = self._attrs.get("id")
+        if own_id is None:
+            raise ValueError(
+                "Tabs with a target() needs an id() of its own: the row is "
+                "swapped along with the section, which is how the tab you "
+                "land on comes to be the one marked."
+            )
+        return f"{target} {own_id}"
 
     def _render(self, context: Context) -> Component:
         return html.nav(

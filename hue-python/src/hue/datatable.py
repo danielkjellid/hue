@@ -1072,7 +1072,7 @@ class _TablePagination(ChainableComponent):
     def _render(self, context: Context) -> Component:
         bound = _bound_from(context, self)
         size = bound.declaration.page_size
-        return (
+        pagination = (
             Pagination()
             .page(bound.state.page)
             .page_size(size)
@@ -1082,8 +1082,10 @@ class _TablePagination(ChainableComponent):
             # at its default of one page.
             .total_pages(max(1, ceil(bound.total / size)))
             .href(lambda page: bound.href(page=page))
-            .target(rows_id(bound.key) or "")
         )
+        if rows := rows_id(bound.key):
+            pagination.target(rows).id(f"{rows}-pagination")
+        return pagination
 
 
 class _TableCarried(ChainableComponent):
