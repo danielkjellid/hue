@@ -306,10 +306,12 @@ class Router[T_Request]:
         content_type = self._get_request_content_type(request)
 
         if "application/json" in content_type:
-            raw_body = self._get_request_body(request)
             try:
+                # Read inside the try: an integration decodes the bytes here,
+                # and a body that is not UTF-8 is as invalid as bad JSON.
+                raw_body = self._get_request_body(request)
                 data = json.loads(raw_body) if raw_body else {}
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 raise BodyValidationError(
                     errors=[{"type": "json_invalid", "msg": str(e)}]
                 ) from e

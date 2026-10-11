@@ -723,6 +723,35 @@ async def test_body_parsing_invalid_json_raises_error(
 
 
 @pytest.mark.asyncio
+async def test_body_parsing_json_that_is_not_utf8_raises_error(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    """
+    A JSON body that does not decode is as invalid as one that does not parse.
+    """
+
+    async def view_func(
+        view_instance: object,
+        request: MockRequest,
+        context: HueContext[MockRequest],
+        body: LoginCredentialsDataclass,
+    ):
+        return html.div("Should not reach here")
+
+    wrapped = router._wrap_view(view_func, require_ajax=True)
+
+    request = mock_request(
+        headers={"X-Requested-With": "XMLHttpRequest"},
+        body=b'{"username": "\xff"}',
+    )
+
+    with pytest.raises(BodyValidationError) as exc_info:
+        await wrapped(Mock(), request)
+
+    assert exc_info.value.errors[0]["type"] == "json_invalid"
+
+
+@pytest.mark.asyncio
 async def test_body_parsing_wrong_type_raises_error(
     router: MockRouter, mock_request: type[MockRequest]
 ):

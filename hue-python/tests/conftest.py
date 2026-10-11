@@ -15,7 +15,7 @@ class MockRequest:
     def __init__(
         self,
         headers: dict[str, str] | None = None,
-        body: str | None = None,
+        body: str | bytes | None = None,
         content_type: str = "application/json",
         form_data: dict[str, Any] | None = None,
     ):
@@ -49,7 +49,9 @@ class MockRouter(Router[MockRequest]):
         )
 
     def _get_request_body(self, request: MockRequest) -> str:
-        """Return the mock request body."""
+        """Return the mock request body, decoding bytes as a framework would."""
+        if isinstance(request.body, bytes):
+            return request.body.decode("utf-8")
         return request.body
 
     def _get_request_content_type(self, request: MockRequest) -> str:
