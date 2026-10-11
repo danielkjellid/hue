@@ -64,6 +64,19 @@ class TestBreadcrumbs:
         assert_selector(html, "nav > ol > li", count=4)
 
     @pytest.mark.asyncio
+    async def test_a_limit_below_three_never_repeats_a_step(self, context_args):
+        # The root and the last two always show, so a trail of two has no
+        # middle to fold, however low the limit.
+        html = await render_tree(
+            Breadcrumbs()
+            .items([Crumb("/", "Home"), Crumb(None, "Here")])
+            .collapse_after(1),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "button")
+        assert_selector(html, "nav > ol > li", count=2)
+
+    @pytest.mark.asyncio
     async def test_nothing_folds_without_a_limit(self, context_args):
         html = await render_tree(Breadcrumbs().items(_TRAIL), context_args=context_args)
         assert_no_selector(html, "button")
