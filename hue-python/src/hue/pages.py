@@ -10,6 +10,22 @@ from hue.context import HueContext
 from hue.types.core import Component, ComponentType
 
 
+def _script_json(value: Any) -> str:
+    """
+    Encode a value as a JS literal that is safe inside an inline script.
+
+    JSON leaves "<" and ">" alone, so a "</script>" in a value would end the
+    script and inject what follows as markup. The unicode escapes read back as
+    the same characters in JavaScript.
+    """
+    return (
+        json.dumps(value)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 class BasePage:
     """
     The HTML document shell around a page body: head, stylesheet and script
@@ -73,7 +89,7 @@ class BasePage:
         writes only the resolved light/dark onto <html>, which is what the CSS
         matches. The store in theme.js takes over once Alpine boots.
         """
-        key = json.dumps(self.theme_storage_key)
+        key = _script_json(self.theme_storage_key)
         dark_query = "'(prefers-color-scheme: dark)'"
         script_content = f"""
         (function () {{
@@ -85,25 +101,27 @@ class BasePage:
             // check outside the catch so a visitor with site data blocked
             // still lands on their system theme rather than on light.
           }}
+          // Anything theme.js would reject counts as system, or a stale value
+          // paints light and flips once the store boots.
           var dark = window.matchMedia({dark_query}).matches;
-          var resolved = choice === 'system' ? (dark ? 'dark' : 'light') : choice;
+          var known = choice === 'light' || choice === 'dark';
+          var resolved = known ? choice : (dark ? 'dark' : 'light');
           document.documentElement.setAttribute('data-theme', resolved);
         }})();
         """
         return html.script(SafeStr(script_content))
 
     def configure_alpine(self, context: HueContext) -> html.script:
-        # Server-side values are emitted as JSON literals so any character in
-        # them stays a valid JS string, and the script body is marked safe so
-        # htmy does not HTML-escape the JavaScript.
-        options = json.dumps(
+        # The script body is marked safe so htmy does not HTML-escape the
+        # JavaScript, which is why every server value goes through _script_json.
+        options = _script_json(
             {
                 "csrfToken": context.csrf_token,
                 "themeStorageKey": self.theme_storage_key,
             }
         )
         script_content = f"""
-        import {{ configureAlpine }} from '{self.js_url}';
+        import {{ configureAlpine }} from {_script_json(self.js_url)};
 
         document.addEventListener('DOMContentLoaded', function() {{
           configureAlpine({options});
