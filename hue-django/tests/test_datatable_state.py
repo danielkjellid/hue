@@ -580,11 +580,32 @@ def test_a_page_past_the_last_is_the_last(mounted):
     assert [row["pk"] for row in bound.page] == ["23", "58"]
 
 
-def test_a_typed_answer_is_taken_whole(mounted):
-    # 1,000 is one number, and only a list-shaped filter is spelled with
-    # commas between its answers.
-    state, _ = mounted().invoices._read({"invoices-min": ["1,000"]})
-    assert state.value("min") == "1,000"
+def test_a_typed_answer_is_taken_whole():
+    # Only a list-shaped filter is spelled with commas between its answers.
+    typed = build_datatable_state(
+        Router[HttpRequest](),
+        key="typed",
+        columns=[Column("customer", "Customer")],
+        rows=lambda request, asked: _INVOICES,
+        filters=[Filter("customer", "Customer")],
+    )
+    state, _ = typed._read({"typed-customer": ["Contoso, Ltd"]})
+    assert state.value("customer") == "Contoso, Ltd"
+
+
+def test_a_number_is_handed_on_as_it_was_typed(mounted):
+    state, _ = mounted().invoices._read({"invoices-min": ["1000.50"]})
+    assert state.value("min") == "1000.50"
+
+
+@pytest.mark.parametrize("typed", ["abc", "1,000", "NaN", "Infinity"])
+def test_a_number_field_drops_what_is_not_a_number(mounted, typed):
+    # rows() should not have to guard against it, any more than against
+    # an option nobody offered. The fixture's own rows() would raise.
+    view = mounted()
+    state, _ = view.invoices._read({"invoices-min": [typed]})
+    assert state.value("min") is None
+    assert Client().get(f"/{MOUNT}", {"invoices-min": typed}).status_code == 200
 
 
 def test_a_browser_repeating_a_name_is_read_the_same_as_a_comma(mounted):

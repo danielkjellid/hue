@@ -72,6 +72,7 @@ import logging
 from collections.abc import Set as AbstractSet
 from copy import copy
 from dataclasses import dataclass, field, replace
+from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 from math import ceil
 from typing import (
@@ -345,6 +346,17 @@ def _many(asked: Mapping[str, list[str]], name: str) -> tuple[str, ...]:
     return tuple(
         part for value in asked.get(name, ()) for part in value.split(",") if part
     )
+
+
+def _is_number(typed: str) -> bool:
+    """
+    Whether a numeric filter's answer is a number rows() can compare with.
+    NaN and infinity parse, and are no amount anything is at least.
+    """
+    try:
+        return Decimal(typed).is_finite()
+    except InvalidOperation:
+        return False
 
 
 def _total(rows: Any) -> int:
@@ -764,10 +776,11 @@ class _Declaration:
         """
         What each filter was told.
 
-        A list-shaped filter drops any answer it does not offer. Anyone can
+        A list-shaped filter drops any answer it does not offer, and a
+        numeric one drops anything that is not a finite number. Anyone can
         type into a query string, and rows() should not have to guard against
-        it. A typed answer is taken whole, commas and all, because 1,000 is
-        one number and not two.
+        it. A typed answer is otherwise taken whole, commas and all, because
+        only a list is spelled with commas between its answers.
         """
         found: dict[str, tuple[str, ...]] = {}
         for declared in self.filters:
@@ -776,6 +789,8 @@ class _Declaration:
                 values = tuple(v for v in _many(asked, declared.name) if v in offered)
             else:
                 typed = _one(asked, declared.name)
+                if typed and declared.numeric and not _is_number(typed):
+                    typed = None
                 values = (typed,) if typed else ()
             if values:
                 found[declared.name] = values if declared.multiple else values[:1]

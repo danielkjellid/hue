@@ -7,7 +7,7 @@ DataTable.from_state().
 """
 
 from collections.abc import Mapping
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
 
 from django.db.models import QuerySet
@@ -42,12 +42,8 @@ def invoices_for(request: HttpRequest, asked: TableState) -> QuerySet[Any]:
     if statuses := asked.chosen("status"):
         found = found.filter(status__in=statuses)
     if least := asked.value("min"):
-        # Typed into a field, so it can be anything. Something that is not
-        # a number narrows nothing.
-        try:
-            found = found.filter(amount__gte=Decimal(least))
-        except InvalidOperation:
-            pass
+        # The table drops anything that is not a number before it gets here.
+        found = found.filter(amount__gte=Decimal(least))
     return found.order_by(asked.sort or "-issued_on", "pk").values(
         "pk", "reference", "customer__name", "amount", "status", "issued_on"
     )
