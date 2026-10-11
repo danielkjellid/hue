@@ -1,7 +1,7 @@
 import pytest
 
 from hue import toast
-from hue.js import call
+from hue.js import call, unsafe
 
 
 class TestToastJs:
@@ -37,7 +37,16 @@ class TestToastJs:
         action = ("Retry", call("send"))
         assert toast.js.danger("Could not send", action=action) == (
             '$toast.danger("Could not send", '
-            '{ action: { label: "Retry", onClick: () => send() } })'
+            '{ action: { label: "Retry", onClick: () => { send() } } })'
+        )
+
+    def test_an_action_may_be_statements(self):
+        # on_click takes statements, so an action has to as well: a bare arrow
+        # body would make the whole call a syntax error.
+        action = ("Undo", unsafe("restored = true; save()"))
+        assert toast.js.info("Archived", action=action) == (
+            '$toast.info("Archived", { action: { label: "Undo", '
+            "onClick: () => { restored = true; save() } } })"
         )
 
     def test_an_action_must_be_an_expression(self):
