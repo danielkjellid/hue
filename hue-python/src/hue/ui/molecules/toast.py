@@ -49,16 +49,37 @@ _TONES: dict[ToastVariant, str] = {
 # own. Pausing on hover and on focus is WCAG 2.2.1: an auto-dismissing
 # message has to be stoppable by whoever is still reading it.
 _TIMER = (
-    "{ ms: 0, timer: null, "
+    "{ ms: 0, timer: null, hovered: false, focused: false, "
     "start(ms) { this.stop(); "
     "if (ms) this.timer = setTimeout(() => this.dismiss(), ms) }, "
     "stop() { clearTimeout(this.timer); this.timer = null }, "
-    # Only a toast that was leaving resumes. Without the guard, hovering one
-    # that was going to stay is what starts it counting down.
-    f"resume() {{ if (this.ms) this.start({_RESUME_MS}) }}, "
-    "dismiss() { this.stop(); "
+    "hold(why) { this[why] = true; this.stop() }, "
+    # The pointer and the keyboard hold it separately, so a pointer passing
+    # over a toast the keyboard is in does not set it leaving with focus
+    # still inside. Only a toast that was leaving resumes: without that,
+    # hovering one that was going to stay is what starts it counting down.
+    "release(why) { this[why] = false; "
+    "if (this.ms && !this.hovered && !this.focused) "
+    f"this.start({_RESUME_MS}) }}, "
+    # ms is cleared so the focusout the hand-off causes does not restart it.
+    "dismiss() { this.ms = 0; this.stop(); "
+    "if ($el.contains(document.activeElement)) this.handOff(); "
     "$el.classList.add('animate-toast-out'); "
-    "setTimeout(() => $el.remove(), 180) } }"
+    "setTimeout(() => $el.remove(), 180) }, "
+    # Removing the focused element drops focus to the body, so the keyboard
+    # goes to the next toast, then to where it was before it entered the
+    # region, and only then to the region itself.
+    "handOff() { const region = $el.parentElement; "
+    "const toasts = [...region.children].filter(t => t === $el || "
+    "t.matches('[x-data]:not(.animate-toast-out)')); "
+    "const i = toasts.indexOf($el); "
+    "const next = (toasts[i + 1] ?? toasts[i - 1])?.querySelector('button'); "
+    "if (next) return next.focus(); "
+    "if (region._hueReturn?.isConnected) return region._hueReturn.focus(); "
+    "region.tabIndex = -1; region.focus() }, "
+    "enter(from) { this.hold('focused'); "
+    "if (from && !$el.parentElement.contains(from)) "
+    "$el.parentElement._hueReturn = from } }"
 )
 
 
@@ -183,10 +204,12 @@ class Toast(ChainableComponent):
             **{
                 "x-data": _TIMER,
                 "x-init": _init(self, variant),
-                "x-on:mouseenter": "stop()",
-                "x-on:mouseleave": "resume()",
-                "x-on:focusin": "stop()",
-                "x-on:focusout": ("if (!$el.contains($event.relatedTarget)) resume()"),
+                "x-on:mouseenter": "hold('hovered')",
+                "x-on:mouseleave": "release('hovered')",
+                "x-on:focusin": "enter($event.relatedTarget)",
+                "x-on:focusout": (
+                    "if (!$el.contains($event.relatedTarget)) release('focused')"
+                ),
                 **self._get_base_html_attrs(),
             },
         )
