@@ -3,6 +3,7 @@ from collections.abc import Awaitable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
+from django.core.exceptions import ImproperlyConfigured
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -58,7 +59,17 @@ class _BaseView(View):
 
     @classmethod
     def _dispatcher(cls, routes: list[Route]) -> Any:
-        by_method = {route.method: route for route in routes}
+        by_method: dict[str, Route] = {}
+        for route in routes:
+            # A later route would otherwise replace the earlier one without a
+            # word, and a fragment on the index's path takes the page with it.
+            if earlier := by_method.get(route.method):
+                raise ImproperlyConfigured(
+                    f"{cls.__name__} has two {route.method} routes on "
+                    f"{'/' + route.path!r}: {earlier.name} and {route.name}. "
+                    f"Give one of them its own path or method."
+                )
+            by_method[route.method] = route
         # HEAD falls back to GET; Django strips the body.
         if "GET" in by_method:
             by_method.setdefault("HEAD", by_method["GET"])

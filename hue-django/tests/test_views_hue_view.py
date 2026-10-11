@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from urllib.parse import urlencode
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest, HttpResponseRedirect
 from django.test import Client, override_settings
 from django.urls import URLPattern, include, path
@@ -43,6 +44,25 @@ def test_hue_view_index_must_be_callable():
             index = "not a method"
 
         _ = InvalidView.urls
+
+
+def test_hue_view_refuses_two_routes_on_one_path_and_method():
+    """
+    A second GET on the index's path would silently replace the index.
+    """
+
+    class MyView(HueView):
+        router = Router[HttpRequest]()
+
+        async def index(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return Page(title="", body=html.div("Index"))
+
+        @router.fragment_get("")
+        async def listing(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            return html.div("Listing")
+
+    with pytest.raises(ImproperlyConfigured, match="index and listing"):
+        _ = MyView.urls
 
 
 def test_hue_view_generates_urls_for_index(urlpatterns_: list[URLPattern]):
