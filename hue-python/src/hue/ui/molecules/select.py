@@ -228,6 +228,8 @@ class Select(FieldControl):
             type="hidden",
             name=name,
             value=value or "",
+            # A disabled field is left out of what the form submits.
+            disabled=disabled or None,
             **{
                 "x-ref": "input",
                 ":value": "value",
