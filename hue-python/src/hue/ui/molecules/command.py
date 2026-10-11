@@ -124,6 +124,7 @@ class Command(ChainableComponent):
                 type="text",
                 role="combobox",
                 autocomplete="off",
+                autofocus=True,
                 aria_label=label,
                 aria_autocomplete="list",
                 aria_expanded="true",
