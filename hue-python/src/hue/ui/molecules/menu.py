@@ -266,8 +266,20 @@ class MenuItem(Clickable):
             **self._get_base_html_attrs(),
         }
 
+        if disabled:
+            # pointer-events-none only stops the mouse. Enter on the focused
+            # item is still a click, so a disabled item keeps no click
+            # handler in either Alpine spelling, its own or the caller's.
+            attrs = {
+                key: value
+                for key, value in attrs.items()
+                if key.removeprefix("@").removeprefix("x-on:").split(".")[0] != "click"
+            }
+
         if href is not None:
-            return html.a(*children, href=href, **attrs)
+            # A link with no href goes nowhere, which is what a disabled one
+            # should do. It stays focusable through its tabindex.
+            return html.a(*children, href=None if disabled else href, **attrs)
         return html.button(*children, type="button", **attrs)
 
 

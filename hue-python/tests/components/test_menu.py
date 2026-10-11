@@ -1,9 +1,10 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, DropdownMenu, Kbd, MenuItem, MenuLabel, MenuSeparator
 from hue.ui.atoms.icon import HueIcon
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _menu(*items):
@@ -139,6 +140,27 @@ class TestMenuItem:
             context_args=context_args,
         )
         assert_attr(html, '[role="menuitem"]', "aria-disabled", "true")
+
+    @pytest.mark.asyncio
+    async def test_a_disabled_item_cannot_be_activated(self, context_args):
+        # pointer-events-none stops the mouse but not Enter on the focused
+        # item, so nothing may be listening for the click it becomes.
+        html = await render_tree(
+            _menu(
+                MenuItem()
+                .disabled()
+                .on_click(unsafe("deleteProject()"))
+                .content("Delete project"),
+                MenuItem().disabled().href("/billing").content("Billing"),
+            ),
+            context_args=context_args,
+        )
+        items = select(html, '[role="menuitem"]')
+        assert [item.name for item in items] == ["button", "a"]
+        for item in items:
+            assert not [attr for attr in item.attrs if "click" in attr]
+            assert item.get("href") is None
+            assert item.get("tabindex") == "-1"
 
     @pytest.mark.asyncio
     async def test_an_enabled_item_says_nothing(self, context_args):
