@@ -67,6 +67,16 @@ class TestDialog:
         assert_selector(html, "[x-on\\:click\\.self]")
 
     @pytest.mark.asyncio
+    async def test_only_a_press_that_began_on_the_scrim_closes_it(self, context_args):
+        # A drag that selects text in the panel and lets go over the scrim is
+        # still a click on the scrim, and must not close it.
+        html = await render_tree(_dialog(), context_args=context_args)
+        scrim = "[x-on\\:click\\.self]"
+        pressed = "$el.huePressed = $event.target === $el"
+        assert_attr(html, scrim, "x-on:pointerdown", pressed)
+        assert_attr(html, scrim, "x-on:click.self", "if ($el.huePressed) close()")
+
+    @pytest.mark.asyncio
     async def test_undismissible_keeps_escape(self, context_args):
         # A modal with no way out is a trap, whatever the question was.
         html = await render_tree(
@@ -74,6 +84,7 @@ class TestDialog:
         )
         assert_no_selector(html, 'button[aria-label="Close"]')
         assert_no_selector(html, "[x-on\\:click\\.self]")
+        assert_no_selector(html, "[x-on\\:pointerdown]")
         assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "close()")
 
     # open(): both branches

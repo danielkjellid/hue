@@ -196,7 +196,7 @@ class Command(ChainableComponent):
                     "x-transition:enter-start": "opacity-0",
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
-                    "x-on:click.self": "close()",
+                    **_overlay.DISMISS_ON_SCRIM,
                 },
             ),
             class_=self._get_prop("class_"),
