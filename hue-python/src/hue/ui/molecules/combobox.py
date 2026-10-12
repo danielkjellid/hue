@@ -198,6 +198,8 @@ class Combobox(FieldControl):
                 type="hidden",
                 name=name,
                 form=form,
+                # A disabled field is left out of what the form submits.
+                disabled=disabled or None,
                 **{":value": "item.value"},
             ),
             **{"x-for": "item in selected", ":key": "item.value"},
@@ -263,7 +265,11 @@ class Combobox(FieldControl):
             ),
             toggle,
             class_=classnames(_SHELL, _SIZES[size], self._get_prop("class_")),
-            **{"x-ref": "shell", "x-on:click": "$refs.input.focus(); show()"},
+            **{
+                "x-ref": "shell",
+                # The shell is a div, which a disabled attribute cannot stop.
+                "x-on:click": None if disabled else "$refs.input.focus(); show()",
+            },
         )
         popup = html.div(
             html.div(

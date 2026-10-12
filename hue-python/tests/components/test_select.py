@@ -125,14 +125,17 @@ class TestSelect:
 
     # disabled(): both branches
     @pytest.mark.asyncio
-    async def test_disabled_disables_the_trigger(self, context_args):
+    async def test_disabled_disables_the_trigger_and_what_is_submitted(
+        self, context_args
+    ):
         html = await render_tree(_select().disabled(), context_args=context_args)
         assert_attr(html, "button#plan", "disabled")
+        assert_attr(html, 'input[type="hidden"]', "disabled")
 
     @pytest.mark.asyncio
     async def test_enabled_by_default(self, context_args):
         html = await render_tree(_select(), context_args=context_args)
-        assert_no_selector(html, "button[disabled]")
+        assert_no_selector(html, "[disabled]")
 
     @pytest.mark.asyncio
     async def test_the_trigger_is_as_wide_as_its_longest_option(self, context_args):
