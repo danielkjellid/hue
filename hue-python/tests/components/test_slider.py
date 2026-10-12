@@ -1,8 +1,10 @@
+import json
+
 import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Slider
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, soup
 
 
 def _slider():
@@ -48,8 +50,45 @@ class TestSlider:
         html = await render_tree(
             _slider().prefix("$").suffix("/mo"), context_args=context_args
         )
-        assert ">$12/mo<" in html
-        assert "'$' + value + '/mo'" in html
+        readout = soup(html).select_one("span.tabular-nums")
+        assert readout is not None
+        assert readout.get_text() == "$12/mo"
+
+    @pytest.mark.asyncio
+    async def test_prefix_and_suffix_stay_out_of_the_expressions(self, context_args):
+        # A quote in the unit used to end the string literal in the x-text and
+        # stop the readout updating; the bound text now holds only the value.
+        html = await render_tree(
+            _slider().prefix('"').suffix(" o'clock"), context_args=context_args
+        )
+        tree = soup(html)
+        assert tree.select_one("span[x-text]")["x-text"] == "value"
+        # The spoken value is the one expression that needs the text, so it
+        # carries it as JSON string literals.
+        first, rest = tree.select_one("input")[":aria-valuetext"].split(" + value + ")
+        assert (json.loads(first), json.loads(rest)) == ('"', " o'clock")
+        assert_attr(html, "input", "aria-valuetext", "\"12 o'clock")
+
+    # aria-valuetext: both branches
+    @pytest.mark.asyncio
+    async def test_a_bare_number_needs_no_value_text(self, context_args):
+        html = await render_tree(_slider(), context_args=context_args)
+        track = soup(html).select_one("input")
+        assert not track.has_attr("aria-valuetext")
+        assert not track.has_attr(":aria-valuetext")
+
+    @pytest.mark.asyncio
+    async def test_large_values_render_without_an_exponent(self, context_args):
+        html = await render_tree(
+            Slider().name("budget").max(2_000_000).value(1_000_000).step(0.5),
+            context_args=context_args,
+        )
+        assert ">1000000<" in html
+        html = await render_tree(
+            Slider().name("rate").max(1).value(0.0000125).step(0.0000005),
+            context_args=context_args,
+        )
+        assert ">0.0000125<" in html
 
     # ticks(): both branches
     @pytest.mark.asyncio
