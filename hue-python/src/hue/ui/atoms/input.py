@@ -409,9 +409,18 @@ class NumberInput(_BaseInput):
             "min": self._get_prop("min"),
             "max": self._get_prop("max"),
             "step": self._get_prop("step"),
-            # A phone offers digits rather than a full keyboard.
-            "inputmode": "numeric",
+            "inputmode": self._inputmode(),
         }
+
+    def _inputmode(self) -> str | None:
+        # The numeric and decimal keypads have no minus sign, so they only fit
+        # a field that cannot go negative. Otherwise type=number picks the keyboard.
+        min_value = self._get_prop("min")
+        if min_value is None or min_value < 0:
+            return None
+        step = self._get_prop("step", 1)
+        whole = step != "any" and float(step).is_integer()
+        return "numeric" if whole else "decimal"
 
     def _get_extra_classes(self) -> str:
         # Figures on shared widths, so a column of them lines up.
