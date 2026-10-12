@@ -178,7 +178,7 @@ class Dialog(ChainableComponent):
                     # which is the only thing timing the pair.
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
-                    **({"x-on:click.self": "close()"} if dismissible else {}),
+                    **(_overlay.DISMISS_ON_SCRIM if dismissible else {}),
                 },
             ),
             class_=self._get_prop("class_"),

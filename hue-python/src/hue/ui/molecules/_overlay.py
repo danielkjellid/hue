@@ -36,6 +36,18 @@ SCRIM = "group fixed inset-0 z-80 flex bg-scrim backdrop-blur-[2px]"
 LEAVING = "leaving transition-opacity duration-[180ms]"
 
 
+#: Close on a click on the scrim itself, but only one that also began there.
+#: A click lands on the element that holds both ends of the press, so a drag
+#: that selects text in the panel and lets go over the scrim is a click on
+#: the scrim too, and closing would throw away whatever was being selected.
+#: The press is kept on the element rather than in an x-data of its own,
+#: which would become the scope the panel's x-refs register on.
+DISMISS_ON_SCRIM = {
+    "x-on:pointerdown": "$el.huePressed = $event.target === $el",
+    "x-on:click.self": "if ($el.huePressed) close()",
+}
+
+
 def overlay_state(starts_open: bool) -> str:
     """
     The x-data every overlay carries.
