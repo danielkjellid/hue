@@ -76,6 +76,26 @@ class TestThemeScript:
         assert "prefers-color-scheme" not in catch_body
         assert "setAttribute" not in catch_body
 
+    @pytest.mark.asyncio
+    async def test_only_light_and_dark_are_applied_as_stored(self, context_args):
+        # theme.js drops a stored value it does not know and falls back to
+        # system. Painting "Dark" verbatim would match no theme (so light) and
+        # then flip once Alpine boots: a white flash on every load.
+        script = theme_script(await render_page(context_args))
+        assert "choice === 'light' || choice === 'dark';" in script
+
+    @pytest.mark.asyncio
+    async def test_storage_key_cannot_close_the_script(self, context_args):
+        page_class = create_page_base(
+            css_url="/c.css",
+            js_url="/j.js",
+            html_title_factory=str,
+            theme_storage_key="</script><b>x</b>",
+        )
+        html = await render_page(context_args, page_class)
+        assert_no_selector(html, "b")
+        assert "</script><b>" not in html
+
 
 class TestBootstrap:
     @pytest.mark.asyncio
@@ -87,6 +107,24 @@ class TestBootstrap:
         assert bootstrap, "no Alpine bootstrap script"
         assert '"csrfToken": "tok"' in bootstrap[0]
         assert '"themeStorageKey": "hue-theme"' in bootstrap[0]
+
+    @pytest.mark.asyncio
+    async def test_server_values_cannot_close_the_script(self, context_args):
+        # JSON leaves "<" and "/" alone, so a "</script>" in any value would end
+        # the inline script and inject what follows as markup.
+        context_args["csrf_token"] = "</script><b>x</b>"
+        page_class = create_page_base(
+            css_url="/c.css",
+            js_url="/j.js'</script><i>y</i>",
+            html_title_factory=str,
+        )
+        html = await render_page(context_args, page_class)
+        assert_no_selector(html, "b")
+        assert_no_selector(html, "i")
+        bootstrap = [
+            s.text for s in select(html, "script") if "configureAlpine" in s.text
+        ]
+        assert '"csrfToken": "\\u003c/script\\u003e' in bootstrap[0]
 
     @pytest.mark.asyncio
     async def test_body_does_not_carry_the_theme(self, context_args):
