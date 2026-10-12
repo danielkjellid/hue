@@ -144,8 +144,9 @@ class HueToastMiddleware:
     Carry toasts across a redirect.
 
     Without it, toast.success() works for anything that renders - a page or a
-    fragment carries its own. With it, one raised by a view that redirects
-    waits in the session and arrives with the page after it.
+    fragment carries its own - and a hue route that redirects after raising
+    one is an error. With it, that toast waits in the session and arrives
+    with the page after it.
 
     It also opens the queue for the whole request, so toast.success() works in
     a plain Django view, not only inside a hue router.

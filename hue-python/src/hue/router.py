@@ -360,7 +360,19 @@ class Router[T_Request]:
                 if isinstance(result, HueResponse):
                     status_code = result.status_code
                 elif hasattr(result, "status_code"):
-                    # Anything else with a status code is a framework response.
+                    # Anything else with a status code is a framework response,
+                    # which renders nothing for a toast to ride along with. When
+                    # this router opened the queue, nothing outside will carry
+                    # them on either, and dropping one quietly is worse than
+                    # saying so.
+                    if token is not None and toast.drain():
+                        raise RuntimeError(
+                            "A toast was raised by a handler that returned a "
+                            "response with no markup to carry it, such as a "
+                            "redirect. Add a middleware that carries toasts "
+                            "across a response like that (HueToastMiddleware "
+                            "in hue_django), or return a fragment instead."
+                        )
                     return RawResponse(response=result)
                 else:
                     status_code = DEFAULT_STATUS_CODE
