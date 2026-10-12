@@ -91,6 +91,10 @@ class NativeSelect(FieldControl):
         placeholder: str | None = self._get_prop("placeholder")
         error: str | None = self._error(context)
         control_id = self._input_id()
+        # A value that names no option, "" or a stale one, would leave nothing
+        # selected, and the browser would then show and submit the first real
+        # option without anyone choosing it.
+        matched = any(value == selected for value, _ in options)
 
         children: list[ComponentType] = [
             # A placeholder is one more option, first and disabled, so it is
@@ -101,7 +105,7 @@ class NativeSelect(FieldControl):
                     text,
                     value="",
                     disabled=True,
-                    selected=True if selected is None else None,
+                    selected=None if matched else True,
                 ),
             ),
             *(

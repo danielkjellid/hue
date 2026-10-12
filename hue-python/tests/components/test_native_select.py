@@ -58,6 +58,17 @@ class TestNativeSelect:
         assert_attr(html, 'option[value="utc"]', "selected")
 
     @pytest.mark.asyncio
+    async def test_an_unmatched_value_falls_back_to_the_placeholder(self, context_args):
+        # Otherwise nothing is selected and the browser submits the first real
+        # option on the user's behalf.
+        html = await render_tree(
+            _select().placeholder("Pick a time zone").value("stale"),
+            context_args=context_args,
+        )
+        assert_attr(html, "option:first-of-type", "selected")
+        assert_no_selector(html, 'option[value="utc"][selected]')
+
+    @pytest.mark.asyncio
     async def test_no_placeholder_by_default(self, context_args):
         html = await render_tree(_select(), context_args=context_args)
         assert_no_selector(html, "option[disabled]")
