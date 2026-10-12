@@ -65,8 +65,11 @@ def _expression(
         label, expression = action
         expect(expression, modifier="A toast's action")
         # The label is text and is quoted; the expression is code and is not.
+        # A block body rather than a bare one, because what on_click takes may
+        # hold statements, and those are no arrow function's value.
         options.append(
-            f"action: {{ label: {json.dumps(label)}, onClick: () => {expression} }}"
+            f"action: {{ label: {json.dumps(label)}, "
+            f"onClick: () => {{ {expression} }} }}"
         )
     arguments = json.dumps(title)
     if options:
