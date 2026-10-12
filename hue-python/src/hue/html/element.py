@@ -67,7 +67,8 @@ class _AlpineAjaxRequestMixin:
 
     def x_target(self, value: str) -> Self:
         """
-        Target element(s) to update with the AJAX response.
+        Target element(s) to update with the AJAX response. The reserved ids
+        _top (the whole page) and _none (nothing) go here as the value too.
         """
         self._attrs["x-target"] = value
         return self
@@ -90,14 +91,6 @@ class _AlpineAjaxRequestMixin:
 
     def x_target_error(self, value: str) -> Self:
         self._attrs["x-target.error"] = value
-        return self
-
-    def x_target_top(self, value: str) -> Self:
-        self._attrs["x-target.top"] = value
-        return self
-
-    def x_target_none(self) -> Self:
-        self._attrs["x-target.none"] = True
         return self
 
     def x_target_dynamic(self, value: str) -> Self:
