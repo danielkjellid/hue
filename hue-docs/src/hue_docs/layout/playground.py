@@ -129,13 +129,13 @@ def _control_widget(axis: Axis) -> ComponentType:
             html.input_()
             .id(_control_id(axis))
             .input_type("checkbox")
-            .x_model(model)
+            .x_model(unsafe(model))
             .class_("h-4 w-4 rounded border-surface-300 accent-primary")
         )
     return (
         html.select(*[html.option(value).value(value) for value in axis.values])
         .id(_control_id(axis))
-        .x_model(model)
+        .x_model(unsafe(model))
         .class_(
             "rounded-md border border-surface-200 bg-background px-2 py-1 "
             "text-sm text-surface-900"

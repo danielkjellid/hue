@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import EmailInput, NumberInput, PasswordInput, TextInput
 from tests._a11y import (
@@ -67,7 +68,7 @@ class TestTextInput:
             .label("Email")
             .role("searchbox")
             .aria_describedby("hint")
-            .x_model("form.email"),
+            .x_model(unsafe("form.email")),
             context_args=context_args,
         )
         assert_attr(html, "input", "role", "searchbox")

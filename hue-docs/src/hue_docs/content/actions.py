@@ -22,10 +22,11 @@ def _build() -> ComponentType:
             "string. They take an Expression, a str "
             "subclass whose type says that somebody built it on purpose. "
             "Passing a plain string raises a TypeError that points at the "
-            "helpers below. Two exceptions remain for now: x_data() takes a "
-            "dict, which is quoted, or a string, which is written as it is, "
-            "and the ajax_ event handlers, such as ajax_success(), take a "
-            "string as written. Treat a string given to either as unsafe()."
+            "helpers below. One exception remains for now: x_data() takes a "
+            "dict, which is quoted, or a string, which is written as it is. "
+            "Treat a string given to it as unsafe(). Alpine AJAX's events "
+            "have modifiers of their own, such as ajax_success(), and take "
+            "an expression the same way."
         ),
         pr.bullets(
             [

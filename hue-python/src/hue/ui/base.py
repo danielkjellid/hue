@@ -350,47 +350,47 @@ class ChainableComponent(ABC):
 
     # ------------------------------------------------------------------
     # Alpine AJAX event handlers (events bubble, so these can sit on any
-    # ancestor element)
+    # ancestor element). Alpine evaluates each, so each takes an expression.
     # ------------------------------------------------------------------
 
-    def ajax_before(self, value: str) -> Self:
-        self._attrs["@ajax:before"] = value
+    def ajax_before(self, value: Expression) -> Self:
+        self._attrs["@ajax:before"] = expect(value, modifier="ajax_before()")
         return self
 
-    def ajax_send(self, value: str) -> Self:
-        self._attrs["@ajax:send"] = value
+    def ajax_send(self, value: Expression) -> Self:
+        self._attrs["@ajax:send"] = expect(value, modifier="ajax_send()")
         return self
 
-    def ajax_redirect(self, value: str) -> Self:
-        self._attrs["@ajax:redirect"] = value
+    def ajax_redirect(self, value: Expression) -> Self:
+        self._attrs["@ajax:redirect"] = expect(value, modifier="ajax_redirect()")
         return self
 
-    def ajax_success(self, value: str) -> Self:
-        self._attrs["@ajax:success"] = value
+    def ajax_success(self, value: Expression) -> Self:
+        self._attrs["@ajax:success"] = expect(value, modifier="ajax_success()")
         return self
 
-    def ajax_error(self, value: str) -> Self:
-        self._attrs["@ajax:error"] = value
+    def ajax_error(self, value: Expression) -> Self:
+        self._attrs["@ajax:error"] = expect(value, modifier="ajax_error()")
         return self
 
-    def ajax_sent(self, value: str) -> Self:
-        self._attrs["@ajax:sent"] = value
+    def ajax_sent(self, value: Expression) -> Self:
+        self._attrs["@ajax:sent"] = expect(value, modifier="ajax_sent()")
         return self
 
-    def ajax_missing(self, value: str) -> Self:
-        self._attrs["@ajax:missing"] = value
+    def ajax_missing(self, value: Expression) -> Self:
+        self._attrs["@ajax:missing"] = expect(value, modifier="ajax_missing()")
         return self
 
-    def ajax_merge(self, value: str) -> Self:
-        self._attrs["@ajax:merge"] = value
+    def ajax_merge(self, value: Expression) -> Self:
+        self._attrs["@ajax:merge"] = expect(value, modifier="ajax_merge()")
         return self
 
-    def ajax_merged(self, value: str) -> Self:
-        self._attrs["@ajax:merged"] = value
+    def ajax_merged(self, value: Expression) -> Self:
+        self._attrs["@ajax:merged"] = expect(value, modifier="ajax_merged()")
         return self
 
-    def ajax_after(self, value: str) -> Self:
-        self._attrs["@ajax:after"] = value
+    def ajax_after(self, value: Expression) -> Self:
+        self._attrs["@ajax:after"] = expect(value, modifier="ajax_after()")
         return self
 
     # ------------------------------------------------------------------
@@ -463,11 +463,11 @@ class AlpineModelMixin:
 
     _attrs: dict[str, Any]  # provided by ChainableComponent
 
-    def x_model(self, value: str) -> Self:
+    def x_model(self, value: Expression) -> Self:
         """
         Two-way bind this control to Alpine data.
         """
-        self._attrs["x-model"] = value
+        self._attrs["x-model"] = expect(value, modifier="x_model()")
         return self
 
 

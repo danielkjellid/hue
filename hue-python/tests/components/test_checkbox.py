@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Checkbox
 from tests._a11y import (
@@ -135,7 +136,7 @@ class TestCheckbox:
     @pytest.mark.asyncio
     async def test_forwards_x_model_to_input(self, context_args):
         html = await render_tree(
-            Checkbox().name("v").label("V").x_model("form.v"),
+            Checkbox().name("v").label("V").x_model(unsafe("form.v")),
             context_args=context_args,
         )
         assert_attr(html, "input", "x-model", "form.v")
