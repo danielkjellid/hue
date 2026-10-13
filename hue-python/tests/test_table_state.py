@@ -4,6 +4,8 @@ URL it builds. The routes and the drawing are tested against a real Django
 view in hue-django; this is the value on its own.
 """
 
+import pytest
+
 from hue.datatable import Filter, TableState
 
 
@@ -60,3 +62,18 @@ def test_a_chip_says_the_option_it_came_from():
 
 def test_a_typed_answer_is_its_own_label():
     assert Filter("min", "Minimum amount", numeric=True).labelled("500") == "500"
+
+
+@pytest.mark.parametrize(
+    ("declared", "value", "accepted"),
+    [
+        (Filter("status", "Status", options=[("paid", "Paid")]), "paid", True),
+        (Filter("status", "Status", options=[("paid", "Paid")]), "void", False),
+        (Filter("min", "Minimum", numeric=True), "1000.50", True),
+        (Filter("min", "Minimum", numeric=True), "abc", False),
+        (Filter("min", "Minimum", numeric=True), "NaN", False),
+        (Filter("q", "Customer"), "Contoso, Ltd", True),
+    ],
+)
+def test_a_filter_says_which_answers_it_accepts(declared, value, accepted):
+    assert declared.accepts(value) is accepted
