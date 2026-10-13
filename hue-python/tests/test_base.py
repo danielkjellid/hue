@@ -44,6 +44,7 @@ class TestChainableComponent:
             .aria_hidden("true")
             .aria_expanded("false")
             .aria_controls("panel-1")
+            .aria_labelledby("title-1")
             .aria_busy("true")
             .aria_keyshortcuts("Escape")
             .role("dialog")
@@ -53,6 +54,7 @@ class TestChainableComponent:
         assert attrs["aria_hidden"] == "true"
         assert attrs["aria_expanded"] == "false"
         assert attrs["aria_controls"] == "panel-1"
+        assert attrs["aria_labelledby"] == "title-1"
         assert attrs["aria_busy"] == "true"
         assert attrs["aria_keyshortcuts"] == "Escape"
         assert attrs["role"] == "dialog"

@@ -126,9 +126,13 @@ class Checkbox(FormControl):
             # An explicit name, so the description inside the label does not
             # become part of it.
             aria_label=label if hidden_label else None,
-            aria_labelledby=(
-                label_id(input_id) if label is not None and not hidden_label else None
-            ),
+            # Merged rather than replaced, the way aria-describedby is: a box
+            # in a row of a table takes the rest of its name from the row.
+            aria_labelledby=classnames(
+                label_id(input_id) if label is not None and not hidden_label else None,
+                self._attrs.get("aria_labelledby"),
+            )
+            or None,
             aria_describedby=self._describedby(
                 context, description_id(input_id) if description is not None else None
             ),

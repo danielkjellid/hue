@@ -3,10 +3,17 @@ from decimal import Decimal
 
 import pytest
 
+from hue import html as hue_html
 from hue.formats import Formats
 from hue.renderer import render_tree
 from hue.ui import Badge, Button, Column, DataTable, Empty
-from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
+from tests._a11y import (
+    assert_attr,
+    assert_no_selector,
+    assert_selector,
+    select,
+    soup,
+)
 
 _COLUMNS = [
     Column("invoice", "Invoice"),
@@ -16,6 +23,17 @@ _ROWS = [
     {"invoice": "INV-2050", "amount": "2190"},
     {"invoice": "INV-2048", "amount": "1200"},
 ]
+
+
+def _selectable() -> DataTable:
+    # Under an id, which from_state always sets and a row's ids are built from.
+    return (
+        DataTable()
+        .id("invoices")
+        .columns(_COLUMNS)
+        .rows(_ROWS)
+        ._bulk_actions("invoice", Button().content("Delete"))
+    )
 
 
 class TestDataTable:
@@ -284,28 +302,54 @@ class TestDataTable:
 
     # _bulk_actions(): both branches
     @pytest.mark.asyncio
-    async def test_every_row_checkbox_names_its_own_row(self, context_args):
-        # Three checkboxes all announcing "Select" gives a screen reader
-        # nothing to select by.
+    async def test_every_row_checkbox_is_named_by_what_its_row_shows(
+        self, context_args
+    ):
+        # The identifier is usually a pk nobody sees, so the name comes from
+        # the row's first cell: "Select INV-2050", not "Select 41".
         html = await render_tree(
             DataTable()
+            .id("invoices")
             .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            .rows([{**row, "pk": str(index)} for index, row in enumerate(_ROWS)])
+            ._bulk_actions("pk", Button().content("Delete")),
             context_args=context_args,
         )
-        boxes = select(html, "tbody input[type=checkbox]")
-        labels = [box["aria-label"] for box in boxes]
-        assert labels == ["Select INV-2050", "Select INV-2048"]
+        page = soup(html)
+
+        def name(box):
+            refs = box["aria-labelledby"].split()
+            parts = [page.find(id=ref) for ref in refs]
+            return " ".join(
+                part["aria-label"] if part is box else part.get_text(strip=True)
+                for part in parts
+            )
+
+        names = [name(box) for box in page.select("tbody input[type=checkbox]")]
+        assert names == ["Select INV-2050", "Select INV-2048"]
+
+    @pytest.mark.asyncio
+    async def test_two_tables_on_a_page_name_their_rows_apart(self, context_args):
+        def table(key):
+            return (
+                DataTable()
+                .id(key)
+                .columns(_COLUMNS)
+                .rows(_ROWS)
+                ._bulk_actions("invoice", Button().content("Delete"))
+            )
+
+        html = await render_tree(
+            hue_html.div(table("a"), table("b")), context_args=context_args
+        )
+        ids = [tag["id"] for tag in soup(html).select("[id]")]
+        assert len(ids) == len(set(ids))
 
     @pytest.mark.asyncio
     async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):
         # A form around the table posts them without any JavaScript at all.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
@@ -315,10 +359,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         # On the frame, so a band above the rows is inside the scope too.
@@ -332,6 +373,18 @@ class TestDataTable:
             "x-effect",
             "$el.checked = all; $el.indeterminate = some",
         )
+
+    @pytest.mark.asyncio
+    async def test_selectable_rows_need_the_table_to_have_an_id(self, context_args):
+        # A shared fallback would give two tables on a page the same row ids.
+        with pytest.raises(ValueError, match="from_state"):
+            await render_tree(
+                DataTable()
+                .columns(_COLUMNS)
+                .rows(_ROWS)
+                ._bulk_actions("invoice", Button().content("Delete")),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
@@ -348,10 +401,7 @@ class TestDataTable:
         # Moved to the end of the body so it is in reach wherever the page
         # is scrolled, and declared inside the frame so it keeps the scope.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         bar = "div[x-data] template[x-teleport=body] > div[role=group]"
@@ -364,10 +414,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_the_bar_can_be_cleared_by_hand_or_by_escape(self, context_args):
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         bar = "template[x-teleport=body] > div[role=group]"
@@ -386,10 +433,7 @@ class TestDataTable:
         # A sort or a page replaces the rows without replacing the scope, so
         # the selection is pruned to what is still on screen.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         assert_attr(
@@ -404,10 +448,7 @@ class TestDataTable:
         # Controls appearing after a checkbox is ticked are a change a
         # screen reader has no other way of hearing about.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         # Outside the bar, which is hidden until a row is picked: a region
