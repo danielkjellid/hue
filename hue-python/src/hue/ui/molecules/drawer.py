@@ -188,11 +188,10 @@ class Drawer(ChainableComponent):
             ),
             class_=self._get_prop("class_"),
             **{
-                "x-data": _overlay.overlay_state(starts_open),
-                "x-id": _overlay.OVERLAY_IDS,
                 # Escape always closes, dismissible or not: a modal with no
                 # way out is a trap, whatever the question was.
-                **_overlay.CLOSE_ON_ESCAPE,
+                **_overlay.overlay_root(_overlay.overlay_state(starts_open)),
+                "x-id": _overlay.OVERLAY_IDS,
                 **self._get_base_html_attrs(),
             },
         )

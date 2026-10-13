@@ -138,9 +138,7 @@ class DropdownMenu(ChainableComponent):
             menu,
             class_=classnames("inline-flex", self._get_prop("class_")),
             **{
-                "x-data": "{ open: false, "
-                f"close() {{ this.open = false; {find_trigger}?.focus() }} }}",
-                **_overlay.CLOSE_ON_ESCAPE,
+                **_overlay.overlay_root(_overlay.overlay_state(return_to=find_trigger)),
                 # Tab leaves the menu rather than walking it. The items are
                 # out of the tab order, so the browser's own Tab already goes
                 # to whatever follows the trigger - but only if the panel is

@@ -152,10 +152,8 @@ class Popover(ChainableComponent):
             **{
                 # close() puts focus back where it came from, which a click
                 # outside must not do - focus is wherever that click landed.
-                "x-data": "{ open: false, "
-                f"close() {{ this.open = false; {find_trigger}?.focus() }} }}",
+                **_overlay.overlay_root(_overlay.overlay_state(return_to=find_trigger)),
                 "x-id": "['hue-popover', 'hue-popover-title']",
-                **_overlay.CLOSE_ON_ESCAPE,
                 "x-on:click.outside": "open = false",
                 **self._get_base_html_attrs(),
             },

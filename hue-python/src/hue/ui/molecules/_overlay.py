@@ -66,14 +66,29 @@ DISMISS_ON_SCRIM = {
 }
 
 
-def overlay_state(starts_open: bool) -> str:
+def overlay_state(starts_open: bool = False, *, return_to: str | None = None) -> str:
     """
-    The x-data every overlay carries.
+    The x-data an overlay carries.
 
     close() rather than a bare assignment, so the actions inside have a way
-    out to call that is not the state's shape.
+    out to call that is not the state's shape. return_to is the expression
+    wire_trigger returned, for an overlay whose focus close() has to put back
+    by hand: a modal's focus trap does that on its own.
     """
-    return f"{{ open: {str(starts_open).lower()}, close() {{ this.open = false }} }}"
+    refocus = f"; {return_to}?.focus()" if return_to else ""
+    return (
+        f"{{ open: {str(starts_open).lower()}, "
+        f"close() {{ this.open = false{refocus} }} }}"
+    )
+
+
+def overlay_root(state: str) -> dict[str, str]:
+    """
+    The attributes every overlay's root carries: its state, and Escape
+    closing it. state is overlay_state(), or a bundled component's own for
+    an overlay with more to it.
+    """
+    return {"x-data": state, **CLOSE_ON_ESCAPE}
 
 
 #: What wire_trigger hands back for a control it has marked.

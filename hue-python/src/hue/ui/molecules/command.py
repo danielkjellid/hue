@@ -203,14 +203,15 @@ class Command(ChainableComponent):
             ),
             class_=self._get_prop("class_"),
             **{
-                "x-data": call(
-                    "hueCommand",
-                    self._get_prop("open", False),
-                    [key.lower() for key in hotkey],
-                    self._get_prop("empty_message", "No matching commands."),
+                **_overlay.overlay_root(
+                    call(
+                        "hueCommand",
+                        self._get_prop("open", False),
+                        [key.lower() for key in hotkey],
+                        self._get_prop("empty_message", "No matching commands."),
+                    )
                 ),
                 "x-on:keydown.window": "hotkey($event)",
-                **_overlay.CLOSE_ON_ESCAPE,
                 **self._get_base_html_attrs(),
             },
         )
