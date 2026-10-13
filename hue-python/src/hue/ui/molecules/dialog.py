@@ -131,8 +131,9 @@ class Dialog(ChainableComponent):
         destructive: bool = self._get_prop("destructive", False)
         starts_open: bool = self._get_prop("open", False)
 
-        if trigger is not None:
-            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
+        find_trigger = _overlay.wire_trigger(
+            trigger, popup="dialog", on={"click": "open = true"}
+        )
 
         panel = html.div(
             _overlay.grabber("sm:hidden"),
@@ -186,7 +187,14 @@ class Dialog(ChainableComponent):
             **{
                 # Escape always closes, dismissible or not: a modal with no
                 # way out is a trap, whatever the question was.
-                **_overlay.overlay_root(_overlay.overlay_state(starts_open)),
+                # Opened by its trigger, the focus trap hands focus back on
+                # close. Started open by the server, there was nothing to hand
+                # back, so close() sends it to the trigger instead.
+                **_overlay.overlay_root(
+                    _overlay.overlay_state(
+                        starts_open, return_to=find_trigger if starts_open else None
+                    )
+                ),
                 "x-id": _overlay.OVERLAY_IDS,
                 **self._get_base_html_attrs(),
             },

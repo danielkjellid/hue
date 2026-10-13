@@ -71,9 +71,12 @@ def overlay_state(starts_open: bool = False, *, return_to: str | None = None) ->
     close() rather than a bare assignment, so the actions inside have a way
     out to call that is not the state's shape. return_to is the expression
     wire_trigger returned, for an overlay whose focus close() has to put back
-    by hand: a modal's focus trap does that on its own.
+    by hand. A modal's focus trap does that on its own, except for one the
+    server started open, which had nothing to return to. The focus waits a
+    tick, so a trap still holding the page has let go and the trigger is no
+    longer inert.
     """
-    refocus = f"; {return_to}?.focus()" if return_to else ""
+    refocus = f"; setTimeout(() => {return_to}?.focus())" if return_to else ""
     return (
         f"{{ open: {str(starts_open).lower()}, "
         f"close() {{ this.open = false{refocus} }} }}"
