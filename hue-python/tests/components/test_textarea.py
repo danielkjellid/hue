@@ -33,8 +33,28 @@ class TestTextarea:
             context_args=context_args,
         )
         assert_no_selector(html, "textarea[maxlength]")
-        assert "count + ' / 280'" in html
         assert_attr(html, "textarea", ":aria-invalid")
+
+    @pytest.mark.asyncio
+    async def test_the_count_describes_the_control_under_the_limit(self, context_args):
+        # "12 / 10" read aloud does not say which number is the limit, so the
+        # visible count is hidden and a sentence describes the control.
+        html = await render_tree(
+            Textarea().name("bio").label("About you").max_length(10).value("Hi"),
+            context_args=context_args,
+        )
+        assert_attr(html, "span.tabular-nums", "aria-hidden", "true")
+        assert_attr(html, "textarea", "aria-describedby", "bio-count")
+        assert_attr(html, "#bio-count", "aria-live", "polite")
+        assert "You have 8 characters remaining" in html
+
+    @pytest.mark.asyncio
+    async def test_the_count_says_how_far_over_the_limit(self, context_args):
+        html = await render_tree(
+            Textarea().name("bio").label("About you").max_length(10).value("a" * 11),
+            context_args=context_args,
+        )
+        assert "You have 1 character too many" in html
 
     @pytest.mark.asyncio
     async def test_no_counter_without_a_limit(self, context_args):
@@ -43,6 +63,7 @@ class TestTextarea:
         )
         assert_no_selector(html, "span.tabular-nums")
         assert_no_selector(html, "[x-data]")
+        assert_no_selector(html, "textarea[aria-describedby]")
 
     # autosize(): both branches
     @pytest.mark.asyncio
