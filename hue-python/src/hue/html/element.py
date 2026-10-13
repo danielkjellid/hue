@@ -37,6 +37,11 @@ class Element(ChainableComponent):
         key = self._check_attribute_name(key, "attr()")
         if key == "class":
             return self.class_(value)
+        if key.startswith("aria-"):
+            # The aria setters and the components store these under the
+            # underscore spelling htmy expects, so one attribute keeps one key
+            # and a later call replaces an earlier one.
+            key = key.replace("-", "_")
         self._attrs[key] = value
         return self
 

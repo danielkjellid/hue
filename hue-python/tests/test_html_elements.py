@@ -161,6 +161,24 @@ class TestElementRendering:
         assert 'class="a b"' in result
 
     @pytest.mark.asyncio
+    async def test_attr_and_aria_setter_share_one_attribute(self):
+        result = await render_tree(
+            html.div().aria_label("a").attr("aria-label", "b"),
+            context_args=_context_args(),
+        )
+        assert result.count("aria-label=") == 1
+        assert 'aria-label="b"' in result
+
+    @pytest.mark.asyncio
+    async def test_aria_setter_after_attr_wins(self):
+        result = await render_tree(
+            html.div().attr("aria-label", "a").aria_label("b"),
+            context_args=_context_args(),
+        )
+        assert result.count("aria-label=") == 1
+        assert 'aria-label="b"' in result
+
+    @pytest.mark.asyncio
     async def test_render_with_aria(self):
         result = await render_tree(
             html.div().aria_label("Navigation").role("navigation"),
