@@ -129,6 +129,12 @@ class TestOnClick:
         with pytest.raises(TypeError, match="takes an expression"):
             Button().on_click("send(1)")
 
+    def test_a_disabled_control_drops_its_handler(self):
+        # Enter on a focused, aria-disabled control is still a click.
+        button = Button().on_click(call("send", 1))
+        assert "@click" not in button._get_clickable_attrs(disabled=True)
+        assert button._get_clickable_attrs(disabled=False)["@click"] == "send(1)"
+
 
 def test_an_expression_argument_goes_in_as_written():
     # Quoting it back into a string would make the one way of passing a

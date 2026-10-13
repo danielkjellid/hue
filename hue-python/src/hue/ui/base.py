@@ -475,3 +475,16 @@ class Clickable(ChainableComponent):
             expect(expression, modifier="on_click()") for expression in expressions
         )
         return self.x_on("click", Expression(joined))
+
+    def _get_clickable_attrs(self, disabled: bool) -> dict[str, Any]:
+        """
+        The base attributes, less the on_click handler while disabled.
+
+        aria-disabled only describes the state, and pressing Enter on a
+        focused control is still a click, so a control that stays focusable
+        when disabled has to drop the handler itself.
+        """
+        attrs = self._get_base_html_attrs()
+        if disabled:
+            attrs.pop("@click", None)
+        return attrs
