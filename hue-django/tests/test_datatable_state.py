@@ -24,6 +24,7 @@ from hue.context import HueContextArgs
 from hue.datatable import (
     BulkAction,
     Filter,
+    _filter_options,
     build_datatable_state,
 )
 from hue.renderer import render_tree
@@ -537,9 +538,23 @@ def test_the_panel_says_what_is_on_and_the_chips_undo_it(mounted):
     assert 'x-for="chip in applied"' in html
     assert 'data-filter="status"' in html
     assert 'data-option="Paid"' in html
-    assert re.search(
-        r'id="invoices-filter-status-paid"[^>]*checked', html
-    ) or re.search(r'checked[^>]*id="invoices-filter-status-paid"', html)
+    assert re.search(r'id="invoices-filter-status-0"[^>]*checked', html) or re.search(
+        r'checked[^>]*id="invoices-filter-status-0"', html
+    )
+
+
+def test_each_box_has_an_id_of_its_own_whatever_its_value(mounted):
+    # Built from the value, "net 30" gave an id with a space in it, which
+    # the box's aria-labelledby then read as two ids that do not exist.
+    bound = _bind(mounted().invoices, _request())
+    options = [("net 30", "Net 30"), ("net-30", "Net-30")]
+    terms = Filter("terms", "Terms", options=options)
+    html = "".join(_render(box) for box in _filter_options(bound, terms, ()))
+    ids = re.findall(r'<input[^>]* id="([^"]+)"', html)
+    assert len(ids) == len(set(ids)) == 2
+    assert not any(" " in each for each in ids)
+    for named in re.findall(r'aria-labelledby="([^"]+)"', html):
+        assert all(f'id="{each}"' in html for each in named.split())
 
 
 def test_a_filter_cannot_be_called_what_the_table_already_calls_something():

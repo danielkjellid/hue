@@ -617,10 +617,9 @@ def _build() -> ComponentType:
                         "keeps it, because each of those loads the page again."
                     ),
                     pr.p(
-                        "A hyphen in a filter's name or an option's value can give "
-                        "two controls the same id: a filter a with an option b-c and "
-                        "a filter a-b with an option c both get "
-                        "invoices-filter-a-b-c."
+                        "A hyphen in a filter's name can give two controls the same "
+                        "id: the second option of a filter a and a filter named a-1 "
+                        "both get invoices-filter-a-1."
                     ),
                     pr.p(
                         "The filter panel does not show how many rows each answer "
