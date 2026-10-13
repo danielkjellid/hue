@@ -135,13 +135,20 @@ class Textarea(FieldControl):
         error: str | None = self._error(context)
         value: str = self._get_prop("value", "")
         control_id = self._input_id()
-        count_id = f"{control_id}-count" if limit is not None else None
 
         # Counting here rather than in a bundled component: it is one number
         # read two ways, and the expressions stay next to the markup they drive.
         steps: list[str] = []
+        count_id: str | None = None
+        counter: dict[str, str] = {}
         if limit is not None:
+            count_id = f"{control_id}-count"
             steps.append("count = $el.value.length")
+            # The spoken count waits for a pause in typing, so a screen reader
+            # is not talked over on every keystroke.
+            counter["x-on:input.debounce.1000ms"] = "said = count"
+            if error is None:
+                counter[":aria-invalid"] = "count > limit ? 'true' : null"
         if autosize:
             steps.append(_AUTOSIZE)
         on_input = "; ".join(steps)
@@ -158,19 +165,8 @@ class Textarea(FieldControl):
             readonly=self._get_prop("readonly", False) or None,
             aria_invalid="true" if error is not None else None,
             aria_describedby=self._describedby(context, count_id),
-            **(
-                {":aria-invalid": "count > limit ? 'true' : null"}
-                if limit is not None and error is None
-                else {}
-            ),
+            **counter,
             **({"x-on:input": on_input} if on_input else {}),
-            # The spoken count waits for a pause in typing, so a screen reader
-            # is not talked over on every keystroke.
-            **(
-                {"x-on:input.debounce.1000ms": "said = count"}
-                if limit is not None
-                else {}
-            ),
             **({"x-init": _AUTOSIZE} if autosize else {}),
         )
 
