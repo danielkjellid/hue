@@ -25,6 +25,9 @@ _DOT = (
     "checked:before:rounded-full checked:before:bg-accent-fg"
 )
 
+# Set on the group, but meaningful only on the inputs inside it.
+_INPUT_ATTRS = ("form", "x-model")
+
 
 class Radio(ChainableComponent):
     """
@@ -38,6 +41,10 @@ class Radio(ChainableComponent):
     """
 
     category: ClassVar[str | None] = None
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._group_attrs: dict[str, object] = {}
 
     @classmethod
     def example(cls) -> Self:
@@ -68,8 +75,7 @@ class Radio(ChainableComponent):
         card: bool,
         disabled: bool,
         required: bool,
-        form: str | None,
-        model: str | None,
+        input_attrs: dict[str, object],
     ) -> None:
         """
         Called by the group, which owns everything a radio shares with its
@@ -82,11 +88,8 @@ class Radio(ChainableComponent):
         # Required goes on the options rather than the fieldset, which has no
         # such attribute - one marked radio makes the whole name required.
         self._props["required"] = required
-        # The inputs are what a form submits, and a form attribute on the
-        # fieldset around them ties only the fieldset to it.
-        self._props["form"] = form
-        # x-model binds a value, which the inputs hold and a fieldset does not.
-        self._props["model"] = model
+        # Attributes set on the group that only mean something on an input.
+        self._group_attrs = input_attrs
         if disabled:
             self._props["disabled"] = True
 
@@ -113,8 +116,6 @@ class Radio(ChainableComponent):
             "checked": self._get_prop("checked", False) or None,
             "disabled": disabled or None,
             "required": self._get_prop("required", False) or None,
-            "form": self._get_prop("form"),
-            "x-model": self._get_prop("model"),
             # An explicit name, so the description inside the label does not
             # become part of it.
             "aria_labelledby": label_id(input_id) if label is not None else None,
@@ -128,6 +129,7 @@ class Radio(ChainableComponent):
         # whatever the caller set in place.
         attrs = {
             **self._get_base_html_attrs(),
+            **self._group_attrs,
             **{k: v for k, v in own.items() if v is not None},
         }
 
@@ -199,6 +201,23 @@ class RadioGroup(FieldControl):
         hint: str | None = self._get_prop("hint")
         control_id = self._input_id()
 
+        fieldset_attrs = self._control_attrs(
+            context,
+            class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
+            # The legend names the group, so no aria-label as well.
+            aria_describedby=self._describedby(context),
+            aria_invalid="true" if error is not None else None,
+            disabled=disabled or None,
+        )
+        # The inputs are what a form submits and what holds a value, so form
+        # and x-model go to them. On the fieldset, form ties only the fieldset
+        # to the form, and Alpine ignores x-model.
+        input_attrs = {
+            key: fieldset_attrs.pop(key)
+            for key in _INPUT_ATTRS
+            if key in fieldset_attrs
+        }
+
         options: list[ComponentType] = []
         for child in self._children:
             if isinstance(child, Radio):
@@ -209,8 +228,7 @@ class RadioGroup(FieldControl):
                     card=card,
                     disabled=disabled,
                     required=required,
-                    form=self._attrs.get("form"),
-                    model=self._attrs.get("x-model"),
+                    input_attrs=input_attrs,
                 )
             options.append(child)
 
@@ -241,13 +259,5 @@ class RadioGroup(FieldControl):
             ),
             render_if(hint, lambda text: hint_component(text, control_id)),
             render_if(error, lambda text: error_component(text, control_id)),
-            **self._control_attrs(
-                context,
-                class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
-                # The legend names the group, so no aria-label as well.
-                aria_describedby=self._describedby(context),
-                aria_invalid="true" if error is not None else None,
-                disabled=disabled or None,
-                **{"x-model": None},
-            ),
+            **fieldset_attrs,
         )

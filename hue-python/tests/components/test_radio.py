@@ -39,6 +39,7 @@ class TestRadioGroup:
         # fieldset alone would tie only the fieldset to it.
         html = await render_tree(_group().form("settings"), context_args=context_args)
         assert_selector(html, 'input[type=radio][form="settings"]', count=2)
+        assert_no_selector(html, "fieldset[form]")
 
     @pytest.mark.asyncio
     async def test_options_belong_to_no_other_form_by_default(self, context_args):
