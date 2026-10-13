@@ -1238,12 +1238,13 @@ def _filter_options(
         .checked(option in picked)
         # Every box in the group submits the same name, so the id
         # cannot come from it: the label beside each one has to point
-        # at that one and not at the first of them.
-        .id(f"{bound.key}-filter-{declared.name}-{option}")
+        # at that one and not at the first of them. Nor from the value,
+        # which can hold a space or match another option once hyphenated.
+        .id(f"{bound.key}-filter-{declared.name}-{index}")
         .data("filter", declared.name)
         .data("filter-label", declared.label)
         .data("option", label)
-        for option, label in declared.options
+        for index, (option, label) in enumerate(declared.options)
     ]
 
 
