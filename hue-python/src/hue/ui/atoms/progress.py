@@ -38,6 +38,9 @@ _RING_CIRCUMFERENCE = 2 * math.pi * _RING_RADIUS
 
 
 def _clamp(value: float) -> float:
+    # min(100, nan) is 100, so a NaN would otherwise report itself complete.
+    if math.isnan(value):
+        raise ValueError("A progress value must be a number, not NaN.")
     return max(0.0, min(100.0, value))
 
 
@@ -46,8 +49,9 @@ class Progress(ChainableComponent):
     How far along something is, as a horizontal bar.
 
     indeterminate() is for work whose length is unknown: the bar sweeps and
-    omits aria-valuenow rather than reporting zero. label() shows above the bar
-    and names it.
+    omits aria-valuenow rather than reporting zero. label() names the bar and
+    is required, since a progressbar with no name is announced as nothing more
+    than a percentage; hidden_label() keeps the name off the screen.
 
         Progress().value(64).label("Uploading archive.zip")
     """
@@ -90,21 +94,40 @@ class Progress(ChainableComponent):
         self._props["label"] = value
         return self
 
+    def hidden_label(self, value: bool = True) -> Self:
+        """
+        Keep the label as the bar's name but take it, and the percentage
+        beside it, off the screen, for a bar whose purpose is obvious from
+        where it sits.
+        """
+        self._props["hidden_label"] = value
+        return self
+
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         size: ProgressSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
+        hidden_label: bool = self._get_prop("hidden_label", False)
         raw: float | None = self._get_prop("value")
         indeterminate: bool = self._get_prop("indeterminate", False)
         value = None if indeterminate or raw is None else _clamp(raw)
+
+        if label is None:
+            raise ValueError(
+                "Progress needs a label() to name it; add hidden_label() to "
+                "keep it off the screen."
+            )
 
         fill = html.div(
             class_=classnames(
                 "h-full rounded-[inherit]",
                 _VARIANT_CLASSES[variant],
                 # Indeterminate: a short bar sweeping the track, since there is
-                # no width to animate to.
-                "w-[40%] animate-progress"
+                # no width to animate to. With motion reduced the sweep stops,
+                # and a still 40% bar would read as 40% done, so it fills the
+                # track faintly instead.
+                "w-[40%] animate-progress motion-reduce:w-full "
+                "motion-reduce:animate-none motion-reduce:opacity-40"
                 if value is None
                 else "transition-[width] duration-260 ease-out",
             ),
@@ -116,6 +139,8 @@ class Progress(ChainableComponent):
             class_=classnames(
                 "relative w-full overflow-hidden rounded-full bg-border",
                 _TRACK_CLASSES[size],
+                # A bare bar has no wrapper, so the caller's classes land here.
+                self._get_prop("class_") if hidden_label else None,
             ),
             **{
                 "role": "progressbar",
@@ -130,7 +155,7 @@ class Progress(ChainableComponent):
             },
         )
 
-        if label is None:
+        if hidden_label:
             return track
 
         return html.div(

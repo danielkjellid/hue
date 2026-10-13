@@ -27,13 +27,15 @@ REQUIRED = (
 
 @pytest.fixture(scope="module")
 def reduced_motion_block(built_css: str) -> str:
-    match = re.search(
+    # Joined, because Tailwind emits its motion-reduce variants in a block of
+    # their own, and which of the two comes first is not hue's to decide.
+    blocks = re.findall(
         r"@media\s*\(prefers-reduced-motion:\s*reduce\s*\)\s*\{(.+?\})\s*\}",
         built_css,
         re.DOTALL,
     )
-    assert match, "hue's stylesheet does not answer prefers-reduced-motion at all"
-    return match.group(1)
+    assert blocks, "hue's stylesheet does not answer prefers-reduced-motion at all"
+    return "\n".join(blocks)
 
 
 @pytest.mark.parametrize("declaration", REQUIRED)
