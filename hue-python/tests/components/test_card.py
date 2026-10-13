@@ -128,7 +128,7 @@ class TestCard:
         html = await render_tree(
             Card()
             .href("/x")
-            .x_on("ajax:success", unsafe("done = true"))
+            .ajax_success(unsafe("done = true"))
             .content(CardHeader().title("Report")),
             context_args=context_args,
         )
