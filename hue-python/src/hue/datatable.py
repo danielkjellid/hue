@@ -286,6 +286,16 @@ class Filter:
     prefix: str | None = None
     placeholder: str | None = None
 
+    def __post_init__(self) -> None:
+        for option, _ in self.options:
+            if "," in option:
+                raise ValueError(
+                    f"The {self.name!r} filter has an option of {option!r}. The "
+                    "URL joins a filter's answers with a comma, so it would come "
+                    "back as two answers and never be ticked. Give it a value "
+                    "without a comma; the label can say anything."
+                )
+
     def accepts(self, value: str) -> bool:
         """
         Whether this filter can be given an answer: one of its options when
@@ -570,14 +580,6 @@ class _Declaration:
                 f"{self.key} has a filter called {taken!r}, which is what "
                 f"the table already calls the order, the search, the page, "
                 f"the hidden columns or the selection. Name it something else."
-            )
-        commas = [(f.name, o) for f in self.filters for o, _ in f.options if "," in o]
-        for name, option in commas:
-            raise ValueError(
-                f"{self.key} has a {name!r} option of {option!r}. The URL "
-                f"joins a filter's answers with a comma, so it would come back "
-                f"as two answers and never be ticked. Give it a value without "
-                f"a comma; the label can say anything."
             )
 
     async def draw(self, table: DataTable, context: Context) -> Component:
