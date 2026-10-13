@@ -3,6 +3,7 @@ from collections.abc import Awaitable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
+from django.core.exceptions import ImproperlyConfigured
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -14,9 +15,13 @@ from django.urls import URLPattern, path
 from django.utils.functional import classproperty
 from django.views import View
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError, BodyValidationError
+from hue.exceptions import (
+    AJAXRequiredError,
+    BodyValidationError,
+    DuplicateRouteError,
+)
 from hue.pages import BasePage
-from hue.router import PAGE_ROUTE, RawResponse, Route
+from hue.router import PAGE_ROUTE, RawResponse, Route, check_unique_routes
 
 from hue_django.router import Router
 
@@ -45,6 +50,11 @@ class _BaseView(View):
 
     @classmethod
     def _url_patterns(cls, routes: list[Route]) -> list[URLPattern]:
+        try:
+            check_unique_routes(routes)
+        except DuplicateRouteError as exc:
+            raise ImproperlyConfigured(f"{cls.__name__}: {exc}") from exc
+
         # One Django URL pattern per path; the dispatcher picks the route by
         # method. The pattern takes the name of the first route on that path.
         by_path: dict[str, list[Route]] = defaultdict(list)
