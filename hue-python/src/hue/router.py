@@ -3,7 +3,7 @@ import json
 from collections.abc import Awaitable, Callable
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
-from functools import partialmethod
+from functools import partial, partialmethod
 from http import HTTPStatus
 from typing import Any, cast, get_type_hints
 
@@ -274,12 +274,19 @@ class Router[T_Request]:
         **kwargs: Any,
     ) -> Any:
         """
-        Call the handler and return its result, awaiting it if needed.
+        Call the handler and return its result.
 
-        Framework integrations override this when sync handlers need special
-        treatment, for example Django's sync_to_async so ORM access works.
+        A coroutine function is awaited on the loop. Anything else goes
+        through _run_sync, which is where an integration keeps blocking work
+        off the loop, so a sync handler gets that for free. An async handler
+        behind a plain sync decorator looks sync until it is called, so a
+        result that turns out to be awaitable is awaited as well.
         """
-        result = view_func(view_instance, request, context, **kwargs)
+        if inspect.iscoroutinefunction(view_func):
+            return await view_func(view_instance, request, context, **kwargs)
+        result = await self._run_sync(
+            partial(view_func, view_instance, request, context, **kwargs)
+        )
         if inspect.isawaitable(result):
             result = await result
         return result
@@ -288,11 +295,10 @@ class Router[T_Request]:
         """
         Call a blocking function from inside an async route.
 
-        This is for work a route does on a handler's behalf, such as fetching
-        the rows a table needs or running an action. The base router calls it
-        directly. An integration whose ORM refuses to run on the event loop
-        overrides it to run the call in a thread, as _call_view_func does for a
-        sync handler.
+        This is for a sync handler, and for work a route does on a handler's
+        behalf, such as fetching the rows a table needs or running an action.
+        The base router calls it directly. An integration whose ORM refuses to
+        run on the event loop overrides it to run the call in a thread.
         """
         return func(*args)
 
