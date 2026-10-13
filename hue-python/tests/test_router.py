@@ -14,8 +14,8 @@ from hue.router import (
     PathParseResult,
     RawResponse,
     Route,
-    check_unique_routes,
     _sequence_fields,
+    check_unique_routes,
 )
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter

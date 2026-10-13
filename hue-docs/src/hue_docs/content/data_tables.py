@@ -354,7 +354,8 @@ def _build() -> ComponentType:
             "it off again. The chips and the count on the Filter button are read "
             "from the panel's own controls, so a chip appears in the same moment as "
             "the tick. A filter cannot be called sort, q, page, hide or selected, "
-            "which the table already uses."
+            "which the table already uses, and an option's value cannot hold a "
+            "comma, which is what the URL puts between answers."
         ),
         pr.p(
             "hideable lists the columns a reader may hide. In the Columns panel a "

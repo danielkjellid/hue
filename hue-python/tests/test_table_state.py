@@ -77,3 +77,10 @@ def test_a_typed_answer_is_its_own_label():
 )
 def test_a_filter_says_which_answers_it_accepts(declared, value, accepted):
     assert declared.accepts(value) is accepted
+
+
+def test_an_option_cannot_hold_the_comma_between_answers():
+    # The URL joins a filter's answers with commas, so this one would be
+    # read back as two answers nobody offered and never be ticked.
+    with pytest.raises(ValueError, match=r"'net,30'.*comma"):
+        Filter("terms", "Terms", options=[("net,30", "Net 30")])

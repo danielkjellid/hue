@@ -271,7 +271,8 @@ class Filter:
     one can be on at once. Without options it is a field to type a value
     into, and numeric makes that a number field. Either way the answers
     arrive in the state rows() is handed, and the table draws the panel,
-    the count on the trigger and the chips that undo it.
+    the count on the trigger and the chips that undo it. An option's value
+    cannot hold a comma, which is what the URL puts between answers.
 
         Filter("status", "Status", options=[("paid", "Paid")])
         Filter("min", "Minimum amount", numeric=True, prefix="USD")
@@ -284,6 +285,16 @@ class Filter:
     numeric: bool = False
     prefix: str | None = None
     placeholder: str | None = None
+
+    def __post_init__(self) -> None:
+        for option, _ in self.options:
+            if "," in option:
+                raise ValueError(
+                    f"The {self.name!r} filter has an option of {option!r}. The "
+                    "URL joins a filter's answers with a comma, so it would come "
+                    "back as two answers and never be ticked. Give it a value "
+                    "without a comma; the label can say anything."
+                )
 
     def accepts(self, value: str) -> bool:
         """
