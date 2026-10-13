@@ -36,7 +36,7 @@ def _nav_group(group: NavGroup, active_href: str) -> ComponentType:
                     for item in group.items
                 ]
             )
-            .attr("aria_labelledby", heading_id)
+            .aria_labelledby(heading_id)
             .class_("space-y-0.5"),
         )
     )

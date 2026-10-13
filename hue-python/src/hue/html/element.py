@@ -6,6 +6,7 @@ from htmy import Context
 from htmy.core import Tag, TagWithProps
 from typing_extensions import Self
 
+from hue.js import Expression, expect
 from hue.types.core import Component, ComponentType
 from hue.ui.base import AlpineModelMixin, ChainableComponent
 
@@ -14,9 +15,10 @@ class Element(ChainableComponent):
     """
     A chainable wrapper around any htmy Tag.
 
-    Provides the shared modifiers (class_, id, ARIA, Alpine) plus attr() for
-    arbitrary HTML attributes. Not usually instantiated directly; use the
-    factories on the hue.html module.
+    Provides the shared modifiers (class_, id, ARIA, Alpine); an element whose
+    tag takes attributes of its own gets a subclass with a typed modifier for
+    each. Not usually instantiated directly; use the factories on the hue.html
+    module.
     """
 
     def __init__(self, tag_class: type[Tag] | type[TagWithProps]) -> None:
@@ -28,10 +30,11 @@ class Element(ChainableComponent):
         # htmy models void elements (input, br, img, ...) as TagWithProps.
         return not issubclass(self._tag_class, Tag)
 
-    def attr(self, key: str, value: Any) -> Self:
-        """
-        Set an arbitrary HTML attribute.
-        """
+    def _attr(self, key: str, value: Any) -> Self:
+        # For the typed modifiers below, each with its attribute's own name.
+        # There is no public way to set an arbitrary attribute: a typed
+        # modifier says what it takes, and the class and ARIA attributes have
+        # setters of their own, so one attribute can only ever sit under one key.
         self._attrs[key] = value
         return self
 
@@ -123,13 +126,13 @@ class _FormControlElement(AlpineModelMixin, Element):
     """
 
     def name(self, value: str) -> Self:
-        return self.attr("name", value)
+        return self._attr("name", value)
 
     def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value or None)
+        return self._attr("disabled", value or None)
 
     def required(self, value: bool = True) -> Self:
-        return self.attr("required", value or None)
+        return self._attr("required", value or None)
 
 
 # ------------------------------------------------------------------
@@ -139,10 +142,10 @@ class _FormControlElement(AlpineModelMixin, Element):
 
 class FormElement(_AlpineAjaxRequestMixin, Element):
     def method(self, value: Literal["GET", "POST"]) -> Self:
-        return self.attr("method", value)
+        return self._attr("method", value)
 
     def action(self, value: str) -> Self:
-        return self.attr("action", value)
+        return self._attr("action", value)
 
     def enctype(
         self,
@@ -152,90 +155,114 @@ class FormElement(_AlpineAjaxRequestMixin, Element):
             "text/plain",
         ],
     ) -> Self:
-        return self.attr("enctype", value)
+        return self._attr("enctype", value)
 
     def novalidate(self, value: bool = True) -> Self:
-        return self.attr("novalidate", value or None)
+        return self._attr("novalidate", value or None)
 
 
 class AnchorElement(_AlpineAjaxRequestMixin, Element):
     def href(self, value: str) -> Self:
-        return self.attr("href", value)
+        return self._attr("href", value)
 
     def target(self, value: Literal["_self", "_blank", "_parent", "_top"]) -> Self:
-        return self.attr("target", value)
+        return self._attr("target", value)
 
     def rel(self, value: str) -> Self:
-        return self.attr("rel", value)
+        return self._attr("rel", value)
 
 
 class ImgElement(Element):
     def src(self, value: str) -> Self:
-        return self.attr("src", value)
+        return self._attr("src", value)
 
     def alt(self, value: str) -> Self:
-        return self.attr("alt", value)
+        return self._attr("alt", value)
 
     def width(self, value: int | str) -> Self:
-        return self.attr("width", value)
+        return self._attr("width", value)
 
     def height(self, value: int | str) -> Self:
-        return self.attr("height", value)
+        return self._attr("height", value)
 
     def loading(self, value: Literal["lazy", "eager"]) -> Self:
-        return self.attr("loading", value)
+        return self._attr("loading", value)
 
 
 class ButtonElement(Element):
     def type(self, value: Literal["button", "submit", "reset"]) -> Self:
-        return self.attr("type", value)
+        return self._attr("type", value)
 
     def disabled(self, value: bool = True) -> Self:
-        return self.attr("disabled", value or None)
+        return self._attr("disabled", value or None)
 
     def name(self, value: str) -> Self:
-        return self.attr("name", value)
+        return self._attr("name", value)
 
     def value(self, value: str) -> Self:
-        return self.attr("value", value)
+        return self._attr("value", value)
 
     def formnoajax(self, value: bool = True) -> Self:
         """
         Disable AJAX for this submit button.
         """
-        return self.attr("formnoajax", value or None)
+        return self._attr("formnoajax", value or None)
 
 
 class InputElement(_FormControlElement):
     def input_type(self, value: str) -> Self:
-        return self.attr("type", value)
+        return self._attr("type", value)
 
     def placeholder(self, value: str) -> Self:
-        return self.attr("placeholder", value)
+        return self._attr("placeholder", value)
 
     def value(self, value: str) -> Self:
-        return self.attr("value", value)
+        return self._attr("value", value)
 
 
 class SelectElement(_FormControlElement):
     def multiple(self, value: bool = True) -> Self:
-        return self.attr("multiple", value or None)
+        return self._attr("multiple", value or None)
 
 
 class TextareaElement(_FormControlElement):
     def rows(self, value: int) -> Self:
-        return self.attr("rows", value)
+        return self._attr("rows", value)
 
     def cols(self, value: int) -> Self:
-        return self.attr("cols", value)
+        return self._attr("cols", value)
 
     def placeholder(self, value: str) -> Self:
-        return self.attr("placeholder", value)
+        return self._attr("placeholder", value)
 
 
 class LabelElement(Element):
     def for_(self, value: str) -> Self:
-        return self.attr("for_", value)
+        return self._attr("for", value)
+
+
+class OptionElement(Element):
+    def value(self, value: str) -> Self:
+        return self._attr("value", value)
+
+    def selected(self, value: bool = True) -> Self:
+        return self._attr("selected", value or None)
+
+
+class HeaderCellElement(Element):
+    def scope(self, value: Literal["col", "row", "colgroup", "rowgroup"]) -> Self:
+        """
+        Which cells this header heads, so a screen reader announces it with them.
+        """
+        return self._attr("scope", value)
+
+
+class TemplateElement(Element):
+    def x_if(self, value: Expression) -> Self:
+        """
+        Add the template's contents to the page only while the expression holds.
+        """
+        return self._attr("x-if", expect(value, modifier="x_if()"))
 
 
 # Maps htmy tag names to the specialised Element subclass.
@@ -248,4 +275,7 @@ SPECIALIZED_ELEMENTS: dict[str, type[Element]] = {
     "select": SelectElement,
     "textarea": TextareaElement,
     "label": LabelElement,
+    "option": OptionElement,
+    "th": HeaderCellElement,
+    "template": TemplateElement,
 }

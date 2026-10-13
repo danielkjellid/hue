@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Literal
 
@@ -26,6 +27,12 @@ type AlpinePlacement = Literal[
     "left-start",
     "left-end",
 ]
+
+# Names a caller hands in become part of the markup, and htmy writes names
+# unescaped, so they are held to letters, digits, hyphens, and the dots and
+# colons Alpine uses for modifiers (keydown.escape.window) and namespaced
+# events (ajax:success).
+_ATTRIBUTE_NAME = re.compile(r"[A-Za-z][A-Za-z0-9.:-]*")
 
 
 class ChainableComponent(ABC):
@@ -137,6 +144,7 @@ class ChainableComponent(ABC):
         element by. HTML fixes no names for these, so one modifier covers
         all of them.
         """
+        name = self._check_attribute_name(name, "data()")
         self._attrs[f"data-{name}"] = value
         return self
 
@@ -223,6 +231,7 @@ class ChainableComponent(ABC):
         """
         Listen for a browser event (@event).
         """
+        event = self._check_attribute_name(event, "x_on()")
         self._attrs[f"@{event}"] = expect(expression, modifier="x_on()")
         return self
 
@@ -230,6 +239,7 @@ class ChainableComponent(ABC):
         """
         Dynamically bind an HTML attribute (:attr).
         """
+        attr = self._check_attribute_name(attr, "x_bind()")
         self._attrs[f":{attr}"] = expect(expression, modifier="x_bind()")
         return self
 
@@ -393,10 +403,30 @@ class ChainableComponent(ABC):
         """
         return self._props.get(key, default)
 
+    @staticmethod
+    def _check_attribute_name(name: str, modifier: str) -> str:
+        """
+        Return name if it is safe to write as (part of) an attribute name,
+        and raise otherwise.
+        """
+        if "_" in name:
+            # htmy turns underscores in names into hyphens, so the attribute
+            # would quietly come out as something else.
+            raise ValueError(
+                f"{modifier} got {name!r}: htmy renders an underscore in an "
+                f"attribute name as a hyphen, so write {name.replace('_', '-')!r}."
+            )
+        if not _ATTRIBUTE_NAME.fullmatch(name):
+            raise ValueError(
+                f"{modifier} got {name!r}: an attribute name may only hold "
+                "letters, digits, hyphens, dots and colons, starting with a letter."
+            )
+        return name
+
     def _get_base_html_attrs(self) -> dict[str, Any]:
         """
         Every attribute set through the modifiers above (id, ARIA, Alpine, and
-        anything set via Element.attr), minus None values, ready to splat into an
+        an Element's typed modifiers), minus None values, ready to splat into an
         html.* call.
         """
         return {k: v for k, v in self._attrs.items() if v is not None}
