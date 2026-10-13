@@ -99,6 +99,23 @@ class TestTable:
         assert_selector(html, "div.overflow-x-auto > table")
 
     @pytest.mark.asyncio
+    async def test_the_band_rounds_the_corners_it_reaches(self, context_args):
+        # The band is the only thing that clips, so a header background
+        # would bleed past the frame's corner unless the band rounds too.
+        alone = await render_tree(Table(), context_args=context_args)
+        between = await render_tree(
+            Table().toolbar(html_div("Search")).under(html_div("1 of 3")),
+            context_args=context_args,
+        )
+        band = "div.overflow-x-auto"
+        assert select(alone, band)[0]["class"] == [
+            "overflow-x-auto",
+            "rounded-t-[11px]",
+            "rounded-b-[11px]",
+        ]
+        assert select(between, band)[0]["class"] == ["overflow-x-auto"]
+
+    @pytest.mark.asyncio
     async def test_the_band_along_the_bottom_is_replaced_with_the_rows(
         self, context_args
     ):
