@@ -285,6 +285,23 @@ class Filter:
     prefix: str | None = None
     placeholder: str | None = None
 
+    def accepts(self, value: str) -> bool:
+        """
+        Whether this filter can be given an answer: one of its options when
+        it has them, a finite number when it is numeric, and anything else
+        otherwise. Anyone can type into a query string, and rows() should
+        not have to guard against it. NaN and infinity parse as decimals, and
+        are no amount anything is at least.
+        """
+        if self.options:
+            return any(value == option for option, _ in self.options)
+        if self.numeric:
+            try:
+                return Decimal(value).is_finite()
+            except InvalidOperation:
+                return False
+        return True
+
     def labelled(self, value: str) -> str:
         """
         What one answer is called on the chip that undoes it: the option's
@@ -346,17 +363,6 @@ def _many(asked: Mapping[str, list[str]], name: str) -> tuple[str, ...]:
     return tuple(
         part for value in asked.get(name, ()) for part in value.split(",") if part
     )
-
-
-def _is_number(typed: str) -> bool:
-    """
-    Whether a numeric filter's answer is a number rows() can compare with.
-    NaN and infinity parse, and are no amount anything is at least.
-    """
-    try:
-        return Decimal(typed).is_finite()
-    except InvalidOperation:
-        return False
 
 
 def _total(rows: Any) -> int:
@@ -776,22 +782,18 @@ class _Declaration:
         """
         What each filter was told.
 
-        A list-shaped filter drops any answer it does not offer, and a
-        numeric one drops anything that is not a finite number. Anyone can
-        type into a query string, and rows() should not have to guard against
-        it. A typed answer is otherwise taken whole, commas and all, because
-        only a list is spelled with commas between its answers.
+        Each answer the filter does not accept is dropped. A typed answer is
+        read whole, commas and all, because only a list is spelled with commas
+        between its answers.
         """
         found: dict[str, tuple[str, ...]] = {}
         for declared in self.filters:
-            if declared.options:
-                offered = {option for option, _ in declared.options}
-                values = tuple(v for v in _many(asked, declared.name) if v in offered)
-            else:
-                typed = _one(asked, declared.name)
-                if typed and declared.numeric and not _is_number(typed):
-                    typed = None
-                values = (typed,) if typed else ()
+            read = (
+                _many(asked, declared.name)
+                if declared.options
+                else (_one(asked, declared.name),)
+            )
+            values = tuple(v for v in read if v and declared.accepts(v))
             if values:
                 found[declared.name] = values if declared.multiple else values[:1]
         return found
