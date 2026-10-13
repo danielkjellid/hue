@@ -98,7 +98,7 @@ from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
-from hue.ui.atoms.radio import Radio, RadioGroup
+from hue.ui.atoms.radio import Radio
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.datatable import SELECTED, Column, DataTable, resolve_value
 from hue.ui.molecules.dialog import Dialog
@@ -1227,7 +1227,7 @@ def _filter_group(bound: BoundTable, declared: Filter) -> ComponentType:
     elif declared.multiple:
         answers = html.div(*_filter_options(bound, declared, picked), class_=_OPTIONS)
     else:
-        answers = _filter_choice(bound, declared, picked)
+        answers = html.div(*_filter_choice(bound, declared, picked), class_=_OPTIONS)
     return html.div(
         html.fieldset(html.legend(declared.label, class_=_LEGEND), answers),
         class_=_GROUP,
@@ -1260,30 +1260,42 @@ def _filter_options(
 
 def _filter_choice(
     bound: BoundTable, declared: Filter, picked: tuple[str, ...]
-) -> ComponentType:
+) -> list[ComponentType]:
     """
     A radio for every option, for a filter that takes one answer.
 
     The server keeps only the first answer, so boxes would let a reader tick
     two and see a chip for one that does nothing. A radio is undone by its
-    chip or by Clear, since clicking it again leaves it on. The group has no
-    legend of its own: the fieldset around it already asks the question.
+    chip or by Clear, since clicking it again leaves it on.
+
+    The radios sit in the filter's own fieldset. A RadioGroup would add a
+    second fieldset, with no legend, inside the one that asks the question.
+    Each id uses the option's position in the list, since the value is the
+    caller's text and may hold a space.
     """
-    group = RadioGroup().name(bound.declaration.param(declared.name))
-    if picked:
-        group.value(picked[0])
-    return group.content(
-        *(
+    name = bound.declaration.param(declared.name)
+    selected = picked[0] if picked else None
+    radios: list[ComponentType] = []
+    for index, (option, label) in enumerate(declared.options):
+        radio = (
             Radio()
             .value(option)
             .label(label)
-            .id(f"{bound.key}-filter-{declared.name}-{option}")
+            .id(f"{bound.key}-filter-{declared.name}-{index}")
             .data("filter", declared.name)
             .data("filter-label", declared.label)
             .data("option", label)
-            for option, label in declared.options
         )
-    )
+        radio._apply_group(
+            name=name,
+            selected=selected,
+            card=False,
+            disabled=False,
+            required=False,
+            form=None,
+        )
+        radios.append(radio)
+    return radios
 
 
 def _filter_field(

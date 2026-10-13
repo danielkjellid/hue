@@ -608,8 +608,65 @@ def test_a_filter_of_one_answer_draws_radios(urlpatterns_):
     assert len(inputs) == 2
     assert all('type="radio"' in one for one in inputs)
     assert all('name="invoices-status"' in one for one in inputs)
-    paid = next(one for one in inputs if 'id="invoices-filter-status-paid"' in one)
+    paid = next(one for one in inputs if 'value="paid"' in one)
     assert "checked" in paid
+
+
+def _single(urlpatterns_: list[Any], options: list[tuple[str, str]]) -> str:
+    declaration = _plain(
+        urlpatterns_,
+        filters=[Filter("terms", "Terms", options=options, multiple=False)],
+    )
+    return _table(declaration, _request())
+
+
+def test_a_radio_id_holds_whatever_the_option_value_is(urlpatterns_):
+    # An option's value is the caller's text, and an id with a space in it
+    # breaks the aria-labelledby that names it.
+    html = _single(urlpatterns_, [("net 30", "Net 30"), ("net 60", "Net 60")])
+    radios = re.findall(r'<input[^>]*type="radio"[^>]*>', html)
+    assert len(radios) == 2
+    ids = [re.search(r' id="([^"]+)"', one)[1] for one in radios]
+    assert len(set(ids)) == 2
+    assert not any(re.search(r"\s", one) for one in ids)
+    every_id = set(re.findall(r' id="([^"]+)"', html))
+    for one in radios:
+        named = re.search(r'aria-labelledby="([^"]+)"', one)[1].split()
+        assert set(named) <= every_id, named
+
+
+class _Fieldsets(HTMLParser):
+    """
+    How deep each legend sits in fieldsets, and how deep the radios do.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.depth = 0
+        self.radio_depths: list[int] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "fieldset":
+            self.depth += 1
+        if tag == "input" and dict(attrs).get("type") == "radio":
+            self.radio_depths.append(self.depth)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "fieldset":
+            self.depth -= 1
+
+
+def test_a_filter_of_one_answer_is_one_named_group(urlpatterns_):
+    # A legendless group inside the filter's own is a second, unnamed group
+    # that a screen reader announces around the answers.
+    html = _single(urlpatterns_, [("net 30", "Net 30"), ("net 60", "Net 60")])
+    fieldsets = _Fieldsets()
+    fieldsets.feed(html)
+    assert fieldsets.radio_depths == [1, 1]
+    group = re.search(r"<fieldset[^>]*>(?:(?!</fieldset>).)*net 30", html, re.S)
+    assert group is not None
+    assert "<legend" in group[0]
+    assert "Terms" in group[0]
 
 
 def test_a_filter_cannot_be_called_what_the_table_already_calls_something():
