@@ -1,6 +1,6 @@
 import inspect
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from functools import partialmethod
@@ -11,7 +11,7 @@ from htmy import html
 from pydantic import TypeAdapter, ValidationError
 
 from hue.context import HueContext, HueContextArgs
-from hue.exceptions import AJAXRequiredError, BodyValidationError
+from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
 from hue.renderer import render_tree
 from hue.toast import toast
 from hue.types.core import Component, ComponentType
@@ -90,6 +90,25 @@ class Route:
     # Names of the parameters captured from the path, populated by the
     # framework-specific path parser.
     path_params: list[str] = field(default_factory=list)
+
+
+def check_unique_routes(routes: Iterable[Route]) -> None:
+    """
+    Refuse two routes on one path and method.
+
+    Called by a framework integration on every route it is about to serve,
+    the index included: a fragment on the index's own path and method would
+    otherwise take the page's place.
+    """
+    seen: dict[tuple[str, str], Route] = {}
+    for route in routes:
+        if earlier := seen.get((route.path, route.method)):
+            raise DuplicateRouteError(
+                f"Two {route.method} routes on {'/' + route.path!r}: "
+                f"{earlier.name} and {route.name}. Give one of them its own "
+                "path or method."
+            )
+        seen[(route.path, route.method)] = route
 
 
 def _resolve_body_type(view_func: ViewFunc) -> type | None:

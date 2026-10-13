@@ -6,8 +6,14 @@ from htmy import html
 from pydantic import BaseModel
 
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError, BodyValidationError
-from hue.router import HueResponse, PathParseResult, RawResponse
+from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
+from hue.router import (
+    HueResponse,
+    PathParseResult,
+    RawResponse,
+    Route,
+    check_unique_routes,
+)
 from hue.types.core import Component
 from tests.conftest import MockRequest, MockRouter
 
@@ -939,3 +945,18 @@ def test_unannotated_body_parameter_is_rejected_at_registration(router):
         @router.fragment_post("save/")
         async def view(self, request, context, body):
             return html.div()
+
+
+def _route(method: str, path: str, name: str) -> Route:
+    return Route(method=method, path=path, name=name, view_func=Mock())
+
+
+def test_two_routes_on_one_path_and_method_are_refused():
+    # Dispatch is by path and then method, so the second would replace the
+    # first without a word.
+    with pytest.raises(DuplicateRouteError, match="index and listing"):
+        check_unique_routes([_route("GET", "", "index"), _route("GET", "", "listing")])
+
+
+def test_one_path_takes_one_route_per_method():
+    check_unique_routes([_route("GET", "x/", "show"), _route("POST", "x/", "save")])

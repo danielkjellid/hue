@@ -41,6 +41,15 @@ class AJAXRequiredError(Exception):
         super().__init__(self.message)
 
 
+class DuplicateRouteError(Exception):
+    """
+    Raised when two routes share a path and a method.
+
+    A framework dispatches by path and then by method, so the later route
+    would replace the earlier one without a word.
+    """
+
+
 class BodyValidationError(Exception):
     """
     Raised when request body validation fails.

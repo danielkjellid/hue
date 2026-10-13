@@ -15,9 +15,13 @@ from django.urls import URLPattern, path
 from django.utils.functional import classproperty
 from django.views import View
 from hue.context import HueContext
-from hue.exceptions import AJAXRequiredError, BodyValidationError
+from hue.exceptions import (
+    AJAXRequiredError,
+    BodyValidationError,
+    DuplicateRouteError,
+)
 from hue.pages import BasePage
-from hue.router import PAGE_ROUTE, RawResponse, Route
+from hue.router import PAGE_ROUTE, RawResponse, Route, check_unique_routes
 
 from hue_django.router import Router
 
@@ -46,6 +50,11 @@ class _BaseView(View):
 
     @classmethod
     def _url_patterns(cls, routes: list[Route]) -> list[URLPattern]:
+        try:
+            check_unique_routes(routes)
+        except DuplicateRouteError as exc:
+            raise ImproperlyConfigured(f"{cls.__name__}: {exc}") from exc
+
         # One Django URL pattern per path; the dispatcher picks the route by
         # method. The pattern takes the name of the first route on that path.
         by_path: dict[str, list[Route]] = defaultdict(list)
@@ -59,17 +68,7 @@ class _BaseView(View):
 
     @classmethod
     def _dispatcher(cls, routes: list[Route]) -> Any:
-        by_method: dict[str, Route] = {}
-        for route in routes:
-            # A later route would otherwise replace the earlier one without a
-            # word, and a fragment on the index's path takes the page with it.
-            if earlier := by_method.get(route.method):
-                raise ImproperlyConfigured(
-                    f"{cls.__name__} has two {route.method} routes on "
-                    f"{'/' + route.path!r}: {earlier.name} and {route.name}. "
-                    f"Give one of them its own path or method."
-                )
-            by_method[route.method] = route
+        by_method = {route.method: route for route in routes}
         # HEAD falls back to GET; Django strips the body.
         if "GET" in by_method:
             by_method.setdefault("HEAD", by_method["GET"])
