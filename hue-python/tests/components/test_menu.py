@@ -118,6 +118,7 @@ class TestDropdownMenu:
         menu = _menu().trigger(Tooltip().content("More actions"))
         html = await render_tree(menu, context_args=context_args)
         assert_no_selector(html, "[aria-haspopup], [data-hue-trigger]")
+        assert_attr(html, '[role="menu"]', "x-anchor.bottom-start.offset.6", "null")
 
 
 class TestMenuItem:

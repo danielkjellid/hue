@@ -76,35 +76,39 @@ def overlay_state(starts_open: bool) -> str:
     return f"{{ open: {str(starts_open).lower()}, close() {{ this.open = false }} }}"
 
 
-#: The control that opens an anchored overlay, as found from inside it. A
-#: query rather than x-ref, because a ref registers on the nearest x-data,
-#: and a control wrapped in a Tooltip sits inside the tooltip's, out of the
-#: overlay's sight. The trigger renders before the panel, so the first match
-#: is the overlay's own rather than one nested in its content.
+#: What wire_trigger hands back for a control it has marked.
 TRIGGER = "$root.querySelector('[data-hue-trigger]')"
 
 
 def wire_trigger(
-    trigger: ChainableComponent,
+    trigger: ChainableComponent | None,
     *,
     popup: str,
     on: dict[str, str],
     bind: dict[str, str] | None = None,
-) -> None:
+) -> str:
     """
-    Put an overlay's listeners and state on the control that opens it.
+    Put an overlay's listeners and state on the control that opens it, and
+    return the expression that finds that control again from inside.
 
     Listeners go on as x-on rather than @, so a handler the control already
     has through on_click runs alongside them instead of being overwritten
     under the same key. A Tooltip is looked through to the control it labels,
     because the control gets the click, the focus and the announcement, and
     the span the tooltip wraps it in gets none of them.
+
+    The way back is a query rather than x-ref, because a ref registers on the
+    nearest x-data, and a control wrapped in a Tooltip sits inside the
+    tooltip's. The control renders before the panel, so the first mark under
+    the overlay's root is its own. With no control there is no mark of its
+    own, and the first one would belong to an overlay nested in the content,
+    so the expression is null instead.
     """
-    control: ChainableComponent | None = trigger
+    control = trigger
     while isinstance(control, Tooltip):
         control = control._get_prop("trigger")
     if control is None:
-        return
+        return "null"
 
     for event, expression in on.items():
         control._attrs[f"x-on:{event}"] = expression
@@ -112,6 +116,7 @@ def wire_trigger(
         control.x_bind(attr, unsafe(expression))
     control._attrs.setdefault("aria_haspopup", popup)
     control._attrs["data-hue-trigger"] = ""
+    return TRIGGER
 
 
 def grabber(hidden_class: str = "") -> ComponentType:

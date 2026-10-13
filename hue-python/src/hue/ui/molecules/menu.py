@@ -98,17 +98,16 @@ class DropdownMenu(ChainableComponent):
         placement: MenuPlacement = self._get_prop("placement", "bottom-start")
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
-        if trigger is not None:
-            _overlay.wire_trigger(
-                trigger,
-                popup="menu",
-                on={
-                    "click": "open = !open",
-                    # Down opens it as well as clicking, which is how a menu
-                    # button is expected to behave from the keyboard.
-                    "keydown.down.prevent": "open = true",
-                },
-            )
+        find_trigger = _overlay.wire_trigger(
+            trigger,
+            popup="menu",
+            on={
+                "click": "open = !open",
+                # Down opens it as well as clicking, which is how a menu
+                # button is expected to behave from the keyboard.
+                "keydown.down.prevent": "open = true",
+            },
+        )
 
         menu = html.div(
             *self._children,
@@ -129,7 +128,7 @@ class DropdownMenu(ChainableComponent):
                 "x-on:keydown.up.prevent": "$focus.wrap().previous()",
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
-                f"x-anchor.{placement}.offset.{_OFFSET}": _overlay.TRIGGER,
+                f"x-anchor.{placement}.offset.{_OFFSET}": find_trigger,
                 **_overlay.HOLDS_FOCUS,
             },
         )
@@ -140,8 +139,7 @@ class DropdownMenu(ChainableComponent):
             class_=classnames("inline-flex", self._get_prop("class_")),
             **{
                 "x-data": "{ open: false, "
-                "close() { this.open = false; "
-                f"this.{_overlay.TRIGGER}?.focus() }} }}",
+                f"close() {{ this.open = false; {find_trigger}?.focus() }} }}",
                 **_overlay.CLOSE_ON_ESCAPE,
                 # Tab leaves the menu rather than walking it. The items are
                 # out of the tab order, so the browser's own Tab already goes
