@@ -259,6 +259,46 @@ async def test_wrapped_view_handles_sync_function(
 
 
 @pytest.mark.asyncio
+async def test_a_sync_handler_runs_through_run_sync(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    # That is where an integration keeps blocking work off the event loop,
+    # so it has one method to override rather than two.
+    ran: list[object] = []
+    original = router._run_sync
+
+    async def spy(func, /, *args):
+        ran.append(func)
+        return await original(func, *args)
+
+    router._run_sync = spy  # type: ignore[method-assign]
+
+    def view_func(view_instance, request, context) -> Component:
+        return html.div("Sync")
+
+    wrapped = router._wrap_view(view_func, require_ajax=False)
+    html_result, _ = await wrapped(Mock(), mock_request())
+    assert "Sync" in html_result
+    assert len(ran) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_async_handler_behind_a_sync_decorator_is_awaited(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    # It looks sync until it is called, and then hands back a coroutine.
+    async def view_func(view_instance, request, context) -> Component:
+        return html.div("Wrapped")
+
+    def plain(*args):
+        return view_func(*args)
+
+    wrapped = router._wrap_view(plain, require_ajax=False)
+    html_result, _ = await wrapped(Mock(), mock_request())
+    assert "Wrapped" in html_result
+
+
+@pytest.mark.asyncio
 async def test_wrapped_view_handles_async_function(
     router: MockRouter, mock_request: type[MockRequest]
 ):

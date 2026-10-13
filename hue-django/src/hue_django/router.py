@@ -1,4 +1,3 @@
-import inspect
 import re
 from collections.abc import Callable
 from typing import Any
@@ -16,9 +15,9 @@ from django.http import Http404, HttpRequest, QueryDict
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from hue.context import HueContext, HueContextArgs
+from hue.context import HueContextArgs
 from hue.formats import Formats
-from hue.router import HueResponse, PathParseResult, ViewFunc
+from hue.router import HueResponse, PathParseResult
 from hue.router import Router as HueRouter
 
 from hue_django.conf import settings
@@ -138,30 +137,12 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
         """
         Runs the call in a thread, because the ORM raises
         SynchronousOnlyOperation for a query made on the event loop, and
-        counting and slicing a queryset are both queries.
+        counting and slicing a queryset are both queries. A sync handler comes
+        through here too: run on the loop, its ORM or auth access would fail
+        with a 500 that has no AJAX target, and Alpine AJAX would fall back to
+        a native resubmit the server then rejects as non-AJAX.
         """
         return await sync_to_async(func)(*args)
-
-    async def _call_view_func(
-        self,
-        view_func: ViewFunc,
-        view_instance: object,
-        request: T_Request,
-        context: HueContext[T_Request],
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Run sync handlers in a thread via sync_to_async.
-
-        Handlers are dispatched from an async context, so calling sync code (ORM,
-        auth) directly raises SynchronousOnlyOperation. That 500 has no AJAX
-        target, so Alpine AJAX falls back to a native form resubmit, which the
-        server then rejects as non-AJAX. Running sync handlers in a thread avoids
-        the whole cascade.
-        """
-        if inspect.iscoroutinefunction(view_func):
-            return await view_func(view_instance, request, context, **kwargs)
-        return await sync_to_async(view_func)(view_instance, request, context, **kwargs)
 
 
 def _form(request: HttpRequest) -> QueryDict:
