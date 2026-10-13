@@ -93,6 +93,16 @@ class TestIcon:
         (tmp_path / "box.svg").write_text(_BOX_SVG)
         assert directory_resolver(str(tmp_path))("box") == _BOX_SVG
 
+    def test_directory_resolver_follows_a_symlink_inside_the_directory(self, tmp_path):
+        # An icon set can be a folder of links into a vendored package.
+        vendored = tmp_path / "vendor"
+        vendored.mkdir()
+        (vendored / "box.svg").write_text(_BOX_SVG)
+        icons = tmp_path / "icons"
+        icons.mkdir()
+        (icons / "box.svg").symlink_to(vendored / "box.svg")
+        assert directory_resolver(str(icons))("box") == _BOX_SVG
+
     @pytest.mark.parametrize("name", ["../secret", "{root}/secret"])
     def test_directory_resolver_rejects_a_name_outside_the_directory(
         self, tmp_path, name

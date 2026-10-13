@@ -39,8 +39,10 @@ def directory_resolver(icons_dir: str) -> IconResolver:
     def resolve(name: str) -> str:
         # The markup is inlined unescaped, so a name like ../x or an absolute
         # path must not reach an svg outside the directory: with a name taken
-        # from request data, that is stored XSS through any uploaded file.
-        path = os.path.realpath(os.path.join(base, f"{name}.svg"))
+        # from request data, that is stored XSS through any uploaded file. The
+        # danger is the name, so a string check is enough. It leaves symlinks
+        # inside the directory alone and costs no filesystem call per render.
+        path = os.path.normpath(os.path.join(base, f"{name}.svg"))
         if os.path.commonpath([base, path]) != base:
             raise ValueError(
                 f"Icon '{name}' resolves outside the icon directory {base}"
