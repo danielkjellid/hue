@@ -23,23 +23,22 @@ export function registerScrollAreaData(Alpine) {
 			// list, an image finishing - changes which edges there are, and
 			// nothing scrolls to say so.
 			this.sizes = new ResizeObserver(() => this.edges());
-			this.sizes.observe(this.$el);
-			for (const child of this.$el.children) this.sizes.observe(child);
-			// The observer above only knows the children it was handed, so a
-			// swap that replaces them would leave it watching nodes that are
-			// gone. Hand it each new child as it lands.
-			this.arrivals = new MutationObserver((records) => {
-				for (const record of records) {
-					for (const node of record.removedNodes) {
-						if (node instanceof Element) this.sizes.unobserve(node);
-					}
-					for (const node of record.addedNodes) {
-						if (node instanceof Element) this.sizes.observe(node);
-					}
-				}
+			this.watch();
+			// The resize observer only knows the children it was handed, so a
+			// change of children has it watch the ones there now.
+			this.arrivals = new MutationObserver(() => {
+				this.watch();
 				this.edges();
 			});
 			this.arrivals.observe(this.$el, { childList: true });
+		},
+
+		watch() {
+			// Read from the DOM each time rather than kept in step with it, so
+			// nothing a swap adds or removes can be missed.
+			this.sizes.disconnect();
+			this.sizes.observe(this.$el);
+			for (const child of this.$el.children) this.sizes.observe(child);
 		},
 
 		destroy() {
