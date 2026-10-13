@@ -30,10 +30,13 @@ if TYPE_CHECKING:
         AnchorElement,
         ButtonElement,
         FormElement,
+        HeaderCellElement,
         ImgElement,
         InputElement,
         LabelElement,
+        OptionElement,
         SelectElement,
+        TemplateElement,
         TextareaElement,
     )
     from hue.types.core import ComponentType
@@ -47,6 +50,9 @@ if TYPE_CHECKING:
     def select(*children: ComponentType) -> SelectElement: ...
     def textarea(*children: ComponentType) -> TextareaElement: ...
     def label(*children: ComponentType) -> LabelElement: ...
+    def option(*children: ComponentType) -> OptionElement: ...
+    def th(*children: ComponentType) -> HeaderCellElement: ...
+    def template(*children: ComponentType) -> TemplateElement: ...
 
 
 __all__ = ["Element"]

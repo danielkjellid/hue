@@ -14,6 +14,7 @@ import itertools
 from typing import Any
 
 from hue import html
+from hue.js import unsafe
 from hue.types.core import ComponentType
 
 from hue_docs.discovery import Axis, ComponentDoc
@@ -114,7 +115,7 @@ def _combination_block(
             ),
             code_block(code),
         ).class_("space-y-2")
-    ).attr("x-if", condition)
+    ).x_if(unsafe(condition))
 
 
 def _control_id(axis: Axis) -> str:
@@ -127,12 +128,12 @@ def _control_widget(axis: Axis) -> ComponentType:
         return (
             html.input_()
             .id(_control_id(axis))
-            .attr("type", "checkbox")
+            .input_type("checkbox")
             .x_model(model)
             .class_("h-4 w-4 rounded border-surface-300 accent-primary")
         )
     return (
-        html.select(*[html.option(value).attr("value", value) for value in axis.values])
+        html.select(*[html.option(value).value(value) for value in axis.values])
         .id(_control_id(axis))
         .x_model(model)
         .class_(
@@ -161,10 +162,10 @@ def _controls_table(controls: list[Axis]) -> ComponentType:
     ]
     header = html.tr(
         html.th("Prop")
-        .attr("scope", "col")
+        .scope("col")
         .class_("px-3 py-2 text-left font-medium text-surface-500"),
         html.th("Value")
-        .attr("scope", "col")
+        .scope("col")
         .class_("px-3 py-2 text-left font-medium text-surface-500"),
     )
     return html.table(

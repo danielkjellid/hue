@@ -426,7 +426,7 @@ class ChainableComponent(ABC):
     def _get_base_html_attrs(self) -> dict[str, Any]:
         """
         Every attribute set through the modifiers above (id, ARIA, Alpine, and
-        anything set via Element.attr), minus None values, ready to splat into an
+        an Element's typed modifiers), minus None values, ready to splat into an
         html.* call.
         """
         return {k: v for k, v in self._attrs.items() if v is not None}

@@ -49,9 +49,10 @@ class TestElement:
         el = html.div()
         assert el.class_("foo") is el
 
-    def test_attr_returns_self(self):
-        el = html.div()
-        assert el.attr("data-x", "1") is el
+    def test_no_arbitrary_attribute_setter(self):
+        # Each attribute has a typed modifier, so one attribute can only ever
+        # be set, and stored, one way.
+        assert not hasattr(html.div(), "attr")
 
     def test_positional_children_set_content(self):
         el = html.div("a", "b")
@@ -144,39 +145,41 @@ class TestElementRendering:
         assert "</p>" in result
 
     @pytest.mark.asyncio
-    async def test_render_with_attr(self):
+    async def test_render_with_data(self):
         result = await render_tree(
-            html.div().attr("data-value", "42"),
+            html.div().data("value", "42"),
             context_args=_context_args(),
         )
         assert 'data-value="42"' in result
 
     @pytest.mark.asyncio
-    async def test_attr_class_merges_with_class_(self):
+    async def test_an_option_takes_its_value(self):
         result = await render_tree(
-            html.div().attr("class", "a").class_("b"),
+            html.select(html.option("Paid").value("paid").selected()),
             context_args=_context_args(),
         )
-        assert result.count("class=") == 1
-        assert 'class="a b"' in result
+        assert '<option value="paid" selected' in result
 
     @pytest.mark.asyncio
-    async def test_attr_and_aria_setter_share_one_attribute(self):
+    async def test_a_header_cell_says_what_it_heads(self):
         result = await render_tree(
-            html.div().aria_label("a").attr("aria-label", "b"),
+            html.table(html.tr(html.th("Prop").scope("col"))),
             context_args=_context_args(),
         )
-        assert result.count("aria-label=") == 1
-        assert 'aria-label="b"' in result
+        assert '<th scope="col"' in result
 
     @pytest.mark.asyncio
-    async def test_aria_setter_after_attr_wins(self):
+    async def test_a_template_renders_while_its_expression_holds(self):
         result = await render_tree(
-            html.div().attr("aria-label", "a").aria_label("b"),
+            html.template(html.div("Shown")).x_if(unsafe("open")),
             context_args=_context_args(),
         )
-        assert result.count("aria-label=") == 1
-        assert 'aria-label="b"' in result
+        assert '<template x-if="open"' in result
+
+    def test_x_if_refuses_a_string(self):
+        # Alpine evaluates it, so it is an expression like x_show's.
+        with pytest.raises(TypeError, match="takes an expression"):
+            html.template().x_if("open")  # type: ignore[arg-type]
 
     @pytest.mark.asyncio
     async def test_render_with_aria(self):
