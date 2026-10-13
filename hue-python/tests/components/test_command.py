@@ -24,6 +24,13 @@ class TestCommand:
         assert_attr(html, '[role="listbox"]', "aria-label", "Command palette")
 
     @pytest.mark.asyncio
+    async def test_the_trap_focuses_the_field(self, context_args):
+        # Focused by the trap rather than by script, so the trap remembers
+        # the trigger and gives focus back to it on close.
+        html = await render_tree(_command(), context_args=context_args)
+        assert_selector(html, '[role="dialog"] input[role="combobox"][autofocus]')
+
+    @pytest.mark.asyncio
     async def test_label_names_the_palette(self, context_args):
         html = await render_tree(_command().label("Search"), context_args=context_args)
         assert_attr(html, '[role="dialog"]', "aria-label", "Search")

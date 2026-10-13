@@ -79,7 +79,9 @@ def _build() -> ComponentType:
             "both work with nothing added. What has nowhere to go is a toast "
             "raised by a view that then redirects: there is no markup in a "
             "302. HueToastMiddleware keeps those in the session and hands "
-            "them to the page after it."
+            "them to the page after it. Without it, a hue route that raises "
+            "a toast and then redirects raises a RuntimeError rather than "
+            "dropping the toast."
         ),
         pr.code(
             "MIDDLEWARE = [\n"

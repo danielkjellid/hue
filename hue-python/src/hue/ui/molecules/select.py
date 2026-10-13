@@ -214,10 +214,12 @@ class Select(FieldControl):
             id=listbox_id,
             role="listbox",
             aria_label=self._get_prop("label") or name,
-            tabindex="-1",
             class_=_LISTBOX,
             **{
                 "x-ref": "listbox",
+                # The keys are handled on the trigger, so a press on a group
+                # label, the padding or the scrollbar must not take focus.
+                "x-on:mousedown.prevent": "",
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
@@ -228,6 +230,8 @@ class Select(FieldControl):
             type="hidden",
             name=name,
             value=value or "",
+            # A disabled field is left out of what the form submits.
+            disabled=disabled or None,
             **{
                 "x-ref": "input",
                 ":value": "value",

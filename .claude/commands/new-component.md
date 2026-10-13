@@ -14,7 +14,7 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 1. **Study the templates.** Read `hue-python/src/hue/ui/base.py` and a close sibling
    (`hue-python/src/hue/ui/atoms/button.py` for an atom,
-   `hue-python/src/hue/ui/molecules/callout.py` for a molecule) so the new file matches the
+   `hue-python/src/hue/ui/molecules/alert.py` for a molecule) so the new file matches the
    established idiom exactly. Reuse base modifiers and `hue/utils.py` helpers — don't
    reinvent them.
 
@@ -35,7 +35,9 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. Optionally
    rebuild docs (`cd hue-docs && PYTHONPATH=src uv run python -m hue_docs`) to confirm the
-   component is auto-discovered.
+   component is auto-discovered. If the component has keyboard, focus or overlay
+   behaviour, build the docs and drive its page in a browser with real keys and pointer
+   moves: Tab, the arrow keys, Escape, and where focus lands when anything closes.
 
 6. **Run `/prepare-pr` before committing.** Every component goes through its review and
    simplification passes before anything is committed, and the fixes it makes get the
@@ -46,8 +48,11 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 - Accessibility: semantic element, ARIA wired via base helpers, keyboard + visible focus,
   labels associated, decorative icons `aria-hidden`.
-- Backwards compatible, declarative/simple API, DRY (new util ⇒ used in ≥2 places),
+- No compatibility shims, declarative/simple API, DRY (new util ⇒ used in ≥2 places),
   no over-complicated Tailwind, comments explain *why* not *what*.
+- The cases that broke before (see "Mistakes we have already made" in CLAUDE.md): two
+  instances on one page, disabled, a value of `""`, `0` or `None`, text with quotes in it,
+  and the component nested inside a Dialog.
 
 ## If a React reference was provided
 

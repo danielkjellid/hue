@@ -49,8 +49,8 @@ if TYPE_CHECKING:
 # Its sides match the cells' gutters, so a control's edge lines up with the
 # column under it.
 _BAND = "flex flex-wrap items-center gap-2 border-b border-border px-4 py-2"
-# Rounded here, not by the frame: it sits inside the rows region, which is
-# the frame's last child but has no background of its own to round.
+# Rounded here: it is the last thing in the frame, and the band above it
+# only rounds its own bottom when nothing is under it.
 #
 # The end padding is the cells' 16px less the inset of a pagination step,
 # which is a control-height square with a 14px glyph centred in it. That puts

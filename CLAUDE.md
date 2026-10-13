@@ -259,6 +259,51 @@ Every component must satisfy these — review against them before finishing:
   belongs on the region around it.
 - Priority order: **correctness → performance → readability/reusability.**
 
+### Mistakes we have already made
+
+A sweep of every component found the same bugs in unrelated places. Check new work
+against each of these.
+
+- **Ids are unique on the page and built from the component's own id.** Build them from
+  `_input_id()` or an Alpine `$id`, never from a name alone, a slug, or raw user text.
+  Same-named checkboxes, radio values with a space, slugged Select options and
+  Pagination's `page_size` all collided. Render every component twice on one page in its
+  tests.
+- **Move focus before hiding the element that has it.** `x-show="false"` or `$el.remove()`
+  on a focused element drops focus to `<body>`, which Alert, Toast, Command and a Dialog
+  that started open all did. Decide where focus goes (the trigger, the next control, the
+  container) as part of the change.
+- **Overlays handle Escape on their own root and stop it there.** `.window` listeners all
+  fire at once, so one Escape closed a popover and the dialog around it, and cleared a
+  table's selection. Use `.window` only for something that must close while focus is
+  elsewhere, such as Tooltip.
+- **No text inside an expression or an inline script.** Render it as markup, or quote it
+  with `json.dumps`; inside a `<script>`, also escape `<`, `>` and `&`. A slider suffix of
+  " o'clock" broke its readout, and a `</script>` in the CSRF token could close the page's
+  script.
+- **Merge attributes through `_control_attrs` (or the base equivalent).** Spreading
+  `**self._get_base_html_attrs()` last lets a caller's attribute replace a computed one (a
+  RadioGroup's hint vanished from `aria-describedby`), and spreading it beside an explicit
+  `id=` raises a TypeError.
+- **hue's own wiring never shares an attribute key with a public modifier.** Internal
+  listeners use `x-on:…` and the public modifiers write `@…`, so both survive. The
+  overlay's `@click` used to replace the trigger's `on_click`.
+- **Name Alpine state so a nested scope cannot shadow it.** A Tooltip's `open` hid the
+  DropdownMenu's `open` around it. `x-ref` registers on the nearest `x-data`, so it does
+  not cross a component boundary safely either.
+- **Disabled means inert to the keyboard and the form.** `aria-disabled` with
+  `pointer-events-none` still lets Enter activate the element, and a hidden input still
+  submits. Drop the handlers and disable the inputs.
+- **Test `""`, `0` and `None` separately.** `if value` treated an "All" option valued `""`
+  as no value at all.
+- **A required accessible name raises when it is missing,** as ScrollArea does. Any rule a
+  docstring states gets the same treatment: enforce it in code or drop it.
+- **Clamp or drop input from a URL or a form where it enters:** a page past the last, a
+  non-number in a numeric filter, NaN, a body that is not UTF-8.
+- **Check behaviour in a browser.** The tests read markup, and every keyboard and focus bug
+  above passed them. Anything with keyboard, focus or overlay behaviour gets a run in a
+  browser with real keys and pointer moves.
+
 ### Building from a React reference
 
 The user will often paste a component from a React library as the visual/behavioral

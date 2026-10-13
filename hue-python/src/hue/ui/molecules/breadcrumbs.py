@@ -66,7 +66,8 @@ class Breadcrumbs(ChainableComponent):
         Fold the middle away once the trail is longer than this many steps.
 
         The first and the last two always show: where you started, where you
-        are, and the one step back that most people actually want.
+        are, and the one step back that most people actually want. A
+        trail of three or fewer has nothing to fold, whatever the limit.
         """
         self._props["collapse_after"] = value
         return self
@@ -76,8 +77,10 @@ class Breadcrumbs(ChainableComponent):
         limit: int | None = self._get_prop("collapse_after")
         hidden: list[Crumb] = []
 
-        if limit is not None and len(items) > limit:
-            # Keep the root and the tail; the middle is what gets folded.
+        # Keep the root and the tail; the middle is what gets folded. Without
+        # the floor of three, a low limit on a short trail would fold a middle
+        # that is not there and show the root twice.
+        if limit is not None and len(items) > max(limit, 3):
             hidden = items[1:-2]
             items = [items[0], *items[-2:]]
 

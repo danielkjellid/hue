@@ -59,10 +59,10 @@ export function registerCommandData(Alpine) {
 		opened() {
 			this.query = "";
 			this.filter();
-			this.$nextTick(() => {
-				this.$refs.input.focus();
-				this.activate(this.enabled()[0]);
-			});
+			// The search field carries autofocus rather than being focused
+			// here, so the focus trap moves focus into it and remembers the
+			// control that opened the palette to give focus back to.
+			this.$nextTick(() => this.activate(this.enabled()[0]));
 		},
 
 		hotkey(event) {

@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Button, Toast, ToastRegion
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestToast:
@@ -19,21 +19,36 @@ class TestToast:
         assert_attr(
             html, "[x-data]", "x-init", "ms = $data.hueToastDuration ?? 0; start(ms)"
         )
-        assert_attr(html, "[x-data]", "x-on:mouseenter", "stop()")
-        assert_attr(html, "[x-data]", "x-on:mouseleave", "resume()")
-        assert_attr(html, "[x-data]", "x-on:focusin", "stop()")
+        assert_attr(html, "[x-data]", "x-on:mouseenter", "hold('hovered')")
+        assert_attr(html, "[x-data]", "x-on:mouseleave", "release('hovered')")
+        assert_attr(html, "[x-data]", "x-on:focusin", "enter($event.relatedTarget)")
+
+    @pytest.mark.asyncio
+    async def test_a_pointer_leaving_does_not_release_a_toast_the_keyboard_is_in(
+        self, context_args
+    ):
+        # One flag for both meant a pointer passing over a focused toast set it
+        # leaving, and it took focus down to the body with it.
+        html = await render_tree(Toast().title("Saved"), context_args=context_args)
+        timer = select(html, "[x-data]")[0]["x-data"]
+        assert "!this.hovered && !this.focused) this.start(2600)" in timer
+
+    @pytest.mark.asyncio
+    async def test_dismissing_the_focused_toast_hands_focus_on(self, context_args):
+        html = await render_tree(Toast().title("Saved"), context_args=context_args)
+        assert "if ($el.contains(document.activeElement)) this.handOff()" in str(html)
 
     # duration(): both branches
     @pytest.mark.asyncio
     async def test_a_toast_that_was_staying_does_not_leave_after_a_hover(
         self, context_args
     ):
-        # resume() checks the number the toast was given; without that, the
+        # release() checks the number the toast was given; without that, the
         # hover is what starts a sticky toast counting down.
         html = await render_tree(
             Toast().title("Exporting").duration(None), context_args=context_args
         )
-        assert "resume() { if (this.ms) this.start(2600) }" in str(html)
+        assert "release(why) { this[why] = false; if (this.ms " in str(html)
 
     @pytest.mark.asyncio
     async def test_a_duration_is_milliseconds(self, context_args):

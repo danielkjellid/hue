@@ -154,6 +154,9 @@ class TestCombobox:
         assert_attr(html, field, "aria-describedby", "country-error")
         assert_attr(html, field, "disabled")
         assert_attr(html, 'button[aria-controls="country-listbox"]', "disabled")
+        # Neither submitted nor opened by a click on the shell around the field.
+        assert_attr(html, 'template input[type="hidden"]', "disabled")
+        assert_no_selector(html, '[x-ref="shell"][x-on\\:click]')
 
     @pytest.mark.asyncio
     async def test_by_default_the_field_is_optional_valid_and_enabled(
@@ -163,6 +166,7 @@ class TestCombobox:
         assert_no_selector(html, "[aria-required]")
         assert_no_selector(html, "[aria-invalid]")
         assert_no_selector(html, "[disabled]")
+        assert_attr(html, '[x-ref="shell"]', "x-on:click")
 
     @pytest.mark.asyncio
     async def test_a_value_no_option_holds_shows_the_value(self, context_args):

@@ -59,9 +59,10 @@ def call(function: str, *args: Any) -> Expression:
     An argument that is already an Expression goes in as written, because
     that is the whole of what unsafe() said about it - quoting it back into
     a string would make the one way of passing a variable the one way that
-    cannot work:
+    cannot work. The same holds for one inside a dict or a list:
 
         call("remove", unsafe("selected"))  # remove(selected)
+        call("save", {"ids": unsafe("selected")})  # save({"ids": selected})
     """
     if not _FUNCTION.match(function):
         raise ValueError(
@@ -72,7 +73,19 @@ def call(function: str, *args: Any) -> Expression:
 
 
 def _argument(value: Any) -> str:
-    return value if isinstance(value, Expression) else dumps(value)
+    """
+    A value as JavaScript: JSON, except that an Expression goes in as written
+    wherever it sits, inside a dict or a list as much as on its own. Quoted
+    whole by json.dumps, a nested one would arrive as a string.
+    """
+    if isinstance(value, Expression):
+        return value
+    if isinstance(value, Mapping):
+        fields = (f"{dumps(name)}: {_argument(item)}" for name, item in value.items())
+        return "{" + ", ".join(fields) + "}"
+    if isinstance(value, list | tuple):
+        return "[" + ", ".join(_argument(item) for item in value) + "]"
+    return dumps(value)
 
 
 type Method = Literal["get", "post", "put", "patch", "delete"]
@@ -126,22 +139,19 @@ def ajax(
             "a route's body model never reads. Put the values in the URL, or "
             "send them with post."
         )
-    options = [
-        f"method: {dumps(method)}",
-        f"target: {dumps(' '.join(targets))}",
+    options: dict[str, Any] = {
+        "method": method,
+        "target": " ".join(targets),
         # Without it $ajax leaves the page's x-sync elements alone, and a toast
         # the route raised, which arrives in the synced toast region, is
         # dropped. Forms and links sync by default; this matches them.
-        "sync: true",
-    ]
+        "sync": True,
+    }
     if body is not None:
-        fields = ", ".join(
-            f"{dumps(str(name))}: {_argument(value)}"
-            for name, value in body.items()
-            if value is not None
-        )
-        options.append(f"body: {{{fields}}}")
-    return Expression(f"$ajax({_argument(url)}, {{{', '.join(options)}}})")
+        options["body"] = {
+            name: value for name, value in body.items() if value is not None
+        }
+    return call("$ajax", url, options)
 
 
 def close() -> Expression:

@@ -103,6 +103,33 @@ class TestTypedInputs:
         assert_attr(html, "input", "max", "100")
         assert_attr(html, "input", "step", "1")
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("number", "inputmode"),
+        [
+            (NumberInput().min(0), "numeric"),
+            (NumberInput().min(0).step(5), "numeric"),
+            (NumberInput().min(0).step(0.01), "decimal"),
+            (NumberInput().min(0).step("any"), "decimal"),
+        ],
+    )
+    async def test_number_inputmode_follows_step(self, context_args, number, inputmode):
+        # numeric is a digits-only keypad on iOS, with no decimal separator.
+        html = await render_tree(number.name("n"), context_args=context_args)
+        assert_attr(html, "input", "inputmode", inputmode)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "number",
+        [NumberInput(), NumberInput().min(-10), NumberInput().min(-10).step(0.5)],
+    )
+    async def test_number_without_inputmode_when_negative_allowed(
+        self, context_args, number
+    ):
+        # Both keypads lack a minus sign, so type=number picks the keyboard.
+        html = await render_tree(number.name("n"), context_args=context_args)
+        assert_no_selector(html, "input[inputmode]")
+
 
 class TestInputStates:
     @pytest.mark.asyncio

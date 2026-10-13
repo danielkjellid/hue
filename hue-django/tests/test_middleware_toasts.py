@@ -1,9 +1,15 @@
+import asyncio
+from typing import Any
+
 import pytest
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
+from hue.context import HueContext
 from hue.toast import toast
 
 from hue_django.middleware import SESSION_KEY, HueToastMiddleware
+from hue_django.router import Router
+from hue_django.views import HueFragmentsView
 
 
 class _Session(dict):
@@ -96,3 +102,38 @@ class TestCarryingToastsAcrossARedirect:
         # inheriting a half-finished one.
         with pytest.raises(RuntimeError, match="no request to carry it"):
             toast.success("After the fall")
+
+
+def _saving_view() -> Any:
+    class InvoicesView(HueFragmentsView):
+        router = Router[HttpRequest]()
+
+        @router.fragment_post("save/")
+        async def save(self, request: HttpRequest, context: HueContext[HttpRequest]):
+            toast.success("Saved")
+            return HttpResponseRedirect("/invoices/")
+
+    patterns, _ = InvoicesView.urls
+    return patterns[0].callback
+
+
+class TestAHueRouteThatRedirects:
+    def test_the_middleware_carries_its_toast(self, rf):
+        view = _saving_view()
+        request = rf.post("/save/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        request.session = _Session()
+
+        async def get_response(request):
+            return await view(request)
+
+        response = asyncio.run(HueToastMiddleware(get_response)(request))
+
+        assert response.status_code == 302
+        assert [m["title"] for m in request.session[SESSION_KEY]] == ["Saved"]
+
+    def test_without_it_the_toast_is_an_error_rather_than_lost(self, rf):
+        view = _saving_view()
+        request = rf.post("/save/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+
+        with pytest.raises(RuntimeError, match="HueToastMiddleware"):
+            asyncio.run(view(request))

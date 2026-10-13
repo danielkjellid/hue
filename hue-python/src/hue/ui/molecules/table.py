@@ -40,13 +40,10 @@ _ROW_HEIGHT_COMPACT = ["[&_th]:py-[7px]", "[&_td]:py-[7px]"]
 # footer are bands inside it, separated by hairlines. Only the band the
 # table is in scrolls: overflow on the shell would clip a popover opened
 # from the toolbar, and a filter panel that cannot leave the frame is no
-# panel at all. The bands square off the shell's corners unless the first
-# and the last are told to round with it - 11px, the 12px radius less the
-# border it sits inside.
-_FRAME = (
-    "w-full rounded-lg border border-border bg-surface "
-    "[&>*:first-child]:rounded-t-[11px] [&>*:last-child]:rounded-b-[11px]"
-)
+# panel at all. That band is also the only thing that clips, so it is the
+# band that rounds, at whichever end nothing sits between it and the
+# shell's corner - 11px, the 12px radius less the border it sits inside.
+_FRAME = "w-full rounded-lg border border-border bg-surface"
 
 # Alpine AJAX marks what it is about to replace aria-busy for as long as the
 # request runs. Dimmed, so a slow query reads as working rather than as a
@@ -156,8 +153,10 @@ class Table(ChainableComponent):
         frame_id = attrs.pop("id", None)
         scope = attrs.pop("x-data", None)
 
+        toolbar = self._get_prop("toolbar", ())
+        below = (*self._get_prop("footer", ()), *self._get_prop("under", ()))
         inside: list[ComponentType] = [
-            *self._get_prop("toolbar", ()),
+            *toolbar,
             # Everything a response replaces, under one id: the rows, and
             # whatever stands in for them when there are none.
             html.div(
@@ -176,12 +175,17 @@ class Table(ChainableComponent):
                         ),
                         **attrs,
                     ),
-                    class_=_BODY_BAND,
+                    class_=classnames(
+                        _BODY_BAND,
+                        {
+                            "rounded-t-[11px]": not toolbar,
+                            "rounded-b-[11px]": not below,
+                        },
+                    ),
                 ),
-                *self._get_prop("footer", ()),
                 # Replaced with the rows. The pages and the total describe
                 # them, so a response that changes the rows changes these.
-                *self._get_prop("under", ()),
+                *below,
                 id=rows_id(frame_id),
                 class_=_LOADING,
                 # Refreshed by every response that carries it, not only the

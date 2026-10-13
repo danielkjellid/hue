@@ -74,9 +74,6 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     def _get_request_content_type(self, request: T_Request) -> str:
         return request.content_type or "application/json"
 
-    def _get_form_data(self, request: T_Request) -> dict[str, Any]:
-        return _form(request).dict()
-
     def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
         return dict(_form(request).lists())
 

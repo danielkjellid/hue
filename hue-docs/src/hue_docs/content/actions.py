@@ -92,8 +92,9 @@ def _build() -> ComponentType:
             '    target="invoice",\n'
             '    body={"reason": "duplicate"},\n'
             ")\n"
-            '# $ajax("/invoices/2048/archive/", {method: "post", target: "invoice",\n'
-            '#        sync: true, body: {"reason": "duplicate"}})'
+            '# $ajax("/invoices/2048/archive/", {"method": "post",\n'
+            '#        "target": "invoice", "sync": true,\n'
+            '#        "body": {"reason": "duplicate"}})'
         ),
         pr.bullets(
             [
@@ -200,12 +201,20 @@ def _build() -> ComponentType:
             "class ArchiveMany:\n"
             "    ids: Json[list[int]]"
         ),
+        pr.p(
+            "A form sends a list differently. Checkboxes that share a name, "
+            "or a Combobox that takes several choices, send that name once "
+            "for each value. Declare the field as a list, a tuple or a set "
+            "and it receives every one of them. Any other field receives the "
+            "last value sent under its name."
+        ),
         pr.h2("Known only in the browser: an expression"),
         pr.p(
             "Some values exist only in the page: the rows ticked, what is "
             "typed in a field. Pass those as an expression, which goes in as "
-            "written while everything around it is still quoted. This is the "
-            "same rule call() follows."
+            "written while everything around it is still quoted, however deep "
+            "in a dict or a list it sits. This is the same rule call() "
+            "follows."
         ),
         pr.code(
             "from hue.js import ajax, unsafe\n\n"
@@ -218,7 +227,7 @@ def _build() -> ComponentType:
             '        "note": unsafe("$refs.note.value"),\n'
             "    },\n"
             ")\n"
-            '# body: {"ids": selected, "note": $refs.note.value}'
+            '# "body": {"ids": selected, "note": $refs.note.value}'
         ),
         pr.p(
             "The URL can be an expression too, for a path the browser "
