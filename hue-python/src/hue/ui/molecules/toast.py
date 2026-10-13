@@ -62,21 +62,16 @@ _TIMER = (
     "if (this.ms && !this.hovered && !this.focused) "
     f"this.start({_RESUME_MS}) }}, "
     # ms is cleared so the focusout the hand-off causes does not restart it.
+    # Removing the focused toast would drop focus to the body, so it goes to
+    # a neighbouring toast, then to where it was before it entered the
+    # region, then to the region itself. A leaving toast turns inert, so a
+    # second dismissal never hands focus to one already on its way out.
     "dismiss() { this.ms = 0; this.stop(); "
-    "if ($el.contains(document.activeElement)) this.handOff(); "
-    "$el.classList.add('animate-toast-out'); "
+    "if ($el.contains(document.activeElement)) "
+    "$handOff($el, { within: $el.parentElement, "
+    "returnTo: $el.parentElement._hueReturn, fallback: $el.parentElement }); "
+    "$el.inert = true; $el.classList.add('animate-toast-out'); "
     "setTimeout(() => $el.remove(), 180) }, "
-    # Removing the focused element drops focus to the body, so the keyboard
-    # goes to the next toast, then to where it was before it entered the
-    # region, and only then to the region itself.
-    "handOff() { const region = $el.parentElement; "
-    "const toasts = [...region.children].filter(t => t === $el || "
-    "t.matches('[x-data]:not(.animate-toast-out)')); "
-    "const i = toasts.indexOf($el); "
-    "const next = (toasts[i + 1] ?? toasts[i - 1])?.querySelector('button'); "
-    "if (next) return next.focus(); "
-    "if (region._hueReturn?.isConnected) return region._hueReturn.focus(); "
-    "region.tabIndex = -1; region.focus() }, "
     "enter(from) { this.hold('focused'); "
     "if (from && !$el.parentElement.contains(from)) "
     "$el.parentElement._hueReturn = from } }"
