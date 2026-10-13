@@ -193,9 +193,15 @@ export function registerTocData(Alpine) {
 
 			// Content replaced by a fragment is a different set of headings.
 			// Attributes are not watched, or setting an id would call this
-			// straight back.
+			// straight back. Nor is this component's own list, which build
+			// rewrites: when the contents sit inside what they list, as they
+			// do in the default main, every build would start the next one.
 			if (this.container) {
-				this.content = new MutationObserver(this.onContent);
+				this.content = new MutationObserver((records) => {
+					if (records.some((record) => !this.$root.contains(record.target))) {
+						this.onContent();
+					}
+				});
 				this.content.observe(this.container, { childList: true, subtree: true });
 			}
 
@@ -344,8 +350,18 @@ export function registerTocData(Alpine) {
 			// after this was set up, and a short walk up the ancestors costs
 			// less than being wrong about it.
 			const scroller = scrollerOf(this.container);
+
+			// A heading that is not rendered, in a closed disclosure say,
+			// measures as sitting at the very top and would be reached from
+			// the first pixel. It keeps its entry, since opening it changes
+			// no child list and so would never bring the entry back, but it
+			// is never where the reader has got to.
+			const shown = entries
+				.map((entry, index) => index)
+				.filter((index) => entries[index].element.getClientRects().length > 0);
+
 			if (atEnd(scroller)) {
-				this.select(entries.length - 1);
+				this.select(shown.at(-1) ?? 0);
 				return;
 			}
 
@@ -353,10 +369,10 @@ export function registerTocData(Alpine) {
 
 			// The first heading stands for everything above it, including
 			// whatever comes before it on the page.
-			let active = 0;
-			entries.forEach((entry, index) => {
-				if (distanceToLine(entry.target, top) <= SLACK) active = index;
-			});
+			let active = shown[0] ?? 0;
+			for (const index of shown) {
+				if (distanceToLine(entries[index].target, top) <= SLACK) active = index;
+			}
 			this.select(active);
 		},
 
