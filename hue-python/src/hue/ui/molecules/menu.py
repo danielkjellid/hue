@@ -258,16 +258,25 @@ class MenuItem(Clickable):
                 {
                     "x-data": f"{{ checked: {str(checked).lower()} }}",
                     ":aria-checked": "checked",
-                    "x-on:click": "checked = !checked",
                 }
                 if checkable
-                else {"x-on:click": "close()"}
+                else {}
             ),
-            **self._get_base_html_attrs(),
+            # pointer-events-none only stops the mouse. Enter on the focused
+            # item is still a click, so a disabled item has no click handler,
+            # neither this one nor the caller's on_click.
+            **(
+                {}
+                if disabled
+                else {"x-on:click": "checked = !checked" if checkable else "close()"}
+            ),
+            **self._get_clickable_attrs(disabled),
         }
 
         if href is not None:
-            return html.a(*children, href=href, **attrs)
+            # A link with no href goes nowhere, which is what a disabled one
+            # should do. It stays focusable through its tabindex.
+            return html.a(*children, href=None if disabled else href, **attrs)
         return html.button(*children, type="button", **attrs)
 
 
