@@ -414,6 +414,14 @@ def test_hue_view_body_validation(urlpatterns_: list[URLPattern]):
     bad = client.post("/myview/save/", {"name": "Ada", "age": "x"}, **AJAX_HEADERS)
     assert bad.status_code == 422
 
+    not_utf8 = client.post(
+        "/myview/save/",
+        b'{"name": "\xff", "age": 36}',
+        content_type="application/json",
+        **AJAX_HEADERS,
+    )
+    assert not_utf8.status_code == 422
+
 
 def test_a_body_arrives_with_any_method(urlpatterns_: list[URLPattern]):
     # A DELETE's fields, as ajax() sends them. A list arrives as one field of
