@@ -2,6 +2,7 @@ import anchor from "@alpinejs/anchor";
 import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
+import { clearStaleBusyMarks } from "./ajax-busy.js";
 import { registerComboboxData } from "./combobox.js";
 import { registerCommandData } from "./command.js";
 import { registerDismissibleData } from "./dismiss.js";
@@ -43,39 +44,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 		},
 	});
 
-	// A request that syncs marks every x-sync element busy, the toast region
-	// and a table's rows among them, and Alpine AJAX clears the mark only on
-	// those the response brought back. These listeners clear the rest. The
-	// response is read at ajax:sent, before a merge can move its elements out,
-	// and the marks are cleared a microtask later, after a status target such
-	// as x-target.422 has planned the request again and re-marked them.
-	//
-	// Only a request's own marks are cleared, since a later request that marked
-	// the same element owns it. Requests are told apart by the element that
-	// sent them, so a second request from the same element can have its marks
-	// cleared early by the first answer. That is cosmetic: Alpine AJAX cannot
-	// tell the two answers apart, while tracking requests in a queue here could
-	// leave a mark for good once one failed without answering.
-	document.addEventListener("ajax:send", (event) => {
-		const request = {};
-		event.target._hueRequest = request;
-		const planned = event.detail?.headers?.["X-Alpine-Target"] ?? "";
-		for (const id of planned.split(" ").filter(Boolean)) {
-			const synced = document.getElementById(id);
-			if (synced?.hasAttribute("x-sync")) synced._hueBusyFor = request;
-		}
-	});
-	document.addEventListener("ajax:sent", (event) => {
-		const html = event.detail?.html;
-		const request = event.target._hueRequest;
-		if (!request || typeof html?.getElementById !== "function") return;
-		const absent = [...document.querySelectorAll("[x-sync]")].filter(
-			(el) => el._hueBusyFor === request && !html.getElementById(el.id),
-		);
-		queueMicrotask(() => {
-			for (const el of absent) el.removeAttribute("aria-busy");
-		});
-	});
+	clearStaleBusyMarks();
 
 	registerComboboxData(Alpine);
 	registerCommandData(Alpine);

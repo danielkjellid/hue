@@ -8,7 +8,7 @@
   "dependencies": {
     "@alpinejs/anchor": "^3.17.2",
     "@alpinejs/focus": "^3.17.2",
-    "@imacrayon/alpine-ajax": "^0.12.6",
+    "@imacrayon/alpine-ajax": "^0.12.7",
     "alpinejs": "^3.14.0"
   },
   "devDependencies": {
