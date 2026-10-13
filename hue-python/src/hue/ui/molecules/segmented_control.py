@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from json import dumps
 from typing import Literal
 
 from htmy import Context, html
@@ -83,8 +84,8 @@ class SegmentedOption(Clickable):
         # control never fights a binding of their own.
         if interactive and ":aria-pressed" not in self._attrs:
             value = self._get_prop("value")
-            self.x_on("click", unsafe(f"selected = {value!r}"))
-            self.x_bind("aria-pressed", unsafe(f"selected === {value!r}"))
+            self.x_on("click", unsafe(f"selected = {dumps(value)}"))
+            self.x_bind("aria-pressed", unsafe(f"selected === {dumps(value)}"))
 
     def _render(self, context: Context) -> Component:
         size: SegmentedSize = self._get_prop("size", "md")
@@ -189,7 +190,7 @@ class SegmentedControl(ChainableComponent):
             # The server-rendered aria-pressed above is what paints first, so
             # the right option is already on before Alpine takes over.
             **(
-                {"x-data": f"{{ selected: {selected!r} }}"}
+                {"x-data": f"{{ selected: {dumps(selected)} }}"}
                 if selected is not None
                 else {}
             ),
