@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from hue.renderer import render_tree
@@ -47,6 +49,40 @@ class TestSegmentedControl:
         assert_no_selector(html, "button[aria-pressed]")
         assert_no_selector(html, "div[x-data]")
         assert_no_selector(html, "button[\\@click]")
+
+    @pytest.mark.asyncio
+    async def test_an_empty_value_still_gets_an_alpine_root(self, context_args):
+        # An "All" option is commonly valued "", which is falsy but still a
+        # value, so its click bindings need state to act on.
+        html = await render_tree(
+            SegmentedControl()
+            .label("Status")
+            .value("")
+            .content(
+                SegmentedOption().value("").content("All"),
+                SegmentedOption().value("open").content("Open"),
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, 'div[role="group"]', "x-data", '{ selected: "" }')
+        assert_selector(html, "button[\\@click]", count=2)
+
+    @pytest.mark.asyncio
+    async def test_values_are_quoted_as_json(self, context_args):
+        # repr writes a Python literal, which only happens to read as
+        # JavaScript; JSON is the quoting every expression in hue uses.
+        value = 'it\'s "new"'
+        html = await render_tree(
+            SegmentedControl()
+            .label("Status")
+            .value(value)
+            .content(SegmentedOption().value(value).content("New")),
+            context_args=context_args,
+        )
+        quoted = json.dumps(value)
+        assert_attr(html, 'div[role="group"]', "x-data", f"{{ selected: {quoted} }}")
+        assert_attr(html, "button", "@click", f"selected = {quoted}")
+        assert_attr(html, "button", ":aria-pressed", f"selected === {quoted}")
 
     # size(): the control owns it, since the options are its own
     @pytest.mark.asyncio
