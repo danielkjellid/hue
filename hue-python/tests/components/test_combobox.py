@@ -61,8 +61,8 @@ class TestCombobox:
     async def test_a_chosen_value_is_shown_and_selected(self, context_args):
         html = await render_tree(_combobox().value("se"), context_args=context_args)
         assert_attr(html, "input#country", "value", "Sweden")
-        assert_attr(html, "#country-option-se", "aria-selected", "true")
-        assert_attr(html, "#country-option-no", "aria-selected", "false")
+        assert_attr(html, '[data-value="se"]', "aria-selected", "true")
+        assert_attr(html, '[data-value="no"]', "aria-selected", "false")
 
     @pytest.mark.asyncio
     async def test_without_a_value_the_field_is_empty(self, context_args):

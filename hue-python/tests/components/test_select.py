@@ -65,8 +65,8 @@ class TestSelect:
     @pytest.mark.asyncio
     async def test_the_chosen_option_is_selected_and_shown(self, context_args):
         html = await render_tree(_select().value("pro"), context_args=context_args)
-        assert_attr(html, "#plan-option-pro", "aria-selected", "true")
-        assert_attr(html, "#plan-option-free", "aria-selected", "false")
+        assert_attr(html, '[data-value="pro"]', "aria-selected", "true")
+        assert_attr(html, '[data-value="free"]', "aria-selected", "false")
         label = select(html, "button#plan span span")[0]
         assert label.get_text() == "Pro"
         assert "text-fg-subtle" not in label["class"]
@@ -182,8 +182,11 @@ class TestSelectGroup:
             ),
             context_args=context_args,
         )
-        assert_attr(html, '[role="group"]', "aria-labelledby", "plan-group-Paid")
-        assert select(html, "#plan-group-Paid")[0].get_text(strip=True) == "Paid"
+        # The id comes from Alpine, so two groups with one label stay apart.
+        group = select(html, '[role="group"]')[0]
+        assert group[":aria-labelledby"] == "$id('hue-select-group')"
+        label = group.find(attrs={":id": "$id('hue-select-group')"})
+        assert label.get_text(strip=True) == "Paid"
 
 
 class TestSelectOption:
@@ -197,13 +200,27 @@ class TestSelectOption:
         html = await self._option(
             SelectOption().value("pro").label("Pro"), context_args
         )
-        assert_attr(html, "#plan-option-pro", "data-value", "pro")
-        assert_attr(html, "#plan-option-pro", "data-label", "Pro")
+        assert_attr(html, '[role="option"]', "data-value", "pro")
+        assert_attr(html, '[role="option"]', "data-label", "Pro")
+
+    @pytest.mark.asyncio
+    async def test_every_distinct_value_gets_its_own_id(self, context_args):
+        # Each of these once shared an id with another, and the keys find the
+        # active option by its id.
+        values = ["a b", "a-b", "日本", "中国", "€"]
+        html = await render_tree(
+            Select()
+            .name("plan")
+            .content(*(SelectOption().value(value) for value in values)),
+            context_args=context_args,
+        )
+        ids = [option["id"] for option in select(html, '[role="option"]')]
+        assert len(set(ids)) == len(values)
 
     @pytest.mark.asyncio
     async def test_the_label_defaults_to_the_value(self, context_args):
         html = await self._option(SelectOption().value("pro"), context_args)
-        assert_attr(html, "#plan-option-pro", "data-label", "pro")
+        assert_attr(html, '[role="option"]', "data-label", "pro")
 
     @pytest.mark.asyncio
     async def test_the_value_is_quoted_for_alpine(self, context_args):
@@ -215,7 +232,7 @@ class TestSelectOption:
     @pytest.mark.asyncio
     async def test_a_disabled_option_says_so(self, context_args):
         html = await self._option(SelectOption().value("pro").disabled(), context_args)
-        assert_attr(html, "#plan-option-pro", "aria-disabled", "true")
+        assert_attr(html, '[role="option"]', "aria-disabled", "true")
 
     @pytest.mark.asyncio
     async def test_an_option_is_enabled_by_default(self, context_args):
@@ -229,7 +246,7 @@ class TestSelectOption:
             SelectOption().value("pro").description("For teams").meta("$49"),
             context_args,
         )
-        text = select(html, "#plan-option-pro")[0].get_text()
+        text = select(html, '[role="option"]')[0].get_text()
         assert "For teams" in text
         assert "$49" in text
 
@@ -238,7 +255,7 @@ class TestSelectOption:
         html = await self._option(
             SelectOption().value("pro").label("Pro"), context_args
         )
-        assert select(html, "#plan-option-pro")[0].get_text(strip=True) == "Pro"
+        assert select(html, '[role="option"]')[0].get_text(strip=True) == "Pro"
 
     @pytest.mark.asyncio
     async def test_an_option_outside_a_select_is_refused(self, context_args):
