@@ -12,7 +12,7 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
-from hue.ui.molecules.select import _GROUP_LABEL
+from hue.ui.molecules.select import _labelled_group
 from hue.utils import classnames, render_if
 
 _PANEL = (
@@ -230,21 +230,7 @@ class CommandGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        return html.div(
-            html.div(
-                self._get_prop("label", ""),
-                class_=_GROUP_LABEL,
-                **{":id": "$id('hue-command-group')"},
-            ),
-            *self._children,
-            role="group",
-            class_="flex flex-col [&+&]:mt-2",
-            **{
-                "x-id": "['hue-command-group']",
-                ":aria-labelledby": "$id('hue-command-group')",
-                **self._get_base_html_attrs(),
-            },
-        )
+        return _labelled_group(self, "hue-command-group", "flex flex-col [&+&]:mt-2")
 
 
 class CommandItem(ChainableComponent):

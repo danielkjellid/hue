@@ -52,6 +52,33 @@ _GROUP_LABEL = (
 )
 
 
+def _labelled_group(
+    group: ChainableComponent, scope: str, class_: str | None = None
+) -> Component:
+    """
+    A run of options under a heading that names them, for Select and Command
+    alike.
+
+    Two groups may share a label, so the label's id comes from Alpine's $id
+    in a scope of the group's own rather than from what it is called.
+    """
+    return html.div(
+        html.div(
+            group._get_prop("label", ""),
+            class_=_GROUP_LABEL,
+            **{":id": f"$id('{scope}')"},
+        ),
+        *group._children,
+        role="group",
+        **{
+            **({"class_": class_} if class_ else {}),
+            "x-id": f"['{scope}']",
+            ":aria-labelledby": f"$id('{scope}')",
+            **group._get_base_html_attrs(),
+        },
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class SelectState:
     """
@@ -285,22 +312,7 @@ class SelectGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        # Two groups may share a label, so the id comes from Alpine rather
-        # than from what the group is called.
-        return html.div(
-            html.div(
-                self._get_prop("label", ""),
-                class_=_GROUP_LABEL,
-                **{":id": "$id('hue-select-group')"},
-            ),
-            *self._children,
-            role="group",
-            **{
-                "x-id": "['hue-select-group']",
-                ":aria-labelledby": "$id('hue-select-group')",
-                **self._get_base_html_attrs(),
-            },
-        )
+        return _labelled_group(self, "hue-select-group")
 
 
 class SelectOption(ChainableComponent):
