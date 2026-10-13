@@ -133,10 +133,9 @@ class Popover(ChainableComponent):
             ),
             **{
                 ":id": panel_id,
-                # Named by its title where it has one; a panel that announces
-                # itself as "dialog" and nothing else is a dead end.
-                ":aria-labelledby": title_id if title is not None else None,
-                "aria-label": self._get_prop("label") if title is None else None,
+                **_overlay.accessible_name(
+                    "Popover", title, self._get_prop("label"), title_id=title_id
+                ),
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",

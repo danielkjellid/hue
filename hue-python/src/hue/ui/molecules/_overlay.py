@@ -83,17 +83,23 @@ def overlay_state(starts_open: bool = False, *, return_to: str | None = None) ->
     )
 
 
-def accessible_name(kind: str, title: str | None, label: str | None) -> dict[str, str]:
+def accessible_name(
+    kind: str,
+    title: str | None,
+    label: str | None,
+    *,
+    title_id: str = TITLE_ID,
+) -> dict[str, str]:
     """
     The attribute that names the panel: its title where it has one, the
-    label otherwise.
+    label otherwise. A Popover mints its own title id, so it passes that.
 
     A modal that announces itself as "dialog" and nothing else leaves a
     screen reader user inside something they cannot identify, so having
     neither is an error rather than a panel rendered without a name.
     """
     if title is not None:
-        return {":aria-labelledby": TITLE_ID}
+        return {":aria-labelledby": title_id}
     if label is None:
         raise ValueError(
             f"A {kind} needs an accessible name; give it a title(), or a "

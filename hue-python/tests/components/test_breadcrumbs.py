@@ -90,6 +90,7 @@ class TestBreadcrumbs:
         )
         assert_selector(html, '[role="dialog"] ul > li > a[href="/billing"]')
         assert_no_selector(html, '[role="menu"]')
+        assert_attr(html, '[role="dialog"]', "aria-label", "Hidden level")
 
     @pytest.mark.asyncio
     async def test_the_panel_leaves_the_trail_one_line(self, context_args):
