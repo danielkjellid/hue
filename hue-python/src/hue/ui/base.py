@@ -349,51 +349,6 @@ class ChainableComponent(ABC):
         return self
 
     # ------------------------------------------------------------------
-    # Alpine AJAX event handlers (events bubble, so these can sit on any
-    # ancestor element)
-    # ------------------------------------------------------------------
-
-    def ajax_before(self, value: str) -> Self:
-        self._attrs["@ajax:before"] = value
-        return self
-
-    def ajax_send(self, value: str) -> Self:
-        self._attrs["@ajax:send"] = value
-        return self
-
-    def ajax_redirect(self, value: str) -> Self:
-        self._attrs["@ajax:redirect"] = value
-        return self
-
-    def ajax_success(self, value: str) -> Self:
-        self._attrs["@ajax:success"] = value
-        return self
-
-    def ajax_error(self, value: str) -> Self:
-        self._attrs["@ajax:error"] = value
-        return self
-
-    def ajax_sent(self, value: str) -> Self:
-        self._attrs["@ajax:sent"] = value
-        return self
-
-    def ajax_missing(self, value: str) -> Self:
-        self._attrs["@ajax:missing"] = value
-        return self
-
-    def ajax_merge(self, value: str) -> Self:
-        self._attrs["@ajax:merge"] = value
-        return self
-
-    def ajax_merged(self, value: str) -> Self:
-        self._attrs["@ajax:merged"] = value
-        return self
-
-    def ajax_after(self, value: str) -> Self:
-        self._attrs["@ajax:after"] = value
-        return self
-
-    # ------------------------------------------------------------------
     # Prop helpers
     # ------------------------------------------------------------------
 
