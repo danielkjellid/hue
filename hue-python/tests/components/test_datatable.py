@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -34,6 +35,17 @@ def _selectable() -> DataTable:
         .rows(_ROWS)
         ._bulk_actions("invoice", Button().content("Delete"))
     )
+
+
+@dataclass
+class _Customer:
+    name: str
+
+
+@dataclass
+class _Invoice:
+    reference: str
+    customer: _Customer | None
 
 
 class TestDataTable:
@@ -86,6 +98,50 @@ class TestDataTable:
                 .rows([{"customer": {}}]),
                 context_args=context_args,
             )
+
+    @pytest.mark.asyncio
+    async def test_a_path_reads_attributes_of_a_row_that_is_not_a_mapping(
+        self, context_args
+    ):
+        # A model instance or a dataclass, as rows() usually returns.
+        html = await render_tree(
+            DataTable()
+            .columns([Column("reference", "Invoice"), Column("customer.name", "To")])
+            .rows([_Invoice("INV-2050", _Customer("Contoso"))]),
+            context_args=context_args,
+        )
+        assert "INV-2050" in html
+        assert "Contoso" in html
+
+    @pytest.mark.asyncio
+    async def test_an_attribute_that_is_not_there_says_which_part_was_missing(
+        self, context_args
+    ):
+        with pytest.raises(ValueError, match=r"_Customer .* has no 'city'"):
+            await render_tree(
+                DataTable()
+                .columns([Column("customer.city", "City")])
+                .rows([_Invoice("INV-2050", _Customer("Contoso"))]),
+                context_args=context_args,
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_none_part_way_along_a_path_is_an_empty_cell(self, context_args):
+        # A nullable foreign key: one invoice without a customer must not
+        # take the page down, in a mapping row or an object row.
+        html = await render_tree(
+            DataTable()
+            .columns([Column("reference", "Invoice"), Column("customer.name", "To")])
+            .rows(
+                [
+                    {"reference": "INV-2049", "customer": None},
+                    _Invoice("INV-2050", None),
+                ]
+            ),
+            context_args=context_args,
+        )
+        cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
+        assert cells == ["INV-2049", "", "INV-2050", ""]
 
     # Values with more than one spelling: written in the context's formats
     @pytest.mark.asyncio

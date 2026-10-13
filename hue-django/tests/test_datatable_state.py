@@ -8,6 +8,7 @@ come back with the table in the state it was in.
 
 import asyncio
 import re
+from dataclasses import dataclass
 from html.parser import HTMLParser
 from importlib.resources import files
 from typing import Any, ClassVar
@@ -468,20 +469,49 @@ def test_rows_that_do_not_carry_the_identifier_are_refused():
     assert "['invoice']" in str(error.value)
 
 
-def test_rows_that_are_not_mappings_are_refused_with_the_same_reason():
-    # A model instance has no keys to list, which is itself the answer.
+@dataclass
+class _Invoice:
+    """
+    A row that is not a mapping, the way a model instance is not.
+    """
+
+    pk: str
+    invoice: str
+    amount: int
+
+
+def test_rows_that_are_objects_are_read_by_attribute(urlpatterns_):
+    # What rows() returns when it hands back a queryset of models.
+    picked: list[str] = []
+    objects = [_Invoice(row["pk"], row["invoice"], row["amount"]) for row in _INVOICES]
+    table = _plain(
+        urlpatterns_,
+        rows=lambda request, asked: objects,
+        identifier="pk",
+        actions={"archive": BulkAction("Archive", lambda r, ids: picked.extend(ids))},
+    )
+
+    html = _table(table, _request())
+    assert "INV-2050" in html
+    picks = re.findall(r'name="selected" value="(\d+)"', html)
+    assert picks == ["41", "17", "23", "58"]
+    assert _act("archive", selected=["17", "nonesuch"]).status_code == 200
+    assert picked == ["17"]
+
+
+def test_objects_that_do_not_carry_the_identifier_are_refused():
     class Invoice:
-        pk = "41"
+        number = "41"
 
     models = build_datatable_state(
         Router[HttpRequest](),
         key="models",
-        columns=[Column("invoice", "Invoice")],
+        columns=[Column("number", "Invoice")],
         rows=lambda request, asked: [Invoice()],
         identifier="pk",
         actions=_NOTHING_TO_DO,
     )
-    with pytest.raises(ValueError, match="they are Invoice and not mappings"):
+    with pytest.raises(ValueError, match="they are Invoice objects, read by attribute"):
         _bind(models, _request(at=None))
 
 

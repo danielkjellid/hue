@@ -126,40 +126,58 @@ class Column:
     """
     One column of a DataTable: where its value comes from, and how it reads.
 
-    key resolves a row's value. It can be a key, a dotted path into a
-    nested record, or a callable given the row. render takes the row and
-    returns whatever the cell should hold, for columns that show a badge
-    or a button instead of a value. align is where the value sits in the
-    cell; align="end" also lines up the digits, which a column of numbers
-    needs. sort is what the server orders by, often not the field the
-    value is read from. On a table drawn from a declaration it turns the
-    header into a link to the rows in that order.
+    key resolves a row's value. It can be a key or attribute, a dotted path
+    into a nested record or related object, or a callable given the row.
+    render takes the row and returns whatever the cell should hold, for
+    columns that show a badge or a button instead of a value. align is
+    where the value sits in the cell; align="end" also lines up the
+    digits, which a column of numbers needs. sort is what the server
+    orders by, often not the field the value is read from. On a table
+    drawn from a declaration it turns the header into a link to the rows
+    in that order.
     """
 
-    key: str | Callable[[Mapping[str, Any]], Any]
+    key: str | Callable[[Any], Any]
     label: str
     align: CellAlign = "start"
     sort: str | None = None
-    render: Callable[[Mapping[str, Any]], ComponentType] | None = None
+    render: Callable[[Any], ComponentType] | None = None
+
+
+# Told apart from an attribute that is there and holds None.
+_MISSING = object()
 
 
 def resolve_value(
-    row: Mapping[str, Any],
-    key: str | Callable[[Mapping[str, Any]], Any],
+    row: Any,
+    key: str | Callable[[Any], Any],
 ) -> Any:
     """
     A row's value for one column, by callable or by (dotted) key path.
+
+    Each part of the path is a key of a mapping or an attribute of anything
+    else, so a dict, a model instance and a dataclass all read the same way,
+    and customer.name can cross from one to the other. A None part way along
+    is a nullable relation that is not set, so the cell is empty; only a part
+    that is not there at all raises.
     """
     if callable(key):
         return key(row)
 
     value: Any = row
     for part in key.split("."):
-        if not isinstance(value, Mapping) or part not in value:
+        if value is None:
+            return None
+        if isinstance(value, Mapping):
+            found = value.get(part, _MISSING)
+        else:
+            found = getattr(value, part, _MISSING)
+        if found is _MISSING:
             raise ValueError(
-                f"Cannot resolve key {key!r}: {part!r} is not a key of {value!r}."
+                f"Cannot resolve key {key!r}: "
+                f"{type(value).__name__} {value!r} has no {part!r}."
             )
-        value = value[part]
+        value = found
     return value
 
 
@@ -213,7 +231,7 @@ class DataTable(ChainableComponent):
     def __init__(self) -> None:
         super().__init__()
         self._columns: list[Column] = []
-        self._rows: Sequence[Mapping[str, Any]] = []
+        self._rows: Sequence[Any] = []
 
     @classmethod
     def from_state(cls, declaration: _Declaration) -> Self:
@@ -249,7 +267,7 @@ class DataTable(ChainableComponent):
         self._columns = value
         return self
 
-    def rows(self, value: Sequence[Mapping[str, Any]]) -> Self:
+    def rows(self, value: Sequence[Any]) -> Self:
         self._rows = value
         return self
 
@@ -567,9 +585,7 @@ class DataTable(ChainableComponent):
             )
         )
 
-    def _select_cell(
-        self, row: Mapping[str, Any], line: str, name_id: str | None
-    ) -> ComponentType:
+    def _select_cell(self, row: Any, line: str, name_id: str | None) -> ComponentType:
         value = str(resolve_value(row, self._get_prop("selectable")))
         box_id = f"{line}-select"
         box = (
@@ -607,7 +623,7 @@ class DataTable(ChainableComponent):
         rows = [self._row(row, index) for index, row in enumerate(self._rows)]
         return (TableBody().content(*rows),)
 
-    def _row(self, row: Mapping[str, Any], index: int) -> ComponentType:
+    def _row(self, row: Any, index: int) -> ComponentType:
         cells = [self._cell(column, row) for column in self._columns]
         if (key := self._get_prop("selectable")) is None:
             return TableRow().content(*cells)
@@ -662,7 +678,7 @@ class DataTable(ChainableComponent):
             bar.class_("mx-auto" if column.align == "center" else "ms-auto")
         return TableCell().align(column.align).content(bar)
 
-    def _cell(self, column: Column, row: Mapping[str, Any]) -> TableCell:
+    def _cell(self, column: Column, row: Any) -> TableCell:
         content = (
             column.render(row)
             if column.render is not None
