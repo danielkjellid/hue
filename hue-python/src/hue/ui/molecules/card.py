@@ -40,19 +40,43 @@ _STRETCHED_CONTROL = (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class CardLink:
-    """
-    What a linked card's title turns into, offered to the header inside it.
-    """
+# What moves from a linked card onto its title: what names the control and
+# what activates it, including the wiring an overlay or a request puts on its
+# trigger. The rest (an id, x-show, x-data, data attributes) describes the
+# card as a whole, so moving it would hide, target or scope only the title.
+_CONTROL_ATTRS = frozenset(
+    {
+        "aria_label",
+        "aria_labelledby",
+        "aria_describedby",
+        "aria_keyshortcuts",
+        "aria_haspopup",
+        "aria_expanded",
+        "aria_pressed",
+        "aria_controls",
+        "x_ref",
+        "x_headers",
+        "x_sync",
+    }
+)
+_CONTROL_ATTR_PREFIXES = (
+    "@click",
+    "@keydown",
+    "@keyup",
+    "@ajax:",
+    "x-on:click",
+    "x-on:keydown",
+    "x-on:keyup",
+    "x-on:ajax:",
+    "x-target",
+)
 
-    href: str | None
-    attrs: dict[str, Any]
 
-    @classmethod
-    def from_context(cls, context: Context) -> CardLink | None:
-        found = context.get(cls)
-        return found if isinstance(found, cls) else None
+def _is_control_attr(key: str) -> bool:
+    if key.startswith(_CONTROL_ATTR_PREFIXES):
+        return True
+    bound = key.removeprefix("x-bind:").removeprefix(":")
+    return bound.replace("-", "_") in _CONTROL_ATTRS
 
 
 class Card(ChainableComponent):
@@ -98,44 +122,57 @@ class Card(ChainableComponent):
         self._props["interactive"] = value
         return self
 
-    def _link(self) -> CardLink | None:
-        href: str | None = self._get_prop("href")
-        if href is None and not self._get_prop("interactive", False):
-            return None
-        # The title is the control, so whatever was set on the card (a label,
-        # a click handler, a dialog trigger) belongs on it.
-        return CardLink(href, self._get_base_html_attrs())
-
-    def htmy_context(self) -> Context:
-        # Always set, so a static card nested in a linked one is not linked.
-        return {CardLink: self._link()}
-
     def _render(self, context: Context) -> Component:
         variant: CardVariant = self._get_prop("variant", "bordered")
-        link = self._link()
+        href: str | None = self._get_prop("href")
+        linked = href is not None or self._get_prop("interactive", False)
 
         classes = classnames(
             "flex flex-col overflow-hidden rounded-lg border",
             _VARIANT_CLASSES[variant],
-            _LINKED_CLASSES if link is not None else "",
+            _LINKED_CLASSES if linked else "",
             self._get_prop("class_"),
         )
+        attrs = self._get_base_html_attrs()
 
-        if link is None:
-            return html.div(
-                *self._children, class_=classes, **self._get_base_html_attrs()
-            )
+        if not linked:
+            return html.div(*self._children, class_=classes, **attrs)
 
-        if not any(
-            isinstance(child, CardHeader) and child._get_prop("title") is not None
-            for child in self._children
-        ):
+        # The card hands the link to the first titled header among its own
+        # children and to nothing else, so there is exactly one control
+        # however many headers sit further down.
+        found = next(
+            (
+                (i, child)
+                for i, child in enumerate(self._children)
+                if isinstance(child, CardHeader)
+                and child._get_prop("title") is not None
+            ),
+            None,
+        )
+        if found is None:
             raise ValueError(
                 "A card with href() or interactive() needs a CardHeader with a "
-                "title: the title is the link, and the text that names it."
+                "title placed directly in it: the title is the link, and the "
+                "text that names it."
             )
 
-        return html.div(*self._children, class_=classes)
+        index, header = found
+        link = _CardLink(href, {k: v for k, v in attrs.items() if _is_control_attr(k)})
+        children = list(self._children)
+        children[index] = header._render_linked(link)
+
+        return html.div(
+            *children,
+            class_=classes,
+            **{k: v for k, v in attrs.items() if not _is_control_attr(k)},
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _CardLink:
+    href: str | None
+    attrs: dict[str, Any]
 
 
 class CardMedia(ChainableComponent):
@@ -186,6 +223,9 @@ class CardHeader(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        return self._render_linked(None)
+
+    def _render_linked(self, link: _CardLink | None) -> ComponentType:
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
 
@@ -193,7 +233,7 @@ class CardHeader(ChainableComponent):
         if title is not None:
             heading.append(
                 html.div(
-                    _title_control(title, CardLink.from_context(context)),
+                    _title_control(title, link),
                     class_="font-ui text-md font-bold tracking-[-0.01em] text-fg",
                 )
             )
@@ -215,7 +255,7 @@ class CardHeader(ChainableComponent):
         )
 
 
-def _title_control(title: str, link: CardLink | None) -> ComponentType:
+def _title_control(title: str, link: _CardLink | None) -> ComponentType:
     if link is None:
         return title
     if link.href is not None:

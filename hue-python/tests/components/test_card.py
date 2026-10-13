@@ -1,7 +1,16 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, Card, CardBody, CardFooter, CardHeader, CardMedia
+from hue.ui import (
+    Button,
+    Card,
+    CardBody,
+    CardFooter,
+    CardHeader,
+    CardMedia,
+    Dialog,
+)
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -74,10 +83,11 @@ class TestCard:
         assert_no_selector(html, "button a")
         assert_selector(html, "button", count=1)
 
+    # Naming and activation belong to the control, since that is what a
+    # screen reader names and what a click lands on. Everything else
+    # describes the card as a whole and stays on it.
     @pytest.mark.asyncio
-    async def test_attributes_land_on_the_control(self, context_args):
-        # The card is the control as far as a caller is concerned, so a label
-        # or a handler set on it belongs to the link, not the container.
+    async def test_a_label_lands_on_the_control(self, context_args):
         html = await render_tree(
             Card()
             .href("/x")
@@ -87,6 +97,60 @@ class TestCard:
         )
         assert_attr(html, "a", "aria-label", "Open report")
         assert_no_selector(html, "div[aria-label]")
+
+    @pytest.mark.asyncio
+    async def test_a_click_handler_lands_on_the_control(self, context_args):
+        html = await render_tree(
+            Card()
+            .interactive()
+            .x_on("click", unsafe("picked = true"))
+            .content(CardHeader().title("Pro plan")),
+            context_args=context_args,
+        )
+        assert_attr(html, "button", "@click", "picked = true")
+        assert_no_selector(html, "div[\\@click]")
+
+    @pytest.mark.asyncio
+    async def test_a_dialog_trigger_is_wired_to_the_control(self, context_args):
+        html = await render_tree(
+            Dialog()
+            .title("Upgrade")
+            .trigger(Card().interactive().content(CardHeader().title("Pro plan"))),
+            context_args=context_args,
+        )
+        assert_attr(html, "button[data-card-link]", "aria-haspopup", "dialog")
+        assert_attr(html, "button[data-card-link]", "@click")
+        assert_attr(html, "button[data-card-link]", ":aria-expanded")
+
+    @pytest.mark.asyncio
+    async def test_an_ajax_listener_lands_on_the_control(self, context_args):
+        # Alpine AJAX fires its events on the element that made the request.
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .ajax_success("done = true")
+            .content(CardHeader().title("Report")),
+            context_args=context_args,
+        )
+        assert_attr(html, "a", "@ajax:success", "done = true")
+
+    @pytest.mark.asyncio
+    async def test_container_attributes_stay_on_the_card(self, context_args):
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .id("report")
+            .x_data({"open": True})
+            .x_show(unsafe("open"))
+            .content(CardHeader().title("Report")),
+            context_args=context_args,
+        )
+        card = select(html, "div.relative")[0]
+        assert card.get("id") == "report"
+        assert card.get("x-show") == "open"
+        assert card.has_attr("x-data")
+        anchor = select(html, "a")[0]
+        assert not {"id", "x-show", "x-data"} & set(anchor.attrs)
 
     @pytest.mark.asyncio
     async def test_a_linked_card_gets_a_focus_ring(self, context_args):
@@ -117,6 +181,37 @@ class TestCard:
             context_args=context_args,
         )
         assert_selector(html, "a", count=1)
+
+    @pytest.mark.asyncio
+    async def test_only_the_cards_own_header_becomes_the_link(self, context_args):
+        # One link per card, or the card's attributes would land on two
+        # controls: a duplicated id and every handler run twice.
+        html = await render_tree(
+            Card()
+            .href("/x")
+            .aria_label("Open report")
+            .content(
+                CardHeader().title("Report"),
+                CardHeader().title("Second"),
+                CardBody().content(CardHeader().title("Nested")),
+            ),
+            context_args=context_args,
+        )
+        assert_selector(html, "a", count=1)
+        assert select(html, "a")[0].get_text(strip=True) == "Report"
+
+    @pytest.mark.asyncio
+    async def test_a_header_wrapped_in_another_element_does_not_count(
+        self, context_args
+    ):
+        # Only a header placed directly in the card can become its link.
+        with pytest.raises(ValueError, match="CardHeader"):
+            await render_tree(
+                Card()
+                .href("/x")
+                .content(CardBody().content(CardHeader().title("Report"))),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_a_linked_card_needs_a_title(self, context_args):
