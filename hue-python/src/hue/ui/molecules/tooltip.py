@@ -15,12 +15,17 @@ type TooltipPlacement = Literal["top", "bottom", "start", "end"]
 
 # Where the bubble sits, and which way its arrow points. The arrow is what
 # makes the association legible: a bubble floating free of its trigger reads
-# as a stray chip.
+# as a stray chip. The before element spans the gap on the trigger side, so a
+# pointer on its way into the bubble never leaves the wrapper and closes it.
 _PLACEMENTS: dict[TooltipPlacement, str] = {
-    "top": "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
-    "bottom": "top-full left-1/2 -translate-x-1/2 mt-1.5",
-    "start": "right-full top-1/2 -translate-y-1/2 me-1.5",
-    "end": "left-full top-1/2 -translate-y-1/2 ms-1.5",
+    "top": "bottom-full left-1/2 -translate-x-1/2 mb-1.5 "
+    "before:top-full before:inset-x-0 before:h-1.5",
+    "bottom": "top-full left-1/2 -translate-x-1/2 mt-1.5 "
+    "before:bottom-full before:inset-x-0 before:h-1.5",
+    "start": "right-full top-1/2 -translate-y-1/2 me-1.5 "
+    "before:left-full before:inset-y-0 before:w-1.5",
+    "end": "left-full top-1/2 -translate-y-1/2 ms-1.5 "
+    "before:right-full before:inset-y-0 before:w-1.5",
 }
 
 _ARROWS: dict[TooltipPlacement, str] = {
@@ -110,6 +115,7 @@ class Tooltip(ChainableComponent):
                 "absolute z-20 inline-flex w-max max-w-60 items-center gap-1.5",
                 "rounded-sm bg-surface-inverse px-[9px] py-[5px] shadow-raised",
                 "font-ui text-xs font-normal leading-[1.45] text-surface-inverse-fg",
+                "before:absolute before:content-['']",
                 _PLACEMENTS[placement],
             ),
             **{
@@ -127,15 +133,19 @@ class Tooltip(ChainableComponent):
             **{
                 "x-data": "{ open: false }",
                 "x-id": "['hue-tooltip']",
-                # Focus as well as hover, because a keyboard never hovers, and
-                # Escape because a tooltip that cannot be dismissed can sit on
-                # top of what the user is trying to read.
+                # Focus as well as hover, because a keyboard never hovers. The
+                # bubble sits inside the wrapper, so the pointer can move onto
+                # it and read it without the tooltip closing.
+                #
+                # Escape is heard on the window, because a tooltip opened by
+                # hover has to close while focus is somewhere else entirely. It
+                # drops a pending open too, which would otherwise undo it.
                 "x-on:mouseenter": f"clearTimeout($el._t); "
                 f"$el._t = setTimeout(() => open = true, {_OPEN_DELAY_MS})",
                 "x-on:mouseleave": "clearTimeout($el._t); open = false",
                 "x-on:focusin": "open = true",
                 "x-on:focusout": "open = false",
-                "x-on:keydown.escape": "open = false",
+                "x-on:keydown.escape.window": "clearTimeout($el._t); open = false",
                 **self._get_base_html_attrs(),
             },
         )

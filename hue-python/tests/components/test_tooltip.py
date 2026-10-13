@@ -37,10 +37,16 @@ class TestTooltip:
         assert_attr(html, "[x-data]", "x-on:mouseenter")
 
     @pytest.mark.asyncio
-    async def test_escape_dismisses_it(self, context_args):
-        # One sitting over what the user is trying to read needs a way out.
+    async def test_escape_dismisses_it_wherever_focus_is(self, context_args):
+        # One opened by hover sits over what the user is reading while focus
+        # is elsewhere, so the key is heard on the window (WCAG 1.4.13).
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-on:keydown.escape", "open = false")
+        assert_attr(
+            html,
+            "[x-data]",
+            "x-on:keydown.escape.window",
+            "clearTimeout($el._t); open = false",
+        )
 
     @pytest.mark.asyncio
     async def test_it_waits_before_opening(self, context_args):
@@ -65,6 +71,26 @@ class TestTooltip:
             _tooltip().placement(placement), context_args=context_args
         )
         assert_selector(html, f'[role="tooltip"].{position}')
+
+    @pytest.mark.parametrize(
+        ("placement", "bridge"),
+        [
+            ("top", "before:top-full"),
+            ("bottom", "before:bottom-full"),
+            ("start", "before:left-full"),
+            ("end", "before:right-full"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_the_gap_to_the_trigger_is_bridged(
+        self, context_args, placement, bridge
+    ):
+        # Without it the pointer leaves the wrapper on its way into the bubble,
+        # which closes before it can be hovered (WCAG 1.4.13).
+        html = await render_tree(
+            _tooltip().placement(placement), context_args=context_args
+        )
+        assert_selector(html, f'[role="tooltip"][class~="{bridge}"]')
 
     @pytest.mark.asyncio
     async def test_the_arrow_is_decorative(self, context_args):
