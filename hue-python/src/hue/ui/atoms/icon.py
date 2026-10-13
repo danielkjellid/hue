@@ -34,10 +34,19 @@ def directory_resolver(icons_dir: str) -> IconResolver:
     Reads are cached per process, so an icon with the same name is read once no
     matter how many times it renders.
     """
-    base = os.path.abspath(icons_dir)
+    base = os.path.realpath(icons_dir)
 
     def resolve(name: str) -> str:
-        path = os.path.join(base, f"{name}.svg")
+        # The markup is inlined unescaped, so a name like ../x or an absolute
+        # path must not reach an svg outside the directory: with a name taken
+        # from request data, that is stored XSS through any uploaded file. The
+        # danger is the name, so a string check is enough. It leaves symlinks
+        # inside the directory alone and costs no filesystem call per render.
+        path = os.path.normpath(os.path.join(base, f"{name}.svg"))
+        if os.path.commonpath([base, path]) != base:
+            raise ValueError(
+                f"Icon '{name}' resolves outside the icon directory {base}"
+            )
         try:
             return _read_file(path)
         except FileNotFoundError as e:
