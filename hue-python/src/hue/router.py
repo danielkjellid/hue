@@ -9,6 +9,11 @@ from typing import Any, cast, get_type_hints
 
 from htmy import html
 from pydantic import TypeAdapter, ValidationError
+from pydantic.json_schema import (
+    GenerateJsonSchema,
+    JsonSchemaValue,
+    JsonSchemaWarningKind,
+)
 
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError
@@ -117,6 +122,63 @@ def _resolve_body_type(view_func: ViewFunc) -> type | None:
     return body_type
 
 
+class _FormSchema(GenerateJsonSchema):
+    """
+    A JSON schema generator that never fails or warns over a field a form
+    cannot post anyway.
+
+    The schema is only read for which fields are lists, so an arbitrary class
+    with no JSON form, or a default that cannot be serialized, should not stop
+    a route from registering or print a warning when it does.
+    """
+
+    def handle_invalid_for_json_schema(
+        self, schema: Any, error_info: str
+    ) -> JsonSchemaValue:
+        return {}
+
+    def render_warning_message(self, kind: JsonSchemaWarningKind, detail: str) -> None:
+        pass
+
+
+def _resolve(
+    node: JsonSchemaValue, defs: dict[str, JsonSchemaValue]
+) -> JsonSchemaValue:
+    # A recursive model, a nested one or a type alias sits in $defs.
+    while "$ref" in node:
+        node = defs[node["$ref"].rsplit("/", 1)[-1]]
+    return node
+
+
+def _is_array(node: JsonSchemaValue, defs: dict[str, JsonSchemaValue]) -> bool:
+    node = _resolve(node, defs)
+    arms = node.get("anyOf", []) + node.get("oneOf", [])
+    return node.get("type") == "array" or any(_is_array(arm, defs) for arm in arms)
+
+
+def _sequence_fields(adapter: TypeAdapter[Any]) -> frozenset[str]:
+    """
+    The names in a form that a body read by this adapter takes as a list.
+
+    A form is only names and strings, and a name posted twice means a list
+    to one field and a mistake to another, so the body's own type decides.
+    The adapter's validation schema is asked rather than the type hints,
+    because it already knows the names pydantic validates from, Optional and
+    NotRequired unwrapped, and that a Json field is one string on the wire.
+    Attribute names are included alongside aliases, for a model that is
+    populated by name.
+    """
+    names: set[str] = set()
+    for by_alias in (True, False):
+        schema = adapter.json_schema(
+            by_alias=by_alias, mode="validation", schema_generator=_FormSchema
+        )
+        defs = schema.get("$defs", {})
+        properties = _resolve(schema, defs).get("properties", {})
+        names.update(name for name, node in properties.items() if _is_array(node, defs))
+    return frozenset(names)
+
+
 class Router[T_Request]:
     """
     Framework-agnostic base router for defining routes on a view.
@@ -194,22 +256,16 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
-    def _get_form_data(self, request: T_Request) -> dict[str, Any]:
-        raise NotImplementedError(
-            "This method must be overridden by framework-specific routers"
-        )
-
     def _get_form_values(self, request: T_Request) -> dict[str, list[str]]:
         """
         The submitted form with every value kept, not just the last.
 
-        Separate from _get_form_data because the flat dict that returns keeps
-        only the last value under each name, and a column of checkboxes is
-        several values under one.
+        A column of checkboxes, or a multiple Combobox, is several values
+        under one name, so flattening the form here would lose all but one.
         """
-        return {
-            name: [str(value)] for name, value in self._get_form_data(request).items()
-        }
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
 
     def _get_query_values(self, request: T_Request) -> dict[str, list[str]]:
         """
@@ -296,11 +352,18 @@ class Router[T_Request]:
         """
         return func(*args)
 
-    def _parse_body(self, request: T_Request, adapter: TypeAdapter[Any]) -> Any:
+    def _parse_body(
+        self,
+        request: T_Request,
+        adapter: TypeAdapter[Any],
+        sequence_fields: AbstractSet[str],
+    ) -> Any:
         """
         Parse the request body with the given Pydantic adapter.
 
-        JSON bodies are decoded first; anything else is treated as form data.
+        JSON bodies are decoded first; anything else is treated as form data,
+        where the names in sequence_fields keep every value posted under them
+        and the rest keep the last.
         Raises BodyValidationError when decoding or validation fails.
         """
         content_type = self._get_request_content_type(request)
@@ -314,7 +377,11 @@ class Router[T_Request]:
                     errors=[{"type": "json_invalid", "msg": str(e)}]
                 ) from e
         else:
-            data = self._get_form_data(request)
+            data = {
+                name: values if name in sequence_fields else values[-1]
+                for name, values in self._get_form_values(request).items()
+                if values
+            }
 
         try:
             return adapter.validate_python(data)
@@ -337,6 +404,9 @@ class Router[T_Request]:
         body_adapter: TypeAdapter[Any] | None = (
             TypeAdapter(body_type) if body_type is not None else None
         )
+        sequence_fields = (
+            _sequence_fields(body_adapter) if body_adapter is not None else frozenset()
+        )
 
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
@@ -345,7 +415,9 @@ class Router[T_Request]:
                 raise AJAXRequiredError()
 
             if body_adapter is not None:
-                kwargs["body"] = self._parse_body(request, body_adapter)
+                kwargs["body"] = self._parse_body(
+                    request, body_adapter, sequence_fields
+                )
 
             # The queue lives exactly as long as the request, so toast() is a
             # plain call from anywhere in the handler and nothing it raises

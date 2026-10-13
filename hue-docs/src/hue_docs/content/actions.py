@@ -201,6 +201,13 @@ def _build() -> ComponentType:
             "class ArchiveMany:\n"
             "    ids: Json[list[int]]"
         ),
+        pr.p(
+            "A form sends a list differently. Checkboxes that share a name, "
+            "or a Combobox that takes several choices, send that name once "
+            "for each value. Declare the field as a list, a tuple or a set "
+            "and it receives every one of them. Any other field receives the "
+            "last value sent under its name."
+        ),
         pr.h2("Known only in the browser: an expression"),
         pr.p(
             "Some values exist only in the page: the rows ticked, what is "
