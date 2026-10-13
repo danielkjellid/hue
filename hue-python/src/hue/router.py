@@ -1,26 +1,19 @@
 import inspect
 import json
-import types
-from collections.abc import Awaitable, Callable, MutableSequence, MutableSet, Sequence
+from collections.abc import Awaitable, Callable
 from collections.abc import Set as AbstractSet
-from dataclasses import dataclass, field, is_dataclass
+from dataclasses import dataclass, field
 from functools import partialmethod
 from http import HTTPStatus
-from typing import (
-    Annotated,
-    Any,
-    NotRequired,
-    Required,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-    get_type_hints,
-    is_typeddict,
-)
+from typing import Any, cast, get_type_hints
 
 from htmy import html
-from pydantic import Json, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
+from pydantic.json_schema import (
+    GenerateJsonSchema,
+    JsonSchemaValue,
+    JsonSchemaWarningKind,
+)
 
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError
@@ -129,53 +122,61 @@ def _resolve_body_type(view_func: ViewFunc) -> type | None:
     return body_type
 
 
-_SEQUENCE_TYPES = frozenset(
-    {list, tuple, set, frozenset, Sequence, MutableSequence, AbstractSet, MutableSet}
-)
-
-
-def _is_json(metadata: Sequence[Any]) -> bool:
-    # A Json field is posted as one string however its contents are typed,
-    # which is how ajax() sends a list.
-    return any(type(item) is Json for item in metadata)
-
-
-def _is_sequence(annotation: Any) -> bool:
+class _FormSchema(GenerateJsonSchema):
     """
-    Whether a field typed this way holds several values, so a form has to
-    hand it every value posted under its name.
+    A JSON schema generator that never fails or warns over a field a form
+    cannot post anyway.
+
+    The schema is only read for which fields are lists, so an arbitrary class
+    with no JSON form, or a default that cannot be serialized, should not stop
+    a route from registering or print a warning when it does.
     """
-    if get_origin(annotation) is Annotated:
-        inner, *metadata = get_args(annotation)
-        return not _is_json(metadata) and _is_sequence(inner)
-    if get_origin(annotation) in (Required, NotRequired):
-        return _is_sequence(get_args(annotation)[0])
-    if get_origin(annotation) in (Union, types.UnionType):
-        return any(_is_sequence(arm) for arm in get_args(annotation))
-    return (get_origin(annotation) or annotation) in _SEQUENCE_TYPES
+
+    def handle_invalid_for_json_schema(
+        self, schema: Any, error_info: str
+    ) -> JsonSchemaValue:
+        return {}
+
+    def render_warning_message(self, kind: JsonSchemaWarningKind, detail: str) -> None:
+        pass
 
 
-def _sequence_fields(body_type: Any) -> frozenset[str]:
+def _resolve(
+    node: JsonSchemaValue, defs: dict[str, JsonSchemaValue]
+) -> JsonSchemaValue:
+    # A recursive model, a nested one or a type alias sits in $defs.
+    while "$ref" in node:
+        node = defs[node["$ref"].rsplit("/", 1)[-1]]
+    return node
+
+
+def _is_array(node: JsonSchemaValue, defs: dict[str, JsonSchemaValue]) -> bool:
+    node = _resolve(node, defs)
+    arms = node.get("anyOf", []) + node.get("oneOf", [])
+    return node.get("type") == "array" or any(_is_array(arm, defs) for arm in arms)
+
+
+def _sequence_fields(adapter: TypeAdapter[Any]) -> frozenset[str]:
     """
-    The names in a form that a body of this type reads as a list.
+    The names in a form that a body read by this adapter takes as a list.
 
     A form is only names and strings, and a name posted twice means a list
     to one field and a mistake to another, so the body's own type decides.
-    A pydantic model or dataclass answers with its fields, aliases included;
-    a plain dataclass or TypedDict with its annotations.
+    The adapter's validation schema is asked rather than the type hints,
+    because it already knows the names pydantic validates from, Optional and
+    NotRequired unwrapped, and that a Json field is one string on the wire.
+    Attribute names are included alongside aliases, for a model that is
+    populated by name.
     """
-    pydantic_fields = getattr(body_type, "__pydantic_fields__", None)
-    if pydantic_fields is not None:
-        names: set[str] = set()
-        for name, info in pydantic_fields.items():
-            if not _is_json(info.metadata) and _is_sequence(info.annotation):
-                aliases = (name, info.alias, info.validation_alias)
-                names.update(alias for alias in aliases if isinstance(alias, str))
-        return frozenset(names)
-    if is_dataclass(body_type) or is_typeddict(body_type):
-        hints = get_type_hints(body_type, include_extras=True)
-        return frozenset(name for name, hint in hints.items() if _is_sequence(hint))
-    return frozenset()
+    names: set[str] = set()
+    for by_alias in (True, False):
+        schema = adapter.json_schema(
+            by_alias=by_alias, mode="validation", schema_generator=_FormSchema
+        )
+        defs = schema.get("$defs", {})
+        properties = _resolve(schema, defs).get("properties", {})
+        names.update(name for name, node in properties.items() if _is_array(node, defs))
+    return frozenset(names)
 
 
 class Router[T_Request]:
@@ -403,7 +404,9 @@ class Router[T_Request]:
         body_adapter: TypeAdapter[Any] | None = (
             TypeAdapter(body_type) if body_type is not None else None
         )
-        sequence_fields = _sequence_fields(body_type)
+        sequence_fields = (
+            _sequence_fields(body_adapter) if body_adapter is not None else frozenset()
+        )
 
         async def wrapped_view(
             view_instance: object, request: T_Request, **kwargs: Any
