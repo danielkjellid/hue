@@ -157,27 +157,27 @@ def resolve_value(
 
     Each part of the path is a key of a mapping or an attribute of anything
     else, so a dict, a model instance and a dataclass all read the same way,
-    and customer.name can cross from one to the other.
+    and customer.name can cross from one to the other. A None part way along
+    is a nullable relation that is not set, so the cell is empty; only a part
+    that is not there at all raises.
     """
     if callable(key):
         return key(row)
 
     value: Any = row
     for part in key.split("."):
+        if value is None:
+            return None
         if isinstance(value, Mapping):
-            if part not in value:
-                raise ValueError(
-                    f"Cannot resolve key {key!r}: {part!r} is not a key of {value!r}."
-                )
-            value = value[part]
+            found = value.get(part, _MISSING)
         else:
             found = getattr(value, part, _MISSING)
-            if found is _MISSING:
-                raise ValueError(
-                    f"Cannot resolve key {key!r}: {part!r} is not an attribute "
-                    f"of {type(value).__name__} {value!r}."
-                )
-            value = found
+        if found is _MISSING:
+            raise ValueError(
+                f"Cannot resolve key {key!r}: "
+                f"{type(value).__name__} {value!r} has no {part!r}."
+            )
+        value = found
     return value
 
 
@@ -585,9 +585,7 @@ class DataTable(ChainableComponent):
             )
         )
 
-    def _select_cell(
-        self, row: Any, line: str, name_id: str | None
-    ) -> ComponentType:
+    def _select_cell(self, row: Any, line: str, name_id: str | None) -> ComponentType:
         value = str(resolve_value(row, self._get_prop("selectable")))
         box_id = f"{line}-select"
         box = (
