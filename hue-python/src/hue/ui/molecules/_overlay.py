@@ -3,8 +3,8 @@ The parts a dialog and a drawer are made of.
 
 Both are a panel over a scrim with the same header, the same body and the
 same strip of actions along the bottom; only the edge they arrive from
-differs. These are private to the two of them - a consumer composes overlays
-through Dialog and Drawer, not out of these.
+differs. Every other overlay shares the Escape handling. All of it is
+private: a consumer builds overlays from the components, never from these.
 """
 
 from __future__ import annotations
@@ -34,6 +34,23 @@ SCRIM = "group fixed inset-0 z-80 flex bg-scrim backdrop-blur-[2px]"
 #: What Alpine applies for the length of the leave, and the mirror of the
 #: 180ms the exit animations run for.
 LEAVING = "leaving transition-opacity duration-[180ms]"
+
+#: How every overlay, the popover and the menu included, closes on Escape.
+#: The listener sits on the overlay and not on the window: window listeners
+#: run outermost first, so an inner overlay could never stop an outer one. It
+#: stops the key, so one press closes only the innermost open overlay and a
+#: page-wide Escape behind it (the one that clears a table's selection, say)
+#: never fires.
+CLOSE_ON_ESCAPE = {
+    "x-on:keydown.escape": "if (open) { $event.stopPropagation(); close() }"
+}
+
+#: The listener above only hears keys pressed inside the overlay. A click on
+#: anything that cannot take focus leaves focus on the body, where the
+#: listener cannot hear it. A popover or a menu puts this on its panel. A
+#: modal puts it on the scrim, which takes the focus from a click on the
+#: panel's text or beside the panel; the focus trap then moves it back in.
+HOLDS_FOCUS = {"tabindex": "-1"}
 
 
 #: Close on a click on the scrim itself, but only one that also began there.

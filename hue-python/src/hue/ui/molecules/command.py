@@ -198,6 +198,7 @@ class Command(ChainableComponent):
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
                     **_overlay.DISMISS_ON_SCRIM,
+                    **_overlay.HOLDS_FOCUS,
                 },
             ),
             class_=self._get_prop("class_"),
@@ -209,7 +210,7 @@ class Command(ChainableComponent):
                     self._get_prop("empty_message", "No matching commands."),
                 ),
                 "x-on:keydown.window": "hotkey($event)",
-                "x-on:keydown.escape.window": "close()",
+                **_overlay.CLOSE_ON_ESCAPE,
                 **self._get_base_html_attrs(),
             },
         )

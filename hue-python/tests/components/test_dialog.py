@@ -85,7 +85,17 @@ class TestDialog:
         assert_no_selector(html, 'button[aria-label="Close"]')
         assert_no_selector(html, "[x-on\\:click\\.self]")
         assert_no_selector(html, "[x-on\\:pointerdown]")
-        assert_attr(html, "[x-data]", "x-on:keydown.escape.window", "close()")
+        # On the overlay and stopped there, so a popover inside closes on
+        # its own and a page-wide Escape behind it hears nothing.
+        assert_attr(
+            html,
+            "[x-data]",
+            "x-on:keydown.escape",
+            "if (open) { $event.stopPropagation(); close() }",
+        )
+        # The scrim takes a click's focus, so Escape still reaches it after
+        # a click on the panel's text or beside it.
+        assert_attr(html, "[x-show]", "tabindex", "-1")
 
     # open(): both branches
     @pytest.mark.asyncio

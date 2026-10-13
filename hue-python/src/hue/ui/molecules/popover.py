@@ -9,6 +9,7 @@ from hue.js import unsafe
 from hue.types.core import Component
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if, render_when
 
 type PopoverPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
@@ -143,6 +144,7 @@ class Popover(ChainableComponent):
                 "x-cloak": True,
                 "x-transition.opacity": "",
                 f"x-anchor.{placement}.offset.{_OFFSET}": "$refs.trigger",
+                **_overlay.HOLDS_FOCUS,
             },
         )
 
@@ -156,7 +158,7 @@ class Popover(ChainableComponent):
                 "x-data": "{ open: false, "
                 "close() { this.open = false; this.$refs.trigger?.focus() } }",
                 "x-id": "['hue-popover', 'hue-popover-title']",
-                "x-on:keydown.escape.window": "if (open) close()",
+                **_overlay.CLOSE_ON_ESCAPE,
                 "x-on:click.outside": "open = false",
                 **self._get_base_html_attrs(),
             },

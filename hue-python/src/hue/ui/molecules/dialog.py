@@ -179,6 +179,7 @@ class Dialog(ChainableComponent):
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
                     **(_overlay.DISMISS_ON_SCRIM if dismissible else {}),
+                    **_overlay.HOLDS_FOCUS,
                 },
             ),
             class_=self._get_prop("class_"),
@@ -187,7 +188,7 @@ class Dialog(ChainableComponent):
                 "x-id": _overlay.OVERLAY_IDS,
                 # Escape always closes, dismissible or not: a modal with no
                 # way out is a trap, whatever the question was.
-                "x-on:keydown.escape.window": "close()",
+                **_overlay.CLOSE_ON_ESCAPE,
                 **self._get_base_html_attrs(),
             },
         )

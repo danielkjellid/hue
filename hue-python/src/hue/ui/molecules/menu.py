@@ -11,6 +11,7 @@ from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent, Clickable
+from hue.ui.molecules import _overlay
 from hue.utils import classes_if, classnames, render_if, render_when
 
 type MenuPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
@@ -129,6 +130,7 @@ class DropdownMenu(ChainableComponent):
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
                 f"x-anchor.{placement}.offset.{_OFFSET}": "$refs.trigger",
+                **_overlay.HOLDS_FOCUS,
             },
         )
 
@@ -139,7 +141,7 @@ class DropdownMenu(ChainableComponent):
             **{
                 "x-data": "{ open: false, "
                 "close() { this.open = false; this.$refs.trigger?.focus() } }",
-                "x-on:keydown.escape.window": "if (open) close()",
+                **_overlay.CLOSE_ON_ESCAPE,
                 # Tab leaves the menu rather than walking it. The items are
                 # out of the tab order, so the browser's own Tab already goes
                 # to whatever follows the trigger - but only if the panel is
