@@ -1,45 +1,72 @@
 /**
- * hueDismissible: a box with a close button inside it.
+ * Moving focus off something that is about to disappear.
  *
- * Hiding the box takes the focused close button with it, and the browser
- * drops focus to the body, which sends a keyboard or screen reader user back
- * to the top of the page. So focus moves first, to whatever the reader would
- * have tabbed to next, or to the one before when the box was the last thing
- * on the page.
+ * Hiding or removing the element that has focus drops focus to the body,
+ * which sends a keyboard or screen reader user back to the top of the page.
+ * So whatever dismisses itself (an Alert, a Toast) hands focus on first, all
+ * through the one $handOff, so they agree on where it goes.
  */
 
-function landing(focus, root) {
+/**
+ * Focus the place the reader would have tabbed to next.
+ *
+ * Looked for inside `within`: the next focusable element after `root`, else
+ * the one before it. Failing that `returnTo`, where focus was before it came
+ * in, if it is still on the page. Failing that `fallback`, made focusable for
+ * the purpose, which stays where `root` was.
+ *
+ * Anything inert is passed over, so an element on its way out is not chosen.
+ */
+function handOff(
+	focus,
+	root,
+	{
+		within = document.body,
+		returnTo = null,
+		fallback = root.parentElement ?? document.body,
+	} = {},
+) {
 	const reachable = focus
-		.within(document.body)
+		.within(within)
 		.all()
 		.filter(
 			(el) =>
-				!root.contains(el) && el.tabIndex >= 0 && el.getClientRects().length > 0,
+				!root.contains(el) &&
+				!el.closest("[inert]") &&
+				el.tabIndex >= 0 &&
+				el.getClientRects().length > 0,
 		);
 	const after = reachable.find(
 		(el) => root.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
 	);
-	if (after) return after;
 	const before = reachable.findLast(
 		(el) => root.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING,
 	);
-	if (before) return before;
+	const landing = after ?? before ?? (returnTo?.isConnected ? returnTo : null);
+	if (landing) return landing.focus();
 
-	// Nothing else on the page takes focus. The box's container stays where
-	// the box was, so focus waits there rather than at the top of the page.
-	const parent = root.parentElement ?? document.body;
-	if (!parent.hasAttribute("tabindex")) parent.setAttribute("tabindex", "-1");
-	return parent;
+	if (!fallback.hasAttribute("tabindex"))
+		fallback.setAttribute("tabindex", "-1");
+	fallback.focus();
 }
 
 export function registerDismissibleData(Alpine) {
+	// $handOff(root, options): for an inline expression, such as a Toast's,
+	// which cannot import this module.
+	Alpine.magic(
+		"handOff",
+		(el) => (root, options) =>
+			handOff(Alpine.evaluate(el, "$focus"), root, options),
+	);
+
+	// hueDismissible: a box with a close button inside it.
 	Alpine.data("hueDismissible", () => ({
 		shown: true,
 
 		dismiss() {
 			// Focus that is somewhere else already is left where it is.
 			if (this.$root.contains(document.activeElement)) {
-				landing(this.$focus, this.$root).focus();
+				this.$handOff(this.$root);
 			}
 			this.shown = false;
 		},

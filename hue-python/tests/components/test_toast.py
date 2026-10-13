@@ -36,7 +36,7 @@ class TestToast:
     @pytest.mark.asyncio
     async def test_dismissing_the_focused_toast_hands_focus_on(self, context_args):
         html = await render_tree(Toast().title("Saved"), context_args=context_args)
-        assert "if ($el.contains(document.activeElement)) this.handOff()" in str(html)
+        assert "if ($el.contains(document.activeElement)) $handOff($el" in str(html)
 
     # duration(): both branches
     @pytest.mark.asyncio
