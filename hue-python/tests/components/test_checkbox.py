@@ -8,6 +8,7 @@ from tests._a11y import (
     assert_label_for,
     assert_no_selector,
     assert_selector,
+    select,
 )
 
 
@@ -40,8 +41,21 @@ class TestCheckbox:
             Checkbox().name("tags").value("north america").label("NA"),
             context_args=context_args,
         )
-        assert_label_for(html, "tags-north-america")
-        assert_attr(html, "input", "aria-labelledby", "tags-north-america-label")
+        assert_label_for(html, "tags-north%20america")
+        assert_attr(html, "input", "aria-labelledby", "tags-north%20america-label")
+
+    @pytest.mark.asyncio
+    async def test_values_that_differ_only_in_spacing_get_ids_of_their_own(
+        self, context_args
+    ):
+        ids = set()
+        for value in ("north america", "north-america", "a b", "a  b"):
+            html = await render_tree(
+                Checkbox().name("tags").value(value).label(value),
+                context_args=context_args,
+            )
+            ids.add(select(html, "input")[0]["id"])
+        assert len(ids) == 4
 
     @pytest.mark.asyncio
     async def test_an_explicit_id_wins_over_the_value(self, context_args):

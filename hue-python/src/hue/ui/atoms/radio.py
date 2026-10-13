@@ -101,29 +101,34 @@ class Radio(ChainableComponent):
         label: str | None = self._get_prop("label")
         description: str | None = self._get_prop("description")
 
+        own = {
+            "type": "radio",
+            "name": name,
+            "id": input_id,
+            "value": value,
+            "class_": classnames(CHOICE_BOX, "rounded-full", _DOT),
+            "checked": self._get_prop("checked", False) or None,
+            "disabled": disabled or None,
+            "required": self._get_prop("required", False) or None,
+            "form": self._get_prop("form"),
+            # An explicit name, so the description inside the label does not
+            # become part of it.
+            "aria_labelledby": label_id(input_id) if label is not None else None,
+            "aria_describedby": classnames(
+                description_id(input_id) if description is not None else None,
+                self._attrs.get("aria_describedby"),
+            )
+            or None,
+        }
+        # A None of our own means there is nothing to say, so it leaves
+        # whatever the caller set in place.
+        attrs = {
+            **self._get_base_html_attrs(),
+            **{k: v for k, v in own.items() if v is not None},
+        }
+
         return choice_row(
-            html.input_(
-                **{
-                    **self._get_base_html_attrs(),
-                    "type": "radio",
-                    "name": name,
-                    "id": input_id,
-                    "value": value,
-                    "class_": classnames(CHOICE_BOX, "rounded-full", _DOT),
-                    "checked": self._get_prop("checked", False) or None,
-                    "disabled": disabled or None,
-                    "required": self._get_prop("required", False) or None,
-                    "form": self._get_prop("form"),
-                    # An explicit name, so the description inside the label
-                    # does not become part of it.
-                    "aria_labelledby": (
-                        label_id(input_id) if label is not None else None
-                    ),
-                    "aria_describedby": (
-                        description_id(input_id) if description is not None else None
-                    ),
-                }
-            ),
+            html.input_(**attrs),
             control_id=input_id,
             label=label,
             description=description,
