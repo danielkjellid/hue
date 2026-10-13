@@ -98,12 +98,10 @@ class FormControl(AlpineModelMixin, FormElementMixin, ChainableComponent):
     def _control_attrs(self, context: Context, **own: object) -> dict[str, object]:
         """
         Merge the caller's base attrs (id, ARIA, Alpine) with the control's own,
-        where the control's own win. A None of the control's means it has
-        nothing to say there, so it leaves what the caller set in place
-        rather than erasing it.
+        where the control's own win and None values are dropped.
         """
-        given = {k: v for k, v in own.items() if v is not None}
-        return {**self._get_base_html_attrs(), **given}
+        merged = {**self._get_base_html_attrs(), **own}
+        return {k: v for k, v in merged.items() if v is not None}
 
 
 class FieldControl(FormControl):

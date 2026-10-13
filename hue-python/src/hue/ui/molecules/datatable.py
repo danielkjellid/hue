@@ -365,6 +365,15 @@ class DataTable(ChainableComponent):
             # hand it straight back to the declaration again.
             return _Drawn(declaration, self._undeclared())
 
+        if self._get_prop("selectable") is not None and "id" not in self._attrs:
+            # Every row's ids are built from the table's, and a fallback
+            # shared by two tables on one page would make them collide.
+            raise ValueError(
+                "A DataTable with selectable rows needs an id to build its "
+                "rows' ids from. Draw it with DataTable.from_state(), which "
+                "sets one."
+            )
+
         error: ComponentType | None = self._get_prop("error")
         loading: bool = self._get_prop("loading", False)
 
@@ -558,7 +567,9 @@ class DataTable(ChainableComponent):
             )
         )
 
-    def _select_cell(self, row: Mapping[str, Any], line: str) -> ComponentType:
+    def _select_cell(
+        self, row: Mapping[str, Any], line: str, name_id: str | None
+    ) -> ComponentType:
         value = str(resolve_value(row, self._get_prop("selectable")))
         box_id = f"{line}-select"
         box = (
@@ -571,11 +582,11 @@ class DataTable(ChainableComponent):
             .x_model("selected")
             .data("hue-row-select", "")
         )
-        if self._columns:
+        if name_id is not None:
             # "Select" and then whatever the row's first cell shows. The
             # identifier is usually a pk nobody can see, so naming the box
             # after it would read out a number tied to nothing on screen.
-            box.aria_labelledby(f"{box_id} {line}-name")
+            box.aria_labelledby(f"{box_id} {name_id}")
         # Named rather than wrapped: the form is an empty element in the
         # frame, because a form around the band above the rows would
         # swallow the search box, which is a form of its own.
@@ -601,15 +612,16 @@ class DataTable(ChainableComponent):
         if (key := self._get_prop("selectable")) is None:
             return TableRow().content(*cells)
         # By position rather than by the row's value, which can be anything
-        # and is not safe to spell an id with. Under the table's id, which a
-        # declared table always has, so two tables on a page keep apart.
-        line = f"{self._attrs.get('id') or 'table'}-row-{index}"
-        if cells:
-            cells[0].id(f"{line}-name")
+        # and is not safe to spell an id with. Under the table's id, which
+        # _render requires, so two tables on a page keep apart.
+        line = f"{self._attrs['id']}-row-{index}"
+        name_id = f"{line}-name" if cells else None
+        if name_id is not None:
+            cells[0].id(name_id)
         value = json.dumps(str(resolve_value(row, key)))
         return (
             TableRow()
-            .content(self._select_cell(row, line), *cells)
+            .content(self._select_cell(row, line, name_id), *cells)
             .x_bind("aria-selected", unsafe(f"isSelected({value})"))
         )
 

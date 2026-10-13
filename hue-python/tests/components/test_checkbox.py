@@ -263,3 +263,13 @@ class TestCheckbox:
         )
         assert_selector(html, "label")
         assert_attr(html, "input", "aria-labelledby", "terms-label")
+
+    @pytest.mark.asyncio
+    async def test_a_visible_label_is_joined_by_a_labelledby_it_was_given(
+        self, context_args
+    ):
+        html = await render_tree(
+            Checkbox().name("terms").label("I accept").aria_labelledby("policy"),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "terms-label policy")

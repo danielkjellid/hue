@@ -25,6 +25,17 @@ _ROWS = [
 ]
 
 
+def _selectable() -> DataTable:
+    # Under an id, which from_state always sets and a row's ids are built from.
+    return (
+        DataTable()
+        .id("invoices")
+        .columns(_COLUMNS)
+        .rows(_ROWS)
+        ._bulk_actions("invoice", Button().content("Delete"))
+    )
+
+
 class TestDataTable:
     @pytest.mark.asyncio
     async def test_a_column_per_definition_and_a_row_per_record(self, context_args):
@@ -338,10 +349,7 @@ class TestDataTable:
     async def test_the_checkboxes_are_real_and_carry_the_selection(self, context_args):
         # A form around the table posts them without any JavaScript at all.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         boxes = select(html, "tbody input[type=checkbox]")
@@ -351,10 +359,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_the_header_checkbox_knows_about_all_the_rows(self, context_args):
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         # On the frame, so a band above the rows is inside the scope too.
@@ -368,6 +373,18 @@ class TestDataTable:
             "x-effect",
             "$el.checked = all; $el.indeterminate = some",
         )
+
+    @pytest.mark.asyncio
+    async def test_selectable_rows_need_the_table_to_have_an_id(self, context_args):
+        # A shared fallback would give two tables on a page the same row ids.
+        with pytest.raises(ValueError, match="from_state"):
+            await render_tree(
+                DataTable()
+                .columns(_COLUMNS)
+                .rows(_ROWS)
+                ._bulk_actions("invoice", Button().content("Delete")),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
@@ -384,10 +401,7 @@ class TestDataTable:
         # Moved to the end of the body so it is in reach wherever the page
         # is scrolled, and declared inside the frame so it keeps the scope.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         bar = "div[x-data] template[x-teleport=body] > div[role=group]"
@@ -400,10 +414,7 @@ class TestDataTable:
     @pytest.mark.asyncio
     async def test_the_bar_can_be_cleared_by_hand_or_by_escape(self, context_args):
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         bar = "template[x-teleport=body] > div[role=group]"
@@ -422,10 +433,7 @@ class TestDataTable:
         # A sort or a page replaces the rows without replacing the scope, so
         # the selection is pruned to what is still on screen.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         assert_attr(
@@ -440,10 +448,7 @@ class TestDataTable:
         # Controls appearing after a checkbox is ticked are a change a
         # screen reader has no other way of hearing about.
         html = await render_tree(
-            DataTable()
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
+            _selectable(),
             context_args=context_args,
         )
         # Outside the bar, which is hidden until a row is picked: a region
