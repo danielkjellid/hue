@@ -49,9 +49,9 @@ class Progress(ChainableComponent):
     How far along something is, as a horizontal bar.
 
     indeterminate() is for work whose length is unknown: the bar sweeps and
-    omits aria-valuenow rather than reporting zero. label() shows above the bar
-    and names it; a bar without one needs aria_label() instead, since a
-    progressbar with no name is announced as nothing more than a percentage.
+    omits aria-valuenow rather than reporting zero. label() names the bar and
+    is required, since a progressbar with no name is announced as nothing more
+    than a percentage; hidden_label() keeps the name off the screen.
 
         Progress().value(64).label("Uploading archive.zip")
     """
@@ -94,18 +94,28 @@ class Progress(ChainableComponent):
         self._props["label"] = value
         return self
 
+    def hidden_label(self, value: bool = True) -> Self:
+        """
+        Keep the label as the bar's name but take it, and the percentage
+        beside it, off the screen, for a bar whose purpose is obvious from
+        where it sits.
+        """
+        self._props["hidden_label"] = value
+        return self
+
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         size: ProgressSize = self._get_prop("size", "md")
         label: str | None = self._get_prop("label")
+        hidden_label: bool = self._get_prop("hidden_label", False)
         raw: float | None = self._get_prop("value")
         indeterminate: bool = self._get_prop("indeterminate", False)
         value = None if indeterminate or raw is None else _clamp(raw)
 
-        if label is None and self._attrs.get("aria_label") is None:
+        if label is None:
             raise ValueError(
-                "Progress needs an accessible name: call label() to show one, "
-                "or aria_label() to name a bare bar."
+                "Progress needs a label() to name it; add hidden_label() to "
+                "keep it off the screen."
             )
 
         fill = html.div(
@@ -130,7 +140,7 @@ class Progress(ChainableComponent):
                 "relative w-full overflow-hidden rounded-full bg-border",
                 _TRACK_CLASSES[size],
                 # A bare bar has no wrapper, so the caller's classes land here.
-                self._get_prop("class_") if label is None else None,
+                self._get_prop("class_") if hidden_label else None,
             ),
             **{
                 "role": "progressbar",
@@ -145,7 +155,7 @@ class Progress(ChainableComponent):
             },
         )
 
-        if label is None:
+        if hidden_label:
             return track
 
         return html.div(

@@ -21,7 +21,9 @@ SHOWCASES: list[Showcase] = [
         ),
         variants=[
             variant("Labelled", 'Progress().value(64).label("Uploading archive.zip")'),
-            variant("Bare", 'Progress().value(32).aria_label("Sync progress")'),
+            variant(
+                "Bare", 'Progress().value(32).label("Sync progress").hidden_label()'
+            ),
             variant("Indeterminate", 'Progress().indeterminate().label("Exporting")'),
             variant(
                 "Nearly full",
