@@ -175,6 +175,7 @@ class TestPagination:
         # words, marked as decoration so they are not read twice.
         html = await render_tree(
             Pagination()
+            .id("results")
             .total_records(2481)
             .page_size(25)
             .page_sizes([10, 25, 50])
@@ -185,16 +186,26 @@ class TestPagination:
         assert_selector(html, "option[selected]")
         # One name, from the select's own label; the words beside it are
         # marked as decoration rather than announced a second time.
-        assert_selector(html, 'label[for="page_size"]')
+        assert_selector(html, 'label[for="results-page-size"]')
         assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
 
     @pytest.mark.asyncio
     async def test_rows_per_page_shows_beside_numbered_steps_too(self, context_args):
         html = await render_tree(
-            Pagination().page(2).total_pages(5).page_sizes([10, 25]),
+            Pagination().id("results").page(2).total_pages(5).page_sizes([10, 25]),
             context_args=context_args,
         )
         assert_selector(html, "select")
+
+    @pytest.mark.asyncio
+    async def test_rows_per_page_without_an_id_raises(self, context_args):
+        # Without an id the select would fall back to a bare page_size id,
+        # and a second pagination on the page would claim the same one.
+        with pytest.raises(ValueError, match="page_sizes"):
+            await render_tree(
+                Pagination().page(2).total_pages(5).page_sizes([10, 25]),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_without_page_sizes_there_is_no_select(self, context_args):

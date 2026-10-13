@@ -93,8 +93,8 @@ class Pagination(SwapsTarget):
     def page_sizes(self, value: list[int]) -> Self:
         """
         The rows-per-page choices, rendered as a select beside the steps.
-        Two paginations on one page each need an id, which the select takes
-        its own id from.
+        The pagination then needs an id, which the select takes its own id
+        from.
         """
         self._props["page_sizes"] = value
         return self
@@ -109,6 +109,12 @@ class Pagination(SwapsTarget):
         return self
 
     def _render(self, context: Context) -> Component:
+        if self._get_prop("page_sizes") and "id" not in self._attrs:
+            raise ValueError(
+                "Pagination with page_sizes() needs an id() of its own: the "
+                "select takes its id from it, and without one a second "
+                "pagination on the page would claim the same id."
+            )
         total_pages: int = self._get_prop("total_pages", 1)
         # A page past either end is a stale link or a hand-edited URL, and
         # the nearest real page says more than a range of negative records.
@@ -236,11 +242,9 @@ class Pagination(SwapsTarget):
         it are the same words and are marked as decoration, so the control is
         announced once and reads the way it looks.
         """
-        select = NativeSelect().name("page_size")
         # The select's id follows the pagination's own, so a table with one
         # above it and one below gets two labels that each find their select.
-        if own_id := self._attrs.get("id"):
-            select.id(f"{own_id}-page-size")
+        select = NativeSelect().name("page_size").id(f"{self._attrs['id']}-page-size")
         return html.div(
             html.span(
                 "Rows per page",
