@@ -472,7 +472,7 @@ class Router[T_Request]:
             # plain call from anywhere in the handler and nothing it raises
             # can reach the next one. The scoped shortcuts a handler switches
             # on live the same length, for the same reason.
-            with request_scope():
+            with request_scope() as owns_queue:
                 context = HueContext(**self._get_context_args(request))
                 result = await self._call_view_func(
                     view_func, view_instance, request, context, **kwargs
@@ -486,7 +486,7 @@ class Router[T_Request]:
                     # this router opened the queue, nothing outside will carry
                     # them on either, and dropping one quietly is worse than
                     # saying so.
-                    if token is not None and toast.drain():
+                    if owns_queue and toast.drain():
                         raise RuntimeError(
                             "A toast was raised by a handler that returned a "
                             "response with no markup to carry it, such as a "

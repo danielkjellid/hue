@@ -6,9 +6,9 @@ Two halves of the same thing under one name.
 toast.success("Invoice sent") queues one on the server. It is a plain call
 from anywhere - no context to thread through, because the queue is
 request-scoped in a ContextVar that request_scope opens around each
-request. Whatever the
-handler returns carries the toast with it: a page renders it into its
-region, and a fragment gets the region appended to the response.
+request. Whatever the handler returns carries the toast with it: a page
+renders it into its region, and a fragment gets the region appended to the
+response.
 
 toast.js.success("Copied") is the browser half, an expression to hand to
 on_click for the things the server never hears about. Its values are quoted
