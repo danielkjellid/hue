@@ -114,6 +114,29 @@ class TestModifiersRefuseStrings:
         with pytest.raises(TypeError, match="takes an expression"):
             getattr(component(), modifier)(*args)
 
+    @pytest.mark.parametrize(
+        "event",
+        [
+            "before",
+            "send",
+            "redirect",
+            "success",
+            "error",
+            "sent",
+            "missing",
+            "merge",
+            "merged",
+            "after",
+        ],
+    )
+    def test_alpine_ajax_handlers_take_an_expression(self, event):
+        # Alpine evaluates every @ajax:* handler, so these are code too.
+        modifier = getattr(Button(), f"ajax_{event}")
+        with pytest.raises(TypeError, match="takes an expression"):
+            modifier("done = true")
+        attrs = modifier(unsafe("done = true"))._get_base_html_attrs()
+        assert attrs[f"@ajax:{event}"] == "done = true"
+
     def test_an_expression_goes_through(self):
         attrs = Button().x_on("click", unsafe("open = true"))._get_base_html_attrs()
         assert attrs["@click"] == "open = true"

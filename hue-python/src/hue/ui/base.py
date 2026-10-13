@@ -349,6 +349,51 @@ class ChainableComponent(ABC):
         return self
 
     # ------------------------------------------------------------------
+    # Alpine AJAX event handlers (events bubble, so these can sit on any
+    # ancestor element). Alpine evaluates each, so each takes an expression.
+    # ------------------------------------------------------------------
+
+    def ajax_before(self, value: Expression) -> Self:
+        self._attrs["@ajax:before"] = expect(value, modifier="ajax_before()")
+        return self
+
+    def ajax_send(self, value: Expression) -> Self:
+        self._attrs["@ajax:send"] = expect(value, modifier="ajax_send()")
+        return self
+
+    def ajax_redirect(self, value: Expression) -> Self:
+        self._attrs["@ajax:redirect"] = expect(value, modifier="ajax_redirect()")
+        return self
+
+    def ajax_success(self, value: Expression) -> Self:
+        self._attrs["@ajax:success"] = expect(value, modifier="ajax_success()")
+        return self
+
+    def ajax_error(self, value: Expression) -> Self:
+        self._attrs["@ajax:error"] = expect(value, modifier="ajax_error()")
+        return self
+
+    def ajax_sent(self, value: Expression) -> Self:
+        self._attrs["@ajax:sent"] = expect(value, modifier="ajax_sent()")
+        return self
+
+    def ajax_missing(self, value: Expression) -> Self:
+        self._attrs["@ajax:missing"] = expect(value, modifier="ajax_missing()")
+        return self
+
+    def ajax_merge(self, value: Expression) -> Self:
+        self._attrs["@ajax:merge"] = expect(value, modifier="ajax_merge()")
+        return self
+
+    def ajax_merged(self, value: Expression) -> Self:
+        self._attrs["@ajax:merged"] = expect(value, modifier="ajax_merged()")
+        return self
+
+    def ajax_after(self, value: Expression) -> Self:
+        self._attrs["@ajax:after"] = expect(value, modifier="ajax_after()")
+        return self
+
+    # ------------------------------------------------------------------
     # Prop helpers
     # ------------------------------------------------------------------
 

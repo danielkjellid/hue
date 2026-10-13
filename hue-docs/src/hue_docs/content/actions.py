@@ -24,9 +24,9 @@ def _build() -> ComponentType:
             "Passing a plain string raises a TypeError that points at the "
             "helpers below. One exception remains for now: x_data() takes a "
             "dict, which is quoted, or a string, which is written as it is. "
-            "Treat a string given to it as unsafe(). An Alpine AJAX event "
-            "goes through x_on() like any other, as in "
-            'x_on("ajax:success", ...).'
+            "Treat a string given to it as unsafe(). Alpine AJAX's events "
+            "have modifiers of their own, such as ajax_success(), and take "
+            "an expression the same way."
         ),
         pr.bullets(
             [
