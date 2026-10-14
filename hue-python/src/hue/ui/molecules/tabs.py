@@ -9,7 +9,7 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.ui.base import ChainableComponent
-from hue.ui.navigation import CurrentPage
+from hue.ui.navigation import CurrentPage, SwapsTarget, swap
 from hue.utils import classnames, render_if
 
 # Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
@@ -74,7 +74,7 @@ class TabsState:
         )
 
 
-class Tabs(ChainableComponent):
+class Tabs(SwapsTarget):
     """
     A row of links to the sections of one thing, and which of them you
     are on.
@@ -132,41 +132,13 @@ class Tabs(ChainableComponent):
         self._props["label"] = value
         return self
 
-    def target(self, value: str) -> Self:
-        """
-        The id a tab's section lands in. Given one, the browser fetches
-        the section and swaps that element; without one it follows the
-        link the long way round.
-
-        The row is swapped with it, so the tab you land on is the one
-        marked: the Tabs needs an id of its own, and the response has to
-        render the row with that id too, or the swap removes it.
-        """
-        self._props["target"] = value
-        return self
-
     def htmy_context(self) -> Context:
         return {
             CurrentPage: CurrentPage(self._get_prop("current")),
-            TabsState: TabsState(self._get_prop("segmented", False), self._targets()),
+            TabsState: TabsState(
+                self._get_prop("segmented", False), self._get_prop("target")
+            ),
         }
-
-    def _targets(self) -> str | None:
-        """
-        What a tab swaps: the section, and the row itself, so the mark moves
-        to the tab you land on rather than staying on the one you left.
-        """
-        target: str | None = self._get_prop("target")
-        if target is None:
-            return None
-        own_id = self._attrs.get("id")
-        if own_id is None:
-            raise ValueError(
-                "Tabs with a target() needs an id() of its own: the row is "
-                "swapped along with the section, which is how the tab you "
-                "land on comes to be the one marked."
-            )
-        return f"{target} {own_id}"
 
     def _render(self, context: Context) -> Component:
         return html.nav(
@@ -176,6 +148,7 @@ class Tabs(ChainableComponent):
                 _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW,
                 self._get_prop("class_"),
             ),
+            **self._sync_attrs(),
             **self._get_base_html_attrs(),
         )
 
@@ -267,9 +240,7 @@ class Tab(ChainableComponent):
             aria_current="page" if current else None,
             class_=classes,
             **{
-                # push, so a section is a place: the URL says which one and
-                # the back button goes to the last.
-                **({"x-target.push": state.target} if state.target else {}),
+                **swap(state.target),
                 **self._get_base_html_attrs(),
             },
         )
