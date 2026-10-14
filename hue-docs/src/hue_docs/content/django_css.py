@@ -26,7 +26,9 @@ def _build() -> ComponentType:
         pr.p(
             "That's all. Hue's CSS is now served at /__hue__/styles.css and "
             "its JavaScript at /__hue__/js/alpine.js, directly from the "
-            "installed package."
+            "installed package. The chart library is served beside it at "
+            "/__hue__/js/chart-bundle.js, which the JavaScript fetches only on "
+            "a page that shows a chart."
         ),
         pr.h2("Adding your own CSS"),
         pr.p(

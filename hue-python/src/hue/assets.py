@@ -31,6 +31,14 @@ def js_bundle_path() -> Path:
     return _static_path() / "js" / "alpine-bundle.js"
 
 
+def chart_bundle_path() -> Path:
+    """
+    Path to the chart library, built apart from the Alpine bundle, which
+    fetches it by this file name from its own directory.
+    """
+    return _static_path() / "js" / "chart-bundle.js"
+
+
 def icons_path() -> Path:
     """
     Path to the small icon set hue ships for its own components.
@@ -61,3 +69,10 @@ def read_js() -> str:
     Read the JS bundle. Used by framework middleware.
     """
     return js_bundle_path().read_text(encoding="utf-8")
+
+
+def read_chart_js() -> str:
+    """
+    Read the chart library. Used by framework middleware.
+    """
+    return chart_bundle_path().read_text(encoding="utf-8")

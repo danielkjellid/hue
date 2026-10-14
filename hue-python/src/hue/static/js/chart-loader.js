@@ -1,0 +1,88 @@
+/**
+ * hueChart: a chart, drawn by a library this bundle does not contain.
+ *
+ * Chart.js is larger than everything else hue ships put together, and most
+ * pages draw no chart, so it lives in chart-bundle.js and is fetched when a
+ * chart first appears. Its URL is resolved against this bundle's own, so the
+ * two only need to sit side by side however they are served.
+ *
+ * A chart whose library fails to load says so through failed, for the markup
+ * to offer retry() in its place.
+ */
+
+const CHART_BUNDLE = new URL("./chart-bundle.js", import.meta.url).href;
+
+// One request however many charts the page draws, and the request that
+// failed, if the last one did.
+let loading = null;
+let rejected = null;
+// A failed import may stay failed for the life of the page, so another
+// attempt asks under a URL the browser has not seen yet.
+let attempt = 0;
+
+function library() {
+	loading ??= import(
+		attempt ? `${CHART_BUNDLE}?attempt=${attempt}` : CHART_BUNDLE
+	).catch((error) => {
+		// Logged here rather than per chart: one request failed, however
+		// many charts were waiting on it.
+		console.error(
+			`hue could not load ${CHART_BUNDLE}, which charts are drawn with. ` +
+				"Serve it from the same directory as hue's main bundle.",
+			error,
+		);
+		rejected = loading;
+		throw error;
+	});
+	return loading;
+}
+
+export function registerChartData(Alpine) {
+	Alpine.data("hueChart", (config) => {
+		// Kept out of the component's state, which would wrap the chart in a
+		// proxy. gone records a removal that happens before the library
+		// arrives.
+		let chart = null;
+		let gone = false;
+
+		return {
+			failed: false,
+
+			async init() {
+				let draw;
+				try {
+					({ draw } = await library());
+				} catch {
+					this.failed = true;
+					return;
+				}
+				if (gone) return;
+				// Alpine leaves a rejected init unhandled, which would report a
+				// config the library refuses without the chart it belongs to.
+				try {
+					chart = draw(this.$refs.canvas, config);
+				} catch (error) {
+					console.error("hue could not draw this chart.", this.$el, error);
+				}
+			},
+
+			retry() {
+				// A second press before the first lands would draw twice.
+				if (!this.failed) return;
+				// A failure gets one new attempt, which every chart that
+				// retries shares; one still on its way is waited on instead.
+				if (loading === rejected) {
+					loading = null;
+					attempt += 1;
+				}
+				this.failed = false;
+				return this.init();
+			},
+
+			destroy() {
+				gone = true;
+				chart?.destroy();
+			},
+		};
+	});
+}

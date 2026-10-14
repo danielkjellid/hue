@@ -29,11 +29,12 @@ Run from the package directory. `make lint`/`make fix` exist in every package (v
 with `make build-css` in `hue-python`. The test suites build it for you when it is missing,
 so a fresh checkout needs nothing special; `read_css()` says the same if anything else hits
 it first. Never commit it: a generated file in every branch is a conflict in every branch,
-which is why it left the repo. The Alpine bundle stays committed by contrast, because
-building it needs npm while the Tailwind CLI arrives with hue's own dependencies.
+which is why it left the repo. The JS bundles stay committed by contrast (the Alpine bundle
+and `chart-bundle.js`, the chart library it fetches on demand), because building them needs
+npm while the Tailwind CLI arrives with hue's own dependencies.
 
 **Building a distribution**: `make dist` in `hue-python` (not bare `uv build`). The
-stylesheet and the Alpine bundle are generated, so a wheel built without them installs
+stylesheet and the JS bundles are generated, so a wheel built without them installs
 as a component library that styles nothing — a build hook (`hue-python/hatch_build.py`)
 refuses to produce one, and `tests/test_distribution.py` asserts what a consumer
 actually receives.
@@ -331,10 +332,11 @@ methods and its variants to `Literal` axes.
   registered on a private router via `Router.page`), so subclasses get their own index.
 - Body validation failures return 422 via the overridable
   `handle_body_validation_error(request, exc)` hook.
-- `HueAssetsMiddleware` (`middleware.py`) — serves `/__hue__/styles.css` and
-  `/__hue__/js/alpine.js` straight from the `hue` package (no `collectstatic`), sync and
-  async capable, with RFC 7232 conditional (ETag / 304) handling. The bundle sends the
-  CSRF token as `X-CSRFToken`, the header Django reads.
+- `HueAssetsMiddleware` (`middleware.py`) — serves `/__hue__/styles.css`,
+  `/__hue__/js/alpine.js` and, beside it, `/__hue__/js/chart-bundle.js` straight from
+  the `hue` package (no `collectstatic`), sync and async capable, with RFC 7232
+  conditional (ETag / 304) handling. The Alpine bundle sends the CSRF token as `X-CSRFToken`,
+  the header Django reads.
 - Tests configure Django in `conftest.py` and use the `urlpatterns_` fixture for isolation.
 
 ## House rules

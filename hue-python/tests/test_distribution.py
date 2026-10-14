@@ -25,6 +25,7 @@ REQUIRED = (
     "hue/static/styles/tailwind.css",
     "hue/static/styles/tailwind.input.css",
     "hue/static/js/alpine-bundle.js",
+    "hue/static/js/chart-bundle.js",
     "hue/py.typed",
 )
 
