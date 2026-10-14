@@ -56,12 +56,22 @@ class SwapsTarget(ChainableComponent):
         """
         if self._get_prop("target") is None:
             return {}
-        if "id" not in self._attrs:
-            raise ValueError(
-                f"{type(self).__name__} with a target() needs an id() of its "
-                "own, which is how a response that carries it refreshes it."
-            )
+        self._own_id("a target()", "a response that carries it refreshes it by it")
         return SYNC
+
+    def _own_id(self, needed_by: str, reason: str) -> str:
+        """
+        Its id, for something that needs one, or a refusal that names what
+        needed it and why. One rule, so every part of it that hangs off the
+        id says so the same way.
+        """
+        own_id: str | None = self._attrs.get("id")
+        if own_id is None:
+            raise ValueError(
+                f"{type(self).__name__} with {needed_by} needs an id() of its "
+                f"own: {reason}."
+            )
+        return own_id
 
 
 @dataclass(frozen=True, slots=True)

@@ -17,6 +17,7 @@ from hue.utils import classnames, render_if
 # below each name a border colour, a text colour and a cursor, so no two
 # classes are left competing for the same property.
 _BAR = "flex w-full flex-wrap items-center justify-between gap-4"
+_COUNT = "text-sm tabular-nums text-fg-muted"
 
 _ITEM = (
     "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
@@ -109,12 +110,6 @@ class Pagination(SwapsTarget):
         return self
 
     def _render(self, context: Context) -> Component:
-        if self._get_prop("page_sizes") and "id" not in self._attrs:
-            raise ValueError(
-                "Pagination with page_sizes() needs an id() of its own: the "
-                "select takes its id from it, and without one a second "
-                "pagination on the page would claim the same id."
-            )
         total_pages: int = self._get_prop("total_pages", 1)
         # A page past either end is a stale link or a hand-edited URL, and
         # the nearest real page says more than a range of negative records.
@@ -122,59 +117,37 @@ class Pagination(SwapsTarget):
         total_records: int | None = self._get_prop("total_records")
         size: int = self._get_prop("page_size", 10)
 
-        status = render_if(
-            total_records,
-            lambda count: html.span(
-                *_status(page, size, count),
-                class_="text-sm tabular-nums text-fg-muted",
-            ),
-        )
-
+        # The modes differ in what they say and in their steps; the frame
+        # around them, rows per page included, is the same for all three.
         if cursor := self._get_prop("cursor"):
-            return html.div(
-                render_if(
-                    total_records,
-                    lambda count: html.span(
-                        f"{count:,} records",
-                        class_="text-sm tabular-nums text-fg-muted",
-                    ),
-                ),
-                self._controls(
-                    html.nav(
-                        _cursor_step("Previous", cursor[0]),
-                        _cursor_step("Next", cursor[1]),
-                        aria_label="Pagination",
-                        class_="flex items-center gap-2",
-                    )
-                ),
-                class_=classnames(_BAR, self._get_prop("class_")),
-                **self._sync_attrs(),
-                **self._get_base_html_attrs(),
+            status = render_if(
+                total_records,
+                lambda count: html.span(f"{count:,} records", class_=_COUNT),
             )
-
-        # One page still draws the control, inert: a row that disappears when
-        # a filter narrows the list to one page reads as something breaking.
-        if total_pages <= 1:
-            return html.div(
-                status,
-                self._controls(
-                    html.nav(
-                        self._step(0, "Previous page", "chevron-left", False),
-                        self._number(1, current=True, inert=True),
-                        self._step(2, "Next page", "chevron-right", False),
-                        aria_label="Pagination, single page",
-                        class_="flex items-center gap-1",
-                    )
-                ),
-                class_=classnames(_BAR, self._get_prop("class_")),
-                **self._sync_attrs(),
-                **self._get_base_html_attrs(),
+            nav = html.nav(
+                _cursor_step("Previous", cursor[0]),
+                _cursor_step("Next", cursor[1]),
+                aria_label="Pagination",
+                class_="flex items-center gap-2",
             )
-
-        return html.div(
-            status,
-            self._controls(
+        else:
+            status = render_if(
+                total_records,
+                lambda count: html.span(*_status(page, size, count), class_=_COUNT),
+            )
+            # One page still draws the control, inert: a row that disappears
+            # when a filter narrows the list to one page reads as something
+            # breaking.
+            nav = (
                 html.nav(
+                    self._step(0, "Previous page", "chevron-left", False),
+                    self._number(1, current=True, inert=True),
+                    self._step(2, "Next page", "chevron-right", False),
+                    aria_label="Pagination, single page",
+                    class_="flex items-center gap-1",
+                )
+                if total_pages <= 1
+                else html.nav(
                     self._step(page - 1, "Previous page", "chevron-left", page > 1),
                     *self._numbers(page, total_pages),
                     self._step(
@@ -183,20 +156,18 @@ class Pagination(SwapsTarget):
                     aria_label="Pagination",
                     class_="flex items-center gap-1",
                 )
+            )
+
+        return html.div(
+            status,
+            html.div(
+                render_if(self._get_prop("page_sizes"), self._sizes),
+                nav,
+                class_="flex flex-wrap items-center gap-3",
             ),
             class_=classnames(_BAR, self._get_prop("class_")),
             **self._sync_attrs(),
             **self._get_base_html_attrs(),
-        )
-
-    def _controls(self, nav: ComponentType) -> ComponentType:
-        """
-        The steps, with the rows-per-page select before them when there is one.
-        """
-        return html.div(
-            render_if(self._get_prop("page_sizes"), self._sizes),
-            nav,
-            class_="flex flex-wrap items-center gap-3",
         )
 
     def _numbers(self, page: int, total_pages: int) -> list[ComponentType]:
@@ -244,7 +215,12 @@ class Pagination(SwapsTarget):
         """
         # The select's id follows the pagination's own, so a table with one
         # above it and one below gets two labels that each find their select.
-        select = NativeSelect().name("page_size").id(f"{self._attrs['id']}-page-size")
+        own_id = self._own_id(
+            "page_sizes()",
+            "the select takes its id from it, so a second pagination on the "
+            "page cannot claim the same one",
+        )
+        select = NativeSelect().name("page_size").id(f"{own_id}-page-size")
         return html.div(
             html.span(
                 "Rows per page",
