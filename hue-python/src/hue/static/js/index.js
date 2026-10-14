@@ -3,6 +3,7 @@ import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { clearStaleBusyMarks } from "./ajax-busy.js";
+import { restoreFocusAfterSwap } from "./ajax-focus.js";
 import { registerComboboxData } from "./combobox.js";
 import { registerCommandData } from "./command.js";
 import { registerDismissibleData } from "./dismiss.js";
@@ -46,6 +47,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	});
 
 	clearStaleBusyMarks();
+	restoreFocusAfterSwap();
 
 	registerComboboxData(Alpine);
 	registerCommandData(Alpine);
