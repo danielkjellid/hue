@@ -130,6 +130,7 @@ class Breadcrumbs(ChainableComponent):
         return html.li(
             Popover()
             .fit()
+            .label(f"Hidden {levels}")
             .placement("bottom-start")
             .trigger(
                 Button()

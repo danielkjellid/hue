@@ -66,6 +66,13 @@ class Dialog(ChainableComponent):
         self._props["title"] = value
         return self
 
+    def label(self, value: str) -> Self:
+        """
+        The panel's accessible name, for a dialog with no title to be named by.
+        """
+        self._props["label"] = value
+        return self
+
     def description(self, value: str) -> Self:
         self._props["description"] = value
         return self
@@ -149,7 +156,7 @@ class Dialog(ChainableComponent):
             **{
                 "role": "alertdialog" if destructive else "dialog",
                 "aria_modal": "true",
-                ":aria-labelledby": _overlay.TITLE_ID if title is not None else None,
+                **_overlay.accessible_name("Dialog", title, self._get_prop("label")),
                 # Announced with the title only where the wrong answer cannot
                 # be undone; elsewhere it is read in order like any other text.
                 ":aria-describedby": (

@@ -78,9 +78,18 @@ class TestPopover:
     @pytest.mark.asyncio
     async def test_without_a_title_there_is_nothing_to_point_at(self, context_args):
         html = await render_tree(
-            Popover().trigger(Button().content("Share")), context_args=context_args
+            Popover().label("Share").trigger(Button().content("Share")),
+            context_args=context_args,
         )
         assert_no_selector(html, "[\\:aria-labelledby]")
+
+    @pytest.mark.asyncio
+    async def test_a_popover_with_no_name_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="needs an accessible name"):
+            await render_tree(
+                Popover().trigger(Button().content("Share")),
+                context_args=context_args,
+            )
 
     # label(): both branches
     @pytest.mark.asyncio

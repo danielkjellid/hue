@@ -28,6 +28,19 @@ class TestDrawer:
         assert_attr(html, "aside", "aria-modal", "true")
         assert_attr(html, "aside", ":aria-labelledby")
 
+    # The name: title, label, or neither
+    @pytest.mark.asyncio
+    async def test_without_a_title_the_label_names_it(self, context_args):
+        drawer = Drawer().label("Filters").content("Status")
+        html = await render_tree(drawer, context_args=context_args)
+        assert_attr(html, "aside", "aria-label", "Filters")
+        assert_no_selector(html, "[\\:aria-labelledby]")
+
+    @pytest.mark.asyncio
+    async def test_a_drawer_with_no_name_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="needs an accessible name"):
+            await render_tree(Drawer().content("?"), context_args=context_args)
+
     @pytest.mark.asyncio
     async def test_focus_is_trapped_and_the_page_behind_is_inert(self, context_args):
         html = await render_tree(_drawer(), context_args=context_args)
