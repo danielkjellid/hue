@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar, Literal
 
 from htmy import Context
@@ -530,3 +531,17 @@ class Clickable(ChainableComponent):
         if disabled:
             attrs.pop("@click", None)
         return attrs
+
+
+class Awaited:
+    """
+    A component whose drawing has to await something first, such as a
+    declaration fetching its rows or its events. _render is synchronous,
+    and htmy renders anything with an async htmy().
+    """
+
+    def __init__(self, draw: Callable[[Context], Awaitable[Component]]) -> None:
+        self._draw = draw
+
+    async def htmy(self, context: Context) -> Component:
+        return await self._draw(context)

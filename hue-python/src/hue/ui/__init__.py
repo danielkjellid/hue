@@ -32,6 +32,7 @@ from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.breadcrumbs import Breadcrumbs
 from hue.ui.molecules.button_group import ButtonGroup
+from hue.ui.molecules.calendar import Calendar, Event
 from hue.ui.molecules.card import (
     Card,
     CardBody,
@@ -47,6 +48,7 @@ from hue.ui.molecules.command import (
     CommandShortcuts,
 )
 from hue.ui.molecules.datatable import Column, DataTable
+from hue.ui.molecules.date_input import DateInput
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
 from hue.ui.molecules.drawer import Drawer
@@ -104,6 +106,7 @@ __all__ = [
     "Breadcrumbs",
     "Button",
     "ButtonGroup",
+    "Calendar",
     "Card",
     "CardBody",
     "CardFooter",
@@ -119,12 +122,14 @@ __all__ = [
     "CommandShortcuts",
     "CurrentPage",
     "DataTable",
+    "DateInput",
     "Dialog",
     "Disclosure",
     "Drawer",
     "DropdownMenu",
     "EmailInput",
     "Empty",
+    "Event",
     "Field",
     "Form",
     "FormErrors",

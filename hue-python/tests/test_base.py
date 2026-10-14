@@ -13,6 +13,7 @@ from hue.exceptions import MissingHueContextError
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, TextInput
+from hue.ui.base import Awaited
 
 
 class TestChainableComponent:
@@ -173,3 +174,13 @@ class TestAlpinePluginModifiers:
         )
         assert 'x-trap.inert="open"' in html
         assert 'x-anchor.bottom="$refs.t"' in html
+
+
+@pytest.mark.asyncio
+async def test_awaited_renders_what_its_coroutine_returns(context_args):
+    async def draw(context):
+        return Button().content("Drawn")
+
+    html = await render_tree(Awaited(draw), context_args=context_args)
+    assert "Drawn" in html
+    assert "<button" in html

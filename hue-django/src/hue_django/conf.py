@@ -48,6 +48,13 @@ class Settings:
         return getattr(django_settings, "HUE_DATETIME_FORMAT", Formats().datetime)
 
     @property
+    def HUE_TIME_FORMAT(self) -> str:
+        """
+        The strftime format components write a time of day in.
+        """
+        return getattr(django_settings, "HUE_TIME_FORMAT", Formats().time)
+
+    @property
     def HUE_SHORTCUTS(self) -> type[ShortcutRegistry] | None:
         """
         The app's ShortcutRegistry, as a dotted path or the class itself.

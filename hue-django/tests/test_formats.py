@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from django.test import RequestFactory, override_settings
+from django.utils import translation
 
 from hue_django.router import Router
 
@@ -27,3 +28,18 @@ def test_an_aware_datetime_is_written_in_local_time():
 @override_settings(USE_TZ=False)
 def test_without_timezones_a_moment_is_written_as_it_is():
     assert _formats().localize is None
+
+
+@override_settings(HUE_TIME_FORMAT="%I:%M %p")
+def test_the_time_format_is_a_setting_too():
+    assert _formats().time == "%I:%M %p"
+
+
+def test_the_names_are_django_s_translations():
+    # Keyed from Monday and January, which is how Formats indexes them.
+    with translation.override("nb"):
+        formats = _formats()
+    assert formats.day_names[0] == "mandag"
+    assert formats.day_abbreviations[0] == "man"
+    assert formats.month_names[9] == "oktober"
+    assert _formats().day_names[0] == "Monday"
