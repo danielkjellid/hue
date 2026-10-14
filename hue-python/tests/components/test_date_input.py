@@ -141,7 +141,7 @@ class TestPanel:
     async def test_a_day_is_a_roving_tabindex_button(self, context_args):
         html = await render_tree(_input(), context_args=context_args)
         day = "tbody template template td button"
-        assert_attr(html, day, "x-bind:tabindex", "cell.iso === focused ? 0 : -1")
+        assert_attr(html, day, "tabindex", "-1")
         assert_attr(html, day, "x-bind:data-date", "cell.iso")
         assert_attr(html, day, "x-bind:aria-label", "cell.label")
         assert_attr(html, day, "x-bind:aria-current", "cell.today ? 'date' : null")

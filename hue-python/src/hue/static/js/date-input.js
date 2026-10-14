@@ -145,6 +145,7 @@ export function registerDateInputData(Alpine) {
 			const last = new Date(utc(y, m - 1 + n + 1, 0)).getUTCDate();
 			const day = Math.min(Number(this.focused.slice(8)), last);
 			this.visit(utc(y, m - 1 + n, day));
+			this.$nextTick(() => this.rove());
 		},
 
 		// n days from the focused one, following it into the next month.
@@ -160,8 +161,22 @@ export function registerDateInputData(Alpine) {
 			this.shown = { y: on.getUTCFullYear(), m: on.getUTCMonth() + 1 };
 		},
 
+		// The roving tabindex, set by hand once the rows are drawn. Alpine
+		// refreshes the nested loops' scopes one cell at a time, so a binding
+		// on the button that compares its cell with the focused day runs
+		// against a half-refreshed grid and marks the wrong button when the
+		// month changes.
+		rove() {
+			for (const was of this.$root.querySelectorAll('[data-date][tabindex="0"]')) {
+				was.tabIndex = -1;
+			}
+			const day = this.$root.querySelector(`[data-date="${this.focused}"]`);
+			if (day) day.tabIndex = 0;
+			return day;
+		},
+
 		focusDay() {
-			this.$root.querySelector(`[data-date="${this.focused}"]`)?.focus();
+			this.rove()?.focus();
 		},
 
 		// The APG date picker keys. Escape is not here: CLOSE_ON_ESCAPE on

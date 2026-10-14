@@ -166,7 +166,12 @@ class DateInput(_BaseInput):
                 "x-show": "!cell.outside",
                 "x-text": "cell.day",
                 "x-bind:data-date": "cell.iso",
-                "x-bind:tabindex": "cell.iso === focused ? 0 : -1",
+                # The focused day's 0 is set in date-input.js once the rows
+                # are drawn. Alpine refreshes the nested loops' scopes one
+                # cell at a time, so a binding here that compares the cell
+                # with the focused day runs against a half-refreshed grid and
+                # marks the wrong button when the month changes.
+                "tabindex": "-1",
                 "x-bind:aria-label": "cell.label",
                 "x-bind:aria-current": "cell.today ? 'date' : null",
                 "x-bind:class": _PICKED,
