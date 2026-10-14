@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Radio, RadioGroup
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -118,7 +119,9 @@ class TestRadioGroup:
     @pytest.mark.asyncio
     async def test_x_model_binds_the_options(self, context_args):
         # Alpine ignores x-model on a fieldset, which holds no value.
-        html = await render_tree(_group().x_model("region"), context_args=context_args)
+        html = await render_tree(
+            _group().x_model(unsafe("region")), context_args=context_args
+        )
         assert_selector(html, 'input[type="radio"][x-model="region"]', count=2)
         assert_no_selector(html, "fieldset[x-model]")
 

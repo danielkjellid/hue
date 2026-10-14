@@ -1293,7 +1293,7 @@ def _filter_choice(
             card=False,
             disabled=False,
             required=False,
-            form=None,
+            input_attrs={},
         )
         radios.append(radio)
     return radios
