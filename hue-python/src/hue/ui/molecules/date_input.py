@@ -224,7 +224,9 @@ class DateInput(_BaseInput):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                "x-anchor.bottom-start.offset.6": "$refs.shell",
+                # Positioned fixed because a Dialog clips what overflows its
+                # panel, and a date field in a dialog is the common case.
+                "x-anchor.fixed.bottom-start.offset.6": "$refs.shell",
                 # Arrows, pages, Home, End, Enter and Space, in date-input.js.
                 "x-on:keydown": "key($event)",
                 **_overlay.HOLDS_FOCUS,

@@ -113,7 +113,7 @@ class TestPanel:
         assert_attr(html, panel, "aria-label", "Choose date")
         assert_attr(html, panel, "tabindex", "-1")
         assert_attr(html, panel, "x-show", "open")
-        assert_attr(html, panel, "x-anchor.bottom-start.offset.6", "$refs.shell")
+        assert_attr(html, panel, "x-anchor.fixed.bottom-start.offset.6", "$refs.shell")
         assert_attr(html, panel, "x-on:keydown", "key($event)")
         assert_no_selector(html, f"{panel}[aria-modal]")
 
