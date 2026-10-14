@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui import Alert, Kbd, Switch
 
@@ -279,14 +280,14 @@ def _build() -> ComponentType:
             '    Switch().name("letter_shortcuts")\n'
             '    .label("Single-key shortcuts")\n'
             '    .description("Such as G then B to go to Billing.")\n'
-            '    .x_model("$store.shortcuts.letters")\n'
+            '    .x_model(unsafe("$store.shortcuts.letters"))\n'
             ")"
         ),
         Switch()
         .name("letter_shortcuts")
         .label("Single-key shortcuts")
         .description("Such as G then K to come back here. Try it on this page.")
-        .x_model("$store.shortcuts.letters"),
+        .x_model(unsafe("$store.shortcuts.letters")),
         Alert()
         .variant("warning")
         .title("Keys the browser keeps")
