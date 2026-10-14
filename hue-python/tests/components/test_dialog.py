@@ -2,8 +2,9 @@ import pytest
 
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, Dialog
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from hue.ui import Button, Dialog, Popover, Tooltip
+from hue.ui.molecules import _overlay
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 # close() is what the footer actions call, so it is part of the state the
 # dialog renders rather than an internal detail.
@@ -126,9 +127,41 @@ class TestDialog:
         assert_attr(html, "[x-data]", "x-data", _STATE.format(open="false"))
 
     @pytest.mark.asyncio
-    async def test_the_server_can_start_it_open(self, context_args):
+    async def test_started_open_it_hands_focus_to_the_trigger_on_close(
+        self, context_args
+    ):
+        # The trap only returns focus to what had it before; a dialog open
+        # from the start had nothing, and focus would land on the body.
         html = await render_tree(_dialog().open(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-data", _STATE.format(open="true"))
+        state = select(html, "[x-data]")[0]["x-data"]
+        assert state.startswith("{ open: true")
+        assert f"{_overlay.TRIGGER}?.focus()" in state
+
+    @pytest.mark.asyncio
+    async def test_started_open_it_finds_a_trigger_inside_a_tooltip(self, context_args):
+        # An x-ref on the button would register in the tooltip's scope, out
+        # of the dialog's sight, so it is found by its mark instead.
+        dialog = _dialog().trigger(
+            Tooltip().content("Invite").trigger(Button().icon_only("Invite"))
+        )
+        html = await render_tree(dialog.open(), context_args=context_args)
+        assert f"{_overlay.TRIGGER}?.focus()" in select(html, "[x-data]")[0]["x-data"]
+        assert_selector(html, "button[data-hue-trigger]")
+        assert_no_selector(html, "[x-ref]")
+
+    @pytest.mark.asyncio
+    async def test_started_open_with_no_trigger_it_takes_none_from_its_content(
+        self, context_args
+    ):
+        # The first trigger inside would be the nested popover's.
+        dialog = (
+            Dialog()
+            .title("Filters")
+            .open()
+            .content(Popover().title("Help").trigger(Button().content("Help")))
+        )
+        html = await render_tree(dialog, context_args=context_args)
+        assert "querySelector" not in select(html, "[x-data]")[0]["x-data"]
 
     @pytest.mark.asyncio
     async def test_it_docks_to_the_bottom_edge_below_sm(self, context_args):
