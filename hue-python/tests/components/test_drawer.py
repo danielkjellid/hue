@@ -19,7 +19,7 @@ class TestDrawer:
     async def test_the_trigger_opens_it_and_says_so(self, context_args):
         html = await render_tree(_drawer(), context_args=context_args)
         assert_attr(html, "button[aria-haspopup]", "x-on:click", "open = true")
-        assert_attr(html, "button[aria-haspopup]", ":aria-expanded", "open")
+        assert_attr(html, "button[aria-haspopup]", "x-bind:aria-expanded", "open")
 
     @pytest.mark.asyncio
     async def test_it_is_a_modal_aside_named_by_its_title(self, context_args):

@@ -25,8 +25,19 @@ class TestDialog:
         # Without this the dialog renders and nothing can ever show it.
         html = await render_tree(_dialog(), context_args=context_args)
         assert_attr(html, "button", "x-on:click", "open = true")
+
+    @pytest.mark.asyncio
+    async def test_the_triggers_own_binding_survives(self, context_args):
+        # Both used to be written under :aria-expanded, so the dialog's
+        # replaced the caller's.
+        dialog = _dialog().trigger(
+            Button().content("Invite").x_bind("aria-expanded", unsafe("busy"))
+        )
+        html = await render_tree(dialog, context_args=context_args)
+        assert_attr(html, "button", ":aria-expanded", "busy")
+        assert_attr(html, "button", "x-bind:aria-expanded", "open")
         assert_attr(html, "button", "aria-haspopup", "dialog")
-        assert_attr(html, "button", ":aria-expanded", "open")
+        assert_attr(html, "button", "x-bind:aria-expanded", "open")
 
     @pytest.mark.asyncio
     async def test_the_triggers_own_click_handler_survives(self, context_args):

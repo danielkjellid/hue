@@ -73,6 +73,12 @@ class Tooltip(ChainableComponent):
         self._props["trigger"] = value
         return self
 
+    def _trigger_control(self) -> ChainableComponent | None:
+        # The span this draws only holds the bubble; the control it wraps
+        # takes the click, the focus and the announcement.
+        trigger: ChainableComponent | None = self._get_prop("trigger")
+        return trigger._trigger_control() if trigger is not None else None
+
     def placement(self, value: TooltipPlacement) -> Self:
         self._props["placement"] = value
         return self

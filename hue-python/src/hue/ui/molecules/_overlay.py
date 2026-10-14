@@ -11,12 +11,10 @@ from __future__ import annotations
 
 from htmy import html
 
-from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.tooltip import Tooltip
 from hue.utils import classnames, render_if, render_when
 
 # Alpine mints the ids, so two overlays on a page cannot share one.
@@ -106,11 +104,11 @@ def wire_trigger(
     Put an overlay's listeners and state on the control that opens it, and
     return the expression that finds that control again from inside.
 
-    Listeners go on as x-on rather than @, so a handler the control already
-    has through on_click runs alongside them instead of being overwritten
-    under the same key. A Tooltip is looked through to the control it labels,
-    because the control gets the click, the focus and the announcement, and
-    the span the tooltip wraps it in gets none of them.
+    Listeners go on as x-on rather than @, and bindings as x-bind rather
+    than :, so a handler or a binding the control already has through
+    on_click or x_bind stays beside them instead of being overwritten under
+    the same key. The control is the trigger's own, which for a Tooltip is
+    the control it labels rather than the span it wraps it in.
 
     The way back is a query rather than x-ref, because a ref registers on the
     nearest x-data, and a control wrapped in a Tooltip sits inside the
@@ -119,16 +117,14 @@ def wire_trigger(
     own, and the first one would belong to an overlay nested in the content,
     so the expression is null instead.
     """
-    control = trigger
-    while isinstance(control, Tooltip):
-        control = control._get_prop("trigger")
+    control = trigger._trigger_control() if trigger is not None else None
     if control is None:
         return "null"
 
     for event, expression in on.items():
         control._attrs[f"x-on:{event}"] = expression
     for attr, expression in {"aria-expanded": "open", **(bind or {})}.items():
-        control.x_bind(attr, unsafe(expression))
+        control._attrs[f"x-bind:{attr}"] = expression
     control._attrs.setdefault("aria_haspopup", popup)
     control._attrs["data-hue-trigger"] = ""
     return TRIGGER

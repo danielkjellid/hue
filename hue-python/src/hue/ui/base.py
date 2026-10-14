@@ -423,6 +423,14 @@ class ChainableComponent(ABC):
             )
         return name
 
+    def _trigger_control(self) -> ChainableComponent | None:
+        """
+        The element that takes this component's clicks and focus, for
+        something that wires behaviour onto it from outside. The component
+        itself, unless it only wraps another, as a Tooltip does.
+        """
+        return self
+
     def _get_base_html_attrs(self) -> dict[str, Any]:
         """
         Every attribute set through the modifiers above (id, ARIA, Alpine, and

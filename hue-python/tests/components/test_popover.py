@@ -20,8 +20,8 @@ class TestPopover:
         html = await render_tree(_popover(), context_args=context_args)
         assert_attr(html, "button", "x-on:click", "open = !open")
         assert_attr(html, "button", "aria-haspopup", "dialog")
-        assert_attr(html, "button", ":aria-expanded", "open")
-        assert_attr(html, "button", ":aria-controls", "$id('hue-popover')")
+        assert_attr(html, "button", "x-bind:aria-expanded", "open")
+        assert_attr(html, "button", "x-bind:aria-controls", "$id('hue-popover')")
 
     @pytest.mark.asyncio
     async def test_it_is_not_modal(self, context_args):

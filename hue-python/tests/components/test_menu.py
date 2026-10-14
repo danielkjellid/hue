@@ -30,7 +30,7 @@ class TestDropdownMenu:
     async def test_the_trigger_opens_it_and_says_so(self, context_args):
         html = await render_tree(_menu(), context_args=context_args)
         assert_attr(html, "button[aria-haspopup]", "aria-haspopup", "menu")
-        assert_attr(html, "button[aria-haspopup]", ":aria-expanded", "open")
+        assert_attr(html, "button[aria-haspopup]", "x-bind:aria-expanded", "open")
         assert_attr(
             html, "button[aria-haspopup]", "x-on:keydown.down.prevent", "open = true"
         )
