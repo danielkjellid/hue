@@ -5,7 +5,9 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
+from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
@@ -167,10 +169,12 @@ class MenuItem(Clickable):
         self._props["icon"] = value
         return self
 
-    def shortcut(self, value: ComponentType) -> Self:
+    def shortcut(self, value: Shortcut) -> Self:
         """
-        The keystroke this item answers to, at the end of the row. Pass a Kbd,
-        which gives each modifier a spoken name.
+        Make the item a way to run one of the app's shortcuts: it shows the
+        keys, does what the shortcut does, and takes the shortcut's label and
+        icon where it has none of its own. The page binds the keys, so they
+        work with the menu closed.
         """
         self._props["shortcut"] = value
         return self
@@ -210,9 +214,29 @@ class MenuItem(Clickable):
         checked: bool = self._get_prop("checked", False)
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
+        shortcut: Shortcut | None = self._get_prop("shortcut")
+        # What the shortcut runs, kept in this render rather than written onto
+        # the item, which may be rendered again for another request.
+        runs_action: dict[str, object] = {}
+        if shortcut is not None:
+            # Any spelling of a click handler, modifiers included.
+            clicks = any(
+                key.startswith(("@click", "x-on:click")) for key in self._attrs
+            )
+            href, action = _shortcut.resolve(
+                context,
+                shortcut,
+                own=href is not None or checkable or clicks,
+                disabled=disabled,
+            )
+            if action is not None:
+                runs_action = {"@click": action}
 
         children = (
-            render_if(self._get_prop("icon"), lambda icon: icon),
+            render_if(
+                self._get_prop("icon", shortcut.icon if shortcut else None),
+                lambda icon: icon,
+            ),
             render_when(
                 checkable,
                 html.span(
@@ -222,11 +246,8 @@ class MenuItem(Clickable):
                     **{"x-show": "checked"},
                 ),
             ),
-            *self._children,
-            render_if(
-                self._get_prop("shortcut"),
-                lambda keys: html.span(keys, class_="ms-auto inline-flex gap-[3px]"),
-            ),
+            *(self._children or ((shortcut.label,) if shortcut else ())),
+            render_if(shortcut, lambda each: _shortcut.keys(each.steps)),
         )
 
         attrs: dict[str, object] = {
@@ -269,7 +290,11 @@ class MenuItem(Clickable):
                 if disabled
                 else {"x-on:click": "checked = !checked" if checkable else "close()"}
             ),
+            # Announced here and bound by the page, which binds every shortcut
+            # once whether or not a menu shows it.
+            **(binding(shortcut.steps, describe=True) if shortcut else {}),
             **self._get_clickable_attrs(disabled),
+            **runs_action,
         }
 
         if href is not None:

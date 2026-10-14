@@ -47,17 +47,29 @@ class TestKbd:
 
     @pytest.mark.asyncio
     async def test_unknown_key_needs_no_spoken_name(self, context_args):
-        html = await render_tree(Kbd("F5"), context_args=context_args)
+        html = await render_tree(Kbd("f5"), context_args=context_args)
         assert_no_selector(html, "kbd > span.sr-only")
-        assert "F5" in html
+        assert select(html, "kbd")[0].get_text() == "F5"
+
+    # A letter alone is drawn as written, in a chord as a capital.
+    @pytest.mark.asyncio
+    async def test_a_letter_alone_reads_as_what_to_type(self, context_args):
+        # A capital G would read as Shift+G, which a plain "g" does not match.
+        html = await render_tree(Kbd("g"), context_args=context_args)
+        assert select(html, "kbd")[0].get_text() == "g"
+
+    @pytest.mark.asyncio
+    async def test_a_letter_in_a_chord_is_a_capital(self, context_args):
+        html = await render_tree(Kbd("shift", "g"), context_args=context_args)
+        assert select(html, "kbd")[-1].get_text() == "G"
 
     # mod: only the browser knows which key it is, so the server renders the
     # Apple glyph and Alpine corrects both the glyph and the spoken name.
     @pytest.mark.asyncio
     async def test_mod_resolves_in_the_browser(self, context_args):
         html = await render_tree(Kbd("mod"), context_args=context_args)
-        kbd = select(html, "kbd")[0]
-        assert "navigator.platform" in kbd["x-data"]
+        # The same answer the shortcuts are matched by.
+        assert "$store.shortcuts?.apple" in html
         assert "⌘" in html and "Ctrl" in html
         assert "Command" in html and "Control" in html
 

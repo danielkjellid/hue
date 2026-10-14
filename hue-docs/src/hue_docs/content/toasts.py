@@ -78,7 +78,7 @@ def _build() -> ComponentType:
             "A page renders its own toasts and a fragment carries its own, so "
             "both work with nothing added. What has nowhere to go is a toast "
             "raised by a view that then redirects: there is no markup in a "
-            "302. HueToastMiddleware keeps those in the session and hands "
+            "302. HueRequestMiddleware keeps those in the session and hands "
             "them to the page after it. Without it, a hue route that raises "
             "a toast and then redirects raises a RuntimeError rather than "
             "dropping the toast."
@@ -86,7 +86,7 @@ def _build() -> ComponentType:
         pr.code(
             "MIDDLEWARE = [\n"
             '    "django.contrib.sessions.middleware.SessionMiddleware",\n'
-            '    "hue_django.middleware.HueToastMiddleware",\n'
+            '    "hue_django.middleware.HueRequestMiddleware",\n'
             "    ...\n"
             "]",
             language="python",

@@ -1,9 +1,12 @@
+import json
+
 import pytest
 
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import Button, Command, CommandGroup, CommandItem
+from hue.ui import Button, Command, CommandGroup, CommandItem, CommandShortcuts
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
+from tests._shortcuts import Shortcuts
 
 
 def _command(*items):
@@ -59,16 +62,17 @@ class TestCommand:
 
     # hotkey(): both branches
     @pytest.mark.asyncio
-    async def test_the_hotkey_reaches_the_browser_in_lower_case(self, context_args):
-        html = await render_tree(
-            _command().hotkey("mod", "K"), context_args=context_args
-        )
-        assert '["mod", "k"]' in select(html, "[x-data]")[0]["x-data"]
+    async def test_the_hotkey_toggles_the_palette(self, context_args):
+        html = await render_tree(_command().hotkey("mod+K"), context_args=context_args)
+        root = select(html, "[x-shortcut]")[0]
+        assert root["x-shortcut"] == '["mod+k"]'
+        # The palette is not something to click, so it takes the event.
+        assert root["x-on:hue:shortcut.prevent"] == "open = !open"
 
     @pytest.mark.asyncio
     async def test_without_a_hotkey_none_is_bound(self, context_args):
         html = await render_tree(_command(), context_args=context_args)
-        assert "[]" in select(html, "[x-data]")[0]["x-data"]
+        assert_no_selector(html, "[x-shortcut]")
 
     # trigger(): both branches
     @pytest.mark.asyncio
@@ -84,6 +88,20 @@ class TestCommand:
     async def test_without_a_trigger_there_is_no_button(self, context_args):
         html = await render_tree(_command(), context_args=context_args)
         assert_no_selector(html, "button")
+
+    @pytest.mark.asyncio
+    async def test_the_empty_message_reaches_the_browser(self, context_args):
+        # hueCommand(startsOpen, emptyMessage): a message in the wrong place
+        # leaves the empty list saying nothing.
+        html = await render_tree(
+            Command().hotkey("mod+k").empty_message("Nothing here."),
+            context_args=context_args,
+        )
+        data = select(html, "[x-data^=hueCommand]")[0]["x-data"]
+        assert json.loads(f"[{data[len('hueCommand(') : -1]}]") == [
+            False,
+            "Nothing here.",
+        ]
 
 
 class TestCommandGroup:
@@ -184,3 +202,55 @@ class TestCommandItem:
         assert select(html, '[role="option"]')[0].get_text(strip=True) == (
             "Create invoice"
         )
+
+
+class TestCommandShortcuts:
+    @pytest.mark.asyncio
+    async def test_the_palette_lists_the_shortcuts_with_their_keys(
+        self, shortcut_context_args
+    ):
+        # No page around it, as in a fragment: the registry is in the context.
+        html = await render_tree(
+            Command().content(CommandShortcuts()), context_args=shortcut_context_args
+        )
+        labels = [o["data-label"] for o in select(html, '[role="option"]')]
+        assert labels == ["Duplicate", "Go to Billing"]
+        assert "Navigate" in select(html, '[role="group"]')[0].get_text()
+        billing = 'a[role="option"]'
+        assert_attr(html, billing, "href", "/billing/")
+        assert_attr(html, billing, "x-shortcut.describe", '["g", "b"]')
+        assert select(html, f"{billing} kbd")
+        # The page binds them; the palette only shows them.
+        assert_no_selector(html, '[role="option"][x-shortcut]')
+
+    @pytest.mark.asyncio
+    async def test_listing_shortcuts_needs_an_app_with_some(self, context_args):
+        with pytest.raises(ValueError):
+            await render_tree(
+                Command().content(CommandShortcuts()), context_args=context_args
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_hotkey_that_collides_with_a_shortcut_is_refused(
+        self, shortcut_context_args
+    ):
+        with pytest.raises(ValueError, match="same keys"):
+            await render_tree(
+                Command().hotkey("mod+d"), context_args=shortcut_context_args
+            )
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            CommandItem().shortcut(Shortcuts.duplicate).href("/elsewhere/"),
+            CommandItem().shortcut(Shortcuts.duplicate).action(unsafe("other()")),
+            CommandItem().shortcut(Shortcuts.duplicate).disabled(),
+        ],
+        ids=["its own href", "its own action", "disabled"],
+    )
+    @pytest.mark.asyncio
+    async def test_a_shortcut_row_does_nothing_else(self, row, shortcut_context_args):
+        with pytest.raises(ValueError):
+            await render_tree(
+                Command().content(row), context_args=shortcut_context_args
+            )

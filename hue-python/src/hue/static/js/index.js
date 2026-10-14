@@ -8,6 +8,7 @@ import { registerCommandData } from "./command.js";
 import { registerDismissibleData } from "./dismiss.js";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerSelectData } from "./select.js";
+import { registerShortcuts } from "./shortcuts.js";
 import {
 	registerTableColumns,
 	registerTableSelection,
@@ -51,6 +52,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerDismissibleData(Alpine);
 	registerScrollAreaData(Alpine);
 	registerSelectData(Alpine);
+	registerShortcuts(Alpine);
 	registerTableSelection(Alpine);
 	registerTableSearch(Alpine);
 	registerTableFilters(Alpine);

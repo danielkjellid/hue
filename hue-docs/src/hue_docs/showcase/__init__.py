@@ -33,6 +33,7 @@ from hue.ui.molecules.breadcrumbs import Crumb
 
 from hue_docs.discovery import ComponentDoc
 from hue_docs.registry import Showcase, Variant
+from hue_docs.shortcuts import Shortcuts
 
 # The names a curated snippet may reference — the public component surface,
 # plus raw elements for the slots that take arbitrary markup, such as CardMedia.
@@ -45,6 +46,9 @@ _NS["HueIcon"] = HueIcon
 _NS["Crumb"] = Crumb
 # and the way a snippet raises a toast from the browser.
 _NS["toast"] = toast
+# and the docs site's own shortcut registry, which the Command and
+# DropdownMenu snippets list and run.
+_NS["Shortcuts"] = Shortcuts
 # and the expression builders, since a snippet that wires an action uses them.
 _NS["call"] = call
 _NS["close"] = close

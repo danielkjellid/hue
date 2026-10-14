@@ -7,7 +7,9 @@ from htmy import Context, SafeStr, html
 
 from hue import html as hue_html
 from hue.context import HueContext
+from hue.shortcuts import ShortcutHost
 from hue.types.core import Component, ComponentType
+from hue.utils import render_if
 
 
 def _script_json(value: Any) -> str:
@@ -158,7 +160,11 @@ class BasePage:
                 hue_html.body()
                 .class_("min-h-screen bg-canvas relative")
                 .x_data(self.inject_x_data())
-                .content(self.body, self.configure_alpine(ctx)),
+                .content(
+                    self.body,
+                    render_if(ctx.shortcuts, ShortcutHost),
+                    self.configure_alpine(ctx),
+                ),
             ),
         )
 

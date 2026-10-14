@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from htmy import Context, html
+from htmy import Context, Fragment, html
 from typing_extensions import Self
 
+from hue.context import HueContext
 from hue.js import Expression, call, expect
+from hue.shortcuts import Shortcut, Steps, binding, parse_keys
 from hue.types.core import Component, ComponentType
+from hue.ui import _shortcut
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
@@ -40,8 +43,8 @@ class Command(ChainableComponent):
     opened from anywhere with a keyboard shortcut.
 
     The field keeps focus while the arrow keys move through the matching
-    items and Enter runs one. hotkey() takes keys the way Kbd does, so
-    hotkey("mod", "k") is Command-K on a Mac and Control-K elsewhere, and
+    items and Enter runs one. hotkey("mod+k") opens it from anywhere on the
+    page, Command-K on a Mac and Control-K elsewhere, and
     trigger() adds a control that opens it as well. Items are CommandItem,
     optionally in a CommandGroup.
     """
@@ -52,7 +55,7 @@ class Command(ChainableComponent):
     def example(cls) -> Self:
         return (
             cls()
-            .hotkey("mod", "k")
+            .hotkey("mod+k")
             .trigger(Button().variant("outline").content("Open command palette"))
             .content(
                 CommandGroup()
@@ -84,10 +87,12 @@ class Command(ChainableComponent):
 
     def hotkey(self, *keys: str) -> Self:
         """
-        The keys that open it from anywhere on the page, named as Kbd names
-        them: "mod" is Command on Apple platforms and Control elsewhere.
+        The keys that open and close it from anywhere on the page, written
+        the way a Shortcut's are: "mod+k" is Command-K on Apple platforms and
+        Control-K elsewhere. Checked against the page's shortcuts, if it has
+        any, so the palette cannot take keys one of them already has.
         """
-        self._props["hotkey"] = keys
+        self._props["hotkey"] = parse_keys(keys)
         return self
 
     def empty_message(self, value: str) -> Self:
@@ -113,7 +118,10 @@ class Command(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         label: str = self._get_prop("label", "Command palette")
-        hotkey: tuple[str, ...] = self._get_prop("hotkey", ())
+        hotkey: Steps | None = self._get_prop("hotkey")
+        registry = HueContext.from_context(context).shortcuts
+        if hotkey is not None and registry is not None:
+            registry.check("the palette's hotkey", hotkey)
         trigger: ChainableComponent | None = self._get_prop("trigger")
         if trigger is not None:
             _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
@@ -179,6 +187,9 @@ class Command(ChainableComponent):
             aria_modal="true",
             aria_label=label,
             class_=_PANEL,
+            # Shortcuts are held back while a modal is open, except in this
+            # one, whose job is to list them.
+            data_shortcuts="",
             **{"x-trap.inert.noscroll": "open"},
         )
         return html.div(
@@ -207,11 +218,19 @@ class Command(ChainableComponent):
                     call(
                         "hueCommand",
                         self._get_prop("open", False),
-                        [key.lower() for key in hotkey],
                         self._get_prop("empty_message", "No matching commands."),
                     )
                 ),
-                "x-on:keydown.window": "hotkey($event)",
+                # The palette is not something to click, so it takes the
+                # shortcut's event and toggles instead.
+                **(
+                    {
+                        **binding(hotkey),
+                        "x-on:hue:shortcut.prevent": "open = !open",
+                    }
+                    if hotkey is not None
+                    else {}
+                ),
                 **self._get_base_html_attrs(),
             },
         )
@@ -240,7 +259,8 @@ class CommandItem(ChainableComponent):
     """
     One thing a Command can do: go somewhere with href(), or run an Alpine
     expression with action(). keywords() are searched as well as the label,
-    for an item people look for by another name.
+    for an item people look for by another name. shortcut() makes it a way to
+    run one of the app's shortcuts instead.
     """
 
     category: ClassVar[str | None] = None
@@ -285,16 +305,39 @@ class CommandItem(ChainableComponent):
         self._props["keywords"] = values
         return self
 
+    def shortcut(self, value: Shortcut) -> Self:
+        """
+        Make the item a way to run one of the app's shortcuts: it shows the
+        keys and does what the shortcut does, taking the shortcut's label,
+        icon, description and keywords where it has none of its own. The page
+        binds the keys, so they work with the palette closed.
+        """
+        self._props["shortcut"] = value
+        return self
+
     def disabled(self, value: bool = True) -> Self:
         self._props["disabled"] = value
         return self
 
     def _render(self, context: Context) -> Component:
-        label: str = self._get_prop("label", "")
+        shortcut: Shortcut | None = self._get_prop("shortcut")
+        label: str = self._get_prop("label", shortcut.label if shortcut else "")
         href: str | None = self._get_prop("href")
         action: Expression | None = self._get_prop("action")
         disabled: bool = self._get_prop("disabled", False)
-        keywords: tuple[str, ...] = self._get_prop("keywords", ())
+        keywords: tuple[str, ...] = self._get_prop(
+            "keywords", shortcut.keywords if shortcut else ()
+        )
+        description: str | None = self._get_prop(
+            "description", shortcut.description if shortcut else None
+        )
+        if shortcut is not None:
+            href, action = _shortcut.resolve(
+                context,
+                shortcut,
+                own=href is not None or action is not None,
+                disabled=disabled,
+            )
 
         attrs: dict[str, object] = {
             "role": "option",
@@ -315,14 +358,20 @@ class CommandItem(ChainableComponent):
             # How run() reaches the expression: it dispatches this event on the
             # item, so Alpine evaluates the action in the item's own scope.
             **({"x-on:command.stop": action} if action else {}),
+            # Announced here and bound by the page, which binds every
+            # shortcut once whether or not a palette lists it.
+            **(binding(shortcut.steps, describe=True) if shortcut else {}),
             **self._get_base_html_attrs(),
         }
         children = (
-            render_if(self._get_prop("icon"), lambda icon: icon),
+            render_if(
+                self._get_prop("icon", shortcut.icon if shortcut else None),
+                lambda icon: icon,
+            ),
             html.span(
                 html.span(label, class_="block truncate"),
                 render_if(
-                    self._get_prop("description"),
+                    description,
                     lambda text: html.span(
                         text,
                         class_="block truncate text-sm text-fg-muted "
@@ -331,6 +380,7 @@ class CommandItem(ChainableComponent):
                 ),
                 class_="min-w-0 flex-1",
             ),
+            render_if(shortcut, lambda each: _shortcut.keys(each.steps)),
             render_if(
                 self._get_prop("meta"),
                 lambda text: html.span(text, class_="ms-auto text-2xs text-fg-subtle"),
@@ -339,3 +389,37 @@ class CommandItem(ChainableComponent):
         if href is not None and not disabled:
             return html.a(*children, href=href, **attrs)
         return html.div(*children, **attrs)
+
+
+class CommandShortcuts(ChainableComponent):
+    """
+    The app's shortcuts as palette items, in groups by their group.
+
+    Place it among a Command's content where they should appear. It lists
+    what is on for the request: every shortcut in the app's registry, and the
+    scoped ones a handler switched on. Each row shows its keys, and the page
+    binds them, so they work with the palette closed.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def _render(self, context: Context) -> Component:
+        registry = HueContext.from_context(context).shortcuts
+        if registry is None:
+            raise ValueError(
+                "CommandShortcuts lists the app's shortcuts, but "
+                f"{_shortcut.NO_REGISTRY}."
+            )
+        loose: list[ComponentType] = []
+        groups: dict[str, list[ComponentType]] = {}
+        for item in registry.active():
+            row = CommandItem().shortcut(item.shortcut)
+            group = item.shortcut.group
+            (groups.setdefault(group, []) if group else loose).append(row)
+        return Fragment(
+            *loose,
+            *(
+                CommandGroup().label(label).content(*rows)
+                for label, rows in groups.items()
+            ),
+        )

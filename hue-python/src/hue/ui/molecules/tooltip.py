@@ -83,13 +83,15 @@ class Tooltip(ChainableComponent):
         self._props["placement"] = value
         return self
 
-    def shortcut(self, value: ComponentType) -> Self:
+    def keys(self, value: ComponentType) -> Self:
         """
-        The keystroke the trigger answers to, shown after the label. Pass a
-        Kbd, which renders real kbd elements and gives each modifier a spoken
-        name - a glyph on its own is announced by its Unicode name.
+        The keys the trigger answers to, shown after the label. Pass a Kbd,
+        which renders real kbd elements and gives each modifier a spoken name;
+        a glyph on its own is announced by its Unicode name. Only shown: bind
+        the keys where the action is, in the app's shortcuts or as a palette's
+        hotkey.
         """
-        self._props["shortcut"] = value
+        self._props["keys"] = value
         return self
 
     def _render(self, context: Context) -> Component:
@@ -105,7 +107,7 @@ class Tooltip(ChainableComponent):
 
         bubble = html.div(
             *self._children,
-            render_if(self._get_prop("shortcut"), lambda keys: keys),
+            render_if(self._get_prop("keys"), lambda keys: keys),
             # The arrow is drawn with borders on a zero-size box, which is the
             # one way to get a triangle without a second colour to keep in
             # step with the bubble.

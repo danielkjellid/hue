@@ -39,12 +39,12 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
-                "With a shortcut",
+                "With its keys",
                 """
                 (
                     Tooltip()
                     .content("Search")
-                    .shortcut(Kbd("mod", "K"))
+                    .keys(Kbd("mod", "K"))
                     .trigger(
                         Button()
                         .variant("ghost")

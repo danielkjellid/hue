@@ -17,6 +17,8 @@ from hue.context import HueContextArgs
 from hue.renderer import render_tree
 from hue.types.core import ComponentType
 
+from hue_docs.shortcuts import Shortcuts
+
 # Static pages have no real CSRF protection; the token only flows into Alpine's
 # config and never guards a real request here.
 PLACEHOLDER_CSRF = "static-docs"
@@ -34,6 +36,9 @@ async def render_html(*components: ComponentType) -> str:
         context_args=HueContextArgs(
             request=_StubRequest(),
             csrf_token=PLACEHOLDER_CSRF,
+            # The site's own, which its pages bind and the Command and
+            # DropdownMenu showcases list and run.
+            shortcuts=Shortcuts,
         ),
     )
 

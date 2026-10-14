@@ -5,9 +5,10 @@ Two halves of the same thing under one name.
 
 toast.success("Invoice sent") queues one on the server. It is a plain call
 from anywhere - no context to thread through, because the queue is
-request-scoped in a ContextVar the router opens and closes. Whatever the
-handler returns carries the toast with it: a page renders it into its
-region, and a fragment gets the region appended to the response.
+request-scoped in a ContextVar that request_scope opens around each
+request. Whatever the handler returns carries the toast with it: a page
+renders it into its region, and a fragment gets the region appended to the
+response.
 
 toast.js.success("Copied") is the browser half, an expression to hand to
 on_click for the things the server never hears about. Its values are quoted
@@ -286,8 +287,8 @@ class _Toast:
             _QUEUE.get().append(message)
         except LookupError:
             raise RuntimeError(
-                "toast.{}() was called with no request to carry it. The router "
-                "opens the queue for the length of a request; outside one, "
+                "toast.{}() was called with no request to carry it. The queue "
+                "is open for the length of a request; outside one, "
                 "render a Toast yourself.".format(variant)
             ) from None
 
@@ -296,8 +297,9 @@ class _Toast:
         Start a request's queue, unless one is already open.
 
         None means somebody outside already opened it - a middleware that
-        carries toasts across a redirect, say - and it is theirs to close. The
-        router calls this either way and hands whatever it gets to close().
+        carries toasts across a redirect, say - and it is theirs to close.
+        request_scope calls this either way and hands whatever it gets to
+        close().
         """
         try:
             _QUEUE.get()

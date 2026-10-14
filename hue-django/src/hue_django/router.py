@@ -65,6 +65,7 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 # a template converts them, into the current timezone.
                 localize=timezone.localtime if django_settings.USE_TZ else None,
             ),
+            shortcuts=settings.HUE_SHORTCUTS,
         )
 
     def _get_request_body(self, request: T_Request) -> str:

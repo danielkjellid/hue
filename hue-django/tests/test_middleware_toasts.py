@@ -7,7 +7,7 @@ from django.test import RequestFactory
 from hue.context import HueContext
 from hue.toast import toast
 
-from hue_django.middleware import SESSION_KEY, HueToastMiddleware
+from hue_django.middleware import SESSION_KEY, HueRequestMiddleware
 from hue_django.router import Router
 from hue_django.views import HueFragmentsView
 
@@ -36,7 +36,7 @@ class TestCarryingToastsAcrossARedirect:
             return HttpResponseRedirect("/invoices/")
 
         request = _request(rf)
-        HueToastMiddleware(get_response)(request)
+        HueRequestMiddleware(get_response)(request)
 
         stored = request.session[SESSION_KEY]
         assert [message["title"] for message in stored] == ["Saved"]
@@ -52,7 +52,7 @@ class TestCarryingToastsAcrossARedirect:
         request = _request(
             rf, {SESSION_KEY: [{"variant": "success", "title": "Saved"}]}
         )
-        HueToastMiddleware(get_response)(request)
+        HueRequestMiddleware(get_response)(request)
 
         assert seen == ["Saved"]
         # Left in the session it would arrive again on the next page.
@@ -67,13 +67,13 @@ class TestCarryingToastsAcrossARedirect:
             return HttpResponse("Rendered")
 
         request = _request(rf)
-        HueToastMiddleware(get_response)(request)
+        HueRequestMiddleware(get_response)(request)
 
         assert SESSION_KEY not in request.session
 
     def test_a_request_that_raised_nothing_writes_nothing(self, rf):
         request = _request(rf)
-        HueToastMiddleware(lambda r: HttpResponse("Quiet"))(request)
+        HueRequestMiddleware(lambda r: HttpResponse("Quiet"))(request)
 
         assert SESSION_KEY not in request.session
 
@@ -87,7 +87,7 @@ class TestCarryingToastsAcrossARedirect:
             raised.append(True)
             return HttpResponse("ok")
 
-        HueToastMiddleware(get_response)(_request(rf))
+        HueRequestMiddleware(get_response)(_request(rf))
         assert raised == [True]
 
     def test_a_response_that_raises_still_closes_the_queue(self, rf):
@@ -96,7 +96,7 @@ class TestCarryingToastsAcrossARedirect:
             raise RuntimeError("boom")
 
         with pytest.raises(RuntimeError, match="boom"):
-            HueToastMiddleware(get_response)(_request(rf))
+            HueRequestMiddleware(get_response)(_request(rf))
 
         # The queue is closed, so the next request starts clean rather than
         # inheriting a half-finished one.
@@ -126,7 +126,7 @@ class TestAHueRouteThatRedirects:
         async def get_response(request):
             return await view(request)
 
-        response = asyncio.run(HueToastMiddleware(get_response)(request))
+        response = asyncio.run(HueRequestMiddleware(get_response)(request))
 
         assert response.status_code == 302
         assert [m["title"] for m in request.session[SESSION_KEY]] == ["Saved"]
@@ -135,5 +135,5 @@ class TestAHueRouteThatRedirects:
         view = _saving_view()
         request = rf.post("/save/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
 
-        with pytest.raises(RuntimeError, match="HueToastMiddleware"):
+        with pytest.raises(RuntimeError, match="HueRequestMiddleware"):
             asyncio.run(view(request))

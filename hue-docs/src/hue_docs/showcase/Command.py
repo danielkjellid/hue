@@ -64,6 +64,16 @@ SHOWCASES: list[Showcase] = [
                 """,
             ),
             variant(
+                "The app's shortcuts",
+                """
+                (
+                    Command()
+                    .trigger(Button().variant("outline").content("Site shortcuts"))
+                    .content(CommandShortcuts())
+                )
+                """,
+            ),
+            variant(
                 "With descriptions",
                 """
                 (
