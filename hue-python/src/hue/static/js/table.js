@@ -151,6 +151,10 @@ export function registerTableSearch(Alpine) {
  * the chip it puts up happen in the same frame instead of a round trip
  * apart.
  */
+// A box or a radio says whether it is on by being ticked; a field says it by
+// what is typed into it.
+const ticks = (el) => el.type === "checkbox" || el.type === "radio";
+
 export function registerTableFilters(Alpine) {
 	Alpine.data("hueTableFilters", (table = "") => ({
 		table,
@@ -166,18 +170,18 @@ export function registerTableFilters(Alpine) {
 
 		read() {
 			this.applied = this.controls()
-				.filter((el) => (el.type === "checkbox" ? el.checked : el.value))
+				.filter((el) => (ticks(el) ? el.checked : el.value))
 				.map((el) => ({
 					filter: el.dataset.filter,
 					filterLabel: el.dataset.filterLabel || el.dataset.filter,
-					value: el.type === "checkbox" ? el.value : "",
+					value: ticks(el) ? el.value : "",
 					label: el.dataset.option || el.value,
 				}));
 			narrowed(this.table, { filters: this.applied.length });
 		},
 
 		clearControl(el) {
-			if (el.type === "checkbox") {
+			if (ticks(el)) {
 				el.checked = false;
 			} else {
 				el.value = "";
@@ -187,7 +191,7 @@ export function registerTableFilters(Alpine) {
 		remove(chip) {
 			for (const el of this.controls()) {
 				if (el.dataset.filter !== chip.filter) continue;
-				if (el.type === "checkbox" && el.value !== chip.value) continue;
+				if (ticks(el) && el.value !== chip.value) continue;
 				this.clearControl(el);
 			}
 			this.apply();
@@ -211,7 +215,7 @@ export function registerTableFilters(Alpine) {
 			// send on. Re-enabled straight after, because the form is
 			// still on the page and still the one being typed into.
 			const empty = this.controls().filter(
-				(el) => el.type !== "checkbox" && !el.value,
+				(el) => !ticks(el) && !el.value,
 			);
 			for (const el of empty) {
 				el.disabled = true;

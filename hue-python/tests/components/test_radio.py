@@ -113,6 +113,24 @@ class TestRadioGroup:
 
 class TestRadio:
     @pytest.mark.asyncio
+    async def test_an_option_is_known_by_its_name_and_value(self, context_args):
+        html = await render_tree(_group(), context_args=context_args)
+        assert_selector(html, 'input#region-eu[type="radio"]')
+        assert_selector(html, 'label[for="region-eu"]')
+
+    @pytest.mark.asyncio
+    async def test_an_option_given_an_id_keeps_it(self, context_args):
+        html = await render_tree(
+            RadioGroup()
+            .name("region")
+            .content(Radio().value("eu").label("Europe").id("a-eu")),
+            context_args=context_args,
+        )
+        assert_selector(html, 'input#a-eu[type="radio"]')
+        assert_selector(html, 'label[for="a-eu"]')
+        assert_no_selector(html, "#region-eu")
+
+    @pytest.mark.asyncio
     async def test_a_description_sits_under_the_label(self, context_args):
         html = await render_tree(
             RadioGroup("r")
