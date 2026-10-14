@@ -119,8 +119,11 @@ class TestCard:
             context_args=context_args,
         )
         assert_attr(html, "button[data-card-link]", "aria-haspopup", "dialog")
-        assert_attr(html, "button[data-card-link]", "@click")
-        assert_attr(html, "button[data-card-link]", ":aria-expanded")
+        assert_attr(html, "button[data-card-link]", "x-on:click", "open = true")
+        assert_attr(html, "button[data-card-link]", "x-bind:aria-expanded", "open")
+        # The mark the dialog finds its trigger by, to give focus back to.
+        assert_attr(html, "button[data-card-link]", "data-hue-trigger")
+        assert_no_selector(html, "div[data-hue-trigger]")
 
     @pytest.mark.asyncio
     async def test_an_ajax_listener_lands_on_the_control(self, context_args):
