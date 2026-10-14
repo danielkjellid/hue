@@ -15,7 +15,17 @@ from hue import html
 from hue.calendar import CalendarState, DayAction, build_calendar_state
 from hue.context import HueContext
 from hue.js import close
-from hue.ui import Button, Calendar, Dialog, Event, Stack, Text, TextInput, ToastRegion
+from hue.ui import (
+    Button,
+    Calendar,
+    DateInput,
+    Dialog,
+    Event,
+    Stack,
+    Text,
+    TextInput,
+    ToastRegion,
+)
 from hue_django.pages import Page
 from hue_django.router import Router
 from hue_django.views import HueView
@@ -74,7 +84,7 @@ def new_event(request: HttpRequest, day: date) -> Dialog:
                 .align_items("items-stretch")
                 .content(
                     TextInput().name("title").label("Title"),
-                    TextInput().name("starts").label("Starts").value(day.isoformat()),
+                    DateInput().name("starts").label("Starts").value(day),
                 )
             )
         )

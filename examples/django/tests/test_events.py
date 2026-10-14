@@ -23,3 +23,4 @@ def test_a_day_opens_the_new_event_dialog():
     assert 'id="events-day"' in html
     assert "New event on 14 October 2026" in html
     assert 'value="2026-10-14"' in html
+    assert 'id="starts-picker"' in html
