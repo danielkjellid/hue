@@ -42,8 +42,10 @@ _STRETCHED_CONTROL = (
 
 # What moves from a linked card onto its title: what names the control and
 # what activates it, including the wiring an overlay or a request puts on its
-# trigger. The rest (an id, x-show, x-data, data attributes) describes the
-# card as a whole, so moving it would hide, target or scope only the title.
+# trigger, and the mark an overlay finds its trigger by, since that is what it
+# anchors to and gives focus back to. The rest (an id, x-show, x-data, other
+# data attributes) describes the card as a whole, so moving it would hide,
+# target or scope only the title.
 _CONTROL_ATTRS = frozenset(
     {
         "aria_label",
@@ -69,6 +71,7 @@ _CONTROL_ATTR_PREFIXES = (
     "x-on:keyup",
     "x-on:ajax:",
     "x-target",
+    "data-hue-trigger",
 )
 
 
