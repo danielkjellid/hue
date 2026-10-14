@@ -131,6 +131,18 @@ def first_of(month: date) -> date:
     return month.replace(day=1)
 
 
+def shift(month: date, by: int) -> date | None:
+    """
+    The first of the month by months away, or None past either end of the
+    years a grid can draw, which leaves that link out.
+    """
+    index = month.year * 12 + month.month - 1 + by
+    year, number = divmod(index, 12)
+    if not FIRST_YEAR <= year <= LAST_YEAR:
+        return None
+    return date(year, number + 1, 1)
+
+
 @dataclass(frozen=True, slots=True)
 class Placed:
     """
