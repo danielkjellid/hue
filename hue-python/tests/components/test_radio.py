@@ -1,5 +1,6 @@
 import pytest
 
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Radio, RadioGroup
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -39,6 +40,7 @@ class TestRadioGroup:
         # fieldset alone would tie only the fieldset to it.
         html = await render_tree(_group().form("settings"), context_args=context_args)
         assert_selector(html, 'input[type=radio][form="settings"]', count=2)
+        assert_no_selector(html, "fieldset[form]")
 
     @pytest.mark.asyncio
     async def test_options_belong_to_no_other_form_by_default(self, context_args):
@@ -95,6 +97,33 @@ class TestRadioGroup:
         assert_attr(html, "fieldset", "aria-invalid", "true")
         assert_attr(html, "fieldset", "aria-describedby", "region-error")
         assert_selector(html, '[role="alert"]#region-error')
+
+    @pytest.mark.asyncio
+    async def test_the_description_follows_an_id_set_on_the_group(self, context_args):
+        # Built from the name, the hint's id would not be the one pointed at.
+        html = await render_tree(
+            _group().id("billing").hint("Where you pay tax."),
+            context_args=context_args,
+        )
+        assert_attr(html, "fieldset", "aria-describedby", "billing-hint")
+        assert_selector(html, "#billing-hint")
+
+    @pytest.mark.asyncio
+    async def test_a_description_of_the_callers_own_is_added(self, context_args):
+        html = await render_tree(
+            _group().hint("Where you pay tax.").aria_describedby("extra"),
+            context_args=context_args,
+        )
+        assert_attr(html, "fieldset", "aria-describedby", "region-hint extra")
+
+    @pytest.mark.asyncio
+    async def test_x_model_binds_the_options(self, context_args):
+        # Alpine ignores x-model on a fieldset, which holds no value.
+        html = await render_tree(
+            _group().x_model(unsafe("region")), context_args=context_args
+        )
+        assert_selector(html, 'input[type="radio"][x-model="region"]', count=2)
+        assert_no_selector(html, "fieldset[x-model]")
 
     @pytest.mark.asyncio
     async def test_valid_by_default(self, context_args):
