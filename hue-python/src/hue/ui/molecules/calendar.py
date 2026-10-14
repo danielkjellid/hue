@@ -234,28 +234,24 @@ class Calendar(ChainableComponent):
         own_id: str | None = self._attrs.get("id")
 
         def step(
-            name: str, label: str, target: date | None, *content: ComponentType
+            name: str, label: str, target: date | None, icon: str | None = None
         ) -> ComponentType:
             if target is None:
                 # Past either end of the years a grid can draw.
                 return ""
             return html.a(
-                *content,
+                HueIcon(icon) if icon else label,
                 href=to(target),
                 id=f"{own_id}-{name}" if own_id else None,
-                aria_label=label if not isinstance(content[0], str) else None,
+                aria_label=label if icon else None,
                 class_=classnames(_STEP, FOCUS_RING),
                 **swap(own_id),
             )
 
         return html.nav(
-            step(
-                "previous", "Previous month", shift(month, -1), HueIcon("chevron-left")
-            ),
-            render_if(
-                today, lambda day: step("today", "Today", first_of(day), "Today")
-            ),
-            step("next", "Next month", shift(month, 1), HueIcon("chevron-right")),
+            step("previous", "Previous month", shift(month, -1), "chevron-left"),
+            render_if(today, lambda day: step("today", "Today", first_of(day))),
+            step("next", "Next month", shift(month, 1), "chevron-right"),
             aria_label="Months",
             class_="absolute end-0 top-0 flex items-center gap-1",
         )

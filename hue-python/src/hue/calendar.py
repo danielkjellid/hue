@@ -290,10 +290,12 @@ class _Declaration:
             raw = self._router._get_query_values(request).get(_DAY)
             asked = raw[-1] if raw else ""
             try:
-                if not _DAY_PATTERN.fullmatch(asked):
-                    raise ValueError(asked)
-                when = date.fromisoformat(asked)
+                when = (
+                    date.fromisoformat(asked) if _DAY_PATTERN.fullmatch(asked) else None
+                )
             except ValueError:
+                when = None
+            if when is None:
                 return HueResponse(
                     component=html.p(f"{self.key} has no day called {asked!r}."),
                     status_code=HTTPStatus.NOT_FOUND,
