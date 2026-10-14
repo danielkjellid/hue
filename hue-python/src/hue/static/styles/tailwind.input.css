@@ -577,18 +577,6 @@
   --color-surface-overlay: var(--hue-white-900);
   --color-surface-overlay-foreground: var(--hue-gray-900);
   --color-surface-overlay-focus: var(--hue-gray-50);
-
-  --color-destructive-50: var(--hue-red-50);
-  --color-destructive-100: var(--hue-red-100);
-  --color-destructive-200: var(--hue-red-200);
-  --color-destructive-300: var(--hue-red-300);
-  --color-destructive-400: var(--hue-red-400);
-  --color-destructive-500: var(--hue-red-500);
-  --color-destructive-600: var(--hue-red-600);
-  --color-destructive-700: var(--hue-red-700);
-  --color-destructive-800: var(--hue-red-800);
-  --color-destructive-900: var(--hue-red-900);
-  --color-destructive: var(--color-destructive-500);
 }
 
 [data-theme="dark"] {

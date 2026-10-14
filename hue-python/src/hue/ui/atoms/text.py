@@ -99,9 +99,9 @@ class Text(ChainableComponent):
             align,
             {
                 # Destructive wins over muted when both are set.
-                "text-destructive": destructive,
-                "text-surface-500": muted and not destructive,
-                "text-surface-900": not muted and not destructive,
+                "text-danger-text": destructive,
+                "text-fg-muted": muted and not destructive,
+                "text-fg": not muted and not destructive,
             },
             self._get_prop("class_"),
         )

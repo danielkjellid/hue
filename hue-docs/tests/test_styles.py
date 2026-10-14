@@ -94,3 +94,13 @@ def test_no_token_is_referenced_without_being_defined() -> None:
         f"hue's stylesheet reads {', '.join(missing)} without defining them. "
         f"A var() with nothing behind it drops the whole declaration."
     )
+
+
+@pytest.mark.parametrize(
+    "token", ["text-surface-900", "text-surface-500", "dark:bg-surface-900"]
+)
+def test_legacy_colours_the_docs_chrome_uses_are_built(token, built_css):
+    # The docs chrome still uses these LEGACY steps, and a token deleted from
+    # under them drops the utility without an error (code blocks lost their
+    # dark background that way). Drop a step here once the chrome migrates.
+    assert _is_defined(token, built_css)

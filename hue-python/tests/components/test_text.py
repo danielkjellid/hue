@@ -28,21 +28,28 @@ class TestText:
         )
         assert_selector(html, "h1")
 
-    # muted() conditional — both branches
+    # Colour: one semantic alias per state, destructive winning over muted.
+    @pytest.mark.asyncio
+    async def test_default_colour(self, context_args):
+        html = await render_tree(Text("Plain"), context_args=context_args)
+        assert_selector(html, "p.text-fg")
+        assert_no_selector(html, "p.text-fg-muted")
+        assert_no_selector(html, "p.text-danger-text")
+
     @pytest.mark.asyncio
     async def test_muted(self, context_args):
         html = await render_tree(Text("Muted").muted(), context_args=context_args)
-        assert "text-surface-500" in html
+        assert_selector(html, "p.text-fg-muted")
+        assert_no_selector(html, "p.text-fg")
 
     @pytest.mark.asyncio
-    async def test_not_muted(self, context_args):
-        html = await render_tree(Text("Plain"), context_args=context_args)
-        assert "text-surface-500" not in html
-
-    @pytest.mark.asyncio
-    async def test_destructive(self, context_args):
-        html = await render_tree(Text("Error").destructive(), context_args=context_args)
-        assert "text-destructive" in html
+    async def test_destructive_wins_over_muted(self, context_args):
+        html = await render_tree(
+            Text("Error").destructive().muted(), context_args=context_args
+        )
+        assert_selector(html, "p.text-danger-text")
+        assert_no_selector(html, "p.text-fg-muted")
+        assert_no_selector(html, "p.text-fg")
 
 
 class TestLabel:

@@ -157,7 +157,7 @@ needs **no `dark:` variants** — reach for one only where dark genuinely differ
 `--color-accent-vivid` is decorative only in light mode; it fails contrast on white.
 
 A `LEGACY` block at the bottom of that file holds the pre-design-system names
-(`primary`, `surface-*`, `secondary-*`, `destructive-*`, `background`, and the handful of
+(`primary`, `surface-*`, `secondary-*`, `background`, and the handful of
 `wg-*` ramp names Callout still uses) at their original values, so unmigrated components keep
 working. **Never reference those from new code** — the block shrinks as components migrate
 and is deleted with the last of them.

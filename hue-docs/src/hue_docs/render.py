@@ -50,4 +50,4 @@ def preview(component: ComponentType) -> ComponentType:
     try:
         return SafeStr(render_html_sync(component))
     except Exception as exc:
-        return html.p(f"Could not render: {exc}").class_("text-sm text-destructive")
+        return html.p(f"Could not render: {exc}").class_("text-sm text-danger-text")
