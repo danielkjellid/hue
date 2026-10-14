@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Radio, RadioGroup
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _group():
@@ -171,6 +171,73 @@ class TestRadio:
         )
         assert_attr(html, "input", "aria-labelledby", "r-a-label")
         assert_attr(html, "input", "aria-describedby", "r-a-description")
+
+    @pytest.mark.asyncio
+    async def test_an_id_holds_no_whitespace(self, context_args):
+        # An aria-labelledby built from "r-north america" would name two ids.
+        html = await render_tree(
+            RadioGroup("r").content(Radio().value("north america").label("NA")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-labelledby", "r-north%20america-label")
+
+    @pytest.mark.asyncio
+    async def test_values_that_differ_only_in_spacing_get_ids_of_their_own(
+        self, context_args
+    ):
+        # Folding whitespace into a hyphen gave these one id between them,
+        # so the second label toggled the first.
+        values = ("north america", "north-america", "a b", "a  b")
+        html = await render_tree(
+            RadioGroup("r").content(*(Radio().value(v).label(v) for v in values)),
+            context_args=context_args,
+        )
+        ids = {tag["id"] for tag in select(html, "input[type=radio]")}
+        assert len(ids) == len(values)
+
+    @pytest.mark.asyncio
+    async def test_a_callers_describedby_survives_without_a_description(
+        self, context_args
+    ):
+        html = await render_tree(
+            RadioGroup("r").content(
+                Radio().value("a").label("A").aria_describedby("note")
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-describedby", "note")
+
+    @pytest.mark.asyncio
+    async def test_a_callers_describedby_joins_the_description(self, context_args):
+        html = await render_tree(
+            RadioGroup("r").content(
+                Radio()
+                .value("a")
+                .label("A")
+                .description("First.")
+                .aria_describedby("note")
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "aria-describedby", "r-a-description note")
+
+    @pytest.mark.asyncio
+    async def test_options_take_their_ids_from_the_group(self, context_args):
+        # So two groups sharing a name stay apart once one is given an id.
+        html = await render_tree(
+            RadioGroup("r").id("billing").content(Radio().value("a").label("A")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "id", "billing-a")
+
+    @pytest.mark.asyncio
+    async def test_an_option_keeps_an_id_of_its_own(self, context_args):
+        html = await render_tree(
+            RadioGroup("r").content(Radio().value("a").label("A").id("own")),
+            context_args=context_args,
+        )
+        assert_attr(html, "input", "id", "own")
+        assert_attr(html, "input", "aria-labelledby", "own-label")
 
     @pytest.mark.asyncio
     async def test_the_group_keeps_a_hint(self, context_args):

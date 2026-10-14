@@ -8,6 +8,7 @@ from typing_extensions import Self
 from hue.types.core import Component
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
+    choice_id,
     choice_row,
     description_id,
     label_id,
@@ -57,6 +58,13 @@ class Checkbox(FormControl):
     def value(self, value: str) -> Self:
         self._props["value"] = value
         return self
+
+    def _input_id(self) -> str:
+        # Checkboxes sharing a name, one per tag say, differ only by value.
+        value: str | None = self._get_prop("value")
+        if "id" in self._attrs or value is None:
+            return super()._input_id()
+        return choice_id(self._require_name(), value)
 
     def checked(self, value: bool = True) -> Self:
         self._props["checked"] = value
