@@ -15,6 +15,7 @@ from django.http import Http404, HttpRequest, QueryDict
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
+from django.utils.dates import MONTHS, WEEKDAYS, WEEKDAYS_ABBR
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.router import HueResponse, PathParseResult
@@ -61,9 +62,15 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
             formats=Formats(
                 date=settings.HUE_DATE_FORMAT,
                 datetime=settings.HUE_DATETIME_FORMAT,
+                time=settings.HUE_TIME_FORMAT,
                 # The ORM hands aware datetimes over in UTC. Converted the way
                 # a template converts them, into the current timezone.
                 localize=timezone.localtime if django_settings.USE_TZ else None,
+                # Lazy strings, read under the request's language. Django
+                # keys the days 0..6 from Monday, as date.weekday() does.
+                month_names=tuple(str(MONTHS[m]) for m in range(1, 13)),
+                day_names=tuple(str(WEEKDAYS[d]) for d in range(7)),
+                day_abbreviations=tuple(str(WEEKDAYS_ABBR[d]) for d in range(7)),
             ),
             shortcuts=settings.HUE_SHORTCUTS,
         )
