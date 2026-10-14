@@ -78,7 +78,7 @@ class TestCommand:
             context_args=context_args,
         )
         assert_attr(html, "button", "aria-haspopup", "dialog")
-        assert_attr(html, "button", "@click", "open = true")
+        assert_attr(html, "button", "x-on:click", "open = true")
 
     @pytest.mark.asyncio
     async def test_without_a_trigger_there_is_no_button(self, context_args):

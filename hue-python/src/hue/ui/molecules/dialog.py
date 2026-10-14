@@ -132,7 +132,7 @@ class Dialog(ChainableComponent):
         starts_open: bool = self._get_prop("open", False)
 
         if trigger is not None:
-            _overlay.open_on_click(trigger)
+            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
 
         panel = html.div(
             _overlay.grabber("sm:hidden"),
@@ -184,11 +184,10 @@ class Dialog(ChainableComponent):
             ),
             class_=self._get_prop("class_"),
             **{
-                "x-data": _overlay.overlay_state(starts_open),
-                "x-id": _overlay.OVERLAY_IDS,
                 # Escape always closes, dismissible or not: a modal with no
                 # way out is a trap, whatever the question was.
-                **_overlay.CLOSE_ON_ESCAPE,
+                **_overlay.overlay_root(_overlay.overlay_state(starts_open)),
+                "x-id": _overlay.OVERLAY_IDS,
                 **self._get_base_html_attrs(),
             },
         )

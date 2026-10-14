@@ -740,6 +740,8 @@ def test_every_name_the_markup_hands_the_script_is_one_it_reads(mounted):
         *re.findall(r"x-on:(hue-table-[\w-]+)", html),
     }
     attributes = set(re.findall(r"data-(hue-[\w-]+|filter[\w-]*|option)=", html))
+    # The popovers' own mark on their triggers, which they read themselves.
+    attributes.discard("hue-trigger")
     assert len(names) >= 5 and len(attributes) >= 5, (names, attributes)
     missing = [name for name in sorted(names) if name not in script]
     missing += [

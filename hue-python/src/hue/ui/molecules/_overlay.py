@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from htmy import html
 
-from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
@@ -65,22 +64,70 @@ DISMISS_ON_SCRIM = {
 }
 
 
-def overlay_state(starts_open: bool) -> str:
+def overlay_state(starts_open: bool = False, *, return_to: str | None = None) -> str:
     """
-    The x-data every overlay carries.
+    The x-data an overlay carries.
 
     close() rather than a bare assignment, so the actions inside have a way
-    out to call that is not the state's shape.
+    out to call that is not the state's shape. return_to is the expression
+    wire_trigger returned, for an overlay whose focus close() has to put back
+    by hand: a modal's focus trap does that on its own.
     """
-    return f"{{ open: {str(starts_open).lower()}, close() {{ this.open = false }} }}"
+    refocus = f"; {return_to}?.focus()" if return_to else ""
+    return (
+        f"{{ open: {str(starts_open).lower()}, "
+        f"close() {{ this.open = false{refocus} }} }}"
+    )
 
 
-def open_on_click(trigger: ChainableComponent) -> None:
+def overlay_root(state: str) -> dict[str, str]:
     """
-    Wire a control to open the overlay it belongs to.
+    The attributes every overlay's root carries: its state, and Escape
+    closing it. state is overlay_state(), or a bundled component's own for
+    an overlay with more to it.
     """
-    trigger.x_on("click", unsafe("open = true")).x_bind("aria-expanded", unsafe("open"))
-    trigger._attrs.setdefault("aria_haspopup", "dialog")
+    return {"x-data": state, **CLOSE_ON_ESCAPE}
+
+
+#: What wire_trigger hands back for a control it has marked.
+TRIGGER = "$root.querySelector('[data-hue-trigger]')"
+
+
+def wire_trigger(
+    trigger: ChainableComponent | None,
+    *,
+    popup: str,
+    on: dict[str, str],
+    bind: dict[str, str] | None = None,
+) -> str:
+    """
+    Put an overlay's listeners and state on the control that opens it, and
+    return the expression that finds that control again from inside.
+
+    Listeners go on as x-on rather than @, and bindings as x-bind rather
+    than :, so a handler or a binding the control already has through
+    on_click or x_bind stays beside them instead of being overwritten under
+    the same key. The control is the trigger's own, which for a Tooltip is
+    the control it labels rather than the span it wraps it in.
+
+    The way back is a query rather than x-ref, because a ref registers on the
+    nearest x-data, and a control wrapped in a Tooltip sits inside the
+    tooltip's. The control renders before the panel, so the first mark under
+    the overlay's root is its own. With no control there is no mark of its
+    own, and the first one would belong to an overlay nested in the content,
+    so the expression is null instead.
+    """
+    control = trigger._trigger_control() if trigger is not None else None
+    if control is None:
+        return "null"
+
+    for event, expression in on.items():
+        control._attrs[f"x-on:{event}"] = expression
+    for attr, expression in {"aria-expanded": "open", **(bind or {})}.items():
+        control._attrs[f"x-bind:{attr}"] = expression
+    control._attrs.setdefault("aria_haspopup", popup)
+    control._attrs["data-hue-trigger"] = ""
+    return TRIGGER
 
 
 def grabber(hidden_class: str = "") -> ComponentType:

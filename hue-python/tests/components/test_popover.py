@@ -1,8 +1,9 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Button, Popover
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from hue.ui import Button, DropdownMenu, Popover
+from hue.ui.molecules import _overlay
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _popover():
@@ -17,10 +18,10 @@ class TestPopover:
     @pytest.mark.asyncio
     async def test_the_trigger_toggles_it_and_says_so(self, context_args):
         html = await render_tree(_popover(), context_args=context_args)
-        assert_attr(html, "button", "@click", "open = !open")
+        assert_attr(html, "button", "x-on:click", "open = !open")
         assert_attr(html, "button", "aria-haspopup", "dialog")
-        assert_attr(html, "button", ":aria-expanded", "open")
-        assert_attr(html, "button", ":aria-controls", "$id('hue-popover')")
+        assert_attr(html, "button", "x-bind:aria-expanded", "open")
+        assert_attr(html, "button", "x-bind:aria-controls", "$id('hue-popover')")
 
     @pytest.mark.asyncio
     async def test_it_is_not_modal(self, context_args):
@@ -50,8 +51,21 @@ class TestPopover:
             _popover().placement("top-end"), context_args=context_args
         )
         assert_attr(
-            html, '[role="dialog"]', "x-anchor.top-end.offset.6", "$refs.trigger"
+            html, '[role="dialog"]', "x-anchor.top-end.offset.6", _overlay.TRIGGER
         )
+
+    @pytest.mark.asyncio
+    async def test_without_a_trigger_it_finds_none_in_its_content(self, context_args):
+        # The first trigger inside it would be the nested menu's, and focus
+        # would go back to a button that never opened this popover.
+        popover = (
+            Popover()
+            .label("Filters")
+            .content(DropdownMenu().label("Sort").trigger(Button().content("Sort")))
+        )
+        html = await render_tree(popover, context_args=context_args)
+        assert_attr(html, '[role="dialog"]', "x-anchor.bottom-start.offset.6", "null")
+        assert "querySelector" not in select(html, "span[x-data]")[0]["x-data"]
 
     # title(): both branches
     @pytest.mark.asyncio

@@ -286,8 +286,9 @@ against each of these.
   RadioGroup's hint vanished from `aria-describedby`), and spreading it beside an explicit
   `id=` raises a TypeError.
 - **hue's own wiring never shares an attribute key with a public modifier.** Internal
-  listeners use `x-on:…` and the public modifiers write `@…`, so both survive. The
-  overlay's `@click` used to replace the trigger's `on_click`.
+  listeners and bindings use `x-on:…` and `x-bind:…`, the public modifiers write `@…`
+  and `:…`, so both survive. The overlay's `@click` used to replace the trigger's
+  `on_click`.
 - **Name Alpine state so a nested scope cannot shadow it.** A Tooltip's `open` hid the
   DropdownMenu's `open` around it. `x-ref` registers on the nearest `x-data`, so it does
   not cross a component boundary safely either.
