@@ -48,6 +48,7 @@ from hue.ui.molecules.command import (
     CommandShortcuts,
 )
 from hue.ui.molecules.datatable import Column, DataTable
+from hue.ui.molecules.date_input import DateInput
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
 from hue.ui.molecules.drawer import Drawer
@@ -121,6 +122,7 @@ __all__ = [
     "CommandShortcuts",
     "CurrentPage",
     "DataTable",
+    "DateInput",
     "Dialog",
     "Disclosure",
     "Drawer",
