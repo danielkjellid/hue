@@ -1288,6 +1288,7 @@ def _filter_choice(
         )
         radio._apply_group(
             name=name,
+            group_id=f"{bound.key}-filter-{declared.name}",
             selected=selected,
             card=False,
             disabled=False,
