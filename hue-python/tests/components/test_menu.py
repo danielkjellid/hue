@@ -6,7 +6,6 @@ from hue.shortcuts import Shortcut, ShortcutRegistry
 from hue.ui import (
     Button,
     DropdownMenu,
-    Kbd,
     MenuItem,
     MenuLabel,
     MenuSeparator,

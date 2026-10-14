@@ -5,7 +5,6 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.js import unsafe
 from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
