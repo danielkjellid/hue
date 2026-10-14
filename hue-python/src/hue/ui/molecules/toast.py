@@ -12,6 +12,7 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.spinner import Spinner
 from hue.ui.base import ChainableComponent
+from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if, render_when
 
 #: The id the region answers to. Every toast that arrives from the server is
@@ -267,7 +268,7 @@ class ToastRegion(ChainableComponent):
                 # request, so a toast raised by any handler finds its way
                 # here; append rather than replace, so the ones already on
                 # screen stay.
-                **{"x-sync": True, "x-merge": "append"},
+                **{**SYNC, "x-merge": "append"},
                 aria_live="polite",
                 class_=classnames(
                     "pointer-events-none fixed inset-x-4 bottom-4 z-90 flex",

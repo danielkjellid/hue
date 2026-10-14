@@ -10,7 +10,7 @@ from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.native_select import NativeSelect
-from hue.ui.base import ChainableComponent
+from hue.ui.navigation import SwapsTarget
 from hue.utils import classnames, render_if
 
 # What every step is, minus anything its state decides. The three states
@@ -36,7 +36,7 @@ _CURRENT = "bg-accent-subtle border-accent-border text-accent-text cursor-pointe
 _SPENT = "border-transparent text-fg-disabled cursor-not-allowed pointer-events-none"
 
 
-class Pagination(ChainableComponent):
+class Pagination(SwapsTarget):
     """
     Which page you are on, out of how many, over how many records.
 
@@ -106,14 +106,6 @@ class Pagination(ChainableComponent):
         self._props["href"] = value
         return self
 
-    def target(self, value: str) -> Self:
-        """
-        The id a page lands in. Given one, the browser fetches the page and
-        swaps that element; without one every step is a plain navigation.
-        """
-        self._props["target"] = value
-        return self
-
     def _render(self, context: Context) -> Component:
         page: int = self._get_prop("page", 1)
         total_pages: int = self._get_prop("total_pages", 1)
@@ -148,6 +140,7 @@ class Pagination(ChainableComponent):
                     class_="flex flex-wrap items-center gap-3",
                 ),
                 class_=classnames(_BAR, self._get_prop("class_")),
+                **self._sync_attrs(),
                 **self._get_base_html_attrs(),
             )
 
@@ -164,6 +157,7 @@ class Pagination(ChainableComponent):
                     class_="flex items-center gap-1",
                 ),
                 class_=classnames(_BAR, self._get_prop("class_")),
+                **self._sync_attrs(),
                 **self._get_base_html_attrs(),
             )
 
@@ -177,6 +171,7 @@ class Pagination(ChainableComponent):
                 class_="flex items-center gap-1",
             ),
             class_=classnames(_BAR, self._get_prop("class_")),
+            **self._sync_attrs(),
             **self._get_base_html_attrs(),
         )
 
@@ -214,7 +209,7 @@ class Pagination(ChainableComponent):
             href=href(number),
             aria_current="page" if current else None,
             class_=classes,
-            **self._target_attr(),
+            **self._swap_attrs(),
         )
 
     def _sizes(self, options: list[int]) -> ComponentType:
@@ -266,14 +261,8 @@ class Pagination(ChainableComponent):
             href=href(number),
             aria_label=label,
             class_=classnames(_ITEM, _IDLE, FOCUS_RING),
-            **self._target_attr(),
+            **self._swap_attrs(),
         )
-
-    def _target_attr(self) -> dict[str, str]:
-        target: str | None = self._get_prop("target")
-        # push, so a page is a place: the URL says which one, the back
-        # button goes to the last, and the link can be sent to somebody.
-        return {"x-target.push": target} if target else {}
 
 
 #: The range separator. An en dash, which is what a range takes.

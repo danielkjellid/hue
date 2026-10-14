@@ -80,14 +80,25 @@ class TestTabs:
     # target(): both branches
     @pytest.mark.asyncio
     async def test_a_target_turns_the_navigation_into_a_swap(self, context_args):
-        html = await render_tree(_tabs(target="panel"), context_args=context_args)
+        html = await render_tree(
+            _tabs(target="panel", id="settings-tabs"), context_args=context_args
+        )
         # push, so a section is still a place the back button knows.
         assert_attr(html, "nav a", "x-target.push", "panel")
+        # The row sits outside the panel and refreshes itself from the
+        # response, so the mark moves to the tab you land on.
+        assert_attr(html, "nav#settings-tabs", "x-sync")
+
+    @pytest.mark.asyncio
+    async def test_a_target_without_an_id_of_its_own_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="id"):
+            await render_tree(_tabs(target="panel"), context_args=context_args)
 
     @pytest.mark.asyncio
     async def test_without_a_target_a_tab_is_just_a_link(self, context_args):
         html = await render_tree(_tabs(), context_args=context_args)
         assert_no_selector(html, "[x-target\\.push]")
+        assert_no_selector(html, "[x-sync]")
 
     # variant(): both branches
     @pytest.mark.asyncio

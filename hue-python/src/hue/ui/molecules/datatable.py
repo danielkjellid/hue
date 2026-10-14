@@ -37,6 +37,7 @@ from hue.ui.molecules.table import (
     form_id,
     rows_id,
 )
+from hue.ui.navigation import swap
 from hue.utils import classnames, render_if
 
 if TYPE_CHECKING:
@@ -495,9 +496,8 @@ class DataTable(ChainableComponent):
                 _sort_icon(current),
                 href=href(following),
                 class_=classnames(_SORT_TRIGGER, FOCUS_RING),
-                # push, so the order is in the address bar to reload, share
-                # and come back to, as a page or a filter is.
-                **({"x-target.push": target} if target is not None else {}),
+                # The order is a place, as a page or a filter is.
+                **swap(target),
             )
         )
 

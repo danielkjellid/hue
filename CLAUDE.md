@@ -128,6 +128,11 @@ canonical templates. The shape:
   condition rather than a value. Writing `render_if(flag or None, lambda _: …)` is the
   smell this replaces: `render_if` tests against `None`, so a `False` would render.
 
+AJAX swaps have their helpers in `hue-python/src/hue/ui/navigation.py`: `swap(target)` for
+a link or form that swaps a region and pushes its URL, `SYNC` for an element that
+refreshes itself from any response that carries it, and the `SwapsTarget` mixin for a
+component whose links swap a region it sits outside of.
+
 ### Design tokens (`hue-python/src/hue/static/styles/tailwind.input.css`)
 
 Two layers. The `--hue-*` ramps are the raw palette. They are plain custom properties, not

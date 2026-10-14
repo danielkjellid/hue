@@ -10,6 +10,7 @@ from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
+from hue.ui.navigation import SYNC
 from hue.utils import classes_if_else, classnames
 
 type CellAlign = Literal["start", "center", "end"]
@@ -191,7 +192,7 @@ class Table(ChainableComponent):
                 # Refreshed by every response that carries it, not only the
                 # ones aimed at it. Each read loads the whole page, so another
                 # table's links and carried state keep up with this one's.
-                **({"x-sync": ""} if frame_id else {}),
+                **(SYNC if frame_id else {}),
             ),
         ]
         action: str | None = self._get_prop("form")

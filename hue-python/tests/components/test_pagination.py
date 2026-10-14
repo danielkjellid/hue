@@ -91,10 +91,22 @@ class TestPagination:
             .page(3)
             .total_pages(15)
             .href(lambda p: f"?page={p}")
-            .target("invoices-rows"),
+            .target("invoices-rows")
+            .id("invoices-pages"),
             context_args=context_args,
         )
         assert_attr(html, 'nav a[href="?page=4"]', "x-target.push", "invoices-rows")
+        # It sits outside the rows and refreshes itself from the response,
+        # so the mark moves to the page you land on.
+        assert_attr(html, "#invoices-pages", "x-sync")
+
+    @pytest.mark.asyncio
+    async def test_a_target_without_an_id_of_its_own_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="id"):
+            await render_tree(
+                Pagination().page(3).total_pages(15).target("invoices-rows"),
+                context_args=context_args,
+            )
 
     @pytest.mark.asyncio
     async def test_without_a_target_a_step_is_a_navigation(self, context_args):
@@ -103,6 +115,7 @@ class TestPagination:
             context_args=context_args,
         )
         assert_no_selector(html, "[x-target\\.push]")
+        assert_no_selector(html, "[x-sync]")
 
     # The one-page case
     @pytest.mark.asyncio

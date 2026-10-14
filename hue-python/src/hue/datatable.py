@@ -105,6 +105,7 @@ from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.pagination import Pagination, record_range
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import form_id, rows_id
+from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_when
 
 _log = logging.getLogger(__name__)
@@ -938,7 +939,7 @@ def _nothing_matches(bound: BoundTable) -> ComponentType:
                 method="get",
                 action=bound.urls.read,
                 # The whole frame, so the search box and the panels clear too.
-                **{"x-target.push": bound.key},
+                **swap(bound.key),
             )
         )
     )
@@ -985,7 +986,7 @@ class _TableSummary(ChainableComponent):
             id=f"{bound.key}-summary",
             role="status",
             class_="sr-only",
-            **{"x-sync": ""},
+            **SYNC,
         )
 
 
@@ -1072,7 +1073,7 @@ class _TablePagination(ChainableComponent):
     def _render(self, context: Context) -> Component:
         bound = _bound_from(context, self)
         size = bound.declaration.page_size
-        return (
+        pagination = (
             Pagination()
             .page(bound.state.page)
             .page_size(size)
@@ -1082,8 +1083,10 @@ class _TablePagination(ChainableComponent):
             # at its default of one page.
             .total_pages(max(1, ceil(bound.total / size)))
             .href(lambda page: bound.href(page=page))
-            .target(rows_id(bound.key) or "")
         )
+        if rows := rows_id(bound.key):
+            pagination.target(rows).id(f"{rows}-pagination")
+        return pagination
 
 
 class _TableCarried(ChainableComponent):
@@ -1153,7 +1156,7 @@ class _TableFilters(_ToolbarForm):
                 class_="contents",
                 **{
                     "x-ref": "form",
-                    "x-target.push": rows_id(bound.key) or bound.key,
+                    **swap(rows_id(bound.key) or bound.key),
                     "@change": "apply()",
                     # An empty field is not an answer, and a URL people
                     # are meant to send each other should not carry one.
@@ -1376,7 +1379,7 @@ class _TableColumns(_ToolbarForm):
                 hidden=True,
                 **{
                     "x-ref": "form",
-                    "x-target.push": rows_id(bound.key) or bound.key,
+                    **swap(rows_id(bound.key) or bound.key),
                 },
             ),
             class_="contents",
@@ -1478,7 +1481,7 @@ class _TableReset(_ToolbarForm):
                 "x-data": call("hueTableReset", bound.key, filtered, hidden),
                 "x-show": "narrowed",
                 "x-on:hue-table-narrowed.window": "hear($event.detail)",
-                "x-target.push": bound.key,
+                **swap(bound.key),
                 **({} if filtered or hidden else {"x-cloak": True}),
             },
         )

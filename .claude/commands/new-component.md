@@ -53,6 +53,12 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 - The cases that broke before (see "Mistakes we have already made" in CLAUDE.md): two
   instances on one page, disabled, a value of `""`, `0` or `None`, text with quotes in it,
   and the component nested inside a Dialog.
+- AJAX swaps go through `hue/ui/navigation.py` rather than hand-written attributes. A
+  component whose links swap a region of the page subclasses `SwapsTarget`, which gives
+  it `target()`, `_swap_attrs()` for each link and `_sync_attrs()` for its root (Tabs
+  and Pagination do). A single link or form that swaps uses `swap(target)`, and an
+  element that refreshes itself from any response that carries it spreads `SYNC`. Never
+  write `x-target.push` or `x-sync` out by hand.
 
 ## If a React reference was provided
 
