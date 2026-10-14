@@ -23,7 +23,7 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
-from hue.ui.base import ChainableComponent
+from hue.ui.base import Awaited, ChainableComponent
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.table import (
     CellAlign,
@@ -106,21 +106,6 @@ _SORT_HINT = "text-fg-disabled"
 # centres it: the box is a grid, which is what puts the tick in the middle
 # of it, and telling it to be a block instead takes the tick away.
 _SELECT_COLUMN = "w-0 [&>*]:mx-auto"
-
-
-class _Drawn:
-    """
-    A DataTable waiting for its declaration, which has to fetch the rows
-    before there is anything to draw. Fetching is a coroutine, and _render
-    is not.
-    """
-
-    def __init__(self, declaration: _Declaration, table: DataTable) -> None:
-        self._declaration = declaration
-        self._table = table
-
-    async def htmy(self, context: Context) -> Component:
-        return await self._declaration.draw(self._table, context)
 
 
 # Where a value comes from in a row: a key, a dotted path, or a callable
@@ -400,7 +385,8 @@ class DataTable(ChainableComponent):
         if declaration is not None:
             # A copy without the declaration goes in, or drawing it would
             # hand it straight back to the declaration again.
-            return _Drawn(declaration, self._undeclared())
+            undeclared = self._undeclared()
+            return Awaited(lambda context: declaration.draw(undeclared, context))
 
         if self._get_prop("selectable") is not None and "id" not in self._attrs:
             # Every row's ids are built from the table's, and a fallback
