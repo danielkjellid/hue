@@ -47,6 +47,7 @@ SHOWCASES: list[Showcase] = [
                 "By cursor",
                 "(\n"
                 "    Pagination()\n"
+                '    .id("results")\n'
                 "    .total_records(2481)\n"
                 "    .page_size(25)\n"
                 "    .page_sizes([10, 25, 50, 100])\n"
