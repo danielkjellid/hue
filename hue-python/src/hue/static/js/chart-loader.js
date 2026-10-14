@@ -7,7 +7,9 @@
  * two only need to sit side by side however they are served.
  *
  * A chart whose library fails to load says so through failed, for the markup
- * to offer retry() in its place.
+ * to offer retry() in its place. A drawn chart is drawn again when the theme
+ * changes, since the canvas holds colours rather than the tokens they came
+ * from.
  */
 
 const CHART_BUNDLE = new URL("./chart-bundle.js", import.meta.url).href;
@@ -38,12 +40,13 @@ function library() {
 }
 
 export function registerChartData(Alpine) {
-	Alpine.data("hueChart", (config) => {
+	Alpine.data("hueChart", (spec) => {
 		// Kept out of the component's state, which would wrap the chart in a
 		// proxy. gone records a removal that happens before the library
 		// arrives.
 		let chart = null;
 		let gone = false;
+		let theme = null;
 
 		return {
 			failed: false,
@@ -52,23 +55,53 @@ export function registerChartData(Alpine) {
 				let draw;
 				try {
 					({ draw } = await library());
+					// The font is measured when the chart is laid out and kept
+					// until it is drawn again.
+					await document.fonts.ready;
 				} catch {
 					this.failed = true;
+					// Focus sits on the figure only after a retry, so this was
+					// that retry failing: hand focus back to the button.
+					if (document.activeElement === this.$root) {
+						this.$nextTick(() => this.$refs.retry.focus());
+					}
 					return;
 				}
-				if (gone) return;
-				// Alpine leaves a rejected init unhandled, which would report a
-				// config the library refuses without the chart it belongs to.
+				if (gone || !this.render(draw)) return;
+				// Only <html> is watched, which is where the theme store sets
+				// data-theme.
+				// Only a theme that actually changed is redrawn: the store also
+				// writes the value already there when it starts.
+				theme = new MutationObserver((records) => {
+					const now = document.documentElement.dataset.theme;
+					if (records.every((record) => record.oldValue === now)) return;
+					chart?.destroy();
+					this.render(draw, { animate: false });
+				});
+				theme.observe(document.documentElement, {
+					attributeFilter: ["data-theme"],
+					attributeOldValue: true,
+				});
+			},
+
+			// Caught here because Alpine leaves a rejected init unhandled, which
+			// would report a spec the library refuses without its chart.
+			render(draw, options) {
 				try {
-					chart = draw(this.$refs.canvas, config);
+					chart = draw(this.$refs.canvas, spec, options);
+					return true;
 				} catch (error) {
+					chart = null;
 					console.error("hue could not draw this chart.", this.$el, error);
+					return false;
 				}
 			},
 
 			retry() {
 				// A second press before the first lands would draw twice.
 				if (!this.failed) return;
+				// The button is about to hide, which would drop focus to the page.
+				if (this.$root.contains(document.activeElement)) this.$root.focus();
 				// A failure gets one new attempt, which every chart that
 				// retries shares; one still on its way is waited on instead.
 				if (loading === rejected) {
@@ -81,6 +114,7 @@ export function registerChartData(Alpine) {
 
 			destroy() {
 				gone = true;
+				theme?.disconnect();
 				chart?.destroy();
 			},
 		};

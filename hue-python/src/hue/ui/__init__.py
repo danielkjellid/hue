@@ -39,6 +39,7 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
+from hue.ui.molecules.chart import Chart
 from hue.ui.molecules.combobox import Combobox
 from hue.ui.molecules.command import (
     Command,
@@ -110,6 +111,7 @@ __all__ = [
     "CardHeader",
     "CardMedia",
     "ChainableComponent",
+    "Chart",
     "Checkbox",
     "Column",
     "Combobox",
