@@ -2,6 +2,7 @@
 
 from hue_docs.content import (
     actions,
+    calendars,
     contexts,
     data_tables,
     django_css,
@@ -28,6 +29,7 @@ PAGES: list[ProsePage] = [
     contexts.PAGE,
     data_tables.PAGE,
     shortcuts.PAGE,
+    calendars.PAGE,
     django_views.PAGE,
     django_css.PAGE,
 ]
