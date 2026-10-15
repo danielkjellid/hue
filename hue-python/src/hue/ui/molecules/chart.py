@@ -99,7 +99,7 @@ class Chart(ChainableComponent):
     page appears. If that fails, the chart offers to try again.
     """
 
-    category = "Data"
+    category = "Charts"
 
     def description(self, value: str) -> Self:
         """
