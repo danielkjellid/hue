@@ -5,7 +5,7 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -17,7 +17,6 @@ from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
-type ChartKind = Literal["line", "area", "bar"]
 type ChartFormat = Literal["number", "percent", "currency"]
 
 # The chart palette, as utilities for the legend. chart-draw.js paints with
@@ -91,10 +90,13 @@ def _format(value: ChartFormat, currency: str) -> _Format:
     return _Format(value, _currency(currency) if value == "currency" else None)
 
 
-class _ChartBase(ChainableComponent):
+class Chart(ChainableComponent):
     """
-    What every chart shares: the figure the loader draws into, the Retry
+    The base of every chart: the figure the loader draws into, the Retry
     overlay for when it cannot, and the table that is the text alternative.
+
+    Charts are drawn by Chart.js, which is fetched when the first chart on a
+    page appears. If that fails, the chart offers to try again.
     """
 
     category = "Data"
@@ -175,38 +177,12 @@ class _ChartBase(ChainableComponent):
         )
 
 
-class Chart(_ChartBase):
+class _SeriesChart(Chart):
     """
-    A line, area or bar chart of one series, with an optional second series to
-    compare it against.
-
-    labels() names the points along the bottom and series() gives one value
-    per label. compare() draws a second series muted, and on a bar chart
-    highlight() accents one bar and mutes the rest. description() is required
-    and captions the table of values a screen reader is given instead of the
-    drawing.
-
-    The chart is drawn by Chart.js, which is fetched when the first chart on
-    a page appears. If that fails, the chart offers to try again.
+    One value per label along the bottom, with an optional second series.
     """
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .kind("area")
-            .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-            .series([3100, 3400, 3200, 4100, 3900, 4600, 4829], label="This week")
-            .compare([2900, 3000, 2800, 3300, 3100, 3600, 3700], label="Last week")
-            .y_format("currency", currency="USD")
-            .description(
-                "Revenue rose from $3,100 to $4,829, above last week every day."
-            )
-        )
-
-    def kind(self, value: ChartKind) -> Self:
-        self._props["kind"] = value
-        return self
+    _KIND: ClassVar[str]
 
     def labels(self, value: Sequence[str]) -> Self:
         """
@@ -230,14 +206,6 @@ class Chart(_ChartBase):
         self._props["compare"] = (_named(label, "compare"), _numbers(values, "compare"))
         return self
 
-    def highlight(self, label: str) -> Self:
-        """
-        On a bar chart of one series, accent the bar with this label and mute
-        the others. Not with compare(), whose bars are already the muted ones.
-        """
-        self._props["highlight"] = label
-        return self
-
     def y_format(self, value: ChartFormat, *, currency: str = "USD") -> Self:
         """
         How values are written on the axis, in the tooltip and in the table.
@@ -247,35 +215,39 @@ class Chart(_ChartBase):
         self._props["y_format"] = _format(value, currency)
         return self
 
+    def _highlight(self) -> str | None:
+        """
+        The label of the bar to accent; only a bar chart has one.
+        """
+        return None
+
     def _render(self, context: Context) -> Component:
-        kind: ChartKind = self._get_prop("kind", "area")
+        name = type(self).__name__
         y: _Format = self._get_prop("y_format", _Format())
         labels: list[str] = self._get_prop("labels", [])
         series: tuple[str, list[float]] | None = self._get_prop("series")
         compare: tuple[str, list[float]] | None = self._get_prop("compare")
-        highlight: str | None = self._get_prop("highlight")
+        highlight = self._highlight()
 
         if series is None or not labels:
-            raise ValueError("Chart needs labels() and a series() to draw.")
+            raise ValueError(f"{name} needs labels() and a series() to draw.")
         drawn = [series] if compare is None else [series, compare]
         for label, values in drawn:
             if len(values) != len(labels):
                 raise ValueError(
-                    f"Chart series {label!r} has {len(values)} values for "
+                    f"{name} series {label!r} has {len(values)} values for "
                     f"{len(labels)} labels; give one value per label."
                 )
-        if highlight is not None and (
-            kind != "bar" or compare is not None or highlight not in labels
-        ):
+        if highlight is not None and (compare is not None or highlight not in labels):
             raise ValueError(
-                "Chart can only highlight one of the labels of a bar chart with "
-                f"no compare(), not {highlight!r}."
+                f"{name} can only highlight one of its labels, and not with "
+                f"compare(): {highlight!r}."
             )
 
         displays = [[y.write(v) for v in values] for _, values in drawn]
         return self._figure(
             {
-                "kind": kind,
+                "kind": self._KIND,
                 "labels": labels,
                 "series": [
                     {"label": label, "values": values, "display": display}
@@ -296,15 +268,97 @@ class Chart(_ChartBase):
         )
 
 
-class PieChart(_ChartBase):
+class LineChart(_SeriesChart):
     """
-    How a whole divides into parts, as a pie or, with doughnut(), a ring.
+    How a value moves across ordered labels, such as days, as a line.
+
+    labels() names the points along the bottom and series() gives one value
+    per label. compare() adds a second series, dashed and muted. description()
+    is required and captions the table of values a screen reader is given
+    instead of the drawing.
+    """
+
+    _KIND = "line"
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+            .series([212, 240, 198, 260, 251, 305, 330], label="This week")
+            .compare([190, 205, 201, 222, 230, 260, 270], label="Last week")
+            .description("Sign-ups rose from 212 to 330, above last week every day.")
+        )
+
+
+class AreaChart(_SeriesChart):
+    """
+    A line chart with the area under the main series filled, for a total
+    whose size matters as much as its direction.
+
+    It takes the same labels(), series() and compare() as LineChart, and
+    description() is required.
+    """
+
+    _KIND = "area"
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+            .series([3100, 3400, 3200, 4100, 3900, 4600, 4829], label="This week")
+            .compare([2900, 3000, 2800, 3300, 3100, 3600, 3700], label="Last week")
+            .y_format("currency", currency="USD")
+            .description(
+                "Revenue rose from $3,100 to $4,829, above last week every day."
+            )
+        )
+
+
+class BarChart(_SeriesChart):
+    """
+    One bar per label, for comparing amounts side by side.
+
+    It takes the same labels(), series() and compare() as LineChart.
+    highlight() accents one bar and mutes the rest, and cannot be combined
+    with compare(). description() is required.
+    """
+
+    _KIND = "bar"
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .labels(["Paid", "Pending", "Draft", "Declined", "Refunded"])
+            .series([92, 31, 14, 8, 3], label="Invoices")
+            .highlight("Paid")
+            .description("Most invoices in September are paid: 92 of 148.")
+        )
+
+    def highlight(self, label: str) -> Self:
+        """
+        Accent the bar with this label and mute the others.
+        """
+        self._props["highlight"] = label
+        return self
+
+    def _highlight(self) -> str | None:
+        return self._get_prop("highlight")
+
+
+class PieChart(Chart):
+    """
+    How a whole divides into parts, as a pie.
 
     slices() gives each part's label and value. Each slice gets a colour of
     its own from the chart palette, which has six: past six slices, the five
     largest are drawn and the rest are grouped as Other. The table a screen
     reader is given still lists every slice, with its share of the whole.
     """
+
+    _KIND: ClassVar[str] = "pie"
 
     @classmethod
     def example(cls) -> Self:
@@ -321,18 +375,13 @@ class PieChart(_ChartBase):
         labels = [_named(label, "slice") for label, _ in value]
         numbers = _numbers([number for _, number in value], "slice")
         if any(number < 0 for number in numbers):
-            raise ValueError("PieChart slices cannot be negative.")
+            raise ValueError(f"{type(self).__name__} slices cannot be negative.")
         # The legend and the table name slices by label alone.
         if len(set(labels)) != len(labels):
-            raise ValueError("PieChart slice labels must differ from each other.")
+            raise ValueError(
+                f"{type(self).__name__} slice labels must differ from each other."
+            )
         self._props["slices"] = list(zip(labels, numbers, strict=True))
-        return self
-
-    def doughnut(self, value: bool = True) -> Self:
-        """
-        Draw a ring rather than a disc.
-        """
-        self._props["doughnut"] = value
         return self
 
     def value_format(self, value: ChartFormat, *, currency: str = "USD") -> Self:
@@ -346,12 +395,13 @@ class PieChart(_ChartBase):
 
     def _render(self, context: Context) -> Component:
         slices: list[tuple[str, float]] = self._get_prop("slices", [])
-        doughnut: bool = self._get_prop("doughnut", False)
         format_: _Format = self._get_prop("value_format", _Format())
 
         total = sum(number for _, number in slices)
         if total <= 0:
-            raise ValueError("PieChart needs slices() with a total above zero.")
+            raise ValueError(
+                f"{type(self).__name__} needs slices() with a total above zero."
+            )
 
         # A slice of nothing has no area to colour, so only the table lists it.
         drawn = [(label, number) for label, number in slices if number > 0]
@@ -378,7 +428,7 @@ class PieChart(_ChartBase):
 
         return self._figure(
             {
-                "kind": "doughnut" if doughnut else "pie",
+                "kind": self._KIND,
                 "labels": [label for label, _ in drawn],
                 "series": [
                     {
@@ -399,45 +449,48 @@ class PieChart(_ChartBase):
         )
 
 
-type _Point = tuple[float, float] | tuple[float, float, float]
-
-
-class ScatterChart(_ChartBase):
+class DoughnutChart(PieChart):
     """
-    Points placed by two numbers, to show how one varies with the other.
+    A pie chart drawn as a ring.
 
-    series() adds a set of points, each one (x, y), and can be called again
-    for another set in the next colour of the chart palette. A third number,
-    (x, y, size), turns the points into bubbles that grow with it.
-    x_label() and y_label() name the axes and are required, since the
-    numbers mean nothing without them; a bubble chart needs size_label() too.
+    It takes the same slices() and value_format() as PieChart, groups slices
+    past six the same way, and needs a description().
     """
+
+    _KIND = "doughnut"
 
     @classmethod
     def example(cls) -> Self:
         return (
             cls()
-            .series(
-                [(12, 0.18), (25, 0.22), (31, 0.35), (44, 0.41), (58, 0.47)],
-                label="Orders",
-            )
-            .x_label("Basket size")
-            .y_label("Margin")
-            .y_format("percent")
-            .description("Margin grows with basket size, from 18% to 47%.")
+            .slices([("Card", 412), ("Invoice", 191), ("Transfer", 107)])
+            .description("Card is the most used way to pay, at 58%.")
         )
 
-    def series(self, points: Sequence[_Point], *, label: str) -> Self:
+
+class _PointChart(Chart):
+    """
+    Points placed by numbers on both axes, in up to five series.
+    """
+
+    _KIND: ClassVar[str]
+    # How many numbers make a point, and how to say so when one does not.
+    _ARITY: ClassVar[int]
+    _SHAPE: ClassVar[str]
+
+    def series(self, points: Sequence[Sequence[float]], *, label: str) -> Self:
         """
-        One set of points, each (x, y) or, for a bubble, (x, y, size).
+        One set of points. Call it again for another set, drawn in the next
+        colour of the chart palette.
         """
-        checked = [tuple(_numbers(point, "point")) for point in points]
-        if any(len(point) not in (2, 3) for point in checked):
-            raise ValueError("ScatterChart points are (x, y) or (x, y, size).")
+        name = type(self).__name__
+        checked = [_numbers(point, "point") for point in points]
         if not checked:
-            raise ValueError("ScatterChart series() needs at least one point.")
+            raise ValueError(f"{name} series() needs at least one point.")
+        if any(len(point) != self._ARITY for point in checked):
+            raise ValueError(f"{name} points are {self._SHAPE}.")
         if any(len(point) == 3 and point[2] < 0 for point in checked):
-            raise ValueError("ScatterChart bubble sizes cannot be negative.")
+            raise ValueError(f"{name} sizes cannot be negative.")
         self._props["series"] = [
             *self._get_prop("series", []),
             (_named(label, "series"), checked),
@@ -450,13 +503,6 @@ class ScatterChart(_ChartBase):
 
     def y_label(self, value: str) -> Self:
         self._props["y_label"] = _named(value, "y axis")
-        return self
-
-    def size_label(self, value: str) -> Self:
-        """
-        What a bubble's size stands for.
-        """
-        self._props["size_label"] = _named(value, "bubble size")
         return self
 
     def x_format(self, value: ChartFormat, *, currency: str = "USD") -> Self:
@@ -475,70 +521,65 @@ class ScatterChart(_ChartBase):
         self._props["y_format"] = _format(value, currency)
         return self
 
+    def _size_name(self) -> list[str]:
+        """
+        The heading of the size column, which only a bubble chart has.
+        """
+        return []
+
     def _render(self, context: Context) -> Component:
-        series: list[tuple[str, list[tuple[float, ...]]]] = self._get_prop("series", [])
+        name = type(self).__name__
+        series: list[tuple[str, list[list[float]]]] = self._get_prop("series", [])
         x_label: str | None = self._get_prop("x_label")
         y_label: str | None = self._get_prop("y_label")
-        size_label: str | None = self._get_prop("size_label")
         x: _Format = self._get_prop("x_format", _Format())
         y: _Format = self._get_prop("y_format", _Format())
 
-        points = [point for _, set_ in series for point in set_]
-        if not points:
-            raise ValueError("ScatterChart needs a series() with points to draw.")
-        # The last colour is the grey Chart mutes a comparison with, which
-        # would read as less important rather than as one more series.
+        if not series:
+            raise ValueError(f"{name} needs a series() to draw.")
+        # The last colour is the grey a comparison is muted with, which would
+        # read as less important rather than as one more series.
         if len(series) > len(_SWATCHES) - 1:
             raise ValueError(
-                f"ScatterChart draws at most {len(_SWATCHES) - 1} series, one "
-                "per colour of the chart palette."
+                f"{name} draws at most {len(_SWATCHES) - 1} series, one per "
+                "colour of the chart palette."
             )
         if x_label is None or y_label is None:
-            raise ValueError("ScatterChart needs x_label() and y_label().")
-        names_of_series = [label for label, _ in series]
-        if len(set(names_of_series)) != len(names_of_series):
-            raise ValueError("ScatterChart series labels must differ from each other.")
-        sizes = {len(point) for point in points}
-        if sizes == {2, 3}:
-            raise ValueError(
-                "ScatterChart points either all carry a size, for a bubble "
-                "chart, or none do."
-            )
-        bubble = sizes == {3}
-        names = [x_label, y_label]
-        if bubble:
-            if size_label is None:
-                raise ValueError("A bubble ScatterChart needs size_label().")
-            names.append(size_label)
-        elif size_label is not None:
-            raise ValueError("ScatterChart size_label() needs points with a size.")
+            raise ValueError(f"{name} needs x_label() and y_label().")
+        labels = [label for label, _ in series]
+        if len(set(labels)) != len(labels):
+            raise ValueError(f"{name} series labels must differ from each other.")
+        names = [x_label, y_label, *self._size_name()]
 
-        def cells(point: tuple[float, ...]) -> list[str]:
+        def cells(point: list[float]) -> list[str]:
             written = [x.write(point[0]), y.write(point[1])]
-            return [*written, _Format().write(point[2])] if bubble else written
+            # A size is a count or an amount of its own, whatever the axes are.
+            return [*written, *(_Format().write(size) for size in point[2:])]
 
         return self._figure(
             {
-                "kind": "bubble" if bubble else "scatter",
+                "kind": self._KIND,
                 "series": [
                     {
                         "label": label,
-                        "points": [list(point) for point in set_],
+                        "points": points,
                         "display": [
                             ", ".join(
                                 f"{name}: {cell}"
                                 for name, cell in zip(names, cells(point), strict=True)
                             )
-                            for point in set_
+                            for point in points
                         ],
                     }
-                    for label, set_ in series
+                    for label, points in series
                 ],
                 "x": {**x.spec(), "label": x_label},
                 "y": {**y.spec(), "label": y_label},
             },
             headers=["", *names],
-            rows=[[label, *cells(point)] for label, set_ in series for point in set_],
+            rows=[
+                [label, *cells(point)] for label, points in series for point in points
+            ],
             legend=None
             if len(series) == 1
             else [
@@ -546,6 +587,75 @@ class ScatterChart(_ChartBase):
                 for (label, _), swatch in zip(series, _SWATCHES, strict=False)
             ],
         )
+
+
+class ScatterChart(_PointChart):
+    """
+    Points placed by two numbers, to show how one varies with the other.
+
+    series() adds a set of (x, y) points and can be called again for another
+    set. x_label() and y_label() name the axes and are required, since the
+    numbers mean nothing without them, and so is description().
+    """
+
+    _KIND = "scatter"
+    _ARITY = 2
+    _SHAPE = "(x, y); a point with a size belongs on a BubbleChart"
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .series(
+                [(12, 0.18), (25, 0.22), (31, 0.35), (44, 0.41), (58, 0.47)],
+                label="Orders",
+            )
+            .x_label("Basket size")
+            .y_label("Margin")
+            .y_format("percent")
+            .description("Margin grows with basket size, from 18% to 47%.")
+        )
+
+
+class BubbleChart(_PointChart):
+    """
+    A scatter chart whose points carry a third number, drawn as bubbles that
+    grow with it.
+
+    series() takes (x, y, size) points. x_label(), y_label() and size_label()
+    are required, and so is description().
+    """
+
+    _KIND = "bubble"
+    _ARITY = 3
+    _SHAPE = "(x, y, size)"
+
+    @classmethod
+    def example(cls) -> Self:
+        return (
+            cls()
+            .series(
+                [(2, 40, 120), (5, 55, 340), (8, 48, 90), (11, 70, 410)],
+                label="Teams",
+            )
+            .x_label("Engineers")
+            .y_label("Deploys per week")
+            .size_label("Incidents fixed")
+            .description("Larger teams deploy more and fix more incidents.")
+        )
+
+    def size_label(self, value: str) -> Self:
+        """
+        What a bubble's size stands for.
+        """
+        self._props["size_label"] = _named(value, "bubble size")
+        return self
+
+    def _size_name(self) -> list[str]:
+        size_label: str | None = self._get_prop("size_label")
+        if size_label is None:
+            raise ValueError("BubbleChart needs size_label().")
+        return [size_label]
 
 
 def _legend(items: list[tuple[str, str]]) -> ComponentType:

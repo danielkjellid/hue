@@ -1,8 +1,8 @@
 """
 Curated showcases for PieChart.
 
-doughnut() is the only axis, so the grouping of small slices, which is the
-part worth seeing, needs an example of its own.
+It has no axis to toggle, and the grouping of small slices is the part
+worth seeing.
 """
 
 from __future__ import annotations
@@ -22,17 +22,6 @@ SHOWCASES: list[Showcase] = [
                         ("Paid", 92), ("Pending", 31), ("Draft", 14), ("Declined", 8)
                     ])
                     .description("Most invoices this month are paid: 92 of 145.")
-                )
-                """,
-            ),
-            variant(
-                "Doughnut",
-                """
-                (
-                    PieChart()
-                    .doughnut()
-                    .slices([("Card", 412), ("Invoice", 191), ("Transfer", 107)])
-                    .description("Card is the most used way to pay, at 58%.")
                 )
                 """,
             ),

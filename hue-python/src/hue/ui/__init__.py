@@ -39,7 +39,15 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
-from hue.ui.molecules.chart import Chart, PieChart, ScatterChart
+from hue.ui.molecules.chart import (
+    AreaChart,
+    BarChart,
+    BubbleChart,
+    DoughnutChart,
+    LineChart,
+    PieChart,
+    ScatterChart,
+)
 from hue.ui.molecules.combobox import Combobox
 from hue.ui.molecules.command import (
     Command,
@@ -98,11 +106,14 @@ __all__ = [
     "Accordion",
     "AccordionItem",
     "Alert",
+    "AreaChart",
     "Avatar",
     "AvatarGroup",
     "Badge",
     "Banner",
+    "BarChart",
     "Breadcrumbs",
+    "BubbleChart",
     "Button",
     "ButtonGroup",
     "Card",
@@ -111,7 +122,6 @@ __all__ = [
     "CardHeader",
     "CardMedia",
     "ChainableComponent",
-    "Chart",
     "Checkbox",
     "Column",
     "Combobox",
@@ -123,6 +133,7 @@ __all__ = [
     "DataTable",
     "Dialog",
     "Disclosure",
+    "DoughnutChart",
     "Drawer",
     "DropdownMenu",
     "EmailInput",
@@ -134,6 +145,7 @@ __all__ = [
     "IconResolver",
     "Kbd",
     "Label",
+    "LineChart",
     "MenuItem",
     "MenuLabel",
     "MenuSeparator",

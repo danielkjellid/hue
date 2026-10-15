@@ -6,16 +6,24 @@ import pytest
 
 import hue
 from hue.renderer import render_tree
-from hue.ui import Chart, PieChart, ScatterChart
+from hue.ui import (
+    AreaChart,
+    BarChart,
+    BubbleChart,
+    DoughnutChart,
+    LineChart,
+    PieChart,
+    ScatterChart,
+)
 from hue.ui.molecules.chart import _SWATCHES
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _DAYS = ["Mon", "Tue", "Wed"]
 
 
-def _chart() -> Chart:
+def _chart(cls: type[LineChart | AreaChart | BarChart] = LineChart):
     return (
-        Chart()
+        cls()
         .labels(_DAYS)
         .series([1200, 1500.5, 900], label="This week")
         .description("Revenue peaked on Tuesday.")
@@ -27,7 +35,7 @@ def _spec(html: str) -> dict:
     return json.loads(x_data.removeprefix("hueChart(").removesuffix(")"))
 
 
-class TestChart:
+class TestSeriesCharts:
     @pytest.mark.asyncio
     async def test_the_table_is_the_text_alternative(self, context_args):
         # Captioned by the description, so the drawing stays silent rather
@@ -48,17 +56,19 @@ class TestChart:
             "900",
         ]
 
+    @pytest.mark.parametrize(
+        ("cls", "kind"), [(LineChart, "line"), (AreaChart, "area"), (BarChart, "bar")]
+    )
     @pytest.mark.asyncio
-    async def test_the_default_kind_is_area(self, context_args):
-        spec = _spec(await render_tree(_chart(), context_args=context_args))
-        assert spec["kind"] == "area"
+    async def test_each_chart_draws_its_own_kind(self, context_args, cls, kind):
+        spec = _spec(await render_tree(_chart(cls), context_args=context_args))
+        assert spec["kind"] == kind
         # Only the currency format reads one.
         assert spec["y"] == {"format": "number", "currency": None}
 
     @pytest.mark.asyncio
     async def test_hands_the_series_to_the_loader(self, context_args):
-        spec = _spec(await render_tree(_chart().kind("bar"), context_args=context_args))
-        assert spec["kind"] == "bar"
+        spec = _spec(await render_tree(_chart(), context_args=context_args))
         assert spec["labels"] == _DAYS
         assert spec["series"] == [
             {
@@ -70,7 +80,7 @@ class TestChart:
 
     @pytest.mark.asyncio
     async def test_text_with_quotes_survives_the_expression(self, context_args):
-        chart = Chart().labels(['Say "hi"', "it's"]).series([1, 2], label='A "b"')
+        chart = LineChart().labels(['Say "hi"', "it's"]).series([1, 2], label='A "b"')
         html = await render_tree(chart.description("x"), context_args=context_args)
         spec = _spec(html)
         assert spec["labels"] == ['Say "hi"', "it's"]
@@ -82,7 +92,7 @@ class TestChart:
     )
     @pytest.mark.asyncio
     async def test_y_format_writes_the_values(self, context_args, format_, expected):
-        chart = Chart().labels(["a"]).series([0.5], label="s").description("x")
+        chart = LineChart().labels(["a"]).series([0.5], label="s").description("x")
         html = await render_tree(
             chart.y_format(format_, currency="EUR"), context_args=context_args
         )
@@ -110,14 +120,14 @@ class TestChart:
 
     @pytest.mark.asyncio
     async def test_highlight_names_a_bar_by_its_label(self, context_args):
-        chart = _chart().kind("bar").highlight("Tue")
+        chart = _chart(BarChart).highlight("Tue")
         assert (
             _spec(await render_tree(chart, context_args=context_args))["highlight"] == 1
         )
 
     @pytest.mark.asyncio
     async def test_nothing_is_highlighted_by_default(self, context_args):
-        chart = _chart().kind("bar")
+        chart = _chart(BarChart)
         assert (
             _spec(await render_tree(chart, context_args=context_args))["highlight"]
             is None
@@ -139,35 +149,22 @@ class TestChart:
         # Where focus goes when Retry hides itself.
         assert_attr(html, "figure", "tabindex", "-1")
 
-    @pytest.mark.asyncio
-    async def test_charts_of_every_kind_share_one_page(self, context_args):
-        html = await render_tree(
-            Chart.example(),
-            Chart.example(),
-            PieChart.example(),
-            ScatterChart.example(),
-            context_args=context_args,
-        )
-        assert_selector(html, "figure[x-data]", count=4)
-        assert_no_selector(html, "[id]")
-
     @pytest.mark.parametrize(
         ("chart", "match"),
         [
-            (Chart().labels(["a"]).series([1], label="s"), "description"),
+            (LineChart().labels(["a"]).series([1], label="s"), "description"),
             (
-                Chart().labels(["a"]).series([1], label="s").description(" "),
+                LineChart().labels(["a"]).series([1], label="s").description(" "),
                 "description",
             ),
-            (Chart().labels(["a"]).description("x"), "series"),
-            (Chart().labels([]).series([], label="s").description("x"), "labels"),
+            (LineChart().labels(["a"]).description("x"), "series"),
+            (LineChart().labels([]).series([], label="s").description("x"), "labels"),
             (
-                _chart().kind("bar").compare([1, 2, 3], label="b").highlight("Tue"),
+                _chart(BarChart).compare([1, 2, 3], label="b").highlight("Tue"),
                 "highlight",
             ),
             (_chart().compare([1, 2], label="Last week"), "one value per label"),
-            (_chart().kind("line").highlight("Tue"), "highlight"),
-            (_chart().kind("bar").highlight("Sun"), "highlight"),
+            (_chart(BarChart).highlight("Sun"), "highlight"),
         ],
     )
     @pytest.mark.asyncio
@@ -178,14 +175,14 @@ class TestChart:
     @pytest.mark.parametrize("label", ["", "  "])
     def test_a_series_needs_a_label(self, label):
         with pytest.raises(ValueError, match="label"):
-            Chart().series([1], label=label)
+            LineChart().series([1], label=label)
         with pytest.raises(ValueError, match="label"):
-            Chart().compare([1], label=label)
+            LineChart().compare([1], label=label)
 
     @pytest.mark.parametrize("code", ["usd ", "EURO", "€", ""])
     def test_rejects_a_malformed_currency(self, code):
         with pytest.raises(ValueError, match="ISO 4217"):
-            Chart().y_format("currency", currency=code)
+            LineChart().y_format("currency", currency=code)
 
     @pytest.mark.asyncio
     async def test_a_currency_code_is_upper_cased(self, context_args):
@@ -208,14 +205,14 @@ class TestChart:
     async def test_zero_is_written_as_zero(
         self, context_args, format_, value, expected
     ):
-        chart = Chart().labels(["a"]).series([value], label="s").description("x")
+        chart = LineChart().labels(["a"]).series([value], label="s").description("x")
         html = await render_tree(chart.y_format(format_), context_args=context_args)
         assert select(html, "tbody td")[0].text == expected
 
     @pytest.mark.parametrize("value", [float("nan"), float("inf")])
     def test_rejects_values_json_cannot_carry(self, value):
         with pytest.raises(ValueError, match="finite"):
-            Chart().series([value], label="s")
+            LineChart().series([value], label="s")
 
 
 _SLICES = [("Paid", 92), ("Pending", 31), ("Draft", 14)]
@@ -227,7 +224,7 @@ def _pie() -> PieChart:
 
 class TestPieChart:
     @pytest.mark.asyncio
-    async def test_draws_a_pie_by_default(self, context_args):
+    async def test_draws_a_pie(self, context_args):
         spec = _spec(await render_tree(_pie(), context_args=context_args))
         assert spec["kind"] == "pie"
         assert spec["labels"] == ["Paid", "Pending", "Draft"]
@@ -235,8 +232,9 @@ class TestPieChart:
         assert spec["series"][0]["display"] == ["92 (67%)", "31 (23%)", "14 (10%)"]
 
     @pytest.mark.asyncio
-    async def test_doughnut_draws_a_ring(self, context_args):
-        spec = _spec(await render_tree(_pie().doughnut(), context_args=context_args))
+    async def test_a_doughnut_draws_a_ring(self, context_args):
+        chart = DoughnutChart().slices(_SLICES).description("x")
+        spec = _spec(await render_tree(chart, context_args=context_args))
         assert spec["kind"] == "doughnut"
 
     @pytest.mark.asyncio
@@ -284,6 +282,7 @@ class TestPieChart:
             (PieChart().slices(_SLICES), "description"),
             (PieChart().description("x"), "total above zero"),
             (PieChart().slices([("a", 0)]).description("x"), "total above zero"),
+            (DoughnutChart().description("x"), "DoughnutChart needs slices"),
         ],
     )
     @pytest.mark.asyncio
@@ -364,9 +363,9 @@ class TestScatterChart:
         assert spec["y"]["label"] == "Margin"
 
     @pytest.mark.asyncio
-    async def test_a_size_makes_bubbles(self, context_args):
+    async def test_a_bubble_chart_has_a_size_column(self, context_args):
         chart = (
-            ScatterChart()
+            BubbleChart()
             .series([(1, 2, 30)], label="Orders")
             .x_label("Basket")
             .y_label("Margin")
@@ -413,7 +412,7 @@ class TestScatterChart:
     @pytest.mark.asyncio
     async def test_a_bubble_size_is_a_plain_number(self, context_args):
         chart = (
-            ScatterChart()
+            BubbleChart()
             .series([(1, 0.5, 1200)], label="s")
             .x_label("x")
             .y_label("y")
@@ -446,11 +445,7 @@ class TestScatterChart:
                 "x_label",
             ),
             (
-                _scatter().series([(1, 2, 3)], label="Sized"),
-                "all carry a size",
-            ),
-            (
-                ScatterChart()
+                BubbleChart()
                 .series([(1, 2, 3)], label="s")
                 .x_label("x")
                 .y_label("y")
@@ -470,7 +465,6 @@ class TestScatterChart:
                 .series(_POINTS, label="6"),
                 "at most 5",
             ),
-            (_scatter().size_label("n"), "size_label"),
             (_scatter().series(_POINTS, label="Orders"), "differ"),
         ],
     )
@@ -484,13 +478,22 @@ class TestScatterChart:
         [
             ([], "at least one point"),
             ([(1,)], r"\(x, y\)"),
-            ([(1, 2, -1)], "negative"),
+            # A size belongs on a BubbleChart.
+            ([(1, 2, 3)], r"\(x, y\)"),
             ([(1, float("nan"))], "finite"),
         ],
     )
     def test_refuses_points_it_cannot_place(self, points, match):
         with pytest.raises(ValueError, match=match):
             ScatterChart().series(points, label="s")
+
+    @pytest.mark.parametrize(
+        ("points", "match"),
+        [([(1, 2)], r"\(x, y, size\)"), ([(1, 2, -1)], "negative")],
+    )
+    def test_refuses_bubbles_it_cannot_place(self, points, match):
+        with pytest.raises(ValueError, match=match):
+            BubbleChart().series(points, label="s")
 
 
 def test_every_swatch_is_a_token():
@@ -502,3 +505,20 @@ def test_every_swatch_is_a_token():
     for swatch in _SWATCHES:
         name = swatch.removeprefix("bg-")
         assert re.search(rf"--color-{name}:", tokens), swatch
+
+
+@pytest.mark.asyncio
+async def test_charts_of_every_kind_share_one_page(context_args):
+    html = await render_tree(
+        LineChart.example(),
+        LineChart.example(),
+        AreaChart.example(),
+        BarChart.example(),
+        PieChart.example(),
+        DoughnutChart.example(),
+        ScatterChart.example(),
+        BubbleChart.example(),
+        context_args=context_args,
+    )
+    assert_selector(html, "figure[x-data]", count=8)
+    assert_no_selector(html, "[id]")

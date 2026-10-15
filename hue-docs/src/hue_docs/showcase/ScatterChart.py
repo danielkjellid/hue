@@ -1,8 +1,8 @@
 """
 Curated showcases for ScatterChart.
 
-It has no axis to toggle: what changes the drawing is the data, a size per
-point or a second series.
+It has no axis to toggle: what changes the drawing is the data, such as a
+second series.
 """
 
 from __future__ import annotations
@@ -32,22 +32,6 @@ SHOWCASES: list[Showcase] = [
                     .x_format("currency", currency="EUR")
                     .y_format("percent")
                     .description("Margin grows with basket size, faster online.")
-                )
-                """,
-            ),
-            variant(
-                "Bubbles",
-                """
-                (
-                    ScatterChart()
-                    .series(
-                        [(2, 40, 120), (5, 55, 340), (8, 48, 90), (11, 70, 410)],
-                        label="Teams",
-                    )
-                    .x_label("Engineers")
-                    .y_label("Deploys per week")
-                    .size_label("Incidents fixed")
-                    .description("Larger teams deploy more and fix more incidents.")
                 )
                 """,
             ),
