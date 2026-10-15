@@ -1,9 +1,13 @@
 import json
+import re
+from pathlib import Path
 
 import pytest
 
+import hue
 from hue.renderer import render_tree
-from hue.ui import Chart
+from hue.ui import Chart, PieChart, ScatterChart
+from hue.ui.molecules.chart import _SWATCHES
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _DAYS = ["Mon", "Tue", "Wed"]
@@ -49,7 +53,7 @@ class TestChart:
         spec = _spec(await render_tree(_chart(), context_args=context_args))
         assert spec["kind"] == "area"
         # Only the currency format reads one.
-        assert spec["currency"] is None
+        assert spec["y"] == {"format": "number", "currency": None}
 
     @pytest.mark.asyncio
     async def test_hands_the_series_to_the_loader(self, context_args):
@@ -83,7 +87,7 @@ class TestChart:
             chart.y_format(format_, currency="EUR"), context_args=context_args
         )
         assert select(html, "tbody td")[0].text == expected
-        assert _spec(html)["format"] == format_
+        assert _spec(html)["y"]["format"] == format_
 
     @pytest.mark.asyncio
     async def test_compare_adds_a_second_series_and_a_legend(self, context_args):
@@ -136,11 +140,15 @@ class TestChart:
         assert_attr(html, "figure", "tabindex", "-1")
 
     @pytest.mark.asyncio
-    async def test_two_charts_render_on_one_page(self, context_args):
+    async def test_charts_of_every_kind_share_one_page(self, context_args):
         html = await render_tree(
-            Chart.example(), Chart.example(), context_args=context_args
+            Chart.example(),
+            Chart.example(),
+            PieChart.example(),
+            ScatterChart.example(),
+            context_args=context_args,
         )
-        assert_selector(html, "figure[x-data]", count=2)
+        assert_selector(html, "figure[x-data]", count=4)
         assert_no_selector(html, "[id]")
 
     @pytest.mark.parametrize(
@@ -183,7 +191,7 @@ class TestChart:
     async def test_a_currency_code_is_upper_cased(self, context_args):
         chart = _chart().y_format("currency", currency="eur")
         assert (
-            _spec(await render_tree(chart, context_args=context_args))["currency"]
+            _spec(await render_tree(chart, context_args=context_args))["y"]["currency"]
             == "EUR"
         )
 
@@ -208,3 +216,289 @@ class TestChart:
     def test_rejects_values_json_cannot_carry(self, value):
         with pytest.raises(ValueError, match="finite"):
             Chart().series([value], label="s")
+
+
+_SLICES = [("Paid", 92), ("Pending", 31), ("Draft", 14)]
+
+
+def _pie() -> PieChart:
+    return PieChart().slices(_SLICES).description("Most invoices are paid.")
+
+
+class TestPieChart:
+    @pytest.mark.asyncio
+    async def test_draws_a_pie_by_default(self, context_args):
+        spec = _spec(await render_tree(_pie(), context_args=context_args))
+        assert spec["kind"] == "pie"
+        assert spec["labels"] == ["Paid", "Pending", "Draft"]
+        assert spec["series"][0]["values"] == [92, 31, 14]
+        assert spec["series"][0]["display"] == ["92 (67%)", "31 (23%)", "14 (10%)"]
+
+    @pytest.mark.asyncio
+    async def test_doughnut_draws_a_ring(self, context_args):
+        spec = _spec(await render_tree(_pie().doughnut(), context_args=context_args))
+        assert spec["kind"] == "doughnut"
+
+    @pytest.mark.asyncio
+    async def test_the_table_gives_each_slice_its_share(self, context_args):
+        html = await render_tree(_pie(), context_args=context_args)
+        assert [th.text for th in select(html, "thead th")] == ["Value", "Share"]
+        assert [td.text for td in select(html, "tbody tr:first-child td")] == [
+            "92",
+            "67%",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_every_slice_has_a_swatch_in_the_legend(self, context_args):
+        html = await render_tree(_pie(), context_args=context_args)
+        assert [li.text for li in select(html, "figure > ul li")] == [
+            "Paid",
+            "Pending",
+            "Draft",
+        ]
+        assert_selector(html, "figure > ul li:nth-child(2) span.bg-chart-2")
+
+    @pytest.mark.asyncio
+    async def test_past_six_slices_the_rest_are_grouped_as_other(self, context_args):
+        slices = [(f"s{i}", n) for i, n in enumerate([5, 40, 1, 30, 2, 20, 10])]
+        chart = PieChart().slices(slices).description("x")
+        html = await render_tree(chart, context_args=context_args)
+        spec = _spec(html)
+        # The five largest in their own order, then the three smallest summed.
+        assert spec["labels"] == ["s0", "s1", "s3", "s5", "s6", "Other"]
+        assert spec["series"][0]["values"] == [5, 40, 30, 20, 10, 3]
+        # The table still lists every slice.
+        assert len(select(html, "tbody tr")) == 7
+        assert_selector(html, "figure > ul li:last-child span.bg-chart-6")
+
+    @pytest.mark.asyncio
+    async def test_six_slices_are_all_drawn(self, context_args):
+        slices = [(f"s{i}", 1) for i in range(6)]
+        chart = PieChart().slices(slices).description("x")
+        spec = _spec(await render_tree(chart, context_args=context_args))
+        assert "Other" not in spec["labels"]
+
+    @pytest.mark.parametrize(
+        ("chart", "match"),
+        [
+            (PieChart().slices(_SLICES), "description"),
+            (PieChart().description("x"), "total above zero"),
+            (PieChart().slices([("a", 0)]).description("x"), "total above zero"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_refuses_a_pie_it_cannot_draw(self, context_args, chart, match):
+        with pytest.raises(ValueError, match=match):
+            await render_tree(chart, context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_value_format_writes_values_and_keeps_the_share(self, context_args):
+        chart = _pie().value_format("currency", currency="EUR")
+        html = await render_tree(chart, context_args=context_args)
+        assert _spec(html)["series"][0]["display"][0] == "92.00 EUR (67%)"
+        assert [td.text for td in select(html, "tbody tr:first-child td")] == [
+            "92.00 EUR",
+            "67%",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_percent_values_are_not_followed_by_their_share(self, context_args):
+        chart = PieChart().slices([("a", 0.25), ("b", 0.75)]).description("x")
+        html = await render_tree(
+            chart.value_format("percent"), context_args=context_args
+        )
+        assert _spec(html)["series"][0]["display"] == ["25%", "75%"]
+
+    @pytest.mark.asyncio
+    async def test_a_zero_slice_is_only_in_the_table(self, context_args):
+        chart = PieChart().slices([("a", 3), ("b", 0)]).description("x")
+        html = await render_tree(chart, context_args=context_args)
+        assert _spec(html)["labels"] == ["a"]
+        assert [li.text for li in select(html, "figure > ul li")] == ["a"]
+        assert len(select(html, "tbody tr")) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_sliver_is_not_written_as_nothing(self, context_args):
+        chart = PieChart().slices([("a", 999), ("b", 1)]).description("x")
+        html = await render_tree(chart, context_args=context_args)
+        assert select(html, "tbody tr:last-child td")[1].text == "<1%"
+
+    @pytest.mark.asyncio
+    async def test_a_slice_called_other_joins_the_grouped_one(self, context_args):
+        slices = [("Other", 100), *((f"s{i}", 10 - i) for i in range(6))]
+        chart = PieChart().slices(slices).description("x")
+        spec = _spec(await render_tree(chart, context_args=context_args))
+        assert spec["labels"] == ["s0", "s1", "s2", "s3", "s4", "Other"]
+        assert spec["series"][0]["values"][-1] == 105
+
+    def test_refuses_duplicate_slices(self):
+        with pytest.raises(ValueError, match="differ"):
+            PieChart().slices([("a", 1), ("a", 2)])
+
+    def test_refuses_a_negative_slice(self):
+        with pytest.raises(ValueError, match="negative"):
+            PieChart().slices([("a", -1)])
+
+
+_POINTS = [(1, 2), (3, 4.5)]
+
+
+def _scatter() -> ScatterChart:
+    return (
+        ScatterChart()
+        .series(_POINTS, label="Orders")
+        .x_label("Basket")
+        .y_label("Margin")
+        .description("Margin grows with basket size.")
+    )
+
+
+class TestScatterChart:
+    @pytest.mark.asyncio
+    async def test_hands_the_points_and_axes_to_the_loader(self, context_args):
+        spec = _spec(await render_tree(_scatter(), context_args=context_args))
+        assert spec["kind"] == "scatter"
+        assert spec["series"][0]["points"] == [[1, 2], [3, 4.5]]
+        assert spec["series"][0]["display"][1] == "Basket: 3, Margin: 4.5"
+        assert spec["x"]["label"] == "Basket"
+        assert spec["y"]["label"] == "Margin"
+
+    @pytest.mark.asyncio
+    async def test_a_size_makes_bubbles(self, context_args):
+        chart = (
+            ScatterChart()
+            .series([(1, 2, 30)], label="Orders")
+            .x_label("Basket")
+            .y_label("Margin")
+            .size_label("Customers")
+            .description("x")
+        )
+        html = await render_tree(chart, context_args=context_args)
+        assert _spec(html)["kind"] == "bubble"
+        assert [th.text for th in select(html, "thead th")] == [
+            "Basket",
+            "Margin",
+            "Customers",
+        ]
+        assert [td.text for td in select(html, "tbody td")] == ["1", "2", "30"]
+
+    @pytest.mark.asyncio
+    async def test_each_point_is_a_row_led_by_its_series(self, context_args):
+        html = await render_tree(_scatter(), context_args=context_args)
+        assert [th.text for th in select(html, "thead th")] == ["Basket", "Margin"]
+        assert [th.text for th in select(html, "tbody th")] == ["Orders", "Orders"]
+
+    @pytest.mark.asyncio
+    async def test_a_second_series_adds_a_legend(self, context_args):
+        chart = _scatter().series([(5, 6)], label="Returns")
+        html = await render_tree(chart, context_args=context_args)
+        assert [s["label"] for s in _spec(html)["series"]] == ["Orders", "Returns"]
+        assert [li.text for li in select(html, "figure > ul li")] == [
+            "Orders",
+            "Returns",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_each_axis_has_its_own_format(self, context_args):
+        chart = _scatter().x_format("currency", currency="EUR").y_format("percent")
+        html = await render_tree(chart, context_args=context_args)
+        spec = _spec(html)
+        assert spec["x"]["format"] == "currency"
+        assert spec["y"]["format"] == "percent"
+        assert [td.text for td in select(html, "tbody tr:first-child td")] == [
+            "1.00 EUR",
+            "200%",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_bubble_size_is_a_plain_number(self, context_args):
+        chart = (
+            ScatterChart()
+            .series([(1, 0.5, 1200)], label="s")
+            .x_label("x")
+            .y_label("y")
+            .size_label("n")
+            .y_format("percent")
+            .description("d")
+        )
+        html = await render_tree(chart, context_args=context_args)
+        assert [td.text for td in select(html, "tbody td")] == ["1", "50%", "1,200"]
+
+    @pytest.mark.asyncio
+    async def test_five_series_are_drawn(self, context_args):
+        chart = _scatter()
+        for i in range(4):
+            chart = chart.series(_POINTS, label=f"s{i}")
+        spec = _spec(await render_tree(chart, context_args=context_args))
+        assert len(spec["series"]) == 5
+
+    @pytest.mark.asyncio
+    async def test_one_series_has_no_legend(self, context_args):
+        html = await render_tree(_scatter(), context_args=context_args)
+        assert_no_selector(html, "figure > ul")
+
+    @pytest.mark.parametrize(
+        ("chart", "match"),
+        [
+            (ScatterChart().x_label("x").y_label("y").description("d"), "series"),
+            (
+                ScatterChart().series(_POINTS, label="s").y_label("y").description("d"),
+                "x_label",
+            ),
+            (
+                _scatter().series([(1, 2, 3)], label="Sized"),
+                "all carry a size",
+            ),
+            (
+                ScatterChart()
+                .series([(1, 2, 3)], label="s")
+                .x_label("x")
+                .y_label("y")
+                .description("d"),
+                "size_label",
+            ),
+            (
+                ScatterChart()
+                .x_label("x")
+                .y_label("y")
+                .description("d")
+                .series(_POINTS, label="1")
+                .series(_POINTS, label="2")
+                .series(_POINTS, label="3")
+                .series(_POINTS, label="4")
+                .series(_POINTS, label="5")
+                .series(_POINTS, label="6"),
+                "at most 5",
+            ),
+            (_scatter().size_label("n"), "size_label"),
+            (_scatter().series(_POINTS, label="Orders"), "differ"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_refuses_a_scatter_it_cannot_draw(self, context_args, chart, match):
+        with pytest.raises(ValueError, match=match):
+            await render_tree(chart, context_args=context_args)
+
+    @pytest.mark.parametrize(
+        ("points", "match"),
+        [
+            ([], "at least one point"),
+            ([(1,)], r"\(x, y\)"),
+            ([(1, 2, -1)], "negative"),
+            ([(1, float("nan"))], "finite"),
+        ],
+    )
+    def test_refuses_points_it_cannot_place(self, points, match):
+        with pytest.raises(ValueError, match=match):
+            ScatterChart().series(points, label="s")
+
+
+def test_every_swatch_is_a_token():
+    # The legend's classes and the tokens chart-draw.js reads are named apart.
+    # A --color-chart-N token is what gives bg-chart-N a colour.
+    tokens = (
+        Path(hue.__file__).parent / "static/styles/tailwind.input.css"
+    ).read_text()
+    for swatch in _SWATCHES:
+        name = swatch.removeprefix("bg-")
+        assert re.search(rf"--color-{name}:", tokens), swatch

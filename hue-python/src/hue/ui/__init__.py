@@ -39,7 +39,7 @@ from hue.ui.molecules.card import (
     CardHeader,
     CardMedia,
 )
-from hue.ui.molecules.chart import Chart
+from hue.ui.molecules.chart import Chart, PieChart, ScatterChart
 from hue.ui.molecules.combobox import Combobox
 from hue.ui.molecules.command import (
     Command,
@@ -142,11 +142,13 @@ __all__ = [
     "Pagination",
     "Panel",
     "PasswordInput",
+    "PieChart",
     "Popover",
     "Progress",
     "ProgressRing",
     "Radio",
     "RadioGroup",
+    "ScatterChart",
     "ScrollArea",
     "SegmentedControl",
     "SegmentedOption",

@@ -148,6 +148,7 @@ those terms:
 | Borders | `border-border`, `border-border-strong`, `border-border-input`, `border-border-hover` |
 | Accent | `bg-accent`, `hover:bg-accent-hover`, `text-accent-fg`, `bg-accent-subtle`, `border-accent-border`, `text-accent-text` |
 | Status | `success`, `warning`, `danger`, `info`, each with `-fg` `-subtle` `-border` `-vivid` |
+| Charts | `chart-1` to `chart-6`, for categories a chart tells apart (chart-1 is the accent, chart-6 the muted grey) |
 | Shape | `rounded-md` controls, `rounded-lg` containers, `rounded-xl` overlays, `rounded-full` avatars/switches |
 | Height | `h-control-xs\|sm\|md\|lg` (28/32/36/44px, bumped on coarse pointers) |
 | Elevation | `shadow-field`, `shadow-ring`, `shadow-raised`, `shadow-overlay` |
