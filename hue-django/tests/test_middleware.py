@@ -2,9 +2,11 @@ import pytest
 from asgiref.sync import async_to_sync
 from django.http import HttpResponse
 from django.test import AsyncRequestFactory, RequestFactory, override_settings
+from hue.assets import chart_bundle_path
 
 from hue_django.middleware import (
     _ASSET_ROUTES,
+    CHART_JS_URL,
     CSS_URL,
     JS_URL,
     HueAssetsMiddleware,
@@ -43,6 +45,15 @@ class TestMiddlewareServesAssets:
 
     def test_serves_js(self, middleware, rf) -> None:
         response = middleware(rf.get(JS_URL))
+
+        assert response.status_code == 200
+        assert "javascript" in response["Content-Type"]
+        assert len(response.content) > 0
+
+    def test_serves_the_chart_library_beside_the_bundle(self, middleware, rf) -> None:
+        # Where the bundle asks for it: beside itself, under the file's name.
+        assert CHART_JS_URL == f"{JS_URL.rsplit('/', 1)[0]}/{chart_bundle_path().name}"
+        response = middleware(rf.get(CHART_JS_URL))
 
         assert response.status_code == 200
         assert "javascript" in response["Content-Type"]

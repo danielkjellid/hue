@@ -31,7 +31,7 @@ node_modules: package.json package-lock.json ; $(info $(M) installing js depende
 	@touch node_modules
 
 .PHONY: build-js
-build-js: node_modules package.json ; $(info $(M) building js bundle) @
+build-js: node_modules package.json ; $(info $(M) building js bundles) @
 	$Q $(NPM) run build
 
 #########

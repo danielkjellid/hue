@@ -28,9 +28,25 @@ def _build() -> ComponentType:
             "hue.assets:"
         ),
         pr.code(
-            "from hue.assets import css_built_path, js_bundle_path\n\n"
+            "from hue.assets import (\n"
+            "    chart_bundle_path,\n"
+            "    css_built_path,\n"
+            "    js_bundle_path,\n"
+            ")\n\n"
             "css_built_path()  # -> .../hue/static/styles/tailwind.css\n"
-            "js_bundle_path()  # -> .../hue/static/js/alpine-bundle.js"
+            "js_bundle_path()  # -> .../hue/static/js/alpine-bundle.js\n"
+            "chart_bundle_path()  # -> .../hue/static/js/chart-bundle.js"
+        ),
+        pr.p(
+            "The chart library is a file of its own, because it is larger "
+            "than the rest of Hue's JavaScript put together. The Alpine bundle "
+            "fetches it the first time a page shows a chart, so a page without "
+            "a chart never downloads it. It looks in its own directory for a "
+            "file named chart-bundle.js, so serve it there under that exact "
+            "name: a static pipeline that keeps only hashed copies, such as "
+            "WhiteNoise with WHITENOISE_KEEP_ONLY_HASHED_FILES, would leave "
+            "charts nothing to load. The Alpine bundle itself can be served "
+            "under any name."
         ),
         pr.p(
             "The Alpine bundle is an ES module that exports a configureAlpine "

@@ -7,7 +7,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.utils.cache import get_conditional_response
 from django.utils.http import quote_etag
-from hue.assets import read_css, read_js
+from hue.assets import chart_bundle_path, read_chart_js, read_css, read_js
 from hue.scope import request_scope
 from hue.toast import ToastMessage, toast
 
@@ -15,11 +15,13 @@ from hue.toast import ToastMessage, toast
 HUE_ASSETS_PREFIX = "/__hue__/"
 CSS_URL = f"{HUE_ASSETS_PREFIX}styles.css"
 JS_URL = f"{HUE_ASSETS_PREFIX}js/alpine.js"
+CHART_JS_URL = f"{HUE_ASSETS_PREFIX}js/{chart_bundle_path().name}"
 
 # Asset path -> (content reader, content type)
 _ASSET_ROUTES: dict[str, tuple[Callable[[], str], str]] = {
     CSS_URL: (read_css, "text/css; charset=utf-8"),
     JS_URL: (read_js, "text/javascript; charset=utf-8"),
+    CHART_JS_URL: (read_chart_js, "text/javascript; charset=utf-8"),
 }
 
 # In-memory cache: asset path -> (encoded content, content hash)
