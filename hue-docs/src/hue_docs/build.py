@@ -13,7 +13,7 @@ import subprocess
 from collections import defaultdict
 from pathlib import Path
 
-from hue.assets import js_bundle_path
+from hue.assets import chart_bundle_path, js_bundle_path
 
 from hue_docs import content
 from hue_docs.categories import ordered_categories
@@ -124,10 +124,11 @@ def _render_pages(
 
 
 def _copy_assets() -> None:
-    js_target = DIST / "js" / "alpine-bundle.js"
-    js_target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(js_bundle_path(), js_target)
-    print("  copied js/alpine-bundle.js")
+    js_dir = DIST / "js"
+    js_dir.mkdir(parents=True, exist_ok=True)
+    for source in (js_bundle_path(), chart_bundle_path()):
+        shutil.copyfile(source, js_dir / source.name)
+        print(f"  copied js/{source.name}")
 
     assets = _PACKAGE_DIR / "assets"
     shutil.copytree(assets, DIST / "assets", dirs_exist_ok=True)

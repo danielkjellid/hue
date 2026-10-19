@@ -45,6 +45,12 @@ def _build() -> ComponentType:
             ")\n"
             "# render_tree(page, context_args=...) -> full HTML document"
         ),
+        pr.p(
+            "The chart library, chart-bundle.js, has to sit beside the bundle "
+            "js_url points at (see ",
+            pr.link("Installation", "/installation/"),
+            ").",
+        ),
         pr.h2("With Django"),
         pr.p(
             "hue-django adds a HueView and a Django-aware Router so you can "

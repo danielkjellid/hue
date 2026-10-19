@@ -15,13 +15,15 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from hue.assets import read_css, read_js
+from hue.assets import chart_bundle_path, read_chart_js, read_css, read_js
 
 HUE_ASSETS_PREFIX = "/__hue__/"
 
 _ASSET_ROUTES = {
     "styles.css": (read_css, "text/css; charset=utf-8"),
     "js/alpine.js": (read_js, "application/javascript; charset=utf-8"),
+    # Beside the bundle, which fetches it by this name when a chart appears.
+    f"js/{chart_bundle_path().name}": (read_chart_js, "application/javascript; charset=utf-8"),
 }
 
 _cache: dict[str, tuple[str, str]] = {}

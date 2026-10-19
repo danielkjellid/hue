@@ -20,6 +20,7 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 _REQUIRED: dict[str, str] = {
     "src/hue/static/styles/tailwind.css": "make build-css",
     "src/hue/static/js/alpine-bundle.js": "make build-js",
+    "src/hue/static/js/chart-bundle.js": "make build-js",
 }
 
 

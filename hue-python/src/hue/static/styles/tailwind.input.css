@@ -82,6 +82,38 @@
   --hue-yellow-700: #C28800;
   --hue-yellow-800: #8A6100;
   --hue-yellow-900: #523900;
+  /* teal, orange and purple exist for charts only, which need more hues
+     than the status colours. They share the blue ramp's lightness steps. */
+  --hue-teal-50: #EFFBF9;
+  --hue-teal-100: #D9F6F1;
+  --hue-teal-200: #A8EAE0;
+  --hue-teal-300: #60DBCD;
+  --hue-teal-400: #09CCBC;
+  --hue-teal-500: #0ABBAC;
+  --hue-teal-600: #049C90;
+  --hue-teal-700: #087F75;
+  --hue-teal-800: #026159;
+  --hue-teal-900: #01433D;
+  --hue-orange-50: #FEF6F2;
+  --hue-orange-100: #FEEADF;
+  --hue-orange-200: #FECFB6;
+  --hue-orange-300: #FFAE81;
+  --hue-orange-400: #F99356;
+  --hue-orange-500: #F27E30;
+  --hue-orange-600: #CB6928;
+  --hue-orange-700: #A45520;
+  --hue-orange-800: #7E4017;
+  --hue-orange-900: #582C0F;
+  --hue-purple-50: #FAF6FE;
+  --hue-purple-100: #F3EAFE;
+  --hue-purple-200: #E5D1FE;
+  --hue-purple-300: #D5B1FF;
+  --hue-purple-400: #C896FE;
+  --hue-purple-500: #BE7EFF;
+  --hue-purple-600: #A460E4;
+  --hue-purple-700: #854EB9;
+  --hue-purple-800: #653A8F;
+  --hue-purple-900: #462863;
   --hue-white-50: rgb(255 255 255 / 0.05);
   --hue-white-100: rgb(255 255 255 / 0.1);
   --hue-white-200: rgb(255 255 255 / 0.2);
@@ -180,6 +212,19 @@
   --color-info-subtle: var(--hue-blue-50);
   --color-info-border: var(--hue-blue-200);
   --color-info-vivid: var(--hue-blue-500);
+
+  /* --------------------------------------------------------------- charts */
+  /* For categories a chart has to tell apart: pie slices, scatter series.
+     Each clears 3:1 on the surface, and the set stays apart under every
+     simulated colour-vision deficiency, which is why the steps vary in
+     lightness as well as hue. chart-1 is the accent; chart-6 is the muted
+     grey a comparison is drawn in, and a pie's Other slice. */
+  --color-chart-1: var(--color-accent);
+  --color-chart-2: var(--hue-teal-600);
+  --color-chart-3: var(--hue-orange-600);
+  --color-chart-4: var(--hue-purple-600);
+  --color-chart-5: var(--hue-yellow-800);
+  --color-chart-6: var(--color-fg-subtle);
 
   /* ----------------------------------------------------------- typography */
   /* Hue loads no webfonts. Name the faces you want by redefining these three
@@ -457,6 +502,10 @@
   --color-info-subtle: rgb(0 172 255 / 0.13);
   --color-info-border: rgb(0 172 255 / 0.34);
   --color-info-vivid: var(--hue-blue-400);
+
+  --color-chart-2: var(--hue-teal-300);
+  --color-chart-3: var(--hue-orange-400);
+  --color-chart-5: var(--hue-yellow-300);
 
   --shadow-field: none;
   --background-image-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8AA8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

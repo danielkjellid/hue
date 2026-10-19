@@ -21,6 +21,7 @@ CATEGORY_ORDER = [
     "Inputs",
     "Feedback",
     "Data",
+    "Charts",
     "Media",
 ]
 
