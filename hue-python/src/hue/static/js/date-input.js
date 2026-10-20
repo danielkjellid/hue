@@ -198,6 +198,8 @@ export function dateInput(config) {
 		dismiss() {
 			this.open = false;
 			this.value = this.days();
+			// A grid left on its months would take the next Escape.
+			this.level = "days";
 		},
 
 		toggle() {
@@ -339,6 +341,9 @@ export function dateInput(config) {
 		},
 
 		key(event) {
+			// The field's own keys reach here too, and a closed popover
+			// has nothing to say about them.
+			if (!this.open) return;
 			// Back to the days first when the grid is on its month or year
 			// panel; that is the grid's own Escape.
 			if (event.key === "Escape" && this.open && this.level === "days") {
