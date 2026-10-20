@@ -740,7 +740,7 @@ class _Declaration(Declaration[_Routes]):
             picked = self._picked_from(matching, ticked)
         else:
             picked = await self._router._run_sync(self._picked, request, asked, ticked)
-        status = await self._run(
+        status, _ = await self._run(
             request,
             chosen.handler,
             picked,

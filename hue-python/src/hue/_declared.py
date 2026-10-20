@@ -262,10 +262,10 @@ class Declaration[R: Routes]:
         *,
         label: str,
         description: str,
-    ) -> HTTPStatus:
+    ) -> tuple[HTTPStatus, Any]:
         """
-        A handler, run off the event loop unless it is async, and the status
-        to answer with.
+        A handler, run off the event loop unless it is async, the status to
+        answer with and what the handler returned, or None when it raised.
 
         A failure is answered on the page with a toast. A refusal keeps the
         framework's status, whose own page has nothing to swap. Anything
@@ -276,9 +276,9 @@ class Declaration[R: Routes]:
             # An async handler is awaited on the loop: handed to a thread it
             # would return a coroutine nobody awaits, and do nothing.
             if inspect.iscoroutinefunction(handler):
-                await handler(request, given)
+                made = await handler(request, given)
             else:
-                await self._router._run_sync(handler, request, given)
+                made = await self._router._run_sync(handler, request, given)
         except Exception as error:
             refused = self._router._refusal(error)
             if refused is None:
@@ -286,8 +286,8 @@ class Declaration[R: Routes]:
                     "%s: the %r action failed", self.key, label
                 )
             toast.danger(f"{label} failed", description=description)
-            return refused or HTTPStatus.INTERNAL_SERVER_ERROR
-        return HTTPStatus.OK
+            return refused or HTTPStatus.INTERNAL_SERVER_ERROR, None
+        return HTTPStatus.OK, made
 
 
 class SearchInput(TextInput):
