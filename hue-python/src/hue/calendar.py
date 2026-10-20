@@ -1308,7 +1308,10 @@ class _Frame(ChainableComponent):
     holds the slot the dialog lands in.
 
     Its x-data is hueCalendar: whether the sidebar is open on a narrow
-    screen, and the click on an empty slot that opens the dialog.
+    screen, and the click on an empty slot that opens the dialog. The slot
+    says where focus goes when the dialog closes under it: New event, the
+    one control that is always there, since what opened the dialog may be
+    gone with the sidebar's refresh.
     """
 
     category: ClassVar[str | None] = None
@@ -1329,12 +1332,12 @@ class _Frame(ChainableComponent):
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
             "state": f"{bound.key}-state",
-            "home": f"{bound.key}-new",
             "hour": views._HOUR,
         }
+        refocus = f"{bound.key}-new" if bound.declaration.save is not None else None
         return html.div(
             *self._children,
-            html.div(id=_slot(bound.key)),
+            html.div(id=_slot(bound.key), **{"data-hue-refocus": refocus}),
             class_="flex flex-col gap-4 lg:flex-row lg:items-start",
             **{"x-data": call("hueCalendar", config)},
         )

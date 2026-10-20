@@ -344,6 +344,7 @@ class TestDrawn:
         assert_no_selector(html, "#events-new")
         assert_no_selector(html, "[aria-label='Delete event']")
         assert "@click" not in select(html, "#events")[0].attrs
+        assert "data-hue-refocus" not in select(html, "#events-dialog")[0].attrs
 
     @pytest.mark.asyncio
     async def test_with_handlers_the_popover_posts_the_event_back_under_the_key(
@@ -354,6 +355,8 @@ class TestDrawn:
         )
         assert_attr(html, "#events-new", "@click", "create()")
         assert_attr(html, "#events", "@click", "slot($event)")
+        # Where focus goes when the dialog closes under it.
+        assert_attr(html, "#events-dialog", "data-hue-refocus", "events-new")
         edits = [
             b
             for b in select(html, "button")

@@ -15,22 +15,38 @@
  * is gone or hidden, such as a Reset that has nothing left to reset, it
  * tries the ids in the element's data-hue-refocus, in order.
  *
+ * When none of those is left either, the nearest ancestor with an id that
+ * is still on the page takes focus: the id in its own data-hue-refocus,
+ * else its roving tab stop or current item, else the ancestor itself. A
+ * calendar's dialog slot names New event that way, since the control that
+ * closed the dialog went with it.
+ *
  * It only acts when focus is on the body and the element it noted is gone
  * or hidden, so it never pulls focus from wherever the reader moved it
  * while the request was in flight.
  */
 export function keepFocusThroughSwaps() {
 	let kept = null;
+	let around = [];
 
 	document.addEventListener("ajax:before", () => {
 		const focused = document.activeElement;
 		kept = focused && focused !== document.body ? focused : null;
+		around = [];
+		for (
+			let node = kept?.parentElement;
+			node && node !== document.body;
+			node = node.parentElement
+		) {
+			if (node.id) around.push(node.id);
+		}
 	});
 
 	// On window, because Alpine AJAX fires ajax:after there when the element
 	// that sent the request was swapped away.
 	window.addEventListener("ajax:after", () => {
 		const lost = kept;
+		const ancestors = around;
 		kept = null;
 		if (!lost) return;
 		// After Alpine AJAX's own autofocus, which also waits a task.
@@ -44,8 +60,23 @@ export function keepFocusThroughSwaps() {
 				found?.focus();
 				if (found && document.activeElement === found) return;
 			}
+			const ancestor = ancestors
+				.map((id) => document.getElementById(id))
+				.find(Boolean);
+			if (ancestor) landing(ancestor).focus({ preventScroll: true });
 		});
 	});
+}
+
+function landing(ancestor) {
+	const named = ancestor.dataset.hueRefocus;
+	const to =
+		(named && document.getElementById(named)) ||
+		ancestor.querySelector('[tabindex="0"], [aria-current]') ||
+		ancestor;
+	if (to.tabIndex < 0 && !to.hasAttribute("tabindex"))
+		to.setAttribute("tabindex", "-1");
+	return to;
 }
 
 /**
