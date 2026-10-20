@@ -50,3 +50,6 @@ HUE_HTML_TITLE_FACTORY = lambda title: f"{title} - hue example"  # noqa: E731
 
 # How the table writes the dates it is handed, instead of ISO 8601.
 HUE_DATE_FORMAT = "%d %b %Y"
+
+# Bound on every page; the calendar's keys are on where a calendar is drawn.
+HUE_SHORTCUTS = "example.shortcuts.Shortcuts"
