@@ -1,99 +1,20 @@
 """
 A calendar that knows where its own state lives.
 
-Calendar on its own draws the events it is handed. A declaration owns
-which day and which view those are, reads them from the page's URL,
-fetches the events through one function, and registers the route the
-event dialog posts to:
+Calendar on its own draws the events it is handed. build_calendar_state,
+called at class scope, owns which day and view those are, reads them from
+the page's URL, fetches the events through events(), and registers the one
+route the dialog, the popover and a drag post to. The Calendars guide in
+the docs says how to use it, from events() and save to dragging, Undo and
+the keys.
 
-    def events_for(request: HttpRequest, asked: CalendarState) -> list[Event]:
-        found = Entry.objects.filter(
-            starts__date__lte=asked.last,
-            ends__date__gte=asked.first,
-            layer__in=asked.layers,
-        )
-        if asked.query:
-            found = found.filter(title__icontains=asked.query)
-        return [entry.event() for entry in found]
-
-
-    def save_entry(request: HttpRequest, event: Event) -> None:
-        Entry.objects.update_or_create(pk=event.id, defaults=fields_of(event))
-
-
-    def delete_entry(request: HttpRequest, id: str) -> None:
-        Entry.objects.filter(pk=id).delete()
-
-
-    class EventsView(HueView):
-        router = Router[HttpRequest]()
-
-        events = build_calendar_state(
-            router,
-            key="events",
-            events=events_for,
-            layers=[Layer("work", "Work"), Layer("home", "Home", color=3)],
-            save=save_entry,
-            delete=delete_entry,
-            repeats={"weekly": "Every week"},
-            search="Search events",
-        )
-
-        async def index(
-            self, request: HttpRequest, context: HueContext[HttpRequest]
-        ) -> Page:
-            return Page(title="Events", body=Calendar.from_state(self.events))
-
-The URL is the state: /events/?events-view=month&events-date=2026-10-14.
-Previous, Today, Next, the view switcher and every day are links to the
-page with one part changed and every other query pair kept, and a part at
-its default is left out, so a bookmark of Today stays on today. The search,
-the sidebar's picker and calendars and the view options are GET forms to
-the same page. Alpine AJAX swaps the calendar in place for all of them.
-
-events() is the only part that is not fixed, so it is the only part that is
-a function. It receives the request and the state, and returns the events
-between asked.first and asked.last that match the query and belong to the
-layers shown. Expanding a repeating event into its occurrences is its job,
-and each occurrence says in series_starts when the series' first one
-starts. An event without a colour takes its layer's.
-
-save and delete make the calendar editable: a New event button, a click on
-an empty slot or day, and Edit, Duplicate and Delete in an event's popover
-open a dialog or act straight away. The dialog's fields arrive as an Event
-with naive datetimes in the reader's time, or dates for a whole day, and an
-id when it is an existing one. A field that cannot be read comes back as an
-error on the field rather than reaching save. One route serves all of it,
-POST {key}/<action>/, with the state in the body so the calendar comes back
-as the reader left it. The fields are posted under the key like the state,
-{key}-title and {key}-starts, which is also what their ids are.
-
-Dragging an event in the time grid, between the days of the month or
-along the all-day row posts a move: the id, which occurrence, and the new
-times. The route looks the event up through events() and hands save the
-same event at the new times, so a field the browser never had, the notes
-or the rule it repeats by, cannot be lost on the way. A series moves as a
-whole: save gets its first occurrence moved by as many days as the one
-that was dragged, at that one's new time and length, and the dialog's
-edit of an occurrence does the same. Every change raises a toast with an
-Undo, which posts the event as it was through the same route, a series
-from its first occurrence, one level deep: an undone delete is a new
-event with a new id, and an undone create is a delete of the id save
-returned, so a save that returns nothing leaves a create with no undo.
-
-The keys the design gives the calendar, T, J and K, the views, N, / and
-?, are scoped shortcuts in CalendarShortcuts, on while a calendar is drawn
-once the app's registry inherits them. Each presses the control that does
-the same thing. Alt with an arrow key on a focused event moves it, and
-with Shift as well changes when it ends.
-
-events() and the handlers run off the event loop, through the router,
-because both usually use the ORM and the ORM refuses to run on the loop.
+This module is the declaration. What it reads off a request and builds its
+links from is in _calendar_state, what it edits with in _calendar_edit,
+and what it draws around the Calendar in _calendar_chrome.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
@@ -122,18 +43,17 @@ from hue._calendar_edit import (
     _id_of,
     _landed,
     _overlap_warning,
-    _overlaps_check,
     _Posted,
     _prefilled,
     _said,
     _series,
-    _title_field,
     _Undo,
     _undo_button,
     _undo_create,
     _undo_delete,
     _when,
     _when_fields,
+    dialog,
 )
 from hue._calendar_state import (
     _DATE,
@@ -152,33 +72,22 @@ from hue._calendar_state import (
     BoundCalendar,
     CalendarState,
     Layer,
-    _clock,
     _day,
     _overlap,
     _slot,
     _today,
     _zone,
 )
-from hue._declared import Declaration, Pairs, Routes, Urls, carried, csrf, many, one
+from hue._declared import Declaration, Pairs, Routes, Urls, many, one
 from hue.context import HueContext
 from hue.formats import Formats
-from hue.js import close, unsafe
 from hue.router import HueResponse
 from hue.shortcuts import ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.button import Button
-from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import TextInput
-from hue.ui.atoms.native_select import NativeSelect
-from hue.ui.atoms.switch import Switch
-from hue.ui.atoms.textarea import Textarea
 from hue.ui.molecules._calendar_views import FIRST, LAST, CalendarView, stamps
 from hue.ui.molecules.calendar import Calendar, Event
-from hue.ui.molecules.date_input import DateInput, TimeInput
 from hue.ui.molecules.date_picker import WEEKDAYS, Weekday
-from hue.ui.molecules.dialog import Dialog
-from hue.ui.molecules.form import Form
-from hue.utils import render_if, render_when
+from hue.utils import render_if
 
 __all__ = ["CalendarShortcuts", "CalendarState", "Layer", "build_calendar_state"]
 
@@ -525,151 +434,6 @@ class _Declaration(Declaration[Routes]):
                 return event
         return None
 
-    def _dialog(
-        self,
-        bound: BoundCalendar,
-        posted: _Posted,
-        errors: Mapping[str, str],
-        *,
-        csrf_token: str,
-    ) -> ComponentType:
-        """
-        The event dialog, open, over the posted fields: a new event, or an
-        existing one when they carry an id. The form carries the
-        framework's CSRF token, so it still posts where the script has
-        failed and the browser submits it on its own.
-        """
-        key = bound.key
-        editing = bool(posted.id)
-        all_day = bool(posted.all_day)
-        form_id = f"{key}-form"
-        layers = [(layer.key, layer.name) for layer in self.layers]
-        week_start = bound.state.week_start
-        # The controls are named under the key, which is also what makes
-        # their ids the calendar's own on a page with two of them.
-        param = self.param
-
-        def when(label: str, name: str) -> list[ComponentType]:
-            day = _day(getattr(posted, name))
-            moment = _clock(getattr(posted, f"{name}_time"))
-            day_field = DateInput().name(param(name)).label(label)
-            day_field.week_start(week_start)
-            time_field = TimeInput().name(param(f"{name}_time")).label(f"{label} at")
-            if day is not None:
-                day_field.value(day)
-            if moment is not None:
-                time_field.value(moment)
-            # Hidden rather than removed while all day is on, so the times
-            # come back when it is switched off again. The route ignores
-            # them for a whole-day event.
-            return [day_field, html.div(time_field, **{"x-show": "!allDay"})]
-
-        form = (
-            Form()
-            .id(form_id)
-            .action(bound.urls.act[_SAVE])
-            .method("post")
-            .errors({param(name): message for name, message in errors.items()})
-            .class_("gap-4")
-            .content(
-                *carried(bound.query(bound.state)),
-                csrf(self, csrf_token),
-                render_when(
-                    editing,
-                    html.input_(type="hidden", name=param("id"), value=posted.id),
-                ),
-                render_when(
-                    editing,
-                    html.input_(
-                        type="hidden",
-                        name=param("occurrence"),
-                        value=posted.occurrence,
-                    ),
-                ),
-                _title_field(param("title"), posted.title),
-                Switch()
-                .name(param("all_day"))
-                .label("All day")
-                .checked(all_day)
-                .x_model(unsafe("allDay")),
-                html.div(
-                    *when("Starts", "starts"),
-                    *when("Ends", "ends"),
-                    class_="grid grid-cols-2 gap-3",
-                ),
-                render_when(
-                    bool(layers or self.repeats),
-                    html.div(
-                        render_when(
-                            bool(layers),
-                            NativeSelect()
-                            .name(param("layer"))
-                            .label("Calendar")
-                            .options(layers)
-                            .value(posted.layer or (layers[0][0] if layers else "")),
-                        ),
-                        render_when(
-                            bool(self.repeats),
-                            NativeSelect()
-                            .name(param("repeat"))
-                            .label("Repeat")
-                            .options([("", "Does not repeat"), *self.repeats.items()])
-                            .value(posted.repeat),
-                        ),
-                        class_="grid grid-cols-2 gap-3",
-                    ),
-                ),
-                TextInput()
-                .name(param("location"))
-                .label("Location")
-                .value(posted.location)
-                .placeholder("Room, address or link")
-                .leading_icon(HueIcon("map-pin")),
-                Textarea()
-                .name(param("notes"))
-                .label("Notes")
-                .value(posted.notes)
-                .rows(3),
-                # Where the overlap warning lands, and announced when it
-                # does, since it arrives while the reader is elsewhere.
-                html.div(id=_overlap(key), role="status"),
-            )
-        )
-        form.x_data(f"{{ allDay: {json.dumps(all_day)} }}")
-        # Asked again whenever a field settles, which the date and time
-        # fields announce as a change once a value is read.
-        form._attrs["x-on:change.debounce.200ms"] = _overlaps_check(bound)
-        # Neither has a modifier. The route says what is wrong, on the
-        # field, so the browser's own bubbles are not a second opinion.
-        form._attrs.update({"x-target": _slot(key), "novalidate": True})
-        footer = [
-            # Built only where there is a delete route to point it at.
-            render_if(
-                bound.urls.act.get(_DELETE) if editing else None,
-                lambda url: Button()
-                .variant("ghost")
-                .type("submit")
-                .form(form_id)
-                .formaction(url)
-                .class_("me-auto text-danger-text")
-                .content("Delete"),
-            ),
-            Button().variant("ghost").content("Cancel").x_on("click", close()),
-            Button()
-            .variant("primary")
-            .type("submit")
-            .form(form_id)
-            .content("Save changes" if editing else "Save event"),
-        ]
-        return (
-            Dialog()
-            .open()
-            .size("lg")
-            .title("Edit event" if editing else "New event")
-            .content(form)
-            .footer(*footer)
-        )
-
     async def _act(self, request: Any, context: Any, action: str) -> Any:
         """
         One of the served actions, with the state and the dialog's fields
@@ -733,7 +497,7 @@ class _Declaration(Declaration[Routes]):
         The dialog over the posted fields, in the slot.
         """
         return HueResponse(
-            component=self._dialog(bound, posted, errors, csrf_token=csrf_token),
+            component=dialog(bound, posted, errors, csrf_token=csrf_token),
             target=_slot(self.key),
             status_code=status,
         )
