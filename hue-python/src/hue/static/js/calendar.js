@@ -18,9 +18,9 @@
  * The browser owns nothing: a change posts the id, the occurrence and the
  * new times to the route, which looks the event up and redraws. A press
  * that never travels five pixels is a click, and a drag that ends where it
- * began, or is cancelled, puts the event back. The state a request posts
- * is read from the page at the time, since this root is drawn once and the
- * calendar moves under it. Focus across a swap is ajax-focus.js's, for
+ * began, or is cancelled, by Escape or by a redraw under it, puts the event
+ * back. The state a request posts is read from the page at the time, since
+ * this root is drawn once and the calendar moves under it. Focus across a swap is ajax-focus.js's, for
  * every component; after a move it goes to the event where it now is.
  *
  * The state is named calendar-something so that no Popover or Dialog
@@ -69,9 +69,14 @@ export function registerCalendarData(Alpine) {
 			// Set as a drag ends, so the click the browser sends after it
 			// opens neither the popover nor the dialog.
 			swallow: false,
-			// The chip being dragged between days, and the day under it.
+			// The chip being dragged between days, the day it was taken
+			// hold of by, and the day under it.
 			lifted: null,
+			from: null,
 			under: null,
+			// Set while a move is posted, so a held key does not post the
+			// time the event had before it moved again.
+			moving: false,
 
 			init() {
 				const calendar = document.getElementById(key);
@@ -86,6 +91,7 @@ export function registerCalendarData(Alpine) {
 				// before the swap notes where it was.
 				this.$nextTick(fit);
 				narrow.addEventListener("change", fit);
+				this.$root.addEventListener("hue:landed", (event) => this.land(event.detail));
 				if (!move) return;
 				calendar.addEventListener(
 					"click",
@@ -101,6 +107,8 @@ export function registerCalendarData(Alpine) {
 					pointermove: "stretch",
 					pointerup: "release",
 					pointercancel: "cancel",
+					// After pointerup as well, by when there is no drag left.
+					lostpointercapture: "cancel",
 					keydown: "keys",
 					dragstart: "lift",
 					dragover: "over",
@@ -174,7 +182,10 @@ export function registerCalendarData(Alpine) {
 			},
 
 			press(event) {
-				if (event.button !== 0 || this.drag) return;
+				if (event.button !== 0) return;
+				// One that was cancelled, or redrawn under it, is over.
+				if (this.drag?.cancelled || (this.drag && !live(this.drag))) this.cancel();
+				if (this.drag) return;
 				const column = event.target.closest("div[data-date]");
 				if (!column) return;
 				const button = event.target.closest("[data-event-id]");
@@ -195,17 +206,35 @@ export function registerCalendarData(Alpine) {
 						shift: 0,
 					};
 					button.setPointerCapture(event.pointerId);
+					this.listen();
 					return;
 				}
 				if (event.target.closest("a, button, [role=dialog]")) return;
 				const from = this.minuteAt(column, event.clientY);
 				this.drag = { ...at, mode: "create", from, to: from, ghost: null };
 				column.setPointerCapture(event.pointerId);
+				this.listen();
+			},
+
+			// Escape cancels a drag wherever focus is, which after a press
+			// on an empty slot is nowhere in the calendar. On the document
+			// for as long as the drag lasts, and first, so nothing else
+			// that listens for Escape hears it.
+			listen() {
+				const escape = (event) => {
+					if (event.key !== "Escape") return;
+					event.stopPropagation();
+					event.preventDefault();
+					this.cancel({ keep: true });
+				};
+				document.addEventListener("keydown", escape, true);
+				this.drag.unlisten = () => document.removeEventListener("keydown", escape, true);
 			},
 
 			stretch(event) {
 				const drag = this.drag;
-				if (!drag) return;
+				if (!drag || drag.cancelled) return;
+				if (!live(drag)) return this.cancel();
 				if (!drag.moved) {
 					if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < THRESHOLD) return;
 					drag.moved = true;
@@ -253,11 +282,14 @@ export function registerCalendarData(Alpine) {
 				const drag = this.drag;
 				if (!drag) return;
 				this.drag = null;
+				drag.unlisten();
 				// A press that never travelled is a click, which the click
 				// handlers take from here.
 				if (!drag.moved) return;
 				this.swallow = true;
 				setTimeout(() => (this.swallow = false));
+				if (drag.cancelled) return;
+				if (!live(drag)) return this.settle(drag);
 				if (drag.mode === "create") {
 					this.settle(drag);
 					const [a, b] = span(drag.from, drag.to);
@@ -278,11 +310,18 @@ export function registerCalendarData(Alpine) {
 				});
 			},
 
-			cancel() {
+			// keep holds on to a drag Escape cancelled until the pointer is
+			// let go, so the click that follows opens nothing.
+			cancel({ keep = false } = {}) {
 				const drag = this.drag;
 				if (!drag) return;
+				if (!drag.cancelled) this.settle(drag);
+				if (keep && drag.moved) {
+					drag.cancelled = true;
+					return;
+				}
 				this.drag = null;
-				this.settle(drag);
+				drag.unlisten();
 			},
 
 			// Put back what a drag changed on the page.
@@ -297,15 +336,11 @@ export function registerCalendarData(Alpine) {
 			},
 
 			keys(event) {
-				if (event.key === "Escape" && this.drag) {
-					event.stopPropagation();
-					this.cancel();
-					return;
-				}
 				const step = STEPS[event.key];
 				const button = event.target.closest?.("[data-event-id]");
 				if (!step || !button || !event.altKey || event.ctrlKey || event.metaKey) return;
 				event.preventDefault();
+				if (this.moving) return;
 				const [days, minutes] = step;
 				this.post(button, { days, minutes, resize: event.shiftKey });
 			},
@@ -314,6 +349,9 @@ export function registerCalendarData(Alpine) {
 				const button = event.target.closest("[data-event-id][draggable]");
 				if (!button) return;
 				this.lifted = button;
+				// The day under the pointer, which for a bar over several
+				// days is not the day it starts.
+				this.from = this.dropAt(event)[1] ?? button.dataset.starts.slice(0, 10);
 				event.dataTransfer.setData("text/plain", button.dataset.eventId);
 				event.dataTransfer.effectAllowed = "move";
 			},
@@ -337,15 +375,17 @@ export function registerCalendarData(Alpine) {
 				this.under?.classList.remove(...DROP);
 				this.under = null;
 				this.lifted = null;
+				this.from = null;
 			},
 
 			drop(event) {
 				const [cell, day] = this.dropAt(event);
 				const button = this.lifted;
+				const from = this.from;
 				this.dropped();
-				if (!cell || !button) return;
+				if (!cell || !button?.isConnected) return;
 				event.preventDefault();
-				const days = daysBetween(button.dataset.starts.slice(0, 10), day);
+				const days = daysBetween(from, day);
 				if (days) this.post(button, { days });
 			},
 
@@ -368,19 +408,41 @@ export function registerCalendarData(Alpine) {
 				for (const [name, value] of Object.entries(fields)) {
 					body.set(`${key}-${name}`, value);
 				}
-				await this.send(move, body);
-				// To the event where it now is, else to it wherever it is,
-				// else ajax-focus.js has already found somewhere.
-				const id = CSS.escape(button.dataset.eventId);
-				const landed = fields.all_day ? fields.starts : `${fields.starts}T${fields.starts_time}`;
-				const scope = `#${CSS.escape(key)} [data-event-id="${id}"]`;
-				const again =
-					document.querySelector(`${scope}[data-starts="${landed}"]`) ||
-					document.querySelector(scope);
-				again?.focus();
+				this.moving = true;
+				try {
+					await this.send(move, body);
+				} finally {
+					this.moving = false;
+				}
+				const starts = fields.all_day ? fields.starts : `${fields.starts}T${fields.starts_time}`;
+				this.land({ id: button.dataset.eventId, starts });
+			},
+
+			// Focus to an event after a change: the one with this id, or this
+			// title for one an Undo made again, where it now starts, else to
+			// it wherever it is. Else ajax-focus.js has found somewhere in
+			// the calendar, unless focus was outside it, on a toast, and then
+			// New event has it.
+			land({ id = null, starts = null, title = null } = {}) {
+				const events = [...document.querySelectorAll(`#${CSS.escape(key)} [data-event-id]`)];
+				const named = (button) =>
+					id ? button.dataset.eventId === id : button.getAttribute("aria-label")?.startsWith(`${title},`);
+				const found =
+					events.find((button) => named(button) && button.dataset.starts === starts) ||
+					events.find((button) => id && named(button));
+				const fallback = this.$root.contains(document.activeElement)
+					? null
+					: document.getElementById(`${key}-new`);
+				(found || fallback)?.focus();
 			},
 		}),
 	);
+}
+
+// Whether what a drag holds is still on the page: a response that redrew
+// the calendar mid-drag has replaced it, and its times are stale.
+function live(drag) {
+	return drag.column.isConnected && (!drag.button || drag.button.isConnected);
 }
 
 function clock(minutes) {
