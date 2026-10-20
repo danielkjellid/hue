@@ -42,15 +42,12 @@ from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.radio import Radio, RadioGroup
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _calendar_views as views
+from hue.ui.molecules._calendar_views import CalendarView
 from hue.ui.molecules.date_picker import WEEKDAYS, DatePicker
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.popover import Popover
 from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
-
-
-def _press(element_id: str) -> Expression:
-    return _on(element_id, "click")
 
 
 def _on(element_id: str, method: str) -> Expression:
@@ -62,8 +59,7 @@ def _on(element_id: str, method: str) -> Expression:
 
 def _open(element_id: str) -> Expression:
     """
-    Tell the dialog with this id to open. It listens for hue:open on its
-    root, which is outside the scope of whatever presses the keys.
+    Tell the dialog with this id to open, from outside its scope.
     """
     return unsafe(
         f"document.getElementById({json.dumps(element_id)})"
@@ -105,6 +101,22 @@ class CalendarShortcuts(ShortcutRegistry):
     calendar_new = Shortcut("New event", "n", scoped=True, group="Calendar")
     calendar_search = Shortcut("Search events", "/", scoped=True, group="Calendar")
     calendar_help = Shortcut("Keyboard shortcuts", "?", scoped=True, group="Calendar")
+
+
+# The key that presses each view's tab, keyed by the Literal so mypy keeps
+# it whole.
+_VIEW_KEYS: dict[CalendarView, Shortcut] = {
+    "day": CalendarShortcuts.calendar_day,
+    "week": CalendarShortcuts.calendar_week,
+    "month": CalendarShortcuts.calendar_month,
+    "year": CalendarShortcuts.calendar_year,
+    "agenda": CalendarShortcuts.calendar_agenda,
+}
+
+# Minutes a drag snaps to and an arrow key moves an event by, which the
+# script is handed and the help says.
+_SNAP = 15
+_SNAPPED = "a quarter hour" if _SNAP == 15 else f"{_SNAP} minutes"
 
 
 def _marked(bound: BoundCalendar) -> list[date]:
@@ -182,6 +194,7 @@ class _Frame(ChainableComponent):
             # What a click posts the day and the time it fell on under.
             "fields": {"day": param("starts"), "time": param("starts_time")},
             "hour": views._HOUR,
+            "snap": _SNAP,
         }
         refocus = _new(bound.key) if bound.declaration.save is not None else None
         return html.div(
@@ -217,12 +230,12 @@ class _Help(ChainableComponent):
         if bound.declaration.save is not None:
             rows += [
                 _help_row(
-                    "Move the focused event a quarter hour",
+                    f"Move the focused event {_SNAPPED}",
                     *_either(("alt",), "up", "down"),
                 ),
                 _help_row("Move it a day", *_either(("alt",), "left", "right")),
                 _help_row(
-                    "Change its end by a quarter hour",
+                    f"Change its end by {_SNAPPED}",
                     *_either(("alt", "shift"), "up", "down"),
                 ),
                 _help_row(
@@ -236,7 +249,6 @@ class _Help(ChainableComponent):
             .id(f"{bound.key}-help")
             .title("Keyboard shortcuts")
             .size("sm")
-            .x_on("hue:open", unsafe("open = true"))
             .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
         )
 

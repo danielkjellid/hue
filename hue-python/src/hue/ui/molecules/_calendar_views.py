@@ -401,16 +401,13 @@ class Draw:
         tabs = Tabs().segmented().label("View")
         if self.region is not None and (views := self._stable("views")):
             tabs.id(views).target(self.region, sync=False)
-            # The new view's heading rather than its current tab, which is
-            # where swaps.js would otherwise land.
-            tabs.data("hue-refocus", self.heading or "")
         items = []
         for view, each in VIEWS.items():
             tab = Tab().href(href(self.cursor, view)).current(view == self.view)
             # Named, so a key can press the same link a click would, and
             # focus comes back to the tab once it is drawn again.
-            if self.own_id is not None:
-                tab.id(f"{self.own_id}-switch-{view}")
+            if (stable := self._stable(f"switch-{view}")) is not None:
+                tab.id(stable)
             items.append(tab.content(each.label))
         return tabs.content(*items)
 
