@@ -1,5 +1,6 @@
 import re
 from collections.abc import Callable
+from http import HTTPStatus
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -131,17 +132,21 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 f"on a HueView, whose index is that page."
             ) from None
 
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset({"csrfmiddlewaretoken"})
+    def _csrf_field(self) -> str:
+        return "csrfmiddlewaretoken"
 
-    def _passes_through(self, error: Exception) -> bool:
+    def _refusal(self, error: Exception) -> HTTPStatus | None:
         """
-        Django's own answers: a 403, a 404 or a 400 is sent as Django sends
-        it, not reported as a failure.
+        Django's own answers: a 403, a 404 or a 400 keeps its status, and
+        is not reported as a failure.
         """
-        return isinstance(
-            error, (PermissionDenied, Http404, SuspiciousOperation, BadRequest)
-        )
+        if isinstance(error, PermissionDenied):
+            return HTTPStatus.FORBIDDEN
+        if isinstance(error, Http404):
+            return HTTPStatus.NOT_FOUND
+        if isinstance(error, (SuspiciousOperation, BadRequest)):
+            return HTTPStatus.BAD_REQUEST
+        return None
 
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
         """

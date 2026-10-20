@@ -87,11 +87,11 @@ class _Router:
         # Nothing is ever posted to a docs page.
         return {}
 
-    def _passes_through(self, error: Exception) -> bool:
-        return False
+    def _refusal(self, error: Exception) -> None:
+        return None
 
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset()
+    def _csrf_field(self) -> None:
+        return None
 
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
         return [row for row in rows if str(row[key]) in values]

@@ -121,6 +121,25 @@ def test_a_delete_removes_the_entry_and_a_key_that_is_not_one_is_not_found(entri
     assert _act("delete", id="999999").status_code == 404
 
 
+def test_a_stale_edit_is_not_found_and_says_so_on_the_page(entries):
+    # The row went while the dialog was open: the calendar comes back
+    # without it, with a toast, rather than Django's 404 page.
+    response = _act(
+        "save",
+        id="999999",
+        title="Gone",
+        starts="2026-10-15",
+        starts_time="11:00",
+        ends="2026-10-15",
+        ends_time="12:30",
+        layer="eng",
+    )
+    assert response.status_code == 404
+    html = response.content.decode()
+    assert "Save failed" in html and 'id="events-view"' in html
+    assert not Entry.objects.filter(title="Gone").exists()
+
+
 def test_a_series_that_began_years_ago_still_lands_on_the_days_asked_for(entries):
     standup = entries["Standup"]
     # Counted from near the week asked for rather than walked from 2026.

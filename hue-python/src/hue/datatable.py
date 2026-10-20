@@ -179,8 +179,8 @@ class _Routes(Protocol):
     def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
     def _url_for(self, request: Any, name: str, **params: Any) -> str: ...
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any: ...
-    def _passes_through(self, error: Exception) -> bool: ...
-    def _form_fields(self) -> AbstractSet[str]: ...
+    def _refusal(self, error: Exception) -> HTTPStatus | None: ...
+    def _csrf_field(self) -> str | None: ...
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R: ...
 
 
@@ -619,7 +619,7 @@ class _Declaration:
         state, or the page's own.
         """
         names = self._names()
-        skipped = {SELECTED, *self._router._form_fields()}
+        skipped = {SELECTED, self._router._csrf_field()}
         own = {names[name]: found for name, found in values.items() if name in names}
         others = tuple(
             (name, value)
@@ -855,7 +855,7 @@ class _Declaration:
             except Exception as error:
                 # A permission denied or a not found is the framework's own
                 # answer, and it gives it.
-                if self._router._passes_through(error):
+                if self._router._refusal(error) is not None:
                     raise
                 # Logged with its traceback, since nothing is raised for an
                 # error tracker to catch. The reader is told on the page, and

@@ -39,11 +39,11 @@ class _Router:
         # Nothing is ever posted to a docs page.
         return {}
 
-    def _passes_through(self, error: Exception) -> bool:
-        return False
+    def _refusal(self, error: Exception) -> None:
+        return None
 
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset()
+    def _csrf_field(self) -> None:
+        return None
 
     def _url_for(self, request: Any, name: str, **params: Any) -> str:
         # Django reverses these against the URLconf. Here they are spelled
@@ -344,9 +344,14 @@ def _build() -> ComponentType:
             "happened. The fields are posted under the key like the state, "
             "events-title and events-starts, and those are the controls' ids too, "
             "so two calendars on one page keep their dialogs apart and a page "
-            "parameter called title is left alone. If a handler raises, the reader gets a danger toast, the "
-            "calendar redraws as it now is, and the error is logged with its "
-            "traceback. A permission denied or a not found is Django's own answer."
+            "parameter called title is left alone. The form also carries Django's "
+            "CSRF token, so it posts even where the script has failed. If a "
+            "handler raises, the reader gets a danger toast, the calendar redraws "
+            "as it now is, and the error is logged with its traceback. A "
+            "permission denied or a not found, such as a save of an event someone "
+            "else has deleted, keeps its status but is answered the same way, "
+            "since Django's own page has nowhere on it for the browser to put "
+            "the answer."
         ),
         pr.h2("What the reader sees and hears"),
         pr.p(
