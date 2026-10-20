@@ -409,7 +409,7 @@ def test_the_overlap_warning_names_two_counts_the_rest_and_skips_itself(mounted)
     assert "Overlaps A (11:00 to 12:00) and B (11:00 to 12:00)." in html
 
 
-def test_a_handler_that_fails_says_so_on_the_page(mounted):
+def test_a_handler_that_fails_says_so_on_the_page(mounted, caplog):
     def fail(request: Any, event: Event) -> None:
         raise RuntimeError("down")
 
@@ -417,6 +417,9 @@ def test_a_handler_that_fails_says_so_on_the_page(mounted):
     response = _act("save", **_fields())
     assert response.status_code == 500
     assert "Create failed" in response.content.decode()
+    assert {r.name for r in caplog.records if r.name.startswith("hue")} == {
+        "hue.calendar"
+    }
 
 
 @pytest.mark.parametrize(

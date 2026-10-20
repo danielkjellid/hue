@@ -87,14 +87,19 @@ from typing import (
 from htmy import Context, html
 
 from hue._declared import (
+    SEARCH_DELAY,
     Bound,
     Declaration,
+    Pairs,
     Routes,
+    SearchInput,
     Urls,
     bound_from,
     carried,
+    csrf,
     many,
     one,
+    search_id,
 )
 from hue.context import HueContext
 from hue.js import call, close, unsafe
@@ -104,7 +109,7 @@ from hue.ui._styles import PANEL_LABEL
 from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import SEARCH_DELAY, NumberInput, SearchInput, TextInput
+from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.radio import Radio
 from hue.ui.base import ChainableComponent
@@ -360,7 +365,7 @@ class BoundTable(Bound):
     page: Rows
     total: int
     urls: Urls
-    others: tuple[tuple[str, str], ...]
+    others: Pairs
 
     def href(self, **changes: Any) -> str:
         """
@@ -503,9 +508,7 @@ class _Declaration(Declaration[_Routes]):
         asked, others = self._read(self._router._get_query_values(request))
         return await self._bind(request, asked, others)
 
-    def _read(
-        self, values: Mapping[str, list[str]]
-    ) -> tuple[TableState, tuple[tuple[str, str], ...]]:
+    def _read(self, values: Mapping[str, list[str]]) -> tuple[TableState, Pairs]:
         """
         A query or a submitted form, split into this table's state and
         everything else, which goes back out as it came: another table's
@@ -520,7 +523,7 @@ class _Declaration(Declaration[_Routes]):
         self,
         request: Any,
         asked: TableState,
-        others: tuple[tuple[str, str], ...],
+        others: Pairs,
         urls: Urls | None = None,
     ) -> BoundTable:
         if inspect.iscoroutinefunction(self.rows):
@@ -843,7 +846,7 @@ def _nothing_matches(bound: BoundTable) -> ComponentType:
         .description("No records match this search and these filters.")
         .actions(
             html.form(
-                *carried(bound._query(cleared)),
+                *carried(bound.query(cleared)),
                 Button()
                 .variant("outline")
                 .size("xs")
@@ -957,7 +960,9 @@ class _TableSearch(_ToolbarForm):
     its caret and focus while the rows change.
     """
 
-    part = "search"
+    @classmethod
+    def form_of(cls, bound: BoundTable) -> str:
+        return search_id(bound.key)
 
     @classmethod
     def sets(cls, bound: BoundTable) -> set[str]:
@@ -1029,14 +1034,22 @@ class _TableCarried(ChainableComponent):
                 one
                 for form in bound.declaration.forms
                 for one in carried(
-                    bound._query(bound.state, without={_PAGE, *form.sets(bound)}),
+                    bound.query(bound.state, without={_PAGE, *form.sets(bound)}),
                     form=form.form_of(bound),
                 )
             ),
             # All of it, page included: an action comes back to the page
-            # it was done on.
+            # it was done on. With the token, since without the script the
+            # form posts on its own.
             *(
-                carried(bound._query(bound.state), form=form_id(bound.key) or "")
+                (
+                    *carried(bound.query(bound.state), form=form_id(bound.key) or ""),
+                    csrf(
+                        bound.declaration,
+                        HueContext.from_context(context).csrf_token,
+                        form=form_id(bound.key),
+                    ),
+                )
                 if bound.declaration.actions
                 else ()
             ),
