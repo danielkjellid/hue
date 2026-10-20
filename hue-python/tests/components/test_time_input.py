@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import UTC, time
 
 import pytest
 
@@ -29,6 +29,19 @@ class TestTimeInput:
         html = await render_tree(_field().value(time(0, 0)), context_args=context_args)
         assert config(html)["committed"] == ["00:00"]
         assert_attr(html, "input#reminder", "value", "00:00")
+
+    @pytest.mark.asyncio
+    async def test_an_aware_time_submits_without_its_offset(self, context_args):
+        html = await render_tree(
+            _field().value(time(9, 5, tzinfo=UTC)), context_args=context_args
+        )
+        assert config(html)["committed"] == ["09:05"]
+
+    @pytest.mark.asyncio
+    async def test_a_day_in_the_time_format_is_refused(self, context_args):
+        context_args["formats"] = Formats(time="%d %H:%M")
+        with pytest.raises(ValueError, match="TimeInput cannot read %d back"):
+            await render_tree(_field(), context_args=context_args)
 
     @pytest.mark.asyncio
     async def test_a_twelve_hour_format_writes_the_list(self, context_args):

@@ -37,6 +37,8 @@ class Settings:
     def HUE_DATE_FORMAT(self) -> str:
         """
         The strftime format components write a date in, ISO 8601 by default.
+        The date fields read back only %d %-d %e %m %-m %Y %B %b %A %a and %%,
+        and refuse to render with any other directive.
         """
         return getattr(django_settings, "HUE_DATE_FORMAT", Formats().date)
 
@@ -44,6 +46,8 @@ class Settings:
     def HUE_DATETIME_FORMAT(self) -> str:
         """
         The strftime format components write a date with a time in.
+        The date and time field reads back only %d %-d %e %m %-m %Y %B %b %A
+        %a %H %M %I %-I %p and %%, and refuses to render with anything else.
         """
         return getattr(django_settings, "HUE_DATETIME_FORMAT", Formats().datetime)
 
@@ -51,6 +55,8 @@ class Settings:
     def HUE_TIME_FORMAT(self) -> str:
         """
         The strftime format components write a time of day in.
+        The time field reads back only %H %M %I %-I %p and %%, and refuses to
+        render with any other directive.
         """
         return getattr(django_settings, "HUE_TIME_FORMAT", Formats().time)
 

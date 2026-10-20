@@ -43,6 +43,21 @@ class TestDateTimeInput:
         assert config(html)["committed"] == ["2026-10-20T14:00"]
 
     @pytest.mark.asyncio
+    async def test_a_year_under_1000_is_padded_and_the_offset_dropped(
+        self, context_args
+    ):
+        # glibc's strftime writes year 5 as 5, which fromisoformat refuses.
+        moment = datetime(5, 1, 2, 3, 4, tzinfo=UTC)
+        html = await render_tree(_field().value(moment), context_args=context_args)
+        assert config(html)["committed"] == ["0005-01-02T03:04"]
+
+    @pytest.mark.asyncio
+    async def test_seconds_in_the_format_are_refused(self, context_args):
+        context_args["formats"] = Formats(datetime="%Y-%m-%d %H:%M:%S")
+        with pytest.raises(ValueError, match="DateTimeInput cannot read %S back"):
+            await render_tree(_field(), context_args=context_args)
+
+    @pytest.mark.asyncio
     async def test_step_spaces_the_list(self, context_args):
         html = await render_tree(_field().step(30), context_args=context_args)
         assert len(select(html, '[role="option"]')) == 48

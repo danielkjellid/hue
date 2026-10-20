@@ -62,3 +62,8 @@ def test_a_month_inside_a_date_takes_its_in_date_form(language, in_date):
     with translation.override(language):
         formats = _formats()
     assert formats.day(date(2026, 10, 14)).endswith(in_date)
+
+
+@override_settings(HUE_DATETIME_FORMAT="%Y-%m-%d %H:%M:%S")
+def test_a_format_with_seconds_reaches_every_request():
+    assert _formats().text(datetime(2026, 3, 1, 12, 0, 5)) == "2026-03-01 12:00:05"
