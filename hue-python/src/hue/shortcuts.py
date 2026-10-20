@@ -473,6 +473,10 @@ class ShortcutHost:
     it is synced, so that copy replaces the page's, and the scoped shortcuts
     on are the ones the latest handler switched on.
 
+    Rendered async, which htmy does after it has laid out everything that
+    is not, so a component on the page that switches a scoped shortcut on
+    while it is drawn, as a declared calendar does, has done so by then.
+
     Hidden, and out of the accessibility tree, because the rows that show a
     shortcut are where it is announced.
     """
@@ -480,7 +484,7 @@ class ShortcutHost:
     def __init__(self, registry: type[ShortcutRegistry]) -> None:
         self.registry = registry
 
-    def htmy(self, context: Context) -> Component:
+    async def htmy(self, context: Context) -> Component:
         # Imported here: hue.context imports this module for the registry type.
         from hue.context import HueContext  # noqa: PLC0415
 
