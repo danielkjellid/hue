@@ -169,6 +169,8 @@ class Calendar(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        if (declaration := self._get_prop("declaration")) is not None:
+            declaration.keys_on(context)
         if (drawn := declared(self)) is not None:
             return drawn
 

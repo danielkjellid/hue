@@ -24,7 +24,7 @@ from django.test import Client, override_settings
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
 from hue.ui import Calendar, Event
@@ -546,6 +546,10 @@ def test_two_calendars_on_one_page_keep_their_own_routes_states_and_ids(urlpatte
 # Moving, and undoing
 
 
+class _Keys(CalendarShortcuts):
+    pass
+
+
 _REVIEW = Event(
     "Review",
     datetime(2026, 10, 14, 13),
@@ -740,3 +744,31 @@ def test_undo_goes_one_level(mounted):
         _act("delete", **_fields(id="1"), **{"events-undo": "1"}).content.decode()
     )
     assert 'Removed "Pairing"' in html
+
+
+# The keys
+
+
+def _host(html: str) -> str:
+    found = re.search(r'<div id="hue-shortcuts".*?</div>', html, re.S)
+    return found[0] if found else ""
+
+
+@override_settings(HUE_SHORTCUTS=_Keys)
+def test_the_calendars_keys_are_on_for_the_page_and_every_answer(mounted):
+    mounted()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    host = _host(page)
+    assert "x-shortcut='[\"t\"]'" in host
+    assert "events-today" in host and "events-switch-agenda" in host
+    assert "events-new" in host and "events-q" not in host
+    # The dialog's answer brings its own copy, so Cancel leaves them on.
+    assert "events-today" in _host(_act("dialog").content.decode())
+    assert 'id="events-help"' in page
+
+
+def test_without_the_keys_in_the_registry_nothing_is_bound(mounted):
+    mounted()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    assert "hue-shortcuts" not in page
+    assert 'id="events-help"' not in page

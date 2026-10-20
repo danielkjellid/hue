@@ -77,6 +77,12 @@ route, one level deep: an undone delete is a new event with a new id, and
 an undone create is a delete of the id save returned, so a save that
 returns nothing leaves a create with no undo.
 
+The keys the design gives the calendar, T, J and K, the views, N, / and
+?, are scoped shortcuts in CalendarShortcuts, on while a calendar is drawn
+once the app's registry inherits them. Each presses the control that does
+the same thing. Alt with an arrow key on a focused event moves it, and
+with Shift as well changes when it ends.
+
 events() and the handlers run off the event loop, through the router,
 because both usually use the ORM and the ORM refuses to run on the loop.
 """
@@ -113,12 +119,15 @@ from hue.context import HueContext
 from hue.formats import Formats
 from hue.js import Expression, ajax, call, close, unsafe
 from hue.router import HueResponse
+from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
+from hue.ui import _shortcut
 from hue.ui._styles import PANEL_LABEL
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import TextInput
+from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.radio import Radio, RadioGroup
 from hue.ui.atoms.switch import Switch
@@ -136,7 +145,7 @@ from hue.ui.molecules.popover import Popover
 from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
 
-__all__ = ["CalendarState", "Layer", "build_calendar_state"]
+__all__ = ["CalendarShortcuts", "CalendarState", "Layer", "build_calendar_state"]
 
 # date is a field of CalendarState, which hides the type by that name
 # inside the class, as Formats' fields do.
@@ -404,6 +413,9 @@ class BoundCalendar(Bound):
     urls: Urls
     others: Pairs
     formats: Formats
+    # The app's registry when it inherits CalendarShortcuts, so the keys
+    # are switched on and the help lists them. None otherwise.
+    shortcuts: type[ShortcutRegistry] | None = None
 
     def href(self, **changes: Any) -> str:
         """
@@ -519,8 +531,18 @@ class _Declaration(Declaration[Routes]):
         asked, _, others = self._read(
             self._router._get_query_values(hue.request), today
         )
-        bound = await self._bind(hue.request, asked, others, today, formats)
+        bound = await self._bind(
+            hue.request, asked, others, today, formats, keys=_keys_in(hue.shortcuts)
+        )
         return self._drawn(calendar, bound)
+
+    def keys_on(self, context: Context) -> None:
+        """
+        Switch the calendar's keys on for the page being rendered. Called
+        from Calendar's own render, which htmy runs before anything async,
+        the page's shortcut host included; draw() runs after it.
+        """
+        self._switch_on(_keys_in(HueContext.from_context(context).shortcuts))
 
     def _read(
         self, values: Mapping[str, list[str]], today: date
@@ -563,6 +585,7 @@ class _Declaration(Declaration[Routes]):
         today: date,
         formats: Formats,
         urls: Urls | None = None,
+        keys: type[ShortcutRegistry] | None = None,
     ) -> BoundCalendar:
         events = await self._router._run_sync(self._fetch, request, asked)
         return BoundCalendar(
@@ -573,6 +596,7 @@ class _Declaration(Declaration[Routes]):
             urls or self._urls_for(request, self._served()),
             others,
             formats,
+            keys,
         )
 
     def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
@@ -876,7 +900,13 @@ class _Declaration(Declaration[Routes]):
         # Before the handler, so a view with no page to draw the calendar on
         # is an error before anything is written.
         urls = self._urls_for(request, self._served())
-        bound = BoundCalendar(self, asked, [], today, urls, others, formats)
+        bound = BoundCalendar(
+            self, asked, [], today, urls, others, formats, _keys_in(context.shortcuts)
+        )
+        # On for this response too, whichever it is: the host that answers a
+        # fragment replaces the page's, and a dialog that was cancelled makes
+        # no request of its own to switch them back on.
+        self._switch_on(bound.shortcuts)
 
         csrf_token: str = context.csrf_token
         if action == _DIALOG:
@@ -1107,11 +1137,46 @@ class _Declaration(Declaration[Routes]):
         slot, which closes the dialog, and the synced parts refresh.
         """
         redrawn = await self._bind(
-            request, bound.state, bound.others, bound.today, bound.formats, bound.urls
+            request,
+            bound.state,
+            bound.others,
+            bound.today,
+            bound.formats,
+            bound.urls,
+            bound.shortcuts,
         )
         return HueResponse(
             component=self._drawn(Calendar(), redrawn), status_code=status
         )
+
+    def _switch_on(self, registry: type[ShortcutRegistry] | None) -> None:
+        """
+        The calendar's keys, on for this response when the app's registry
+        has them. Each one presses the control that does the same thing,
+        so a key and a click are the one code path.
+        """
+        if registry is None:
+            return
+        key = self.key
+        pressed = {
+            CalendarShortcuts.calendar_today: f"{key}-today",
+            CalendarShortcuts.calendar_previous: f"{key}-previous",
+            CalendarShortcuts.calendar_next: f"{key}-next",
+            **{
+                getattr(CalendarShortcuts, f"calendar_{view}"): f"{key}-switch-{view}"
+                for view in _VIEWS
+            },
+        }
+        if self.save is not None:
+            pressed[CalendarShortcuts.calendar_new] = f"{key}-new"
+        for shortcut, target in pressed.items():
+            shortcuts.use(shortcut, action=_press(target))
+        if self.search is not None:
+            shortcuts.use(
+                CalendarShortcuts.calendar_search,
+                action=_on(f"{key}-{_QUERY}", "focus"),
+            )
+        shortcuts.use(CalendarShortcuts.calendar_help, action=_open(f"{key}-help"))
 
 
 # What a toast says once a change has been made.
@@ -1185,6 +1250,64 @@ def _undo_button(
         .content("Undo")
         .x_on("click", unsafe(f"{request}; dismiss()"))
     )
+
+
+def _press(element_id: str) -> Expression:
+    return _on(element_id, "click")
+
+
+def _on(element_id: str, method: str) -> Expression:
+    """
+    Press or focus the control with this id, when it is on the page.
+    """
+    return unsafe(f"document.getElementById({json.dumps(element_id)})?.{method}()")
+
+
+def _open(element_id: str) -> Expression:
+    """
+    Tell the dialog with this id to open. It listens for hue:open on its
+    root, which is outside the scope of whatever presses the keys.
+    """
+    return unsafe(
+        f"document.getElementById({json.dumps(element_id)})"
+        "?.dispatchEvent(new CustomEvent('hue:open'))"
+    )
+
+
+def _keys_in(
+    registry: type[ShortcutRegistry] | None,
+) -> type[ShortcutRegistry] | None:
+    """
+    The app's registry when it inherits the calendar's keys, else None:
+    switching on a shortcut a registry does not have is an error, so an
+    app that has not opted in gets no keys.
+    """
+    if registry is not None and CalendarShortcuts.calendar_today in registry.shortcuts:
+        return registry
+    return None
+
+
+class CalendarShortcuts(ShortcutRegistry):
+    """
+    The keys a declared calendar answers to, for an app's registry to
+    inherit: class Shortcuts(CalendarShortcuts). Each is scoped, so it is
+    on only where a calendar is drawn, and each presses the control that
+    does the same thing, so the keys and the clicks cannot drift apart.
+    The design's bare arrow keys are left out: on their own they move
+    through a date picker and a listbox, and the registry refuses them.
+    """
+
+    calendar_today = Shortcut("Go to today", "t", scoped=True, group="Calendar")
+    calendar_previous = Shortcut("Previous", "j", scoped=True, group="Calendar")
+    calendar_next = Shortcut("Next", "k", scoped=True, group="Calendar")
+    calendar_day = Shortcut("Day view", "d", scoped=True, group="Calendar")
+    calendar_week = Shortcut("Week view", "w", scoped=True, group="Calendar")
+    calendar_month = Shortcut("Month view", "m", scoped=True, group="Calendar")
+    calendar_year = Shortcut("Year view", "y", scoped=True, group="Calendar")
+    calendar_agenda = Shortcut("Agenda view", "a", scoped=True, group="Calendar")
+    calendar_new = Shortcut("New event", "n", scoped=True, group="Calendar")
+    calendar_search = Shortcut("Search events", "/", scoped=True, group="Calendar")
+    calendar_help = Shortcut("Keyboard shortcuts", "?", scoped=True, group="Calendar")
 
 
 # What a view calls, at class scope, to declare a calendar.
@@ -1546,9 +1669,69 @@ class _Frame(ChainableComponent):
         return html.div(
             *self._children,
             html.div(id=_slot(bound.key), **{"data-hue-refocus": refocus}),
+            render_when(bound.shortcuts is not None, _Help(bound)),
             class_="flex flex-col gap-4 lg:flex-row lg:items-start",
             **{"x-data": call("hueCalendar", config)},
         )
+
+
+class _Help(ChainableComponent):
+    """
+    The keyboard shortcuts, in a dialog the ? key and the view options
+    open: every shortcut on for this request, which is the app's own as
+    well as the calendar's, and the keys that move the focused event,
+    which are the event's rather than the page's and so are not shortcuts.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def __init__(self, bound: BoundCalendar) -> None:
+        super().__init__()
+        self._bound = bound
+
+    def _render(self, context: Context) -> Component:
+        bound = self._bound
+        assert bound.shortcuts is not None
+        rows = [
+            _help_row(item.shortcut.label, _shortcut.keys(item.shortcut.steps))
+            for item in bound.shortcuts.active()
+        ]
+        if bound.declaration.save is not None:
+            rows += [
+                _help_row(
+                    "Move the focused event by a quarter hour",
+                    Kbd("alt", "up"),
+                    Kbd("alt", "down"),
+                ),
+                _help_row("Move it by a day", Kbd("alt", "left"), Kbd("alt", "right")),
+                _help_row(
+                    "End it a quarter hour earlier or later",
+                    Kbd("alt", "shift", "up"),
+                    Kbd("alt", "shift", "down"),
+                ),
+                _help_row(
+                    "End an all-day event a day earlier or later",
+                    Kbd("alt", "shift", "left"),
+                    Kbd("alt", "shift", "right"),
+                ),
+            ]
+        rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
+        return (
+            Dialog()
+            .id(f"{bound.key}-help")
+            .title("Keyboard shortcuts")
+            .size("sm")
+            .x_on("hue:open", unsafe("open = true"))
+            .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
+        )
+
+
+def _help_row(label: str, *keys: ComponentType) -> ComponentType:
+    return html.li(
+        html.span(label, class_="min-w-0 flex-1"),
+        html.span(*keys, class_="flex flex-none flex-wrap items-center gap-1.5"),
+        class_="flex items-center gap-4 py-2 text-sm",
+    )
 
 
 class _Side(ChainableComponent):
@@ -1800,6 +1983,17 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 class_="flex w-52 flex-col gap-4",
                 **swap(views.region_id(key)),
                 **{"@change": "$el.requestSubmit()"},
-            )
+            ),
+            # The visible way to the help, for anyone who has not been
+            # told there is a ? to press.
+            render_when(
+                bound.shortcuts is not None,
+                Button()
+                .variant("ghost")
+                .size("sm")
+                .class_("mt-3 w-full justify-between")
+                .content("Keyboard shortcuts", Kbd("?"))
+                .x_on("click", unsafe(f"{close()}; {_open(f'{key}-help')}")),
+            ),
         )
     )

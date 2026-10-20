@@ -12,11 +12,13 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from hue import calendar as declared
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue import scope
+from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.js import unsafe
 from hue.renderer import render_tree
+from hue.shortcuts import ShortcutRegistry, shortcuts
 from hue.ui import Calendar, Event
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
@@ -421,3 +423,63 @@ class TestDrawn:
         assert_selector(html, "#desks-side")
         assert_selector(html, "#rooms-picker")
         assert_selector(html, "#desks-picker")
+
+
+# The keys
+
+
+class _Keys(CalendarShortcuts):
+    pass
+
+
+class _Other(ShortcutRegistry):
+    pass
+
+
+class TestKeys:
+    @pytest.fixture
+    def _request(self):
+        with scope.request_scope():
+            yield
+
+    @pytest.mark.asyncio
+    async def test_the_keys_are_on_and_listed_when_the_registry_inherits_them(
+        self, _request
+    ):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        html = await _drawn(_declared(save=lambda r, e: None, search="Search"), args)
+        used = {item.shortcut.name: item.action for item in shortcuts.used()}
+        assert used["calendar_today"] == (
+            'document.getElementById("events-today")?.click()'
+        )
+        assert used["calendar_month"] == (
+            'document.getElementById("events-switch-month")?.click()'
+        )
+        assert used["calendar_new"] == 'document.getElementById("events-new")?.click()'
+        assert used["calendar_search"] == 'document.getElementById("events-q")?.focus()'
+        assert "hue:open" in used["calendar_help"]
+        # The help names each of them and the keys that move an event.
+        help_ = select(html, "#events-help")[0]
+        assert_attr(html, "#events-help", "@hue:open", "open = true")
+        text = help_.get_text(" ", strip=True)
+        assert "Go to today" in text and "Move it by a day" in text
+        assert (
+            "Keyboard shortcuts" in select(html, "#events-options")[0].parent.get_text()
+        )
+
+    @pytest.mark.asyncio
+    async def test_without_a_save_or_a_search_those_keys_stay_off(self, _request):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        html = await _drawn(_declared(), args)
+        names = {item.shortcut.name for item in shortcuts.used()}
+        assert "calendar_today" in names
+        assert not {"calendar_new", "calendar_search"} & names
+        assert "Move it by a day" not in select(html, "#events-help")[0].get_text()
+
+    @pytest.mark.asyncio
+    async def test_a_registry_without_the_keys_gets_none_and_no_help(self, _request):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Other)
+        html = await _drawn(_declared(save=lambda r, e: None), args)
+        assert shortcuts.used() == []
+        assert_no_selector(html, "#events-help")
+        assert "Keyboard shortcuts" not in html
