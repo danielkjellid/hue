@@ -131,6 +131,15 @@ class TestFrame:
         )
 
     @pytest.mark.asyncio
+    async def test_a_week_title_names_the_days_shown(self, context_args):
+        seven = await _html(_calendar().id("cal"), context_args)
+        five = await _html(_calendar().weekdays().id("cal"), context_args)
+        for html, last in ((seven, 18), (five, 16)):
+            title = f"12 {_DASH} {last} October 2026"
+            assert select(html, "h2")[0].get_text() == title
+            assert select(html, "#cal-status")[0].get_text() == title
+
+    @pytest.mark.asyncio
     async def test_without_a_destination_there_is_nothing_to_navigate_with(
         self, context_args
     ):

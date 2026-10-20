@@ -410,7 +410,7 @@ class _Draw:
         if self.view == "year":
             return str(cursor.year)
         if self.view == "week":
-            days = week_of(cursor, self.start)
+            days = self.week()
             return self._range(days[0], days[-1])
         return self._range(cursor, cursor + timedelta(days=_AGENDA_DAYS - 1))
 
