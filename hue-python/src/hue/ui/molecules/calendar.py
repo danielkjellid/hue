@@ -459,9 +459,12 @@ class _Draw:
     def times(self, event: Event, to: str = _DASH, *, end_day: bool = True) -> str:
         """
         A timed event by the clock: 13:00 to 14:30, with the end's day after
-        its time when the event ends on another day and end_day asks for it.
+        its time when the event ends on another day and end_day asks for it,
+        or 09:30 alone when it has no end.
         """
         starts, ends = event.moments(self.formats)
+        if event.ends is None:
+            return self.clock(starts)
         text = f"{self.clock(starts)} {to} {self.clock(ends)}"
         if end_day and ends.date() != starts.date():
             text += f" {self.formats.day(ends.date())}"
