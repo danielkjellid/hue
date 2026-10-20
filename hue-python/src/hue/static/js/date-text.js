@@ -12,9 +12,9 @@ import { DAY, iso, parse, utc, weekday } from "./date-picker.js";
 const pad = (n, width = 2) => String(n).padStart(width, "0");
 
 /**
- * The value written with a strftime format, for the directives Formats is
- * likely to hold. %b is the first three letters of the month's name, as
- * Python writes it in English. Any other directive is left as it is.
+ * The value written with a strftime format, for the directives Formats
+ * allows and written the way it writes them, names included. Formats
+ * refuses any other directive before a page gets one.
  */
 export function strftime(format, value, names) {
 	const [day, time] = value.includes("T")
@@ -27,20 +27,23 @@ export function strftime(format, value, names) {
 	const [hour, minute] = time ? time.split(":").map(Number) : [0, 0];
 	const fields = {
 		Y: () => day.slice(0, 4),
-		y: () => day.slice(2, 4),
 		m: () => day.slice(5, 7),
+		"-m": () => String(month + 1),
 		d: () => day.slice(8),
+		"-d": () => String(+day.slice(8)),
+		e: () => String(+day.slice(8)).padStart(2, " "),
 		B: () => names.monthNames[month],
-		b: () => names.monthNames[month].slice(0, 3),
+		b: () => names.monthAbbreviations[month],
 		A: () => names.dayNames[wd],
 		a: () => names.dayAbbreviations[wd],
 		H: () => pad(hour),
 		I: () => pad(hour % 12 || 12),
+		"-I": () => String(hour % 12 || 12),
 		M: () => pad(minute),
 		p: () => (hour < 12 ? "AM" : "PM"),
 		"%": () => "%",
 	};
-	return format.replace(/%(.)/g, (all, c) => fields[c]?.() ?? all);
+	return format.replace(/%(-?.)/g, (all, c) => fields[c]?.() ?? all);
 }
 
 function real(year, month, day) {
