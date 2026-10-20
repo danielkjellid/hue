@@ -711,7 +711,7 @@ class _Declaration(Declaration[_Routes]):
         picked = await self._router._run_sync(
             self._picked, request, asked, posted.get(SELECTED, [])
         )
-        status = await self._run(
+        status, _ = await self._run(
             request,
             chosen.handler,
             picked,

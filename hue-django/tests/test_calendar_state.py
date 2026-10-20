@@ -7,9 +7,12 @@ save and a delete with the calendar in the state it was in.
 """
 
 import asyncio
+import json
 import re
 from collections import Counter
+from dataclasses import replace
 from datetime import date, datetime
+from html import unescape
 from typing import Any
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
@@ -538,3 +541,202 @@ def test_two_calendars_on_one_page_keep_their_own_routes_states_and_ids(urlpatte
     repeated = {name for name, n in _ids(rooms_html + dialogs).items() if n > 1}
     assert repeated == set()
     assert {"rooms-title", "desks-title"} <= set(_ids(dialogs))
+
+
+# Moving, and undoing
+
+
+_REVIEW = Event(
+    "Review",
+    datetime(2026, 10, 14, 13),
+    datetime(2026, 10, 14, 14),
+    id="1",
+    layer="work",
+    notes="Bring the matrix.",
+)
+
+
+def _moved(**changed: str) -> dict[str, str]:
+    """
+    What the browser posts for a move of the review: which event and
+    occurrence, and where it goes, an hour later on Thursday unless changed.
+    """
+    whole = {
+        "id": "1",
+        "occurrence": "2026-10-14T13:00",
+        "starts": "2026-10-15",
+        "starts_time": "14:00",
+        "ends": "2026-10-15",
+        "ends_time": "15:00",
+        **changed,
+    }
+    return {f"events-{name}": value for name, value in whole.items()}
+
+
+def _undo_of(html: str) -> tuple[str, dict[str, Any]] | None:
+    """
+    The action the toast's Undo posts to and the fields it posts, or None
+    when the toast offers none.
+    """
+    button = re.search(
+        r"<button[^>]*@click=(['\"])(.*?)\1[^>]*>\s*Undo\s*</button>", html
+    )
+    if button is None:
+        return None
+    call = re.fullmatch(
+        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\); dismiss\(\)', unescape(button[2])
+    )
+    assert call, button[2]
+    return call[1], json.loads(call[2])["body"]
+
+
+def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    response = _act("move", **_moved())
+    assert response.status_code == 200
+    # The notes came from events(), not from the browser, and the colour
+    # the layer lends it is not written back as its own.
+    assert _SAVED == [
+        replace(
+            _REVIEW, starts=datetime(2026, 10, 15, 14), ends=datetime(2026, 10, 15, 15)
+        )
+    ]
+    html = unescape(response.content.decode())
+    assert 'Moved "Review"' in html
+    # The Undo moves it back, naming the occurrence it now is.
+    assert _undo_of(html) == (
+        "move",
+        {
+            "events-id": "1",
+            "events-occurrence": "2026-10-15T14:00",
+            "events-starts": "2026-10-14",
+            "events-starts_time": "13:00",
+            "events-ends": "2026-10-14",
+            "events-ends_time": "14:00",
+            "events-undo": "1",
+        },
+    )
+
+
+def test_a_move_of_the_end_alone_is_a_resize_and_a_series_moves_as_one(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = unescape(
+        _act(
+            "move",
+            **_moved(
+                starts="2026-10-14",
+                starts_time="13:00",
+                ends="2026-10-14",
+                ends_time="15:00",
+            ),
+        ).content.decode()
+    )
+    assert 'Resized "Review"' in html
+    assert _SAVED[-1].ends == datetime(2026, 10, 14, 15)
+    mounted(events=lambda r, s: [replace(_REVIEW, repeat="weekly")])
+    html = unescape(_act("move", **_moved()).content.decode())
+    assert 'Moved all occurrences of "Review"' in html
+
+
+def test_a_move_looks_the_event_up_on_its_own_day_in_every_layer_unsearched(mounted):
+    asked: list[Any] = []
+
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        asked.append((state.first, state.last, state.query, state.layers))
+        return [_REVIEW]
+
+    mounted(events=events)
+    _act("move", **_moved(), **{"events-q": "re", "events-hide": "work"})
+    assert asked[0] == (date(2026, 10, 14), date(2026, 10, 14), "", ("work", "home"))
+
+
+@pytest.mark.parametrize(
+    ("posted", "status", "said"),
+    [
+        ({"events-id": ""}, 404, "move needs the event's id"),
+        ({"events-id": "9"}, 404, "The event is no longer there."),
+        ({"events-ends_time": "13:00"}, 422, "Ends before it starts."),
+        ({"events-starts_time": "9am"}, 422, "Enter a time."),
+    ],
+)
+def test_a_move_that_cannot_be_made_is_refused_and_nothing_is_saved(
+    mounted, posted, status, said
+):
+    mounted(events=lambda r, s: [_REVIEW])
+    response = _act("move", **{**_moved(), **posted})
+    assert response.status_code == status
+    assert said in unescape(response.content.decode())
+    assert _SAVED == []
+
+
+def test_a_move_into_the_hour_the_clocks_skip_is_refused(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    with override_settings(TIME_ZONE="Europe/Oslo"):
+        response = _act(
+            "move",
+            **_moved(
+                starts="2026-03-29",
+                starts_time="02:30",
+                ends="2026-03-29",
+                ends_time="03:30",
+            ),
+        )
+    assert response.status_code == 422
+    assert (
+        "That time is skipped when the clocks go forward." in response.content.decode()
+    )
+
+
+def test_a_create_is_undone_by_deleting_what_save_named(mounted):
+    mounted(save=lambda request, event: 9)
+    html = _act("save", **_fields()).content.decode()
+    assert _undo_of(html) == (
+        "delete",
+        {"events-id": "9", "events-title": "Pairing", "events-undo": "1"},
+    )
+    # A save that returns nothing leaves nothing to delete.
+    mounted()
+    assert _undo_of(_act("save", **_fields()).content.decode()) is None
+
+
+def test_an_edit_is_undone_by_saving_the_fields_events_had(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = _act(
+        "save", **_fields(id="1", occurrence="2026-10-14T13:00")
+    ).content.decode()
+    action, back = _undo_of(html)
+    assert action == "save"
+    assert back["events-id"] == "1"
+    assert back["events-title"] == "Review"
+    assert back["events-notes"] == "Bring the matrix."
+    assert (back["events-starts"], back["events-starts_time"]) == (
+        "2026-10-14",
+        "13:00",
+    )
+    assert back["events-undo"] == "1"
+    assert "events-layer" in back and "events-location" not in back
+
+
+def test_a_delete_is_undone_by_saving_the_fields_back_without_the_id(mounted):
+    mounted()
+    html = _act(
+        "delete", **_fields(id="1", occurrence="2026-10-14T13:00", notes="Bring it")
+    ).content.decode()
+    action, back = _undo_of(html)
+    assert action == "save"
+    assert "events-id" not in back and "events-occurrence" not in back
+    assert back["events-title"] == "Pairing" and back["events-notes"] == "Bring it"
+    # Posted with the id alone, as the dialog's own Delete never does, it
+    # is deleted and offers no way back.
+    assert _undo_of(_act("delete", **{"events-id": "1"}).content.decode()) is None
+
+
+def test_undo_goes_one_level(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = unescape(_act("move", **_moved(), **{"events-undo": "1"}).content.decode())
+    assert 'Restored "Review"' in html
+    assert _undo_of(html) is None
+    html = unescape(
+        _act("delete", **_fields(id="1"), **{"events-undo": "1"}).content.decode()
+    )
+    assert 'Removed "Pairing"' in html

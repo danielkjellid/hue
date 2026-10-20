@@ -391,6 +391,24 @@ class TestDrawn:
         assert_attr(html, "#events", "x-on:click", "calendarSlot($event)")
 
     @pytest.mark.asyncio
+    async def test_the_script_is_told_where_to_post_a_move_only_with_a_save(
+        self, context_args
+    ):
+        html = await _drawn(_declared(save=lambda r, e: None), context_args)
+        frame = select(html, "[x-data^=hueCalendar]")[0]["x-data"]
+        assert '"move": "/events/move/"' in frame
+        assert "[data-resize]" and select(html, "#events [data-resize]")
+        # Delete alone has no save to hand a moved event to.
+        html = await _drawn(_declared(delete=lambda r, i: None), context_args)
+        assert '"move": null' in select(html, "[x-data^=hueCalendar]")[0]["x-data"]
+        assert_no_selector(html, "#events [data-resize]")
+
+    @pytest.mark.asyncio
+    async def test_the_view_switcher_is_named_under_the_key(self, context_args):
+        html = await _drawn(_declared(), context_args)
+        assert _href(html, "events-switch-month") == "/events/?events-view=month"
+
+    @pytest.mark.asyncio
     async def test_two_calendars_on_one_page_keep_their_own_ids(self, context_args):
         rooms = build_calendar_state(_Router(), key="rooms", events=_events)
         desks = build_calendar_state(_Router(), key="desks", events=_events)

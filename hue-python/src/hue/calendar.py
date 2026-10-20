@@ -67,6 +67,16 @@ POST {key}/<action>/, with the state in the body so the calendar comes back
 as the reader left it. The fields are posted under the key like the state,
 {key}-title and {key}-starts, which is also what their ids are.
 
+Dragging an event in the time grid, between the days of the month or
+along the all-day row posts a move: the id, which occurrence, and the new
+times. The route looks the event up through events() and hands save the
+same event at the new times, so a field the browser never had, the notes
+or the rule it repeats by, cannot be lost on the way. Every change raises
+a toast with an Undo, which posts the previous fields through the same
+route, one level deep: an undone delete is a new event with a new id, and
+an undone create is a delete of the id save returned, so a save that
+returns nothing leaves a create with no undo.
+
 events() and the handlers run off the event loop, through the router,
 because both usually use the ORM and the ORM refuses to run on the loop.
 """
@@ -78,6 +88,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
+from functools import partial
 from http import HTTPStatus
 from typing import Any, ClassVar, get_args
 
@@ -114,7 +125,7 @@ from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _calendar_views as views
-from hue.ui.molecules._calendar_views import FIRST, LAST, CalendarView
+from hue.ui.molecules._calendar_views import FIRST, LAST, CalendarView, stamps
 from hue.ui.molecules._days import EventColor, month_grid, week_of
 from hue.ui.molecules.calendar import Calendar, Event
 from hue.ui.molecules.date_input import DateInput, TimeInput
@@ -145,6 +156,7 @@ _DIALOG = "dialog"
 _OVERLAPS = "overlaps"
 _SAVE = "save"
 _DELETE = "delete"
+_MOVE = "move"
 
 _VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
 
@@ -258,9 +270,18 @@ class _Posted:
     repeat: str = ""
     # Set by Duplicate, which saves with no dialog open to keep a failure in.
     copy: str = ""
+    # When the occurrence the reader took hold of started, as its button
+    # stamps it, which tells it from the rest of a series.
+    occurrence: str = ""
+    # Set on the request an Undo makes, whose own toast offers no undo.
+    undo: str = ""
 
 
 _FIELDS = tuple(each.name for each in fields(_Posted))
+# The fields an event is made of, apart from which one and why.
+_EVENT_FIELDS = tuple(
+    name for name in _FIELDS if name not in ("id", "occurrence", "undo")
+)
 
 
 def _day(text: str) -> date | None:
@@ -478,10 +499,10 @@ class _Declaration(Declaration[Routes]):
 
     def _served(self) -> tuple[str, ...]:
         """
-        The actions the route serves: the dialog, the overlap check and a
-        save with a save handler, and a delete with a delete handler.
+        The actions the route serves: the dialog, the overlap check, a save
+        and a move with a save handler, and a delete with a delete handler.
         """
-        saves = (_DIALOG, _OVERLAPS, _SAVE) if self.save is not None else ()
+        saves = (_DIALOG, _OVERLAPS, _SAVE, _MOVE) if self.save is not None else ()
         return (*saves, *((_DELETE,) if self.delete is not None else ()))
 
     async def draw(self, calendar: Calendar, context: Context) -> Component:
@@ -492,11 +513,13 @@ class _Declaration(Declaration[Routes]):
         Calendar.from_state() hands over to this. The request is already in
         the context, so the view has nothing to pass.
         """
-        request = HueContext.from_context(context).request
+        hue = HueContext.from_context(context)
         formats = Formats.from_context(context)
         today = _today(formats)
-        asked, _, others = self._read(self._router._get_query_values(request), today)
-        bound = await self._bind(request, asked, others, today, formats)
+        asked, _, others = self._read(
+            self._router._get_query_values(hue.request), today
+        )
+        bound = await self._bind(hue.request, asked, others, today, formats)
         return self._drawn(calendar, bound)
 
     def _read(
@@ -586,10 +609,12 @@ class _Declaration(Declaration[Routes]):
         if self.save is not None:
             # A click on an empty slot or day opens the dialog with that
             # time filled in. Only the calendar hears it: the sidebar's
-            # picker has day cells of its own.
+            # picker has day cells of its own. Dragging listens from the
+            # script, on the same element.
             # Under the internal key, so a click handler of the page's own
             # on the Calendar is kept beside it.
             calendar._attrs["x-on:click"] = "calendarSlot($event)"
+            calendar._props["movable"] = True
         if self.edits:
             calendar.actions(lambda event: _event_actions(bound, event))
         return _Frame(bound).content(
@@ -637,19 +662,9 @@ class _Declaration(Declaration[Routes]):
         searched away is still in the way.
         """
         first, last = draft.span(formats)
-        # events() reads first and last, which follow the view, so a copy
-        # of the state is pointed at the draft's days by hand.
-        covering = replace(
-            asked,
-            query="",
-            hidden=(),
-            layers=tuple(layer.key for layer in self.layers),
-        )
-        object.__setattr__(covering, "first", first)
-        object.__setattr__(covering, "last", last)
         starts, ends = draft.moments(formats)
         found = []
-        for event in self._fetch(request, covering):
+        for event in self._fetch(request, self._covering(asked, first, last)):
             if not event.timed or (event.id is not None and event.id == draft.id):
                 continue
             opens, closes = event.moments(formats)
@@ -658,6 +673,47 @@ class _Declaration(Declaration[Routes]):
             if opens < ends and closes > starts:
                 found.append(event)
         return found
+
+    def _covering(self, asked: CalendarState, first: date, last: date) -> CalendarState:
+        """
+        A state that asks events() for these days alone, in every layer and
+        with no search: what the overlap check and a lookup by id ask with,
+        since an event the reader has hidden or searched away is still
+        there. events() reads first and last, which follow the view, so a
+        copy is pointed at the days by hand.
+        """
+        covering = replace(
+            asked,
+            query="",
+            hidden=(),
+            layers=tuple(layer.key for layer in self.layers),
+        )
+        object.__setattr__(covering, "first", first)
+        object.__setattr__(covering, "last", last)
+        return covering
+
+    def _find(
+        self,
+        request: Any,
+        asked: CalendarState,
+        id: str,
+        occurrence: str,
+        formats: Formats,
+    ) -> Event | None:
+        """
+        The event events() has under this id, as it stands: the occurrence
+        that started when occurrence says, or the first of them when the
+        button that was pressed said nothing. Asked of events() itself
+        rather than of the page, which has nothing but the times.
+        """
+        day = _day(occurrence[:10]) if occurrence else None
+        first, last = (day, day) if day else (asked.first, asked.last)
+        for event in self.events(request, self._covering(asked, first, last)):
+            if not isinstance(event, Event) or event.id != id:
+                continue
+            if not occurrence or stamps(event, formats)[0] == occurrence:
+                return event
+        return None
 
     def _dialog(
         self,
@@ -711,6 +767,14 @@ class _Declaration(Declaration[Routes]):
                 render_when(
                     editing,
                     html.input_(type="hidden", name=param("id"), value=posted.id),
+                ),
+                render_when(
+                    editing,
+                    html.input_(
+                        type="hidden",
+                        name=param("occurrence"),
+                        value=posted.occurrence,
+                    ),
                 ),
                 _title_field(param("title"), posted.title),
                 Switch()
@@ -804,9 +868,9 @@ class _Declaration(Declaration[Routes]):
         formats: Formats = context.formats
         today = _today(formats)
         asked, body, others = self._read(self._router._get_form_values(request), today)
-        if action == _DELETE and not body.id:
+        if action in (_DELETE, _MOVE) and not body.id:
             return HueResponse(
-                component=html.p(f"{self.key}: delete needs the event's id."),
+                component=html.p(f"{self.key}: {action} needs the event's id."),
                 status_code=HTTPStatus.NOT_FOUND,
             )
         # Before the handler, so a view with no page to draw the calendar on
@@ -821,19 +885,24 @@ class _Declaration(Declaration[Routes]):
         if action == _OVERLAPS:
             return await self._checked(request, bound, body)
         if action == _SAVE and self.save is not None:
-            return await self._saved(request, bound, body, csrf_token)
+            return await self._saved(request, bound, body, self.save, csrf_token)
+        if action == _MOVE and self.save is not None:
+            return await self._moved(request, bound, body, self.save)
         if self.delete is None:  # pragma: no cover - only served with one
             raise AssertionError(action)
-        # Named by the title the popover or the dialog posts beside the id.
-        named = body.title.strip() or "the event"
-        status = await self._run(
+        # Undone by saving the fields back without the id, so an undone
+        # delete is a new event. An old client posting the id alone gets
+        # its delete and no undo.
+        whole, _ = self._draft(body, formats)
+        return await self._changed(
             request,
+            bound,
             self.delete,
             body.id,
-            label="Delete",
-            description="The calendar is shown as it is now.",
+            "Delete",
+            body=body,
+            undo=lambda _: (_SAVE, _posted_fields(bound, body)) if whole else None,
         )
-        return await self._changed(request, bound, status, f'Deleted "{named}"')
 
     def _shown(
         self,
@@ -853,7 +922,12 @@ class _Declaration(Declaration[Routes]):
         )
 
     async def _saved(
-        self, request: Any, bound: BoundCalendar, body: _Posted, csrf_token: str
+        self,
+        request: Any,
+        bound: BoundCalendar,
+        body: _Posted,
+        save: Callable[..., Any],
+        csrf_token: str,
     ) -> Any:
         """
         The calendar once the dialog's fields are saved, or the dialog again
@@ -861,28 +935,97 @@ class _Declaration(Declaration[Routes]):
         failed or refused, so nothing typed is lost. A failed duplicate is
         the calendar again, since nothing was typed.
         """
-        assert self.save is not None  # served only with one
-        draft, errors = self._draft(body, bound.formats)
+        formats = bound.formats
+        draft, errors = self._draft(body, formats)
         if draft is None:
             return self._shown(
                 bound, body, errors, HTTPStatus.UNPROCESSABLE_ENTITY, csrf_token
             )
-        verb = "Save" if draft.id else "Create"
-        status = await self._run(
-            request,
-            self.save,
-            draft,
-            label=verb,
-            description=(
-                "The calendar is shown as it is now."
-                if body.copy
-                else "What you entered is still in the dialog."
-            ),
+        kept = (
+            "The calendar is shown as it is now."
+            if body.copy
+            else "What you entered is still in the dialog."
         )
-        if status != HTTPStatus.OK and not body.copy:
-            return self._shown(bound, body, {}, status, csrf_token)
+        # A failed save answers with the dialog over what was posted.
+        refused = (
+            None
+            if body.copy
+            else partial(self._shown, bound, body, {}, csrf_token=csrf_token)
+        )
+        if draft.id is None:
+            # Undone by deleting what save made, which it has to name:
+            # without an id back, a create has no undo.
+            return await self._changed(
+                request,
+                bound,
+                save,
+                draft,
+                "Create",
+                body=body,
+                undo=lambda made: _undo_create(bound, draft, _id_of(made)),
+                description=kept,
+                refused=refused,
+            )
+        was = await self._router._run_sync(
+            self._find, request, bound.state, draft.id, body.occurrence, formats
+        )
         return await self._changed(
-            request, bound, status, f'{_DONE[verb]} "{draft.title}"'
+            request,
+            bound,
+            save,
+            draft,
+            "Save",
+            body=body,
+            undo=lambda _: (_SAVE, _fields(bound, was)) if was else None,
+            description=kept,
+            refused=refused,
+        )
+
+    async def _moved(
+        self,
+        request: Any,
+        bound: BoundCalendar,
+        body: _Posted,
+        save: Callable[..., Any],
+    ) -> Any:
+        """
+        The event the browser dragged or stepped, saved at the posted
+        times with every other field as events() has it. The browser knows
+        the id and the times and nothing else, so the rest is looked up,
+        and a save handler is enough.
+        """
+        formats = bound.formats
+        was = await self._router._run_sync(
+            self._find, request, bound.state, body.id, body.occurrence, formats
+        )
+        if was is None:
+            return await self._failed(
+                request,
+                bound,
+                "Move",
+                "The event is no longer there.",
+                HTTPStatus.NOT_FOUND,
+            )
+        errors: dict[str, str] = {}
+        starts, ends = _when(body, errors, _zone(formats))
+        try:
+            if errors or starts is None or ends is None:
+                raise ValueError(next(iter(errors.values()), "Enter a time."))
+            moved = replace(was, starts=starts, ends=ends)
+        except ValueError as error:
+            return await self._failed(
+                request, bound, "Move", str(error), HTTPStatus.UNPROCESSABLE_ENTITY
+            )
+        verb = (
+            "Resize" if stamps(was, formats)[0] == stamps(moved, formats)[0] else "Move"
+        )
+        back = {
+            **_when_fields(bound, was),
+            bound.declaration.param("id"): was.id,
+            bound.declaration.param("occurrence"): stamps(moved, formats)[0],
+        }
+        return await self._changed(
+            request, bound, save, moved, verb, body=body, undo=lambda _: (_MOVE, back)
         )
 
     async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
@@ -904,18 +1047,65 @@ class _Declaration(Declaration[Routes]):
         )
 
     async def _changed(
-        self, request: Any, bound: BoundCalendar, status: HTTPStatus, done: str
+        self,
+        request: Any,
+        bound: BoundCalendar,
+        handler: Callable[..., Any],
+        given: Event | str,
+        verb: str,
+        *,
+        body: _Posted,
+        undo: Callable[[Any], _Undo | None],
+        description: str = "The calendar is shown as it is now.",
+        refused: Callable[[HTTPStatus], Any] | None = None,
     ) -> Any:
         """
         The calendar after a handler has run, with a toast saying what
-        happened when it worked. _run has already raised the one for a
-        failure.
+        happened and offering to undo it, or saying what failed.
+
+        undo is given what the handler returned and says which action puts
+        things back and with what fields, or None when nothing can. One
+        level: the request an Undo makes carries the undo flag, and the
+        toast it earns offers none. refused answers a failure instead of
+        the calendar, as the dialog does over what was typed.
         """
+        status, made = await self._run(
+            request, handler, given, label=verb, description=description
+        )
+        if status != HTTPStatus.OK and refused is not None:
+            return refused(status)
         if status == HTTPStatus.OK:
-            toast.success(done)
-        # Drawn after, because the events have just changed under it. The
-        # whole thing, with an empty slot: the response targets the slot,
-        # which closes the dialog, and the synced parts refresh.
+            # Named by the title the popover or the dialog posts beside the id.
+            named = (
+                given.title if isinstance(given, Event) else body.title.strip()
+            ) or "the event"
+            series = bool(given.repeat if isinstance(given, Event) else body.repeat)
+            back = None if body.undo else undo(made)
+            toast.success(
+                _said(verb, named, series, undone=bool(body.undo)),
+                action=render_if(back, lambda it: _undo_button(bound, *it)),
+            )
+        return await self._redrawn(request, bound, status)
+
+    async def _failed(
+        self,
+        request: Any,
+        bound: BoundCalendar,
+        verb: str,
+        why: str,
+        status: HTTPStatus,
+    ) -> Any:
+        toast.danger(f"{verb} failed", description=why)
+        return await self._redrawn(request, bound, status)
+
+    async def _redrawn(
+        self, request: Any, bound: BoundCalendar, status: HTTPStatus
+    ) -> Any:
+        """
+        Drawn after the change, because the events have just moved under
+        it. The whole thing, with an empty slot: the response targets the
+        slot, which closes the dialog, and the synced parts refresh.
+        """
         redrawn = await self._bind(
             request, bound.state, bound.others, bound.today, bound.formats, bound.urls
         )
@@ -924,8 +1114,77 @@ class _Declaration(Declaration[Routes]):
         )
 
 
-# What a toast says once a save has been made.
-_DONE = {"Create": "Created", "Save": "Saved"}
+# What a toast says once a change has been made.
+_DONE = {
+    "Create": "Created",
+    "Save": "Saved",
+    "Delete": "Deleted",
+    "Move": "Moved",
+    "Resize": "Resized",
+}
+
+# Which action an Undo posts to, and the fields it posts, under the key.
+type _Undo = tuple[str, Mapping[str, str | None]]
+
+
+def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
+    """
+    The toast's title. A series is said to move or go as a whole, since
+    the app's save and delete are handed the one event the series is.
+    """
+    if undone:
+        return f'{"Removed" if verb == "Delete" else "Restored"} "{named}"'
+    if series and verb == "Move":
+        return f'Moved all occurrences of "{named}"'
+    if series and verb == "Delete":
+        return f'Deleted "{named}" and its occurrences'
+    return f'{_DONE[verb]} "{named}"'
+
+
+def _id_of(made: Any) -> str | None:
+    """
+    The id a save handler returned for a new event, as the id, the Event
+    it saved or nothing. A bool is a yes, not an id.
+    """
+    if isinstance(made, Event):
+        return made.id
+    if isinstance(made, str | int) and not isinstance(made, bool):
+        return str(made)
+    return None
+
+
+def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo | None:
+    if made is None:
+        return None
+    param = bound.declaration.param
+    return _DELETE, {param("id"): made, param("title"): draft.title}
+
+
+def _undo_button(
+    bound: BoundCalendar, action: str, posted: Mapping[str, Any]
+) -> Button:
+    """
+    The toast's Undo: the same route, told it is undoing, and the toast
+    dismissed once it has been pressed.
+    """
+    declared = bound.declaration
+    request = ajax(
+        bound.urls.act[action],
+        method="post",
+        target=_slot(bound.key),
+        body={
+            **dict(bound.query(bound.state)),
+            **posted,
+            declared.param("undo"): "1",
+        },
+    )
+    return (
+        Button()
+        .variant("outline")
+        .size("xs")
+        .content("Undo")
+        .x_on("click", unsafe(f"{request}; dismiss()"))
+    )
 
 
 # What a view calls, at class scope, to declare a calendar.
@@ -1024,7 +1283,26 @@ def _prefilled(
 def _fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
     """
     An event as the dialog's fields, under the key, for the popover's
-    actions to post.
+    actions to post and an Undo to post back.
+    """
+    given = {
+        "id": event.id,
+        "occurrence": stamps(event, bound.formats)[0],
+        "title": event.title,
+        "layer": event.layer,
+        "location": event.location,
+        "notes": event.notes,
+        "repeat": event.repeat,
+    }
+    return {
+        **{bound.declaration.param(name): value for name, value in given.items()},
+        **_when_fields(bound, event),
+    }
+
+
+def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
+    """
+    When an event is, as the dialog's fields under the key.
     """
     if event.timed:
         starts, ends = event.moments(bound.formats)
@@ -1037,16 +1315,18 @@ def _fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
     else:
         first, last = event.span(bound.formats)
         when = {"all_day": "1", "starts": first.isoformat(), "ends": last.isoformat()}
-    given = {
-        "id": event.id,
-        "title": event.title,
-        **when,
-        "layer": event.layer,
-        "location": event.location,
-        "notes": event.notes,
-        "repeat": event.repeat,
+    return {bound.declaration.param(name): value for name, value in when.items()}
+
+
+def _posted_fields(bound: BoundCalendar, posted: _Posted) -> dict[str, str | None]:
+    """
+    The fields a delete was posted with, under the key and without the id,
+    for the Undo that saves them back as a new event.
+    """
+    return {
+        bound.declaration.param(name): getattr(posted, name) or None
+        for name in _EVENT_FIELDS
     }
-    return {bound.declaration.param(name): value for name, value in given.items()}
 
 
 def _title_field(name: str, value: str) -> ComponentType:
@@ -1176,15 +1456,9 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
             .x_on(
                 "click",
                 then_close(
+                    # The whole event, so the Undo can save it back.
                     ajax(
-                        bound.urls.act[_DELETE],
-                        method="post",
-                        target=slot,
-                        body={
-                            **carried,
-                            declared.param("id"): event.id,
-                            declared.param("title"): event.title,
-                        },
+                        bound.urls.act[_DELETE], method="post", target=slot, body=fields
                     )
                 ),
             )
@@ -1258,6 +1532,8 @@ class _Frame(ChainableComponent):
         param = bound.declaration.param
         config = {
             "url": bound.urls.act.get(_DIALOG),
+            "move": bound.urls.act.get(_MOVE),
+            "key": bound.key,
             "target": _slot(bound.key),
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
