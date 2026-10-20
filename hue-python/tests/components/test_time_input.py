@@ -40,7 +40,7 @@ class TestTimeInput:
     @pytest.mark.asyncio
     async def test_a_day_in_the_time_format_is_refused(self, context_args):
         context_args["formats"] = Formats(time="%d %H:%M")
-        with pytest.raises(ValueError, match="TimeInput cannot read %d back"):
+        with pytest.raises(ValueError, match="TimeInput cannot read back"):
             await render_tree(_field(), context_args=context_args)
 
     @pytest.mark.asyncio

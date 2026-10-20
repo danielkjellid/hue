@@ -4,10 +4,11 @@ from datetime import date, datetime
 
 import pytest
 
-from hue.formats import Formats
+from hue.formats import DAY_DIRECTIVES, TIME_DIRECTIVES, Formats
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import DateInput, Stack
+from hue.ui.molecules.date_input import _EXAMPLES, _UNFILLED, _reads
 from tests._a11y import (
     assert_attr,
     assert_label_for,
@@ -64,14 +65,23 @@ class TestDateInput:
     @pytest.mark.asyncio
     async def test_a_format_it_cannot_read_back_is_refused(self, context_args):
         context_args["formats"] = Formats(date="%d/%m/%y")
-        with pytest.raises(ValueError, match="DateInput cannot read %y back"):
+        with pytest.raises(ValueError, match=r"DateInput cannot read back .*%d/%m/%y"):
             await render_tree(_field(), context_args=context_args)
 
     @pytest.mark.asyncio
-    async def test_a_literal_percent_stays_in_the_placeholder(self, context_args):
-        context_args["formats"] = Formats(date="%d.%m.%Y %%")
+    async def test_a_leading_weekday_is_left_out_of_the_placeholder(self, context_args):
+        context_args["formats"] = Formats(date="%A, %d.%m.%Y")
         html = await render_tree(_field(), context_args=context_args)
-        assert_attr(html, "input#starts", "placeholder", "DD.MM.YYYY %")
+        assert_attr(html, "input#starts", "placeholder", "DD.MM.YYYY")
+
+    def test_every_directive_has_a_placeholder(self):
+        directives = {f"%{d}" for d in (*DAY_DIRECTIVES, *TIME_DIRECTIVES)}
+        assert directives == _UNFILLED.keys()
+
+    @pytest.mark.parametrize("kind", ["single", "datetime", "time"])
+    def test_the_refusal_suggests_a_format_that_reads(self, kind):
+        suggested = _EXAMPLES.get(kind, "%d.%m.%Y")
+        assert _reads(kind, suggested)
 
     @pytest.mark.asyncio
     async def test_names_are_written_from_formats_and_handed_to_the_script(

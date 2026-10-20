@@ -54,7 +54,7 @@ class TestDateTimeInput:
     @pytest.mark.asyncio
     async def test_seconds_in_the_format_are_refused(self, context_args):
         context_args["formats"] = Formats(datetime="%Y-%m-%d %H:%M:%S")
-        with pytest.raises(ValueError, match="DateTimeInput cannot read %S back"):
+        with pytest.raises(ValueError, match="DateTimeInput cannot read back"):
             await render_tree(_field(), context_args=context_args)
 
     @pytest.mark.asyncio
