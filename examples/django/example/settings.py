@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "hue_django",
     "example.invoices",
+    "example.events",
 ]
 
 MIDDLEWARE = [
@@ -35,6 +36,9 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
+# The calendar draws its events in this timezone and says so in its
+# sidebar; the now line in its time grid follows the browser's clock.
+TIME_ZONE = "Europe/Oslo"
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "example" / "static"]
