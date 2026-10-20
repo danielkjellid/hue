@@ -260,6 +260,20 @@ class TestTimeGrid:
         assert _event(html, "Design review").select_one("svg") is None
 
     @pytest.mark.asyncio
+    async def test_an_event_without_an_end_is_said_by_its_start_alone(
+        self, context_args
+    ):
+        ping = Event("Ping", datetime(2026, 10, 14, 9, 30))
+        for view in ("week", "agenda"):
+            html = await _html(_calendar(ping).view(view), context_args)
+            button = _event(html, "Ping")
+            assert button["aria-label"] == "Ping, Wednesday 14 October 2026, 09:30"
+            assert _DASH not in button.get_text()
+            popover = button.find_parent(attrs={"x-data": True})
+            assert "Wednesday 14 October 2026 · 09:30" in popover.get_text()
+            assert f"09:30 {_DASH}" not in popover.get_text()
+
+    @pytest.mark.asyncio
     async def test_the_clock_comes_from_formats(self, context_args):
         html = await _html(
             _calendar(_REVIEW),
