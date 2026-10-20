@@ -288,6 +288,9 @@ def _build() -> ComponentType:
             "framework's current timezone when you store them. For a new event, "
             "return the id you gave it, or the saved Event with it set: that is "
             "what the toast's Undo deletes, and without it a create has no Undo. "
+            "Any string or number save returns for a new event is taken as its "
+            "id, so never return a count of rows. What it returns for an edit is "
+            "not read. "
             "delete receives the request and the id. Duplicate is a save of a "
             "copy with no id."
         ),

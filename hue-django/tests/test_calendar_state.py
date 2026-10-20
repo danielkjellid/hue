@@ -808,6 +808,21 @@ def test_a_delete_is_undone_by_saving_the_event_events_had_without_the_id(mounte
     assert _undo_of(_act("delete", **{"events-id": "9"}).content.decode()) is None
 
 
+def test_a_create_offers_no_undo_without_a_delete_to_undo_it_with(mounted):
+    mounted(save=lambda request, event: 9, delete=None)
+    response = _act("save", **_fields())
+    assert response.status_code == 200
+    assert _undo_of(response.content.decode()) is None
+
+
+def test_a_delete_offers_no_undo_without_a_save_to_undo_it_with(mounted):
+    mounted(events=lambda r, s: [_REVIEW], save=None)
+    response = _act("delete", **_fields(id="1", occurrence="2026-10-14T13:00"))
+    assert response.status_code == 200
+    assert 'Deleted "Pairing"' in unescape(response.content.decode())
+    assert _undo_of(response.content.decode()) is None
+
+
 def test_undo_goes_one_level(mounted):
     mounted(events=lambda r, s: [_REVIEW])
     html = unescape(_act("move", **_moved(), **{"events-undo": "1"}).content.decode())
