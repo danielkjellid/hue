@@ -170,6 +170,14 @@ class EventButton(ChainableComponent):
         )
 
 
+def region_id(own_id: str) -> str:
+    """
+    The id of what a calendar's links swap: the toolbar and the view, under
+    the frame, so the status outside them stays to be refreshed.
+    """
+    return f"{own_id}-view"
+
+
 @dataclass(frozen=True)
 class Draw:
     """
@@ -194,11 +202,15 @@ class Draw:
 
     @property
     def region(self) -> str | None:
+        return None if self.own_id is None else region_id(self.own_id)
+
+    @property
+    def heading(self) -> str | None:
         """
-        The id of what the links swap: the toolbar and the view, under the
-        frame, so the status outside them stays to be refreshed.
+        The id of the view's heading, where focus lands after a swap that
+        took the control it was on.
         """
-        return self._stable("view")
+        return self._stable("heading")
 
     # ------------------------------------------------------------------
     # Words
@@ -303,9 +315,9 @@ class Draw:
     def toolbar(self, title: str) -> ComponentType:
         return html.div(
             render_when(self.href is not None, self._steps()),
-            # Where focus lands after a swap that took the link it was on.
             html.h2(
                 title,
+                id=self.heading,
                 tabindex=None if self.region is None else "-1",
                 class_=classnames(_TITLE, "outline-none"),
             ),
@@ -361,6 +373,9 @@ class Draw:
         tabs = Tabs().segmented().label("View")
         if self.region is not None and (views := self._stable("views")):
             tabs.id(views).target(self.region, sync=False)
+            # The new view's heading rather than its current tab, which is
+            # where ajax-focus.js would otherwise land.
+            tabs.data("hue-refocus", self.heading or "")
         return tabs.content(
             *(
                 Tab()

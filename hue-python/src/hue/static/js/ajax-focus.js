@@ -7,45 +7,45 @@
  * new content is focused (0.12.7, render()), and the server cannot know
  * which control was pressed.
  *
- * So the focused element's id, and the ids of its ancestors, are noted as a
- * request goes out, and once the response is in and focus has been lost,
- * the first of them still on the page gets it back: the control itself when
- * it was drawn again, else the nearest named ancestor, which hands it to its
- * roving tab stop or its current item when it has one and is made focusable
- * for the purpose when not. A control without an id, inside nothing with
- * one, gets nothing.
+ * So the focused element's id, and the ids of its ancestors, are noted when
+ * a response is in and about to be swapped. Once it has been, if focus was
+ * lost, the first of them still on the page gets it back: the control itself
+ * when it was drawn again, else the nearest named ancestor, which hands it
+ * to its roving tab stop or its current item when it has one and is made
+ * focusable for the purpose when not. A control without an id, inside
+ * nothing with one, gets nothing.
  *
  * An ancestor says where focus goes instead when what had it is gone with
  * data-hue-refocus="<id>". A dialog's slot names the button that opens the
  * dialog, since the control that closed the dialog went with it.
+ *
+ * Each note belongs to one response, the object ajax:sent and ajax:after
+ * both carry, so an overlap check answered while a save is in flight
+ * neither uses nor clears the save's note.
  */
 
-let noted = null;
+const notes = new WeakMap();
 
 export function restoreFocusAfterSwap() {
-	document.addEventListener("ajax:before", remember);
+	document.addEventListener("ajax:sent", remember);
 	// On the window: ajax:after goes to the window itself when the control
 	// that made the request is gone by the time the response is in, and an
 	// event on a detached element reaches nothing else.
 	window.addEventListener("ajax:after", restore);
 }
 
-function remember() {
+function remember(event) {
 	const el = document.activeElement;
-	if (!el || el === document.body) {
-		noted = null;
-		return;
-	}
+	if (!el || el === document.body) return;
 	const chain = [];
 	for (let node = el; node && node !== document.body; node = node.parentElement) {
 		if (node.id) chain.push(node.id);
 	}
-	noted = { id: el.id, chain };
+	notes.set(event.detail, { id: el.id, chain });
 }
 
-function restore() {
-	const was = noted;
-	noted = null;
+function restore(event) {
+	const was = notes.get(event.detail.response);
 	if (!was || document.activeElement !== document.body) return;
 	// After Alpine has bound the new elements, so a roving tab stop is
 	// there to be found.

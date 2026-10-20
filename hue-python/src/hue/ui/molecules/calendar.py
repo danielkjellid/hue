@@ -34,20 +34,6 @@ __all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
 # class, as Formats' fields do.
 type _Day = date
 
-# The swap replaces the link that had focus, which would leave it on the
-# body. The region keeps the link's id and finds it again in the new view,
-# as Previous, Today and Next come back; otherwise the view's heading takes it.
-_REFOCUS = {
-    **SYNC,
-    "x-data": "{ calendarFocus: null }",
-    "x-on:ajax:before": "calendarFocus = $event.target.id",
-    "x-on:ajax:merged": (
-        "if (calendarFocus !== null) { (calendarFocus && "
-        "document.getElementById(calendarFocus) || $el.querySelector('h2'))"
-        ".focus(); calendarFocus = null }"
-    ),
-}
-
 _FRAME = (
     "flex w-full flex-col rounded-lg border border-border bg-surface text-base text-fg"
 )
@@ -235,7 +221,9 @@ class Calendar(ChainableComponent):
                 VIEWS[view].render(draw),
                 id=draw.region,
                 class_=LOADING,
-                **(_REFOCUS if own_id else {}),
+                # A swap that took the control focus was on, a day or a
+                # view tab, hands focus to the new view's heading.
+                **({**SYNC, "data-hue-refocus": draw.heading} if own_id else {}),
             ),
             id=own_id,
             class_=classnames(_FRAME, self._get_prop("class_")),
