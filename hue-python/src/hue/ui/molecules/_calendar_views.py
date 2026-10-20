@@ -302,7 +302,12 @@ class Draw:
     def toolbar(self, title: str) -> ComponentType:
         return html.div(
             render_when(self.href is not None, self._steps()),
-            html.h2(title, class_=_TITLE),
+            # Where focus lands after a swap that took the link it was on.
+            html.h2(
+                title,
+                tabindex=None if self.region is None else "-1",
+                class_=classnames(_TITLE, "outline-none"),
+            ),
             render_if(self.href, self._switcher),
             class_=_TOOLBAR,
         )

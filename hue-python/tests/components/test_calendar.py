@@ -79,6 +79,21 @@ class TestFrame:
         assert "x-sync" not in select(html, "nav[aria-label=View]")[0].attrs
 
     @pytest.mark.asyncio
+    async def test_a_swap_puts_focus_back_on_the_link_or_the_heading(
+        self, context_args
+    ):
+        # The swap replaces the link that had focus. The region remembers its
+        # id and finds it again in the new view, or falls back to the heading.
+        html = await _html(_calendar().id("cal"), context_args)
+        region = select(html, "#cal-view")[0]
+        assert "calendarFocus = $event.target.id" in region["x-on:ajax:before"]
+        assert "getElementById(calendarFocus)" in region["x-on:ajax:merged"]
+        assert_attr(html, "#cal-view h2", "tabindex", "-1")
+        plain = await _html(_calendar(), context_args)
+        assert_no_selector(plain, "[x-on\\:ajax\\:merged]")
+        assert_no_selector(plain, "h2[tabindex]")
+
+    @pytest.mark.asyncio
     async def test_without_an_id_the_links_are_plain_navigation(self, context_args):
         html = await _html(_calendar(), context_args)
         assert_no_selector(html, "[role=status]")
