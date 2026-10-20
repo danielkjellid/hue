@@ -122,8 +122,8 @@ def test_a_delete_removes_the_entry_and_a_key_that_is_not_one_is_not_found(entri
 
 
 def test_a_stale_edit_is_not_found_and_says_so_on_the_page(entries):
-    # The row went while the dialog was open: the calendar comes back
-    # without it, with a toast, rather than Django's 404 page.
+    # The row went while the dialog was open: the dialog comes back over
+    # what was typed, with a toast, rather than Django's 404 page.
     response = _act(
         "save",
         id="999999",
@@ -136,7 +136,7 @@ def test_a_stale_edit_is_not_found_and_says_so_on_the_page(entries):
     )
     assert response.status_code == 404
     html = response.content.decode()
-    assert "Save failed" in html and 'id="events-view"' in html
+    assert "Save failed" in html and 'value="Gone"' in html
     assert not Entry.objects.filter(title="Gone").exists()
 
 

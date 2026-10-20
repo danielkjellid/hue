@@ -409,6 +409,14 @@ def test_the_overlap_warning_names_two_counts_the_rest_and_skips_itself(mounted)
     assert "Overlaps A (11:00 to 12:00) and B (11:00 to 12:00)." in html
 
 
+def _kept(html: str) -> None:
+    """
+    The dialog drawn again over what was posted, so nothing typed is lost.
+    """
+    assert re.search(r'<div id="events-dialog"[^>]*>\s*<div', html)
+    assert 'value="Pairing"' in html
+
+
 def test_a_handler_that_fails_says_so_on_the_page(mounted, caplog):
     def fail(request: Any, event: Event) -> None:
         raise RuntimeError("down")
@@ -416,7 +424,9 @@ def test_a_handler_that_fails_says_so_on_the_page(mounted, caplog):
     mounted(save=fail)
     response = _act("save", **_fields())
     assert response.status_code == 500
-    assert "Create failed" in response.content.decode()
+    html = response.content.decode()
+    assert "Create failed" in html
+    _kept(html)
     assert {r.name for r in caplog.records if r.name.startswith("hue")} == {
         "hue.calendar"
     }
@@ -430,7 +440,7 @@ def test_a_refusal_from_the_handler_keeps_its_status_and_answers_on_the_page(
 ):
     # A stale edit, or one the reader may not make. Django's own page has
     # no slot for the browser to put it in, so the calendar answers, with
-    # the dialog closed and a toast, and the status Django would give.
+    # the dialog kept and a toast, and the status Django would give.
     def refuse(request: Any, event: Event) -> None:
         raise refusal
 
@@ -439,7 +449,7 @@ def test_a_refusal_from_the_handler_keeps_its_status_and_answers_on_the_page(
     assert response.status_code == status
     html = response.content.decode()
     assert "Create failed" in html
-    assert re.search(r'<div id="events-dialog"[^>]*></div>', html)
+    _kept(html)
 
 
 def test_the_dialogs_form_carries_the_csrf_token_for_a_plain_submit(mounted):
