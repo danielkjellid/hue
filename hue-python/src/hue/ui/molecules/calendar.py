@@ -19,11 +19,12 @@ from hue.ui.molecules._calendar_views import (
     Draw,
     Href,
 )
-from hue.ui.molecules._days import Event, EventColor, WeekStart
+from hue.ui.molecules._days import Event, EventColor
+from hue.ui.molecules.date_picker import Weekday
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
 
-__all__ = ["Calendar", "CalendarView", "Event", "EventColor", "WeekStart"]
+__all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
 
 # date() is a modifier below, which hides the type by that name inside the
 # class, as Formats' fields do.
@@ -124,7 +125,7 @@ class Calendar(ChainableComponent):
         self._props["today"] = value
         return self
 
-    def week_start(self, value: WeekStart) -> Self:
+    def week_start(self, value: Weekday) -> Self:
         self._props["week_start"] = value
         return self
 

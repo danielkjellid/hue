@@ -8,7 +8,7 @@ foot is the one place a view is defined.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Literal
 
@@ -22,6 +22,7 @@ from hue.ui._styles import (
     FOCUS_RING_INSET,
     STEP,
     STEP_IDLE,
+    STEP_SPENT,
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
@@ -31,14 +32,15 @@ from hue.ui.molecules._days import (
     EventColor,
     Placed,
     Slot,
-    WeekStart,
     add_months,
     minutes,
     month_grid,
     pack,
     place,
     week_of,
+    weekend,
 )
+from hue.ui.molecules.date_picker import Weekday
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.tabs import Tab, Tabs
@@ -110,6 +112,13 @@ _REPEAT = "ms-1 inline size-3 align-[-2px] text-fg-muted"
 # just before most days start.
 _HOUR = 48
 _OPENS_AT = int(7.5 * _HOUR)
+# The space between two events that follow each other, and the least box a
+# line of text fits in. The least time an event is packed as is the time
+# that box and its space cover, so one drawn taller than it lasts still
+# pushes the next one along beside it rather than under it.
+_GAP = 2
+_LEAST_HEIGHT = 18
+_LEAST = -(-(_LEAST_HEIGHT + _GAP) * 60 // _HOUR)
 # Under this many minutes an event is one line, title then time; over this
 # many pixels its title may wrap.
 _SHORT = 45
@@ -172,12 +181,15 @@ class Draw:
     cursor: date
     view: CalendarView
     today: date | None
-    start: WeekStart
+    start: Weekday
     weekdays: bool
     events: list[Event]
     href: Href | None
     actions: Actions | None
     own_id: str | None
+    # An event's popover content by the event's identity, built once however
+    # many days or cells the event is drawn in.
+    panels: dict[int, ComponentType] = field(default_factory=dict, compare=False)
 
     @property
     def region(self) -> str | None:
@@ -314,13 +326,19 @@ class Draw:
         )
 
     def _step(self, name: str, count: int, label: str, icon: str) -> ComponentType:
+        glyph = HueIcon(icon).class_("size-3.5")
         day = VIEWS[self.view].step(self.cursor, count)
         if not FIRST <= day <= LAST:
-            return ""
+            return html.span(
+                glyph,
+                aria_label=label,
+                aria_disabled="true",
+                class_=classnames(STEP, STEP_SPENT),
+            )
         return self.link(
             day,
             self.view,
-            HueIcon(icon).class_("size-3.5"),
+            glyph,
             label=label,
             classes=classnames(STEP, STEP_IDLE),
             stable_id=self._stable(name),
@@ -336,7 +354,7 @@ class Draw:
     def _switcher(self, href: Href) -> ComponentType:
         tabs = Tabs().segmented().label("View")
         if self.region is not None:
-            tabs.id(f"{self.own_id}-views").target(self.region)
+            tabs.id(f"{self.own_id}-views").target(self.region, sync=False)
         return tabs.content(
             *(
                 Tab()
@@ -378,14 +396,32 @@ class Draw:
 
     def event(self, event: Event, button: EventButton) -> ComponentType:
         """
-        The button and the popover it opens: colour, title, when, whether
-        it repeats, where, notes, then the app's actions and a link to the
-        event itself when it has one.
+        The button and the popover it opens, titled by the event.
         """
+        return (
+            Popover()
+            .title(event.title)
+            # Fixed: in the time grid the popover opens inside a scroll
+            # container, which would clip one positioned on the page.
+            .placement("bottom-start", fixed=True)
+            .trigger(button)
+            .class_("h-full w-full")
+            .content(self._panel(event))
+        )
+
+    def _panel(self, event: Event) -> ComponentType:
+        """
+        When, whether it repeats, where and notes, then the app's actions and
+        a link to the event itself when it has one.
+        """
+        if id(event) in self.panels:
+            return self.panels[id(event)]
         actions = list(self.actions(event)) if self.actions is not None else []
         rows = (
             self._row("When", "clock", self.when(event)),
-            render_when(event.recurring, self._row("Repeats", "repeat", "Repeats")),
+            render_when(
+                event.recurring, self._row("Repeats", "repeat", "Part of a series")
+            ),
             render_if(
                 event.location, lambda text: self._row("Location", "map-pin", text)
             ),
@@ -411,46 +447,20 @@ class Draw:
                 ),
             ),
         )
-        return (
-            Popover()
-            .label(event.title)
-            # Fixed: in the time grid the popover opens inside a scroll
-            # container, which would clip one positioned on the page.
-            .placement("bottom-start", fixed=True)
-            .trigger(button)
-            .class_("h-full w-full")
-            .content(
+        panel = html.div(
+            html.dl(*rows, class_="flex flex-col gap-2 text-sm"),
+            render_when(
+                bool(actions) or event.href is not None,
                 html.div(
-                    html.span(
-                        aria_hidden="true",
-                        class_=classnames(
-                            "mt-1 size-3 flex-none rounded-xs", _SOLID[event.color]
-                        ),
-                    ),
-                    html.div(
-                        html.p(
-                            event.title,
-                            class_="font-ui text-base font-bold leading-[1.35]",
-                        ),
-                        html.p(
-                            self.when(event),
-                            class_="mt-0.5 text-sm tabular-nums text-fg-muted",
-                        ),
-                        class_="min-w-0",
-                    ),
-                    class_="flex items-start gap-2.5",
+                    *foot,
+                    class_="flex flex-wrap items-center gap-2 border-t "
+                    "border-border pt-3",
                 ),
-                html.dl(*rows, class_="flex flex-col gap-2 text-sm"),
-                render_when(
-                    bool(actions) or event.href is not None,
-                    html.div(
-                        *foot,
-                        class_="flex flex-wrap items-center gap-2 border-t "
-                        "border-border pt-3",
-                    ),
-                ),
-            )
+            ),
+            class_="flex flex-col gap-3.5",
         )
+        self.panels[id(event)] = panel
+        return panel
 
     def _row(self, term: str, icon: str, detail: ComponentType) -> ComponentType:
         return html.div(
@@ -502,7 +512,8 @@ class Draw:
         its title.
         """
         event = placed.event
-        starts = event.moments(self.formats)[0]
+        # One that began the day before starts this day at midnight.
+        starts = time.min if placed.continues_before else event.moments(self.formats)[0]
         button = (
             EventButton(event, self.name(event))
             .class_(classnames(_DOTTED, FOCUS_RING_INSET))
@@ -530,7 +541,7 @@ class Draw:
 
     def week(self) -> list[date]:
         days = week_of(self.cursor, self.start)
-        return [day for day in days if not self.weekdays or day.weekday() < 5]
+        return [day for day in days if not (self.weekdays and weekend(day))]
 
 
 @dataclass(frozen=True)
@@ -664,7 +675,7 @@ def _hours(draw: Draw) -> ComponentType:
 
 def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     timed = [each for each in items if each.event.timed]
-    spans = [minutes(each, draw.formats) for each in timed]
+    spans = [minutes(each, draw.formats, _LEAST) for each in timed]
     slots = pack(spans)
     return html.div(
         render_when(
@@ -679,9 +690,7 @@ def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         ),
         render_when(day == draw.today, _now()),
         data_date=day.isoformat(),
-        class_=classnames(
-            "relative border-s border-border", {_WEEKEND: day.weekday() >= 5}
-        ),
+        class_=classnames("relative border-s border-border", {_WEEKEND: weekend(day)}),
         style=_HOUR_LINES,
     )
 
@@ -692,7 +701,7 @@ def _timed(
     event = placed.event
     start, end = span
     starts = event.moments(draw.formats)[0]
-    height = max((end - start) * _HOUR // 60 - 2, 18)
+    height = (end - start) * _HOUR // 60 - _GAP
     short = end - start < _SHORT
     if short:
         title_classes, time_classes = "min-w-0 truncate", "flex-none"
@@ -732,9 +741,7 @@ def _timed(
         draw.event(event, button),
         class_="absolute flex",
         style=(
-            # The least height a line of text needs can still reach past
-            # midnight, so the box moves up rather than out of the grid.
-            f"top: {min(start * _HOUR // 60, 24 * _HOUR - height)}px; "
+            f"top: {start * _HOUR // 60}px; "
             f"height: {height}px; "
             f"left: calc({slot.column} / {slot.columns} * 100% + 2px); "
             f"width: calc(100% / {slot.columns} - 4px)"
@@ -756,10 +763,11 @@ def _now() -> ComponentType:
         "before:rounded-full before:bg-danger",
         **{
             "x-data": (
-                "{ minute: 0, tick() { const now = new Date(); "
-                "this.minute = now.getHours() * 60 + now.getMinutes() } }"
+                "{ minute: 0, timer: null, tick() { const now = new Date(); "
+                "this.minute = now.getHours() * 60 + now.getMinutes() }, "
+                "destroy() { clearInterval(this.timer) } }"
             ),
-            "x-init": "tick(); setInterval(() => tick(), 60000)",
+            "x-init": "tick(); timer = setInterval(() => tick(), 60000)",
             ":style": f"'top: ' + minute * {_HOUR} / 60 + 'px'",
         },
     )
@@ -778,7 +786,7 @@ def month(draw: Draw) -> ComponentType:
     formats = draw.formats
     rows = month_grid(draw.cursor, draw.start)
     if draw.weekdays:
-        rows = tuple(tuple(day for day in row if day.weekday() < 5) for row in rows)
+        rows = tuple(tuple(day for day in row if not weekend(day)) for row in rows)
     placed = place(draw.events, rows[0][0], rows[-1][-1], formats)
     return html.table(
         html.caption(formats.month(draw.cursor), class_="sr-only"),
@@ -811,7 +819,6 @@ def month(draw: Draw) -> ComponentType:
 def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     outside = (day.year, day.month) != (draw.cursor.year, draw.cursor.month)
     shown = items if len(items) <= _PER_CELL else items[: _PER_CELL - 1]
-    more = len(items) - len(shown)
     return html.td(
         draw.number(day),
         render_when(
@@ -821,23 +828,24 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
                 class_="mt-1 flex flex-col gap-0.5",
             ),
         ),
-        render_when(more > 0, _more(draw, day, items, more)),
+        render_when(len(shown) < len(items), _more(draw, day, items[len(shown) :])),
         data_date=day.isoformat(),
         class_=classnames(
             "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0",
             {
-                _WEEKEND: outside or day.weekday() >= 5,
+                _WEEKEND: outside or weekend(day),
                 "text-fg-subtle": outside,
             },
         ),
     )
 
 
-def _more(draw: Draw, day: date, items: list[Placed], count: int) -> ComponentType:
+def _more(draw: Draw, day: date, hidden: list[Placed]) -> ComponentType:
     """
-    The rest of a day's events, in a popover headed by the day.
+    The events a cell had no room for, in a popover headed by the day.
     """
     name = draw.formats.day(day)
+    count = len(hidden)
     return (
         Popover()
         .title(name)
@@ -852,7 +860,7 @@ def _more(draw: Draw, day: date, items: list[Placed], count: int) -> ComponentTy
         )
         .content(
             html.ul(
-                *(draw.item(each) for each in items),
+                *(draw.item(each) for each in hidden),
                 class_="flex flex-col gap-0.5",
             )
         )
