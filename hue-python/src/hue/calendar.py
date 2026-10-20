@@ -175,8 +175,8 @@ class _Routes(Protocol):
     def _get_query_values(self, request: Any) -> dict[str, list[str]]: ...
     def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
     def _url_for(self, request: Any, name: str, **params: Any) -> str: ...
-    def _passes_through(self, error: Exception) -> bool: ...
-    def _form_fields(self) -> AbstractSet[str]: ...
+    def _refusal(self, error: Exception) -> HTTPStatus | None: ...
+    def _csrf_field(self) -> str | None: ...
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R: ...
 
 
@@ -535,7 +535,7 @@ class _Declaration:
         """
         names = self._names()
         posted = {self.param(name): name for name in _FIELDS}
-        skipped = self._router._form_fields()
+        csrf = self._router._csrf_field()
         own: dict[str, list[str]] = {}
         given: dict[str, str] = {}
         others: list[tuple[str, str]] = []
@@ -544,7 +544,7 @@ class _Declaration:
                 own[names[name]] = found
             elif name in posted:
                 given[posted[name]] = found[-1] if found else ""
-            elif name not in skipped:
+            elif name != csrf:
                 others.extend((name, value) for value in found)
         return self._state_from(own, today), _Posted(**given), tuple(others)
 
@@ -691,13 +691,21 @@ class _Declaration:
         return found
 
     def _dialog(
-        self, bound: BoundCalendar, posted: _Posted, errors: Mapping[str, str]
+        self,
+        bound: BoundCalendar,
+        posted: _Posted,
+        errors: Mapping[str, str],
+        *,
+        csrf_token: str,
     ) -> ComponentType:
         """
         The event dialog, open, over the posted fields: a new event, or an
-        existing one when they carry an id.
+        existing one when they carry an id. The form carries the
+        framework's CSRF token, so it still posts where the script has
+        failed and the browser submits it on its own.
         """
         key = bound.key
+        csrf_field = self._router._csrf_field()
         editing = bool(posted.id)
         all_day = bool(posted.all_day)
         form_id = f"{key}-form"
@@ -731,6 +739,12 @@ class _Declaration:
             .class_("gap-4")
             .content(
                 *_carried(bound),
+                render_if(
+                    csrf_field,
+                    lambda name: html.input_(
+                        type="hidden", name=name, value=csrf_token
+                    ),
+                ),
                 render_when(
                     editing,
                     html.input_(type="hidden", name=param("id"), value=posted.id),
@@ -857,10 +871,12 @@ class _Declaration:
             urls = self._urls_for(request)
             bound = BoundCalendar(self, asked, [], today, urls, others, formats)
 
+            csrf_token: str = context.csrf_token
             if action == _DIALOG:
                 shown = _prefilled(body, asked, self.layers)
                 return HueResponse(
-                    component=self._dialog(bound, shown, {}), target=_slot(self.key)
+                    component=self._dialog(bound, shown, {}, csrf_token=csrf_token),
+                    target=_slot(self.key),
                 )
             if action == _OVERLAPS:
                 return await self._checked(request, bound, body)
@@ -868,7 +884,9 @@ class _Declaration:
                 draft, errors = self._draft(body)
                 if draft is None:
                     return HueResponse(
-                        component=self._dialog(bound, body, errors),
+                        component=self._dialog(
+                            bound, body, errors, csrf_token=csrf_token
+                        ),
                         target=_slot(self.key),
                         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
                     )
@@ -909,22 +927,28 @@ class _Declaration:
         """
         The calendar after a handler has run, with a toast saying what
         happened, or what failed.
+
+        A refusal from the handler, a not found or a permission denied,
+        keeps the framework's status but is answered here all the same:
+        the framework's own page has no slot on it for the browser to put
+        the answer in, and the form would be submitted again as a plain
+        request, landing the reader on that page.
         """
         status = HTTPStatus.OK
         try:
             await self._router._run_sync(handler, request, given)
         except Exception as error:
-            # A permission denied or a not found is the framework's own
-            # answer, and it gives it.
-            if self._router._passes_through(error):
-                raise
-            # Logged with its traceback, since nothing is raised for an
-            # error tracker to catch. The reader is told on the page.
-            _log.exception("%s: %s failed", self.key, verb.lower())
+            refused = self._router._refusal(error)
+            if refused is None:
+                # Logged with its traceback, since nothing is raised for an
+                # error tracker to catch. The reader is told on the page.
+                _log.exception("%s: %s failed", self.key, verb.lower())
+                status = HTTPStatus.INTERNAL_SERVER_ERROR
+            else:
+                status = refused
             toast.danger(
                 f"{verb} failed", description="The calendar is shown as it is now."
             )
-            status = HTTPStatus.INTERNAL_SERVER_ERROR
         else:
             named = given.title if isinstance(given, Event) else "event"
             toast.success(f'{_DONE[verb]} "{named}"')

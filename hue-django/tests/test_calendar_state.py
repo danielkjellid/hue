@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 import pytest
 from django.core.exceptions import PermissionDenied
-from django.http import HttpRequest, QueryDict
+from django.http import Http404, HttpRequest, QueryDict
 from django.test import Client
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
@@ -389,12 +389,35 @@ def test_a_handler_that_fails_says_so_on_the_page(mounted):
     assert "Create failed" in response.content.decode()
 
 
-def test_a_refusal_from_the_handler_is_djangos_own_answer(mounted):
+@pytest.mark.parametrize(
+    ("refusal", "status"), [(PermissionDenied, 403), (Http404, 404)]
+)
+def test_a_refusal_from_the_handler_keeps_its_status_and_answers_on_the_page(
+    mounted, refusal, status
+):
+    # A stale edit, or one the reader may not make. Django's own page has
+    # no slot for the browser to put it in, so the calendar answers, with
+    # the dialog closed and a toast, and the status Django would give.
     def refuse(request: Any, event: Event) -> None:
-        raise PermissionDenied
+        raise refusal
 
     mounted(save=refuse)
-    assert _act("save", **_fields()).status_code == 403
+    response = _act("save", **_fields())
+    assert response.status_code == status
+    html = response.content.decode()
+    assert "Create failed" in html
+    assert '<div id="events-dialog"></div>' in html
+
+
+def test_the_dialogs_form_carries_the_csrf_token_for_a_plain_submit(mounted):
+    mounted()
+    html = _act("dialog").content.decode()
+    token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
+    assert token and len(token[1]) == 64
+    # Posted back, it is the framework's and not something a link carries.
+    page = _act("dialog", csrfmiddlewaretoken=token[1]).content.decode()
+    assert 'name="csrfmiddlewaretoken" form=' not in page
+    assert page.count('name="csrfmiddlewaretoken"') == 1
 
 
 def test_an_action_that_is_not_one_is_not_found_and_the_route_wants_ajax(mounted):

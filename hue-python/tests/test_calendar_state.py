@@ -46,11 +46,11 @@ class _Router:
     def _url_for(self, request: Any, name: str, **params: Any) -> str:
         return f"/events/{params['action']}/" if params else "/events/"
 
-    def _passes_through(self, error: Exception) -> bool:
-        return False
+    def _refusal(self, error: Exception) -> None:
+        return None
 
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset()
+    def _csrf_field(self) -> None:
+        return None
 
     async def _run_sync(self, func: Any, /, *args: Any) -> Any:
         return func(*args)
