@@ -190,6 +190,7 @@ class Calendar(ChainableComponent):
             href=self._get_prop("href"),
             actions=self._get_prop("actions"),
             own_id=own_id,
+            movable=self._get_prop("movable", False),
         )
         title = VIEWS[view].title(draw)
 

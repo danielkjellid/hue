@@ -107,6 +107,11 @@ _DOTTED = (
 )
 _DOT = "size-2 flex-none rounded-full"
 _TIME = "flex-none text-2xs tabular-nums text-fg-muted"
+# A month cell on a narrow screen holds bars rather than words: the chip
+# keeps its tint and the dotted item its dot, and the text is for wider
+# screens. The button's name says it all to a screen reader either way.
+_COMPACT = "max-md:h-2 max-md:px-0 max-md:leading-none"
+_HIDDEN = "max-md:hidden"
 _REPEAT = "ms-1 inline size-3 align-[-2px] text-fg-muted"
 
 
@@ -150,24 +155,41 @@ class EventButton(ChainableComponent):
 
     category = None
 
-    def __init__(self, event: Event, name: str) -> None:
+    def __init__(self, event: Event, name: str, *, draggable: bool = False) -> None:
         super().__init__()
+        self._props["event"] = event
         self._attrs["aria_label"] = name
-        # What a script that moves or resizes events reads it by.
+        # What the script that moves or resizes events reads it by. The
+        # times are the reader's wall clock, as the dialog posts them.
         if event.id is not None:
             self._attrs["data-event-id"] = event.id
-        self._attrs["data-starts"] = event.starts.isoformat()
-        self._attrs["data-ends"] = (event.ends or event.starts).isoformat()
         if not event.timed:
             self._attrs["data-all-day"] = ""
+        if draggable:
+            self._attrs["draggable"] = "true"
 
     def _render(self, context: Context) -> Component:
+        starts, ends = stamps(self._props["event"], Formats.from_context(context))
         return html.button(
             *self._children,
             type="button",
             class_=self._get_prop("class_"),
+            data_starts=starts,
+            data_ends=ends,
             **self._get_base_html_attrs(),
         )
+
+
+def stamps(event: Event, formats: Formats) -> tuple[str, str]:
+    """
+    When an event starts and ends as the browser and the move route spell
+    it: the reader's wall clock to the minute, or the dates of a whole day.
+    """
+    if event.timed:
+        starts, ends = event.moments(formats)
+        return starts.strftime("%Y-%m-%dT%H:%M"), ends.strftime("%Y-%m-%dT%H:%M")
+    first, last = event.span(formats)
+    return first.isoformat(), last.isoformat()
 
 
 def region_id(own_id: str) -> str:
@@ -196,6 +218,9 @@ class Draw:
     href: Href | None
     actions: Actions | None
     own_id: str | None
+    # Whether a declaration moves and resizes the events, which draws the
+    # resize handle and lets a chip be dragged between days.
+    movable: bool
     # An event's popover content by the event's identity, built once however
     # many days or cells the event is drawn in.
     panels: dict[int, ComponentType] = field(default_factory=dict, compare=False)
@@ -376,15 +401,16 @@ class Draw:
             # The new view's heading rather than its current tab, which is
             # where ajax-focus.js would otherwise land.
             tabs.data("hue-refocus", self.heading or "")
-        return tabs.content(
-            *(
-                Tab()
-                .href(href(self.cursor, view))
-                .current(view == self.view)
-                .content(each.label)
-                for view, each in VIEWS.items()
-            )
-        )
+        items = []
+        for view, each in VIEWS.items():
+            tab = Tab().href(href(self.cursor, view)).current(view == self.view)
+            # Named, so a key can press the same link a click would, and
+            # focus still goes to the heading once the tab is drawn again.
+            if self.own_id is not None:
+                tab.id(f"{self.own_id}-switch-{view}")
+                tab.data("hue-refocus", self.heading or "")
+            items.append(tab.content(each.label))
+        return tabs.content(*items)
 
     def number(self, day: date, events: int = 0) -> ComponentType:
         """
@@ -500,13 +526,15 @@ class Draw:
             render_when(bool(event.repeat), HueIcon("repeat").class_(_REPEAT)),
         )
 
-    def chip(self, event: Event, before: bool, after: bool) -> ComponentType:
+    def chip(
+        self, event: Event, before: bool, after: bool, *, compact: bool = False
+    ) -> ComponentType:
         """
         An all-day event in a list: a filled bar, squared off at an end it
-        continues past.
+        continues past. compact folds it to a bare bar on a narrow screen.
         """
         button = (
-            EventButton(event, self.name(event))
+            EventButton(event, self.name(event), draggable=self.movable)
             .class_(
                 classnames(
                     _EVENT,
@@ -514,10 +542,11 @@ class Draw:
                     _TINT[event.tone],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
+                    {_COMPACT: compact},
                 )
             )
             .content(
-                *self.title_of(event),
+                html.span(*self.title_of(event), class_=_HIDDEN if compact else None),
                 # The squared corner is what a sighted reader sees of a bar
                 # that goes on; this is what a screen reader hears of it.
                 render_when(
@@ -527,32 +556,40 @@ class Draw:
         )
         return self.event(event, button)
 
-    def dotted(self, placed: Placed) -> ComponentType:
+    def dotted(self, placed: Placed, *, compact: bool = False) -> ComponentType:
         """
         A timed event in a list: a dot in its colour, its start time and
-        its title.
+        its title. compact keeps the dot alone on a narrow screen.
         """
         event = placed.event
         starts = starts_on(placed, self.formats)
         button = (
-            EventButton(event, self.name(event))
-            .class_(classnames(_DOTTED, FOCUS_RING_INSET))
+            EventButton(event, self.name(event), draggable=self.movable)
+            .class_(classnames(_DOTTED, FOCUS_RING_INSET, {_COMPACT: compact}))
             .content(
                 html.span(
                     aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])
                 ),
-                html.span(self.clock(starts), class_=_TIME),
-                html.span(*self.title_of(event), class_="min-w-0 truncate"),
+                html.span(
+                    self.clock(starts), class_=classnames(_TIME, {_HIDDEN: compact})
+                ),
+                html.span(
+                    *self.title_of(event),
+                    class_=classnames("min-w-0 truncate", {_HIDDEN: compact}),
+                ),
             )
         )
         return self.event(event, button)
 
-    def item(self, placed: Placed) -> ComponentType:
+    def item(self, placed: Placed, *, compact: bool = False) -> ComponentType:
         return html.li(
-            self.dotted(placed)
+            self.dotted(placed, compact=compact)
             if placed.event.timed
             else self.chip(
-                placed.event, placed.continues_before, placed.continues_after
+                placed.event,
+                placed.continues_before,
+                placed.continues_after,
+                compact=compact,
             ),
             # A flex item rather than a line box, so the chip inside sits
             # flush with no descender gap under it.
@@ -589,13 +626,15 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
     a row above and the hours down the side.
     """
     placed = place(draw.events, days[0], days[-1], draw.formats)
-    columns = f"grid-template-columns: 3.5rem repeat({len(days)}, minmax(0, 1fr))"
+    # A column is never narrower than a time can be read in. At a phone's
+    # width a week is wider than the screen and the rows scroll together.
+    columns = f"grid-template-columns: 3.5rem repeat({len(days)}, minmax(4.5rem, 1fr))"
     bars = _bars(days, placed)
     return html.div(
         html.div(
             html.div(),
             *(_day_head(draw, day) for day in days),
-            class_="grid border-b border-border",
+            class_="grid min-w-max border-b border-border",
             style=columns,
         ),
         html.div(
@@ -616,7 +655,8 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 ),
                 html.div(class_="min-h-7 border-s border-border"),
             ),
-            class_="grid border-b border-border",
+            data_all_day_row="",
+            class_="grid min-w-max border-b border-border",
             style=columns,
         ),
         html.div(
@@ -626,10 +666,13 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 class_="grid",
                 style=f"{columns}; height: {24 * _HOUR}px",
             ),
-            class_="max-h-[42rem] overflow-y-auto",
-            **{"x-init": f"$el.scrollTop = {_OPENS_AT}"},
+            data_time_grid="",
+            class_="max-h-[42rem] min-w-max overflow-y-auto",
+            # Where it was before the last swap when a declaration kept it,
+            # else just before most days start.
+            **{"x-init": f"$el.scrollTop = $data.gridScroll ?? {_OPENS_AT}"},
         ),
-        class_="flex flex-col",
+        class_="flex flex-col overflow-x-auto",
     )
 
 
@@ -713,8 +756,12 @@ def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         render_when(day == draw.today, _now()),
         data_date=day.isoformat(),
         # A column the hours run down, which a click reads a time off.
+        # pan-y: a finger on an empty slot scrolls the grid, and only one
+        # on an event drags it.
         data_timed="",
-        class_=classnames("relative border-s border-border", {_WEEKEND: weekend(day)}),
+        class_=classnames(
+            "relative touch-pan-y border-s border-border", {_WEEKEND: weekend(day)}
+        ),
         style=_HOUR_LINES,
     )
 
@@ -747,6 +794,8 @@ def _timed(
                 {
                     "rounded-t-none": placed.continues_before,
                     "rounded-b-none": placed.continues_after,
+                    # Movable, a finger on it drags it rather than the grid.
+                    "relative touch-none": draw.movable,
                 },
             )
         )
@@ -758,6 +807,17 @@ def _timed(
             html.span(
                 draw.clock(starts) if short else draw.times(event, end_day=False),
                 class_=classnames("tabular-nums text-fg-muted", time_classes),
+                # Rewritten while the event is dragged, so the reader sees
+                # where it will land before letting go.
+                data_time="",
+            ),
+            render_when(
+                draw.movable,
+                html.span(
+                    aria_hidden="true",
+                    data_resize="",
+                    class_="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize",
+                ),
             ),
         )
     )
@@ -846,14 +906,15 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         render_when(
             bool(shown),
             html.ul(
-                *(draw.item(each) for each in shown),
+                *(draw.item(each, compact=True) for each in shown),
                 class_="mt-1 flex flex-col gap-0.5",
             ),
         ),
         render_when(len(shown) < len(items), _more(draw, day, items[len(shown) :])),
         data_date=day.isoformat(),
         class_=classnames(
-            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0",
+            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0 "
+            "max-md:h-16",
             {
                 _WEEKEND: outside or weekend(day),
                 "text-fg-subtle": outside,
@@ -878,7 +939,8 @@ def _more(draw: Draw, day: date, hidden: list[Placed]) -> ComponentType:
             .size("xs")
             .aria_label(f"+{count} more, {name}")
             .class_("mt-0.5")
-            .content(f"+{count} more")
+            # The count alone where the cell is too narrow for the word.
+            .content(f"+{count}", html.span(" more", class_="max-md:hidden"))
         )
         .content(
             html.ul(
