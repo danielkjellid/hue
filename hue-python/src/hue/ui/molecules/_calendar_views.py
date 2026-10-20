@@ -201,6 +201,21 @@ def region_id(own_id: str) -> str:
     return f"{own_id}-view"
 
 
+def control_id(own_id: str, name: str) -> str:
+    """
+    The id a toolbar control keeps across swaps, so focus finds it again
+    and a key can press it: today, previous or next.
+    """
+    return f"{own_id}-{name}"
+
+
+def switch_id(own_id: str, view: CalendarView) -> str:
+    """
+    The id of the tab that switches to a view.
+    """
+    return control_id(own_id, f"switch-{view}")
+
+
 @dataclass(frozen=True)
 class Draw:
     """
@@ -405,7 +420,7 @@ class Draw:
         An id a part keeps across swaps (a step, the switcher, the region),
         so focus and the swap find it again after the swap replaced it.
         """
-        return None if self.own_id is None else f"{self.own_id}-{name}"
+        return None if self.own_id is None else control_id(self.own_id, name)
 
     def _switcher(self, href: Href) -> ComponentType:
         tabs = Tabs().segmented().label("View")
@@ -416,8 +431,8 @@ class Draw:
             tab = Tab().href(href(self.cursor, view)).current(view == self.view)
             # Named, so a key can press the same link a click would, and
             # focus comes back to the tab once it is drawn again.
-            if (stable := self._stable(f"switch-{view}")) is not None:
-                tab.id(stable)
+            if self.own_id is not None:
+                tab.id(switch_id(self.own_id, view))
             items.append(tab.content(each.label))
         return tabs.content(*items)
 
