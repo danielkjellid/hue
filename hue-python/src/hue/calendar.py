@@ -197,8 +197,11 @@ _KEYS_CLAIM = "calendar"
 type EventsFor = Callable[
     [Any, "CalendarState"], Iterable[Event] | Awaitable[Iterable[Event]]
 ]
-# Given the request and an event, with an id when it exists, keep it.
-type SaveHandler = Callable[[Any, Event], Any]
+# Given the request and an event, with an id when it exists, keep it. For a
+# new event, what it returns is taken as the new event's id, which the
+# toast's Undo deletes: the id itself or the saved Event. None leaves the
+# create without an Undo. For an edit the return is not read.
+type SaveHandler = Callable[[Any, Event], str | int | Event | None]
 # Given the request and an event's id, remove it.
 type DeleteHandler = Callable[[Any, str], Any]
 
@@ -1178,6 +1181,10 @@ class _Declaration(Declaration[Routes]):
             ) or "the event"
             series = bool(given.repeat if isinstance(given, Event) else body.repeat)
             back = None if body.undo else undo(made)
+            # Only through a route that is served: a create is undone by a
+            # delete, and a delete by a save, which the other may lack.
+            if back is not None and back[0] not in bound.urls.act:
+                back = None
             toast.success(
                 _said(verb, named, series, undone=bool(body.undo)),
                 action=render_if(back, lambda it: _undo_button(bound, *it)),
