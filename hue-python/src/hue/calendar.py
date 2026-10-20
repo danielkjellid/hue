@@ -561,13 +561,8 @@ class _Declaration(Declaration[Routes]):
             self._find, request, bound.state, draft.id, body.occurrence, formats
         )
         if was is None:
-            return await self._failed(
-                request,
-                bound,
-                "Save",
-                "The event is no longer there.",
-                HTTPStatus.NOT_FOUND,
-            )
+            toast.danger("Save failed", description="The event is no longer there.")
+            return refused(HTTPStatus.NOT_FOUND)
         edited = draft
         if draft.repeat:
             starts, ends = _series(was, draft.starts, draft.ends, formats)
