@@ -27,22 +27,22 @@ if TYPE_CHECKING:
 type _Day = date
 
 # What each part of the state is called in the query string.
-_VIEW = "view"
-_DATE = "date"
-_QUERY = "q"
-_HIDE = "hide"
-_START = "start"
-_WEEKDAYS = "weekdays"
-_STATE = (_VIEW, _DATE, _QUERY, _HIDE, _START, _WEEKDAYS)
+VIEW = "view"
+DATE = "date"
+QUERY = "q"
+HIDE = "hide"
+START = "start"
+WEEKDAYS_ONLY = "weekdays"
+STATE = (VIEW, DATE, QUERY, HIDE, START, WEEKDAYS_ONLY)
 
 # The actions the one POST route serves.
-_DIALOG = "dialog"
-_OVERLAPS = "overlaps"
-_SAVE = "save"
-_DELETE = "delete"
-_MOVE = "move"
+DIALOG = "dialog"
+OVERLAPS = "overlaps"
+SAVE = "save"
+DELETE = "delete"
+MOVE = "move"
 
-_VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
+VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
 
 # YYYY-MM-DD and HH:MM and nothing else; fromisoformat would also take
 # 20261014 and 09:30:15.
@@ -114,7 +114,7 @@ class CalendarState:
         return cursor, cursor + timedelta(days=views._AGENDA_DAYS - 1)
 
 
-def _day(text: str) -> date | None:
+def read_day(text: str) -> date | None:
     """
     A date typed or posted as YYYY-MM-DD, or None for anything else.
     """
@@ -126,7 +126,7 @@ def _day(text: str) -> date | None:
         return None
 
 
-def _clock(text: str) -> time | None:
+def read_clock(text: str) -> time | None:
     if not _CLOCK_PATTERN.fullmatch(text):
         return None
     try:
@@ -135,7 +135,7 @@ def _clock(text: str) -> time | None:
         return None
 
 
-def _today(formats: Formats) -> date:
+def today_in(formats: Formats) -> date:
     """
     The reader's today: now in their timezone when the framework says how
     to get there, the server's otherwise. Read through _now so a test can
@@ -148,7 +148,7 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _zone(formats: Formats) -> tzinfo | None:
+def zone_of(formats: Formats) -> tzinfo | None:
     """
     The timezone events are drawn in, when the framework moves them into
     one. Without that, a naive time is shown as given and there is nothing
@@ -159,28 +159,28 @@ def _zone(formats: Formats) -> tzinfo | None:
     return formats.moment(_now()).tzinfo
 
 
-def _timezone(formats: Formats) -> str | None:
-    zone = _zone(formats)
+def timezone_name(formats: Formats) -> str | None:
+    zone = zone_of(formats)
     if zone is None:
         return None
     return getattr(zone, "key", None) or zone.tzname(_now())
 
 
-def _slot(key: str) -> str:
+def slot_id(key: str) -> str:
     """
     The id of the element the dialog lands in, and every action targets.
     """
     return f"{key}-dialog"
 
 
-def _overlap(key: str) -> str:
+def overlap_id(key: str) -> str:
     """
     The id of the dialog's overlap warning, which the check swaps.
     """
     return f"{key}-overlap"
 
 
-def _state(key: str) -> str:
+def state_id(key: str) -> str:
     """
     The id of the hidden fields that hold the whole state, which a click on
     an empty slot reads.
@@ -188,28 +188,28 @@ def _state(key: str) -> str:
     return f"{key}-state"
 
 
-def _new(key: str) -> str:
+def new_id(key: str) -> str:
     """
     The id of New event, where focus goes once the dialog has closed.
     """
     return f"{key}-new"
 
 
-def _help(key: str) -> str:
+def help_id(key: str) -> str:
     """
     The id of the shortcuts' help dialog, which ? and the view options open.
     """
     return f"{key}-help"
 
 
-def _side(key: str) -> str:
+def side_id(key: str) -> str:
     """
     The id of the sidebar, which the toolbar's button opens.
     """
     return f"{key}-side"
 
 
-def _view_options(key: str) -> str:
+def view_options_id(key: str) -> str:
     """
     The id of the view options' form, which the fields it carries name.
     """
@@ -252,11 +252,11 @@ class BoundCalendar(Bound):
         """
         declared = self.declaration
         asked = {
-            _VIEW: state.view if state.view != declared.view else "",
-            _DATE: state.date.isoformat() if state.date != self.today else "",
-            _QUERY: state.query,
-            _HIDE: ",".join(state.hidden),
-            _START: state.week_start if state.week_start != declared.week_start else "",
-            _WEEKDAYS: "1" if state.weekdays else "",
+            VIEW: state.view if state.view != declared.view else "",
+            DATE: state.date.isoformat() if state.date != self.today else "",
+            QUERY: state.query,
+            HIDE: ",".join(state.hidden),
+            START: state.week_start if state.week_start != declared.week_start else "",
+            WEEKDAYS_ONLY: "1" if state.weekdays else "",
         }
         return {name: value for name, value in asked.items() if value}

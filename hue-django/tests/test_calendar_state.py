@@ -87,7 +87,7 @@ def mounted(urlpatterns_: list[Any]) -> Any:
 @pytest.fixture(autouse=True)
 def _october(monkeypatch: pytest.MonkeyPatch) -> None:
     # The clock held still, so today and its week are known.
-    monkeypatch.setattr(declared, "_today", lambda formats: _TODAY)
+    monkeypatch.setattr(declared, "today_in", lambda formats: _TODAY)
 
 
 def _request(**params: str) -> Any:
