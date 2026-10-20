@@ -239,7 +239,7 @@ def _undo(response: Any) -> Any:
     Press the Undo on the toast a response raised: its action and fields.
     """
     html = unescape(response.content.decode())
-    button = re.search(r"\$ajax\(\"[^\"]*/(\w+)/\", (\{.*?\})\)\.then", html)
+    button = re.search(r"\$ajax\(\"[^\"]*/(\w+)/\", (\{.*?\})\); dismiss\(\)", html)
     assert button, "the toast offers an Undo"
     posted = json.loads(button[2])["body"]
     return Client().post(f"/events/events/{button[1]}/", posted, **_AJAX)

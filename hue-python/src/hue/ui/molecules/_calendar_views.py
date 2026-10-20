@@ -222,6 +222,8 @@ class Draw:
     # Whether a declaration moves and resizes the events, which draws the
     # resize handle and lets a finger drag a chip rather than the page.
     movable: bool
+    # The event Alpine AJAX focuses once a declaration's change is drawn.
+    focus: Event | None = None
     # An event's popover content by the event's identity, built once however
     # many days or cells the event is drawn in.
     panels: dict[int, ComponentType] = field(default_factory=dict, compare=False)
@@ -532,6 +534,7 @@ class Draw:
         """
         button = (
             EventButton(event, self.name(event))
+            .x_autofocus(event is self.focus)
             .class_(
                 classnames(
                     _EVENT,
@@ -560,6 +563,7 @@ class Draw:
         starts = starts_on(placed, self.formats)
         button = (
             EventButton(event, self.name(event))
+            .x_autofocus(event is self.focus)
             .class_(
                 classnames(
                     _DOTTED,
@@ -788,6 +792,7 @@ def _timed(
         title_classes, time_classes = "block truncate", "block truncate"
     button = (
         EventButton(event, draw.name(event))
+        .x_autofocus(event is draw.focus)
         .class_(
             classnames(
                 _EVENT,
@@ -1096,6 +1101,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         when = "All day" if total == 1 else f"Day {nth} of {total}"
     button = (
         EventButton(event, draw.name(event))
+        .x_autofocus(event is draw.focus)
         .class_(
             classnames(
                 "grid w-full cursor-pointer grid-cols-[6.5rem_auto_minmax(0,1fr)] "
