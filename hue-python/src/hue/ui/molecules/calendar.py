@@ -850,11 +850,7 @@ class _Draw:
         )
 
     def _column(self, day: date, items: list[Placed]) -> ComponentType:
-        # An event that began the day before is drawn where it started
-        # and cut at midnight.
-        timed = [
-            each for each in items if each.event.timed and not each.continues_before
-        ]
+        timed = [each for each in items if each.event.timed]
         spans = [minutes(each, self.formats) for each in timed]
         slots = pack(spans)
         return html.div(
@@ -899,6 +895,12 @@ class _Draw:
                 FOCUS_RING_INSET,
                 "h-full overflow-hidden py-0.5 leading-4",
                 "flex items-baseline gap-1.5" if short else "block",
+                # Squared where it runs on from the day before or into the
+                # next, as an all-day bar is where the week cuts it.
+                {
+                    "rounded-t-none": placed.continues_before,
+                    "rounded-b-none": placed.continues_after,
+                },
             ),
         ).content(
             html.span(
