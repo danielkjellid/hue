@@ -370,7 +370,9 @@ def _build() -> ComponentType:
             "it now is, and the ticked rows stay ticked for another try. The error "
             "is logged with its traceback, which is how an error tracker hears about "
             "it, since nothing is raised past the route. A permission denied, a not "
-            "found or a bad request is Django's own answer, and Django gives it."
+            "found or a bad request keeps Django's status and is answered the same "
+            "way, without the log line, since Django's own page has nowhere on it "
+            "for the browser to put the answer."
         ),
         pr.p(
             "Ticking a row brings up a bar that floats at the bottom of the window "
