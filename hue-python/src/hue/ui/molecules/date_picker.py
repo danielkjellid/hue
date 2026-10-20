@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal, get_args
 
@@ -12,9 +13,9 @@ from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.text import required_marker
+from hue.ui.base import modelable
 from hue.ui.form import FieldControl
-from hue.ui.molecules.field import error_component, hint_component
+from hue.ui.molecules.field import error_component, hint_component, legend_component
 from hue.utils import classnames, render_if, render_when
 
 type DatePickerMode = Literal["single", "range", "multiple"]
@@ -45,6 +46,7 @@ _CELL = classnames(
 # orders these variants by their own rules rather than by the class list.
 _DISC = classnames(
     "relative grid place-items-center rounded-md font-medium tabular-nums text-fg",
+    "in-[fieldset:disabled]:text-fg-disabled",
     # FOCUS_RING, drawn by the disc for the focused cell so it takes its shape.
     "in-[td:focus-visible]:ring-2 in-[td:focus-visible]:ring-accent",
     "in-[td:focus-visible]:ring-offset-2 in-[td:focus-visible]:ring-offset-canvas",
@@ -70,19 +72,41 @@ _ITEM = classnames(
     "data-current:not-aria-pressed:inset-ring-fg",
     "aria-pressed:bg-accent aria-pressed:text-accent-fg",
     "aria-pressed:hover:bg-accent-hover",
+    "disabled:cursor-not-allowed disabled:text-fg-disabled",
     FOCUS_RING,
 )
 _TITLE = classnames(
     "inline-flex h-control-xs items-center gap-1 rounded-md px-2 font-ui",
-    "text-base font-bold text-fg",
+    "text-base font-bold text-fg in-[fieldset:disabled]:text-fg-disabled",
 )
 
-# Keyed by the Literal so mypy keeps it exhaustive: the disc, the weekday
-# header, and the width of the jump panels, which is seven discs.
-_SIZES: dict[DatePickerSize, tuple[str, str, str]] = {
-    "sm": ("h-7.5 w-7 text-xs", "h-6 text-2xs", "w-52.5"),
-    "md": ("h-9 w-8.5 text-sm", "h-7 text-xs", "w-63"),
+_DISC_SIZES: dict[DatePickerSize, str] = {
+    "sm": "h-7.5 w-7 text-xs",
+    "md": "h-9 w-8.5 text-sm",
 }
+_HEAD_SIZES: dict[DatePickerSize, str] = {
+    "sm": "h-6 text-2xs",
+    "md": "h-7 text-xs",
+}
+# The jump panels are as wide as seven discs.
+_PANEL_WIDTHS: dict[DatePickerSize, str] = {
+    "sm": "w-52.5",
+    "md": "w-63",
+}
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Grid:
+    """
+    What the months are drawn with, read once in _render.
+    """
+
+    formats: Formats
+    mode: DatePickerMode
+    months: int
+    size: DatePickerSize
+    start: Weekday
+    disabled: bool
 
 
 class DatePicker(FieldControl):
@@ -189,8 +213,6 @@ class DatePicker(FieldControl):
         error: str | None = self._error(context)
         hint: str | None = self._get_prop("hint")
         control_id = self._input_id()
-        legend_id = f"{control_id}-label"
-        formats = Formats.from_context(context)
 
         if label is None:
             raise ValueError(
@@ -199,22 +221,28 @@ class DatePicker(FieldControl):
                 "the days are for."
             )
 
-        config = self._config(formats, mode, months, start)
+        grid = _Grid(
+            formats=Formats.from_context(context),
+            mode=mode,
+            months=months,
+            size=size,
+            start=start,
+            disabled=disabled,
+        )
         attrs = self._control_attrs(
             context,
-            aria_labelledby=legend_id,
             aria_describedby=self._describedby(context),
             aria_invalid="true" if error is not None else None,
             # So focus can wait here while the panels swap.
             tabindex="-1",
             class_=classnames(
                 "inline-flex min-w-0 flex-col gap-2 outline-none select-none",
-                {"pointer-events-none **:text-fg-disabled": disabled},
+                {"pointer-events-none": disabled},
                 self._get_prop("class_"),
             ),
             disabled=disabled or None,
             **{
-                "x-data": call("hueDatePicker", config),
+                "x-data": call("hueDatePicker", self._config(grid)),
                 "x-on:keydown": "key($event)",
                 "x-on:click": "click($event)",
                 "x-on:mouseover": "preview($event)",
@@ -224,8 +252,9 @@ class DatePicker(FieldControl):
         # A fieldset's form ties only the fieldset, so it goes on the
         # submitted fields. The caller's x-model binds the list of days.
         form = attrs.pop("form", None)
-        if "x-model" in attrs:
-            attrs["x-modelable"] = "value"
+        model = attrs.pop("x-model", None)
+        if model is not None:
+            attrs.update(modelable(model, "value"))
 
         submitted = html.template(
             html.input_(
@@ -237,32 +266,31 @@ class DatePicker(FieldControl):
                 **{":value": "iso"},
             ),
             # Keyed by position: a range picked on one day holds it twice.
-            **{"x-for": "(iso, i) in value", ":key": "i"},
+            **{"x-for": "(iso, i) in days()", ":key": "i"},
         )
-        legend = html.legend(
-            label,
-            render_when(required, required_marker()),
-            id=legend_id,
-            # A legend is no flex item of its fieldset, so the gap is written
-            # out as a margin.
-            class_=classnames(
-                "mb-2 inline-flex items-center gap-[5px] font-ui text-sm",
-                "font-medium leading-[1.4] text-fg",
-                {"sr-only": hidden_label},
-            ),
+        # Hidden fields are never validated, so required is held by one the
+        # browser does check: empty until a day is picked. Focus it lands on
+        # goes on to the grid.
+        enforced = html.input_(
+            type="text",
+            form=form,
+            required=True,
+            tabindex="-1",
+            aria_hidden="true",
+            class_="sr-only",
+            **{":value": "days().join()", "x-on:focus": "focusedCell()?.focus()"},
         )
         return html.fieldset(
-            legend,
+            legend_component(label, required, hidden=hidden_label),
             submitted,
-            *self._panels(formats, mode, months, size, start),
+            render_when(required, enforced),
+            *self._panels(grid),
             render_if(hint, lambda text: hint_component(text, control_id)),
             render_if(error, lambda text: error_component(text, control_id)),
             **attrs,
         )
 
-    def _config(
-        self, formats: Formats, mode: DatePickerMode, months: int, start: Weekday
-    ) -> dict[str, Any]:
+    def _config(self, grid: _Grid) -> dict[str, Any]:
         """
         What date-picker.js is handed: every day as ISO text, and the names
         from Formats, so a framework's translations reach the grid.
@@ -271,6 +299,7 @@ class DatePicker(FieldControl):
         # A range on one day posts that day twice, and needs both back to be
         # complete. Only several days can repeat one by mistake.
         iso = [day.isoformat() for day in days]
+        mode = grid.mode
         value = sorted(set(iso) if mode == "multiple" else iso)
         limit = {"single": 1, "range": 2}.get(mode)
         if limit is not None and len(value) > limit:
@@ -281,40 +310,30 @@ class DatePicker(FieldControl):
         return {
             "mode": mode,
             "value": value,
-            "months": months,
-            "weekStart": WEEKDAYS.index(start),
+            "months": grid.months,
+            "weekStart": WEEKDAYS.index(grid.start),
             "min": low and low.isoformat(),
             "max": high and high.isoformat(),
             "unavailable": [d.isoformat() for d in blocked if isinstance(d, date)],
             "closed": [WEEKDAYS.index(d) for d in blocked if isinstance(d, str)],
             "markers": [d.isoformat() for d in self._get_prop("markers", ())],
             "markerLabel": self._get_prop("marker_label", ""),
-            "disabled": self._get_prop("disabled", False),
-            "monthNames": list(formats.month_names),
-            "monthNamesInDate": list(formats.month_names_in_date),
-            "dayNames": list(formats.day_names),
+            "disabled": grid.disabled,
+            "monthNames": list(grid.formats.month_names),
+            "monthNamesInDate": list(grid.formats.month_names_in_date),
+            "dayNames": list(grid.formats.day_names),
         }
 
-    def _panels(
-        self,
-        formats: Formats,
-        mode: DatePickerMode,
-        months: int,
-        size: DatePickerSize,
-        start: Weekday,
-    ) -> list[ComponentType]:
+    def _panels(self, grid: _Grid) -> list[ComponentType]:
         """
         The days, and the month and year panels the caption's title jumps
         to, one shown at a time.
         """
-        disabled: bool = self._get_prop("disabled", False)
-        width = _SIZES[size][2]
+        disabled = grid.disabled
+        width = _PANEL_WIDTHS[grid.size]
         return [
             html.div(
-                *(
-                    self._month(formats, m, mode, months, size, start)
-                    for m in range(months)
-                ),
+                *(self._month(grid, m) for m in range(grid.months)),
                 class_="flex flex-col gap-6 sm:flex-row",
                 **{"x-show": "level === 'days'"},
             ),
@@ -327,7 +346,7 @@ class DatePicker(FieldControl):
                 html.div(
                     *(
                         html.button(
-                            formats.month_names[i],
+                            grid.formats.month_names[i],
                             type="button",
                             class_=_ITEM,
                             **{"data-item": "", "x-bind": f"monthItem({i})"},
@@ -361,29 +380,21 @@ class DatePicker(FieldControl):
             ),
         ]
 
-    def _month(
-        self,
-        formats: Formats,
-        m: int,
-        mode: DatePickerMode,
-        months: int,
-        size: DatePickerSize,
-        start: Weekday,
-    ) -> ComponentType:
+    def _month(self, grid: _Grid, m: int) -> ComponentType:
         """
         One month: its caption and its grid, labelled with the month it
         shows. Only the first caption's title jumps, so the button that
         moved focus is always one that stays on the page.
         """
-        disabled: bool = self._get_prop("disabled", False)
-        disc, head, _ = _SIZES[size]
+        disabled = grid.disabled
+        disc = classnames(_DISC, _DISC_SIZES[grid.size])
         spacer = html.span(class_="size-control-xs")
         title = (
             _title(f"title({m})", "daysTitle", "choose month", disabled)
             if m == 0
             else html.span(class_=_TITLE, **{"x-text": f"title({m})"})
         )
-        first = WEEKDAYS.index(start)
+        first = WEEKDAYS.index(grid.start)
         columns = [(first + n) % 7 for n in range(7)]
         return html.div(
             _caption(
@@ -392,7 +403,7 @@ class DatePicker(FieldControl):
                 else spacer,
                 title,
                 _step("Next month", "chevron-right", 1, disabled)
-                if m == months - 1
+                if m == grid.months - 1
                 else spacer,
             ),
             html.table(
@@ -400,11 +411,15 @@ class DatePicker(FieldControl):
                     html.tr(
                         *(
                             html.th(
-                                formats.day_abbreviations[d],
+                                grid.formats.day_abbreviations[d],
                                 scope="col",
                                 # What a screen reader announces as the column.
-                                abbr=formats.day_names[d],
-                                class_=f"{head} font-medium text-fg-muted",
+                                abbr=grid.formats.day_names[d],
+                                class_=classnames(
+                                    _HEAD_SIZES[grid.size],
+                                    "font-medium text-fg-muted",
+                                    "in-[fieldset:disabled]:text-fg-disabled",
+                                ),
                             )
                             for d in columns
                         )
@@ -416,7 +431,7 @@ class DatePicker(FieldControl):
                             *(
                                 html.td(
                                     html.span(
-                                        class_=classnames(_DISC, disc),
+                                        class_=disc,
                                         **{"x-text": f"number({m}, {row * 7 + col})"},
                                     ),
                                     class_=_CELL,
@@ -429,8 +444,7 @@ class DatePicker(FieldControl):
                     )
                 ),
                 role="grid",
-                aria_multiselectable="true" if mode != "single" else None,
-                aria_required="true" if self._get_prop("required", False) else None,
+                aria_multiselectable="true" if grid.mode != "single" else None,
                 # Separate, because Chrome draws no box-shadow, so no focus ring,
                 # on the cells of a collapsed table.
                 class_="border-separate border-spacing-0",

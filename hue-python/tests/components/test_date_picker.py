@@ -7,7 +7,7 @@ import pytest
 from hue.formats import Formats
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import DatePicker, Stack
+from hue.ui import DatePicker, Radio, RadioGroup, Stack
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -31,8 +31,8 @@ class TestDatePicker:
     ):
         html = await render_tree(_picker(), context_args=context_args)
         assert select(html, "fieldset > legend")[0].text.strip() == "Due date"
-        assert_attr(html, "legend", "id", "due-label")
-        assert_attr(html, "fieldset", "aria-labelledby", "due-label")
+        # The legend names its fieldset natively.
+        assert_no_selector(html, "fieldset[aria-labelledby]")
         assert_no_selector(html, "[aria-label='Due date']")
         assert_selector(html, 'table[role="grid"]', count=1)
         assert_attr(html, 'table[role="grid"]', ":aria-label", "title(0)")
@@ -51,6 +51,14 @@ class TestDatePicker:
     async def test_hidden_label_keeps_the_legend_for_screen_readers(self, context_args):
         html = await render_tree(_picker().hidden_label(), context_args=context_args)
         assert "sr-only" in select(html, "legend")[0]["class"]
+
+    @pytest.mark.asyncio
+    async def test_the_legend_is_drawn_as_a_radio_groups(self, context_args):
+        group = RadioGroup().name("r").legend("R").content(Radio().value("a"))
+        picker = await render_tree(_picker(), context_args=context_args)
+        radios = await render_tree(group, context_args=context_args)
+        drawn = select(picker, "legend")[0]["class"]
+        assert drawn == select(radios, "legend")[0]["class"]
 
     @pytest.mark.asyncio
     async def test_the_legend_shows_by_default(self, context_args):
@@ -206,7 +214,7 @@ class TestDatePicker:
     @pytest.mark.asyncio
     async def test_each_day_is_submitted_under_the_name(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_attr(html, "template", "x-for", "(iso, i) in value")
+        assert_attr(html, "template", "x-for", "(iso, i) in days()")
         field = 'template input[type="hidden"]'
         assert_attr(html, field, "name", "due")
         assert_attr(html, field, ":value", "iso")
@@ -233,8 +241,11 @@ class TestDatePicker:
         html = await render_tree(
             _picker().x_model(unsafe("days")), context_args=context_args
         )
-        assert_attr(html, "fieldset", "x-model", "days")
+        # .parent, so days is read around the picker, not in its own data
+        # where a caller's value or focus would bind the picker to itself.
+        assert_attr(html, "fieldset", "x-model.parent", "days")
         assert_attr(html, "fieldset", "x-modelable", "value")
+        assert_no_selector(html, "fieldset[x-model]")
 
     @pytest.mark.asyncio
     async def test_without_x_model_nothing_is_modelable(self, context_args):
@@ -244,9 +255,16 @@ class TestDatePicker:
     # required() and error()
 
     @pytest.mark.asyncio
-    async def test_required_marks_the_grid(self, context_args):
+    async def test_required_is_enforced_by_an_input_empty_until_a_pick(
+        self, context_args
+    ):
         html = await render_tree(_picker().required(), context_args=context_args)
-        assert_attr(html, "table", "aria-required", "true")
+        assert_attr(html, "input[required]", ":value", "days().join()")
+        assert "sr-only" in select(html, "input[required]")[0]["class"]
+        # Not a submitted field: the hidden ones carry the days.
+        assert_no_selector(html, "input[required][name]")
+        # aria-required is not allowed on a grid.
+        assert_no_selector(html, "[aria-required]")
 
     @pytest.mark.asyncio
     async def test_required_marks_the_legend(self, context_args):
@@ -256,7 +274,7 @@ class TestDatePicker:
     @pytest.mark.asyncio
     async def test_not_required_says_nothing(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_no_selector(html, "[aria-required]")
+        assert_no_selector(html, "[required]")
         assert_no_selector(html, "legend [aria-hidden]")
 
     @pytest.mark.asyncio
