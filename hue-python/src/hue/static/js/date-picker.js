@@ -20,6 +20,8 @@ const DAY = 24 * 60 * 60 * 1000;
 // The months date.fromisoformat() accepts on the server.
 const FIRST_MONTH = 1 * 12;
 const LAST_MONTH = 9999 * 12 + 11;
+const FIRST_DAY = "0001-01-01";
+const LAST_DAY = "9999-12-31";
 
 // What a pick does to the selection, per mode. Range: the first pick starts
 // one, the second ends it, in either order.
@@ -123,6 +125,12 @@ export function datePicker(config) {
 		},
 
 		// Focus day, paging only when it falls outside the shown months.
+		// The selection as a list, whatever x-model handed over: the
+		// bindings read it before the watch above can put a list back.
+		days() {
+			return Array.isArray(this.value) ? this.value : [];
+		},
+
 		show(day) {
 			const month = monthOf(day);
 			if (month < this.shown) this.shown = Math.min(month, LAST_MONTH - months + 1);
@@ -163,20 +171,22 @@ export function datePicker(config) {
 		// The range as drawn: committed, or from its start to where the
 		// pointer or the keys are.
 		band() {
-			if (mode !== "range" || !this.value.length) return null;
-			const [start, end = this.hover ?? start] = this.value;
+			const value = this.days();
+			if (mode !== "range" || !value.length) return null;
+			const [start, end = this.hover ?? start] = value;
 			return [start, end].sort();
 		},
 
 		cell(m, i) {
 			const day = this.dayAt(m, i);
 			if (!day) return { selected: "false" };
+			const value = this.days();
 			const band = this.band();
-			const pending = mode === "range" && this.value.length === 1;
+			const pending = mode === "range" && value.length === 1;
 			const ends = band && (day === band[0] || day === band[1]);
 			const inside = band && day > band[0] && day < band[1];
 			const filled =
-				mode !== "range" ? this.value.includes(day) : pending ? day === this.value[0] : ends;
+				mode !== "range" ? value.includes(day) : pending ? day === value[0] : ends;
 			let edge = null;
 			if (band && band[0] !== band[1]) {
 				if (day === band[0]) edge = "start";
@@ -226,8 +236,9 @@ export function datePicker(config) {
 		monthItem(i) {
 			return {
 				":aria-pressed": () =>
-					String(Boolean(this.value[0]) && monthOf(this.value[0]) === this.year() * 12 + i),
+					String(Boolean(this.days()[0]) && monthOf(this.days()[0]) === this.year() * 12 + i),
 				":data-current": () => monthOf(now) === this.year() * 12 + i || null,
+				":disabled": () => !fits(this.year() * 12 + i) || null,
 				"x-on:click": () => this.chooseMonth(i),
 			};
 		},
@@ -236,7 +247,7 @@ export function datePicker(config) {
 			return {
 				"x-text": () => this.yearAt(i),
 				":aria-pressed": () =>
-					String(Boolean(this.value[0]) && +this.value[0].slice(0, 4) === this.yearAt(i)),
+					String(Boolean(this.days()[0]) && +this.days()[0].slice(0, 4) === this.yearAt(i)),
 				":data-current": () => +now.slice(0, 4) === this.yearAt(i) || null,
 				":disabled": () => !fits(this.shown + (this.yearAt(i) - this.year()) * 12) || null,
 				"x-on:click": () => this.chooseYear(this.yearAt(i)),
@@ -289,10 +300,11 @@ export function datePicker(config) {
 		},
 
 		move(day) {
-			const month = monthOf(day);
-			if (month < FIRST_MONTH || month > LAST_MONTH) return;
+			// Outside four-digit years toISOString writes a sign ahead of the
+			// year, as in +010000-01-01, which sorts before every real day.
+			if (day < FIRST_DAY || day > LAST_DAY) return;
 			this.show(day);
-			if (mode === "range" && this.value.length === 1) this.hover = day;
+			if (mode === "range" && this.days().length === 1) this.hover = day;
 			this.$nextTick(() => this.focusedCell()?.focus());
 		},
 
@@ -300,7 +312,7 @@ export function datePicker(config) {
 		// once it is.
 		select(day) {
 			if (disabled || this.isUnavailable(day)) return false;
-			this.value = PICK[mode](this.value, day);
+			this.value = PICK[mode](this.days(), day);
 			seen = this.value.join();
 			this.hover = null;
 			return mode === "single" || (mode === "range" && this.value.length === 2);
@@ -315,7 +327,7 @@ export function datePicker(config) {
 
 		preview(event) {
 			const day = pickedDay(this.$root, event);
-			if (day && mode === "range" && this.value.length === 1) this.hover = day;
+			if (day && mode === "range" && this.days().length === 1) this.hover = day;
 		},
 
 		key(event) {
