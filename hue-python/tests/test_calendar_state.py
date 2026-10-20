@@ -5,6 +5,7 @@ is handed, and the links are what comes back. The route itself is tested
 against a real Django view in hue-django.
 """
 
+import re
 from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -401,11 +402,15 @@ class TestDrawn:
         html = await _drawn(_declared(save=lambda r, e: None), context_args)
         frame = select(html, "[x-data^=hueCalendar]")[0]["x-data"]
         assert '"move": "/events/move/"' in frame
-        assert "[data-resize]" and select(html, "#events [data-resize]")
+        # The help's "a quarter hour" and the drag's snap are the one number.
+        assert '"snap": 15' in frame
+        assert select(html, "#events [data-resize]")
+        assert_attr(html, "#events", "x-on:pointerdown", "calendarPress($event)")
         # Delete alone has no save to hand a moved event to.
         html = await _drawn(_declared(delete=lambda r, i: None), context_args)
         assert '"move": null' in select(html, "[x-data^=hueCalendar]")[0]["x-data"]
         assert_no_selector(html, "#events [data-resize]")
+        assert_no_selector(html, "#events[x-on\\:pointerdown]")
 
     @pytest.mark.asyncio
     async def test_the_view_switcher_is_named_under_the_key(self, context_args):
@@ -462,7 +467,10 @@ class TestKeys:
         assert "hue:open" in used["calendar_help"]
         # The help names each of them and the keys that move an event.
         help_ = select(html, "#events-help")[0]
-        assert_attr(html, "#events-help", "@hue:open", "open = true")
+        # Every control a key presses, focuses or opens is on the page.
+        for action in used.values():
+            for target in re.findall(r'getElementById\("([^"]+)"\)', action):
+                assert select(html, f"#{target}"), target
         text = help_.get_text(" ", strip=True)
         assert "Go to today" in text and "Move it a day" in text
         assert (

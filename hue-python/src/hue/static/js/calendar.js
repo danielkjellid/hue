@@ -9,13 +9,14 @@
  * server's to fill in.
  *
  * With a move URL the events can be dragged, by one pointer drag for every
- * view. In the time grid a press on an empty slot draws a ghost and opens
- * the dialog over the dragged range, a press on an event moves it, up and
- * down and across the day columns, and one on its bottom edge changes when
- * it ends, all snapped to the quarter hour. A chip in the month and a bar
- * in the all-day row move by whole days, counted from the day they were
- * taken hold of by. Alt with an arrow key moves the focused event the same
- * way without a pointer, and with Shift changes its end.
+ * view, whose listeners the server declares on the calendar. In the time
+ * grid a press on an empty slot draws a ghost and opens the dialog over the
+ * dragged range, a press on an event moves it, up and down and across the
+ * day columns, and one on its bottom edge changes when it ends, all snapped
+ * to the minutes the frame hands in. A chip in the month and a bar in the
+ * all-day row move by whole days, counted from the day they were taken hold
+ * of by. Alt with an arrow key moves the focused event the same way without
+ * a pointer, and with Shift changes its end.
  *
  * The browser owns nothing: a change posts the id, the occurrence and the
  * new times to the route, which looks the event up and redraws. A press
@@ -31,17 +32,17 @@
  * inside, whose own state is open, can shadow it.
  */
 
-// Minutes a drag snaps to, and pixels a press travels before it is one.
-const SNAP = 15;
+// Pixels a press travels before it is a drag.
 const THRESHOLD = 5;
 const DAY = 24 * 60;
 // Tailwind's md, under which a month cell shows bars and the week is a day.
 const NARROW = "(max-width: 767px)";
 
-// Alt with an arrow key: the days and the minutes it moves the event by.
+// Alt with an arrow key: the days, and the snaps of minutes, it moves the
+// event by.
 const STEPS = {
-	ArrowUp: [0, -SNAP],
-	ArrowDown: [0, SNAP],
+	ArrowUp: [0, -1],
+	ArrowDown: [0, 1],
 	ArrowLeft: [-1, 0],
 	ArrowRight: [1, 0],
 };
@@ -63,6 +64,8 @@ export function registerCalendarData(Alpine) {
 			state = "",
 			fields = {},
 			hour = 48,
+			// Minutes a drag snaps to and an arrow key moves an event by.
+			snap = 15,
 		} = {}) => ({
 			calendarSide: false,
 			// Where the time grid was scrolled to before the last swap, which
@@ -90,28 +93,14 @@ export function registerCalendarData(Alpine) {
 				// before the swap notes where it was.
 				this.$nextTick(fit);
 				narrow.addEventListener("change", fit);
-				if (!move) return;
-				calendar.addEventListener(
-					"click",
-					(event) => {
-						if (!this.swallow) return;
-						event.stopPropagation();
-						event.preventDefault();
-					},
-					true,
-				);
-				const handlers = {
-					pointerdown: "press",
-					pointermove: "stretch",
-					pointerup: "release",
-					pointercancel: "cancel",
-					// After pointerup as well, by when there is no drag left.
-					lostpointercapture: "cancel",
-					keydown: "keys",
-				};
-				for (const [type, name] of Object.entries(handlers)) {
-					calendar.addEventListener(type, (event) => this[name](event));
-				}
+			},
+
+			// The click the browser sends after a drag, in the capture phase,
+			// before it can open a popover or the dialog.
+			calendarSwallow(event) {
+				if (!this.swallow) return;
+				event.stopPropagation();
+				event.preventDefault();
 			},
 
 			// A week on a phone is shown as the day it is around: the week
@@ -162,7 +151,7 @@ export function registerCalendarData(Alpine) {
 			minuteAt(column, y) {
 				const top = column.getBoundingClientRect().top;
 				const minutes = ((y - top) / hour) * 60;
-				return Math.min(Math.max(Math.round(minutes / SNAP) * SNAP, 0), DAY);
+				return Math.min(Math.max(Math.round(minutes / snap) * snap, 0), DAY);
 			},
 
 			columnAt(x) {
@@ -174,10 +163,10 @@ export function registerCalendarData(Alpine) {
 				);
 			},
 
-			press(event) {
+			calendarPress(event) {
 				if (event.button !== 0) return;
 				// One that was cancelled, or redrawn under it, is over.
-				if (this.drag?.cancelled || (this.drag && !live(this.drag))) this.cancel();
+				if (this.drag?.cancelled || (this.drag && !live(this.drag))) this.calendarCancel();
 				if (this.drag) return;
 				// A month cell, or along the all-day row the day column under
 				// the pointer, is the day an event is taken hold of by: for a
@@ -227,16 +216,16 @@ export function registerCalendarData(Alpine) {
 					if (event.key !== "Escape") return;
 					event.stopPropagation();
 					event.preventDefault();
-					this.cancel({ keep: true });
+					this.calendarCancel({ keep: true });
 				};
 				document.addEventListener("keydown", escape, true);
 				this.drag.unlisten = () => document.removeEventListener("keydown", escape, true);
 			},
 
-			stretch(event) {
+			calendarStretch(event) {
 				const drag = this.drag;
 				if (!drag || drag.cancelled) return;
-				if (!live(drag)) return this.cancel();
+				if (!live(drag)) return this.calendarCancel();
 				if (!drag.moved) {
 					if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < THRESHOLD) return;
 					drag.moved = true;
@@ -250,7 +239,7 @@ export function registerCalendarData(Alpine) {
 				}
 				if (drag.mode === "create") {
 					drag.to = this.minuteAt(drag.column, event.clientY);
-					const [a, b] = span(drag.from, drag.to);
+					const [a, b] = span(drag.from, drag.to, snap);
 					drag.ghost.style.top = `${(a * hour) / 60}px`;
 					drag.ghost.style.height = `${((b - a) * hour) / 60 - 2}px`;
 					drag.ghost.textContent = `${clock(a)} – ${clock(b)}`;
@@ -258,8 +247,8 @@ export function registerCalendarData(Alpine) {
 				}
 				if (drag.mode === "days") return this.shiftDays(drag, event);
 				const at = when(drag.button);
-				const [low, high] = bounds(at, drag.mode);
-				const minutes = Math.round(((event.clientY - drag.y) / hour) * 60 / SNAP) * SNAP;
+				const [low, high] = bounds(at, drag.mode, snap);
+				const minutes = Math.round(((event.clientY - drag.y) / hour) * 60 / snap) * snap;
 				drag.minutes = Math.min(Math.max(minutes, low), high);
 				if (drag.mode === "resize") {
 					drag.li.style.height = `${((at.length + drag.minutes) * hour) / 60 - 2}px`;
@@ -300,7 +289,7 @@ export function registerCalendarData(Alpine) {
 				day?.classList.add(...DROP);
 			},
 
-			release() {
+			calendarRelease() {
 				const drag = this.drag;
 				if (!drag) return;
 				this.drag = null;
@@ -314,7 +303,7 @@ export function registerCalendarData(Alpine) {
 				if (!live(drag)) return this.settle(drag);
 				if (drag.mode === "create") {
 					this.settle(drag);
-					const [a, b] = span(drag.from, drag.to);
+					const [a, b] = span(drag.from, drag.to, snap);
 					this.calendarOpen(slotBody(key, drag.column.dataset.date, a, b));
 					return;
 				}
@@ -331,7 +320,7 @@ export function registerCalendarData(Alpine) {
 
 			// keep holds on to a drag Escape cancelled until the pointer is
 			// let go, so the click that follows opens nothing.
-			cancel({ keep = false } = {}) {
+			calendarCancel({ keep = false } = {}) {
 				const drag = this.drag;
 				if (!drag) return;
 				if (!drag.cancelled) this.settle(drag);
@@ -355,21 +344,21 @@ export function registerCalendarData(Alpine) {
 				if (time) time.textContent = drag.time;
 			},
 
-			keys(event) {
+			calendarKeys(event) {
 				const step = STEPS[event.key];
 				const button = event.target.closest?.("[data-event-id]");
 				if (!step || !button || !event.altKey || event.ctrlKey || event.metaKey) return;
 				event.preventDefault();
 				if (this.moving) return;
-				const [days, minutes] = step;
-				this.post(button, { days, minutes, resize: event.shiftKey });
+				const [days, snaps] = step;
+				this.post(button, { days, minutes: snaps * snap, resize: event.shiftKey });
 			},
 
 			// Whether the calendar came back: a change that is not one, or an
 			// answer with no calendar in it, such as a proxy's error page,
 			// leaves the page as it was.
 			async post(button, change) {
-				const fields = shifted(button, change);
+				const fields = shifted(button, change, snap);
 				if (!fields) return false;
 				const body = new FormData();
 				body.set(`${key}-id`, button.dataset.eventId);
@@ -408,9 +397,9 @@ function clock(minutes) {
 
 // The start and end a drag from one minute to another covers: at least a
 // snap long, whichever way it was dragged.
-function span(from, to) {
+function span(from, to, snap) {
 	const a = Math.min(from, to);
-	return [a, Math.max(from, to, a + SNAP)];
+	return [a, Math.max(from, to, a + snap)];
 }
 
 // The dialog's fields for a slot, from one minute of a day to another; an
@@ -449,15 +438,15 @@ function split(stamp) {
 
 // How far a move or a resize may go in minutes: the event stays inside its
 // day, unless it already ran past midnight, and keeps a snap of length.
-function bounds(at, mode) {
+function bounds(at, mode, snap) {
 	const limit = Math.max(DAY, at.ends);
-	if (mode === "resize") return [SNAP - at.length, limit - at.ends];
+	if (mode === "resize") return [snap - at.length, limit - at.ends];
 	return [-at.starts, limit - at.ends];
 }
 
 // The fields a change to an event posts, or null for one that would take
 // it outside its day or its end before its start.
-function shifted(button, { days = 0, minutes = 0, resize = false }) {
+function shifted(button, { days = 0, minutes = 0, resize = false }, snap) {
 	const at = when(button);
 	if (at.allDay) {
 		if (minutes) return null;
@@ -469,7 +458,7 @@ function shifted(button, { days = 0, minutes = 0, resize = false }) {
 	const limit = Math.max(DAY, at.ends);
 	const starts = resize ? at.starts : at.starts + minutes;
 	const ends = at.ends + minutes;
-	if (starts < 0 || ends > limit || ends < starts + SNAP) return null;
+	if (starts < 0 || ends > limit || ends < starts + snap) return null;
 	const day = shiftDay(at.day, resize ? 0 : days);
 	return {
 		starts: day,

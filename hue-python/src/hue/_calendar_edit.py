@@ -9,7 +9,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
-from typing import Any
+from typing import Any, NamedTuple
 
 from htmy import html
 
@@ -105,9 +105,14 @@ _DONE = {
     "Resize": "Resized",
 }
 
-# Which action an Undo posts to, the fields it posts, under the key, and
-# the event focus goes back to: its id, or else its title, and its start.
-type _Undo = tuple[str, Mapping[str, str | None]]
+
+class _Undo(NamedTuple):
+    """
+    Which action an Undo posts to, and the fields it posts, under the key.
+    """
+
+    action: str
+    fields: Mapping[str, str | None]
 
 
 def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
@@ -140,7 +145,7 @@ def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo 
     if made is None:
         return None
     param = bound.declaration.param
-    return _DELETE, {param("id"): made, param("title"): draft.title}
+    return _Undo(_DELETE, {param("id"): made, param("title"): draft.title})
 
 
 def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
@@ -152,7 +157,7 @@ def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
         param("id"): None,
         param("occurrence"): None,
     }
-    return _SAVE, fields
+    return _Undo(_SAVE, fields)
 
 
 def landing(bound: BoundCalendar, wanted: Event) -> Event | None:
@@ -209,8 +214,7 @@ def _date_of(value: date) -> date:
 
 def _undo_button(
     bound: BoundCalendar,
-    action: str,
-    posted: Mapping[str, Any],
+    undo: _Undo,
 ) -> Button:
     """
     The toast's Undo: the same route, told it is undoing, and the toast
@@ -219,12 +223,12 @@ def _undo_button(
     """
     declared = bound.declaration
     request = ajax(
-        bound.urls.act[action],
+        bound.urls.act[undo.action],
         method="post",
         target=_slot(bound.key),
         body={
             **dict(bound.query(bound.state)),
-            **posted,
+            **undo.fields,
             declared.param("undo"): "1",
         },
     )

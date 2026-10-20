@@ -26,13 +26,13 @@ from htmy import Context, html
 
 from hue import toast
 from hue._calendar_chrome import (
+    _VIEW_KEYS,
     CalendarShortcuts,
     _Band,
     _Frame,
     _keys_in,
     _on,
     _open,
-    _press,
     _Side,
 )
 from hue._calendar_edit import (
@@ -73,6 +73,7 @@ from hue._calendar_state import (
     CalendarState,
     Layer,
     _day,
+    _new,
     _overlap,
     _slot,
     _today,
@@ -197,9 +198,11 @@ class _Declaration(Declaration[Routes]):
         asked, _, others = self._read(
             self._router._get_query_values(hue.request), today
         )
-        bound = await self._bind(
-            hue.request, asked, others, today, formats, keys=self._keys(context)
-        )
+        keys = self._keys(context)
+        # On for the page, which the shortcut host reads once the whole
+        # body has rendered.
+        self._switch_on(keys)
+        bound = await self._bind(hue.request, asked, others, today, formats, keys=keys)
         return self._drawn(calendar, bound)
 
     def claim_keys(self) -> None:
@@ -210,14 +213,6 @@ class _Declaration(Declaration[Routes]):
         which is in no order a reader would guess.
         """
         shortcuts.claim(_KEYS_CLAIM, self.key)
-
-    def keys_on(self, context: Context) -> None:
-        """
-        Switch the calendar's keys on for the page being rendered, when it
-        holds them. Called from Calendar's own render; the page's shortcut
-        host reads them once the whole body has rendered.
-        """
-        self._switch_on(self._keys(context))
 
     def _keys(self, context: Context) -> type[ShortcutRegistry] | None:
         """
@@ -330,11 +325,11 @@ class _Declaration(Declaration[Routes]):
         if self.save is not None:
             # A click on an empty slot or day opens the dialog with that
             # time filled in. Only the calendar hears it: the sidebar's
-            # picker has day cells of its own. Dragging listens from the
-            # script, on the same element.
-            # Under the internal key, so a click handler of the page's own
-            # on the Calendar is kept beside it.
+            # picker has day cells of its own. Dragging listens on the same
+            # element. Under the internal keys, so a click handler of the
+            # page's own on the Calendar is kept beside them.
             calendar._attrs["x-on:click"] = "calendarSlot($event)"
+            calendar._attrs.update(_DRAGS)
             calendar._props["movable"] = True
         if self.edits:
             calendar.actions(lambda event: _event_actions(bound, event))
@@ -584,7 +579,7 @@ class _Declaration(Declaration[Routes]):
             edited,
             "Save",
             body=body,
-            undo=lambda _: (_SAVE, _fields(bound, _first(was))),
+            undo=lambda _: _Undo(_SAVE, _fields(bound, _first(was))),
             description=kept,
             refused=refused,
         )
@@ -618,18 +613,16 @@ class _Declaration(Declaration[Routes]):
         # Timed or whole days as it is, whatever the body says.
         posted = replace(body, all_day="" if was.timed else "1")
         starts, ends = _when(posted, errors, _zone(formats))
-        try:
-            if errors or starts is None or ends is None:
-                raise ValueError(next(iter(errors.values()), "Enter a time."))
-            landed = replace(was, starts=starts, ends=ends)
-            # An Undo posts the series where it began, saved as posted.
-            if not body.undo:
-                starts, ends = _series(was, starts, ends, formats)
-            moved = replace(was, starts=starts, ends=ends)
-        except ValueError as error:
+        if errors or starts is None or ends is None:
+            why = next(iter(errors.values()), "Enter a time.")
             return await self._failed(
-                request, bound, "Move", str(error), HTTPStatus.UNPROCESSABLE_ENTITY
+                request, bound, "Move", why, HTTPStatus.UNPROCESSABLE_ENTITY
             )
+        landed = replace(was, starts=starts, ends=ends)
+        # An Undo posts the series where it began, saved as posted.
+        if not body.undo:
+            starts, ends = _series(was, starts, ends, formats)
+        moved = replace(was, starts=starts, ends=ends)
         resized = stamps(was, formats)[0] == stamps(landed, formats)[0]
         verb = "Resize" if resized else "Move"
         back = {
@@ -644,7 +637,7 @@ class _Declaration(Declaration[Routes]):
             moved,
             verb,
             body=body,
-            undo=lambda _: (_MOVE, back),
+            undo=lambda _: _Undo(_MOVE, back),
             lands=landed,
         )
 
@@ -708,11 +701,11 @@ class _Declaration(Declaration[Routes]):
             back = None if body.undo else undo(made)
             # Only through a route that is served: a create is undone by a
             # delete, and a delete by a save, which the other may lack.
-            if back is not None and back[0] not in bound.urls.act:
+            if back is not None and back.action not in bound.urls.act:
                 back = None
             toast.success(
                 _said(verb, named, series, undone=bool(body.undo)),
-                action=render_if(back, lambda it: _undo_button(bound, *it)),
+                action=render_if(back, lambda it: _undo_button(bound, it)),
             )
             if body.undo and verb == "Delete":
                 focus = "new"
@@ -773,20 +766,35 @@ class _Declaration(Declaration[Routes]):
             CalendarShortcuts.calendar_previous: f"{key}-previous",
             CalendarShortcuts.calendar_next: f"{key}-next",
             **{
-                getattr(CalendarShortcuts, f"calendar_{view}"): f"{key}-switch-{view}"
-                for view in _VIEWS
+                shortcut: f"{key}-switch-{view}"
+                for view, shortcut in _VIEW_KEYS.items()
             },
         }
         if self.save is not None:
-            pressed[CalendarShortcuts.calendar_new] = f"{key}-new"
+            pressed[CalendarShortcuts.calendar_new] = _new(key)
         for shortcut, target in pressed.items():
-            shortcuts.use(shortcut, action=_press(target))
+            shortcuts.use(shortcut, action=_on(target, "click"))
         if self.search is not None:
             shortcuts.use(
                 CalendarShortcuts.calendar_search,
                 action=_on(f"{key}-{_QUERY}", "focus"),
             )
         shortcuts.use(CalendarShortcuts.calendar_help, action=_open(f"{key}-help"))
+
+
+# What the calendar hears to drag and move its events, under the internal
+# keys like the slot's click, so the page's own handlers are kept beside
+# them.
+_DRAGS = {
+    "x-on:pointerdown": "calendarPress($event)",
+    "x-on:pointermove": "calendarStretch($event)",
+    "x-on:pointerup": "calendarRelease()",
+    "x-on:pointercancel": "calendarCancel()",
+    # After pointerup as well, by when there is no drag left.
+    "x-on:lostpointercapture": "calendarCancel()",
+    "x-on:keydown": "calendarKeys($event)",
+    "x-on:click.capture": "calendarSwallow($event)",
+}
 
 
 # What a view calls, at class scope, to declare a calendar.
