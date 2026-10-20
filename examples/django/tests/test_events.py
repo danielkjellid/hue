@@ -154,6 +154,14 @@ def test_a_series_that_began_years_ago_still_lands_on_the_days_asked_for(entries
     assert [event.starts for event in found] == [date(2026, 10, 16)]
 
 
+def test_a_monthly_series_from_two_years_ago_lands_on_its_day(entries):
+    review = entries["Design review"]
+    review.repeat = "monthly"
+    review.starts, review.ends = _at(2024, 10, 14, 13), _at(2024, 10, 14, 14)
+    found = list(occurrences(review, date(2026, 10, 12), date(2026, 10, 18)))
+    assert [event.starts.date() for event in found] == [date(2026, 10, 14)]
+
+
 def test_a_time_the_clocks_skip_is_refused_rather_than_moved(db):
     # Oslo goes forward at 02:00 on 29 March 2026.
     assert _aware(datetime(2026, 3, 29, 3, 30)) == _at(2026, 3, 29, 3, 30)

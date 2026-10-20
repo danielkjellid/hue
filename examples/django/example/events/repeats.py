@@ -27,14 +27,13 @@ def occurrences(entry: Entry, first: date, last: date) -> Iterator[Event]:
             yield entry.event(begins, begins + length)
 
 
-# The fewest days between two occurrences of a rule. Counting from there
-# rather than from the series' first day keeps a series that began years
-# ago from being walked day by day to reach the week asked for.
+# The days between two occurrences of a rule that steps by days. Counting
+# from there rather than from the series' first day keeps a series that
+# began years ago from being walked day by day to reach the week asked for.
 _STEPS = {
     Entry.Repeat.DAILY: 1,
     Entry.Repeat.WEEKDAYS: 1,
     Entry.Repeat.WEEKLY: 7,
-    Entry.Repeat.MONTHLY: 28,
 }
 
 
@@ -48,7 +47,12 @@ def _starts(
     if not repeat:
         yield anchor
         return
-    count = max(0, ((first - anchor.date()).days - 1) // _STEPS[Entry.Repeat(repeat)])
+    if repeat == Entry.Repeat.MONTHLY:
+        # The month before first's, since a month's day can fall either side.
+        skipped = (first.year - anchor.year) * 12 + first.month - anchor.month - 1
+    else:
+        skipped = ((first - anchor.date()).days - 1) // _STEPS[Entry.Repeat(repeat)]
+    count = max(0, skipped)
     while True:
         begins = _nth(anchor, repeat, count)
         count += 1
