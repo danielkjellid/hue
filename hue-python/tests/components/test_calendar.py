@@ -46,6 +46,10 @@ async def _html(components, context_args) -> str:
     return await render_tree(*many, context_args=context_args)
 
 
+def _days_of(boxes) -> list[str]:
+    return [box.find_parent(attrs={"data-date": True})["data-date"] for box in boxes]
+
+
 def _event(html: str, title: str):
     return next(
         button
@@ -283,8 +287,7 @@ class TestTimeGrid:
         late = Event("Late", datetime(2026, 10, 14, 23), datetime(2026, 10, 15, 1))
         html = await _html(_calendar(late), context_args)
         boxes = select(html, "li.absolute")
-        days = [box.find_parent(attrs={"data-date": True})["data-date"] for box in boxes]
-        assert days == ["2026-10-14", "2026-10-15"]
+        assert _days_of(boxes) == ["2026-10-14", "2026-10-15"]
         assert "top: 1104px; height: 46px" in boxes[0]["style"]
         assert "top: 0px; height: 46px" in boxes[1]["style"]
         first, second = (box.select_one("button") for box in boxes)
@@ -292,7 +295,9 @@ class TestTimeGrid:
         assert "rounded-t-none" not in first["class"]
         assert "rounded-t-none" in second["class"]
         assert "rounded-b-none" not in second["class"]
-        name = "Late, Wednesday 14 October 2026, 23:00 to 01:00 Thursday 15 October 2026"
+        name = (
+            "Late, Wednesday 14 October 2026, 23:00 to 01:00 Thursday 15 October 2026"
+        )
         assert first["aria-label"] == second["aria-label"] == name
 
     @pytest.mark.asyncio
@@ -316,7 +321,9 @@ class TestTimeGrid:
 
     @pytest.mark.asyncio
     async def test_a_moment_before_midnight_stays_inside_the_grid(self, context_args):
-        tiny = Event("Tiny", datetime(2026, 10, 14, 23, 55), datetime(2026, 10, 14, 23, 59))
+        tiny = Event(
+            "Tiny", datetime(2026, 10, 14, 23, 55), datetime(2026, 10, 14, 23, 59)
+        )
         html = await _html(_calendar(tiny).view("day"), context_args)
         style = select(html, "li.absolute")[0]["style"]
         top, height = (int(n) for n in re.findall(r"(?:top|height): (\d+)px", style))
@@ -329,8 +336,7 @@ class TestTimeGrid:
         )
         html = await _html(_calendar(conference), context_args)
         boxes = select(html, "li.absolute")
-        days = [box.find_parent(attrs={"data-date": True})["data-date"] for box in boxes]
-        assert days == ["2026-10-12", "2026-10-13", "2026-10-14"]
+        assert _days_of(boxes) == ["2026-10-12", "2026-10-13", "2026-10-14"]
         assert "top: 0px; height: 1150px" in boxes[0]["style"]
         assert "top: 0px; height: 814px" in boxes[2]["style"]
 
