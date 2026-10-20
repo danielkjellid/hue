@@ -98,7 +98,7 @@ from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import NumberInput, TextInput
+from hue.ui.atoms.input import SEARCH_DELAY, NumberInput, SearchInput, TextInput
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.radio import Radio
 from hue.ui.base import ChainableComponent
@@ -130,10 +130,6 @@ _HIDE = "hide"
 _RESERVED = (_SORT, _QUERY, _PAGE, _HIDE, SELECTED)
 # The parts of a table's state that are not filters.
 _STATE = (_SORT, _QUERY, _PAGE, _HIDE)
-
-# Long enough that a word typed at speed is one request rather than five,
-# short enough that the table has moved by the time you look at it.
-_SEARCH_DELAY = "300ms"
 
 
 # The count on the Filter button: how many answers are on, beside the
@@ -1647,15 +1643,7 @@ def _carried(
     )
 
 
-class _SearchField(TextInput):
-    """
-    A text input with the search type, which gives it the search role and
-    a search key on a phone's keyboard. The type is the control's own, so
-    it has to be the class that says so.
-    """
-
-    _input_type = "search"
-
+class _SearchField(SearchInput):
     def _get_extra_classes(self) -> str:
         # The slash hint after it hides off the input's focus and its text.
         return "peer"
@@ -1711,7 +1699,7 @@ def _search_form(bound: BoundTable, form: str) -> ComponentType:
             # entry per pause in it. keepPlace gives the run of searches
             # one entry of its own.
             "x-target.replace": rows_id(bound.key) or bound.key,
-            f"@input.debounce.{_SEARCH_DELAY}": "$el.requestSubmit()",
+            f"@input.debounce.{SEARCH_DELAY}": "$el.requestSubmit()",
             "x-on:submit": "dropEmpty()",
             "x-on:ajax:before": "keepPlace()",
             "x-on:ajax:after": "searched = location.href",
