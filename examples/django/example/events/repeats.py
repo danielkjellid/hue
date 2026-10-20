@@ -22,19 +22,33 @@ def occurrences(entry: Entry, first: date, last: date) -> Iterator[Event]:
     """
     starts, ends = timezone.localtime(entry.starts), timezone.localtime(entry.ends)
     length = ends - starts
-    for begins in _starts(starts, entry.repeat, last):
+    for begins in _starts(starts, entry.repeat, first - length, last):
         if (begins + length).date() >= first:
             yield entry.event(begins, begins + length)
 
 
-def _starts(anchor: datetime, repeat: str, last: date) -> Iterator[datetime]:
+# The fewest days between two occurrences of a rule. Counting from there
+# rather than from the series' first day keeps a series that began years
+# ago from being walked day by day to reach the week asked for.
+_STEPS = {
+    Entry.Repeat.DAILY: 1,
+    Entry.Repeat.WEEKDAYS: 1,
+    Entry.Repeat.WEEKLY: 7,
+    Entry.Repeat.MONTHLY: 28,
+}
+
+
+def _starts(
+    anchor: datetime, repeat: str, first: date, last: date
+) -> Iterator[datetime]:
     """
-    When each occurrence begins, from the first until the day after last.
+    When each occurrence begins, from the last one before first until the
+    day after last.
     """
     if not repeat:
         yield anchor
         return
-    count = 0
+    count = max(0, ((first - anchor.date()).days - 1) // _STEPS[Entry.Repeat(repeat)])
     while True:
         begins = _nth(anchor, repeat, count)
         count += 1
