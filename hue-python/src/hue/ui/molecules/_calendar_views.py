@@ -475,7 +475,7 @@ class Draw:
             class_="flex items-start gap-2.5",
         )
 
-    def _title_of(self, event: Event) -> tuple[ComponentType, ...]:
+    def title_of(self, event: Event) -> tuple[ComponentType, ...]:
         """
         A title with the repeat mark after it when the event repeats.
         """
@@ -501,7 +501,7 @@ class Draw:
                 )
             )
             .content(
-                *self._title_of(event),
+                *self.title_of(event),
                 # The squared corner is what a sighted reader sees of a bar
                 # that goes on; this is what a screen reader hears of it.
                 render_when(
@@ -527,7 +527,7 @@ class Draw:
                     aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])
                 ),
                 html.span(self.clock(starts), class_=_TIME),
-                html.span(*self._title_of(event), class_="min-w-0 truncate"),
+                html.span(*self.title_of(event), class_="min-w-0 truncate"),
             )
         )
         return self.event(event, button)
@@ -734,7 +734,7 @@ def _timed(
         )
         .content(
             html.span(
-                *draw._title_of(event),
+                *draw.title_of(event),
                 class_=classnames("font-semibold", title_classes),
             ),
             html.span(
@@ -1007,7 +1007,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
             html.span(when, class_="text-xs tabular-nums text-fg-muted"),
             html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])),
             html.span(
-                html.span(*draw._title_of(event), class_="font-semibold"),
+                html.span(*draw.title_of(event), class_="font-semibold"),
                 render_if(
                     event.location,
                     lambda text: html.span(text, class_="ms-2 text-fg-muted"),
