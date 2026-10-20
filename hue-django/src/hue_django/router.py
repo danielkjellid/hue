@@ -29,6 +29,17 @@ __all__ = ["HueResponse", "Router"]
 _PATH_PARAM_RE = re.compile(r"<(?:\w+:)?(\w+)>")
 
 
+def _month_in_date(month: int) -> str:
+    """
+    The month as Django's MONTHS_ALT writes it inside a date.
+
+    Some languages (French, Norwegian, Tajik) ship a MONTHS_ALT that is MONTHS with
+    the case flipped rather than a declension, and there the lower-case one is right.
+    """
+    plain, alt = str(MONTHS[month]), str(MONTHS_ALT[month])
+    return alt.lower() if alt != plain and alt.lower() == plain.lower() else alt
+
+
 class Router[T_Request: HttpRequest](HueRouter[T_Request]):
     """
     The hue router for Django views, understanding Django's path syntax such as
@@ -69,7 +80,7 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 # Lazy strings, read under the request's language. Django
                 # keys the days 0..6 from Monday, as date.weekday() does.
                 month_names=tuple(str(MONTHS[m]) for m in range(1, 13)),
-                month_names_in_date=tuple(str(MONTHS_ALT[m]) for m in range(1, 13)),
+                month_names_in_date=tuple(_month_in_date(m) for m in range(1, 13)),
                 day_names=tuple(str(WEEKDAYS[d]) for d in range(7)),
                 day_abbreviations=tuple(str(WEEKDAYS_ABBR[d]) for d in range(7)),
             ),
