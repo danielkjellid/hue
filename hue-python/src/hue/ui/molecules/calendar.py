@@ -937,6 +937,8 @@ class _Draw:
         The line at the time it is, moved every minute by the browser, which
         is the one clock that knows the reader's now.
         """
+        # Assumes the browser's timezone is the one Formats moves events
+        # into; where they differ, the line and the events disagree.
         return html.div(
             aria_hidden="true",
             class_="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-danger "
