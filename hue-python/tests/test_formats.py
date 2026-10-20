@@ -36,6 +36,7 @@ def test_the_names_are_english_and_start_on_monday_and_january():
     "wrong",
     [
         {"month_names": ("January",)},
+        {"month_names_in_date": ("January",) * 13},
         {"day_names": ("Monday",) * 8},
         {"day_abbreviations": ()},
     ],
@@ -49,6 +50,12 @@ def test_a_month_and_a_day_are_named_in_words():
     assert Formats().month(date(2026, 10, 14)) == "October 2026"
     assert Formats().day(date(2026, 10, 14)) == "Wednesday 14 October 2026"
 
+
+def test_a_day_names_its_month_as_written_inside_a_date():
+    # Polish writes "październik" alone but "14 października" in a date.
+    formats = Formats(month_names_in_date=("x",) * 9 + ("października", "y", "z"))
+    assert formats.day(date(2026, 10, 14)).endswith("14 października 2026")
+    assert formats.month(date(2026, 10, 14)) == "October 2026"
 
 
 def test_a_moment_is_moved_into_the_readers_time_only_when_it_can_be():

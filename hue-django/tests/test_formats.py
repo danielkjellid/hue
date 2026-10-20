@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
 
 from django.test import RequestFactory, override_settings
 from django.utils import translation
@@ -44,3 +44,11 @@ def test_the_names_are_django_s_translations():
     assert formats.month_names[9] == "oktober"
     assert _formats().day_names[0] == "Monday"
 
+
+def test_a_month_inside_a_date_takes_its_in_date_form():
+    # Django's MONTHS_ALT: Polish declines the month inside a date.
+    with translation.override("pl"):
+        formats = _formats()
+    assert formats.month_names[9].lower() == "październik"
+    assert formats.month_names_in_date[9].lower() == "października"
+    assert formats.day(date(2026, 10, 14)).lower().endswith("14 października 2026")

@@ -36,7 +36,9 @@ class Formats:
     The names are plain sequences rather than strftime's %A and %B, which
     read the process locale: a framework fills them per request from its
     own translations, the way it fills the patterns from its settings. Days
-    are Monday first, as date.weekday() counts them.
+    are Monday first, as date.weekday() counts them. month_names_in_date is
+    the month as written inside a date, which some languages decline: Polish
+    has "październik" alone but "14 października" in a date.
     """
 
     date: str = "%Y-%m-%d"
@@ -47,6 +49,7 @@ class Formats:
         "January", "February", "March", "April", "May", "June", "July",
         "August", "September", "October", "November", "December",
     )  # fmt: skip
+    month_names_in_date: tuple[str, ...] = month_names
     day_names: tuple[str, ...] = (
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
         "Sunday",
@@ -60,6 +63,7 @@ class Formats:
         # these by month and weekday and trusts the lengths.
         for name, wanted in (
             ("month_names", 12),
+            ("month_names_in_date", 12),
             ("day_names", 7),
             ("day_abbreviations", 7),
         ):
@@ -104,7 +108,7 @@ class Formats:
         """
         return (
             f"{self.day_names[value.weekday()]} {value.day} "
-            f"{self.month_names[value.month - 1]} {value.year}"
+            f"{self.month_names_in_date[value.month - 1]} {value.year}"
         )
 
     @classmethod
