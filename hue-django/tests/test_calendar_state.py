@@ -199,6 +199,20 @@ def test_the_dialog_opens_in_the_slot_with_the_state_and_a_time_filled_in(mounte
     assert 'name="events-view" value="month"' in html
 
 
+def test_a_click_on_a_slot_posts_the_day_and_the_server_fills_the_rest(mounted):
+    mounted()
+    # A month cell: the day alone, an hour from nine.
+    html = _act("dialog", **{"events-starts": "2026-10-22"}).content.decode()
+    assert html.count('value="2026-10-22"') == 2
+    assert 'value="09:00"' in html and 'value="10:00"' in html
+    # The time grid: the half hour clicked, and an hour that stops at the
+    # end of its day.
+    slot = {"events-starts": "2026-10-22", "events-starts_time": "23:30"}
+    html = _act("dialog", **slot).content.decode()
+    assert 'value="23:30"' in html and 'value="23:59"' in html
+    assert html.count('value="2026-10-22"') == 2
+
+
 def test_the_dialogs_controls_are_named_and_identified_under_the_key(mounted):
     mounted(repeats={"weekly": "Every week"})
     html = _act("dialog").content.decode()
@@ -335,7 +349,8 @@ def test_a_delete_reaches_the_handler(mounted):
     response = _act("delete", **{"events-id": "1", "events-title": "Review"})
     assert response.status_code == 200
     assert _DELETED == ["1"]
-    assert "Deleted" in response.content.decode()
+    html = response.content.decode()
+    assert "Deleted &quot;Review&quot;" in html or 'Deleted "Review"' in html
     assert _act("delete").status_code == 404
 
 

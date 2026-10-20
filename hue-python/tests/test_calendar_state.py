@@ -15,6 +15,7 @@ from hue import calendar as declared
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Calendar, Event
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -343,7 +344,7 @@ class TestDrawn:
         html = await _drawn(_declared(), context_args)
         assert_no_selector(html, "#events-new")
         assert_no_selector(html, "[aria-label='Delete event']")
-        assert "@click" not in select(html, "#events")[0].attrs
+        assert "x-on:click" not in select(html, "#events")[0].attrs
         assert "data-hue-refocus" not in select(html, "#events-dialog")[0].attrs
 
     @pytest.mark.asyncio
@@ -353,8 +354,8 @@ class TestDrawn:
         html = await _drawn(
             _declared(save=lambda r, e: None, delete=lambda r, i: None), context_args
         )
-        assert_attr(html, "#events-new", "@click", "create()")
-        assert_attr(html, "#events", "@click", "slot($event)")
+        assert_attr(html, "#events-new", "@click", "calendarCreate()")
+        assert_attr(html, "#events", "x-on:click", "calendarSlot($event)")
         # Where focus goes when the dialog closes under it.
         assert_attr(html, "#events-dialog", "data-hue-refocus", "events-new")
         edits = [
@@ -366,6 +367,16 @@ class TestDrawn:
         assert len(edits) == 1
         assert '"events-starts_time": "13:00"' in edits[0]["@click"]
         assert_selector(html, "[aria-label='Delete event']", count=1)
+
+    @pytest.mark.asyncio
+    async def test_a_click_handler_of_the_pages_own_is_kept(self, context_args):
+        editable = _declared(save=lambda r, e: None)
+        html = await render_tree(
+            Calendar.from_state(editable).x_on("click", unsafe("mine()")),
+            context_args=context_args,
+        )
+        assert_attr(html, "#events", "@click", "mine()")
+        assert_attr(html, "#events", "x-on:click", "calendarSlot($event)")
 
     @pytest.mark.asyncio
     async def test_two_calendars_on_one_page_keep_their_own_ids(self, context_args):

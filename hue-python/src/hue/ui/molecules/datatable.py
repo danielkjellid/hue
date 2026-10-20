@@ -23,7 +23,7 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
-from hue.ui.base import Awaited, ChainableComponent
+from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.table import (
     CellAlign,
@@ -381,12 +381,8 @@ class DataTable(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        declaration: _Declaration | None = self._get_prop("declaration")
-        if declaration is not None:
-            # A copy without the declaration goes in, or drawing it would
-            # hand it straight back to the declaration again.
-            undeclared = self._undeclared()
-            return Awaited(lambda context: declaration.draw(undeclared, context))
+        if (drawn := declared(self)) is not None:
+            return drawn
 
         if self._get_prop("selectable") is not None and "id" not in self._attrs:
             # Every row's ids are built from the table's, and a fallback
@@ -447,15 +443,6 @@ class DataTable(ChainableComponent):
 
         if under := self._get_prop("under", ()):
             table.under(html.div(*under, class_=_BAND_BOTTOM))
-
-    def _undeclared(self) -> DataTable:
-        table = DataTable()
-        table._props = {k: v for k, v in self._props.items() if k != "declaration"}
-        table._attrs = dict(self._attrs)
-        table._children = self._children
-        table._columns = list(self._columns)
-        table._rows = self._rows
-        return table
 
     def _head(self) -> ComponentType:
         return TableHeader().content(

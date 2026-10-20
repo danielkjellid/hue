@@ -10,7 +10,7 @@ from typing_extensions import Self
 from hue.formats import Formats
 from hue.types.core import Component
 from hue.ui._styles import LOADING
-from hue.ui.base import Awaited, ChainableComponent
+from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules._calendar_views import (
     FIRST,
     LAST,
@@ -169,17 +169,8 @@ class Calendar(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        declaration: _Declaration | None = self._get_prop("declaration")
-        if declaration is not None:
-            # A copy without the declaration goes in, or drawing it would
-            # hand it straight back to the declaration again.
-            undeclared = Calendar()
-            undeclared._props = {
-                k: v for k, v in self._props.items() if k != "declaration"
-            }
-            undeclared._attrs = dict(self._attrs)
-            undeclared._children = self._children
-            return Awaited(lambda context: declaration.draw(undeclared, context))
+        if (drawn := declared(self)) is not None:
+            return drawn
 
         cursor: date | None = self._get_prop("date")
         if cursor is None:

@@ -20,6 +20,7 @@ from hue.ui._styles import (
     DASH,
     FOCUS_RING,
     FOCUS_RING_INSET,
+    PANEL_LABEL,
     STEP,
     STEP_IDLE,
     STEP_SPENT,
@@ -126,7 +127,6 @@ _SHORT = 45
 _TALL = 70
 # A month cell shows this many events, or one fewer and how many more.
 _PER_CELL = 3
-_HEAD = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
 _NUMBER_IN_TODAY = (
     "group-aria-[current=date]:bg-accent group-aria-[current=date]:text-accent-fg"
 )
@@ -601,7 +601,7 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
         html.div(
             html.div(
                 "All day",
-                class_=classnames(_HEAD, "flex items-center justify-end pe-2"),
+                class_=classnames(PANEL_LABEL, "flex items-center justify-end pe-2"),
             ),
             render_when(
                 bool(bars),
@@ -637,7 +637,7 @@ def _day_head(draw: Draw, day: date) -> ComponentType:
     return draw.link(
         day,
         "day",
-        html.span(draw.formats.day_abbreviations[day.weekday()], class_=_HEAD),
+        html.span(draw.formats.day_abbreviations[day.weekday()], class_=PANEL_LABEL),
         html.span(str(day.day), class_=classnames(_NUMBER, _NUMBER_IN_TODAY)),
         label=draw.day_name(day),
         classes="group flex h-13 items-center justify-center gap-2 border-s "
@@ -712,6 +712,8 @@ def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         ),
         render_when(day == draw.today, _now()),
         data_date=day.isoformat(),
+        # A column the hours run down, which a click reads a time off.
+        data_timed="",
         class_=classnames("relative border-s border-border", {_WEEKEND: weekend(day)}),
         style=_HOUR_LINES,
     )
@@ -817,7 +819,7 @@ def month(draw: Draw) -> ComponentType:
                         formats.day_abbreviations[day.weekday()],
                         scope="col",
                         abbr=formats.day_names[day.weekday()],
-                        class_=classnames(_HEAD, "border-b border-border py-2"),
+                        class_=classnames(PANEL_LABEL, "border-b border-border py-2"),
                     )
                     for day in rows[0]
                 )
@@ -923,7 +925,7 @@ def _mini(draw: Draw, month: date, placed: dict[date, list[Placed]]) -> Componen
                         formats.day_abbreviations[day.weekday()][0],
                         scope="col",
                         abbr=formats.day_names[day.weekday()],
-                        class_=classnames(_HEAD, "pb-1 text-center"),
+                        class_=classnames(PANEL_LABEL, "pb-1 text-center"),
                     )
                     for day in rows[0]
                 )

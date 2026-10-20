@@ -74,28 +74,37 @@ because both usually use the ORM and the ORM refuses to run on the loop.
 from __future__ import annotations
 
 import json
-import logging
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from http import HTTPStatus
-from typing import Any, ClassVar, Protocol, get_args
-from urllib.parse import urlencode
+from typing import Any, ClassVar, get_args
 
 from htmy import Context, html
 
 from hue import toast
+from hue._declared import (
+    Bound,
+    Declaration,
+    Routes,
+    Urls,
+    bound_from,
+    carried,
+    many,
+    one,
+    search_form,
+)
 from hue.context import HueContext
 from hue.formats import Formats
 from hue.js import Expression, ajax, call, close, unsafe
-from hue.router import PAGE_ROUTE, HueResponse
+from hue.router import HueResponse
 from hue.types.core import Component, ComponentType
+from hue.ui._styles import PANEL_LABEL
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import SEARCH_DELAY, SearchInput, TextInput
+from hue.ui.atoms.input import TextInput
 from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.atoms.radio import Radio, RadioGroup
 from hue.ui.atoms.switch import Switch
@@ -114,8 +123,6 @@ from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
 
 __all__ = ["CalendarState", "Layer", "build_calendar_state"]
-
-_log = logging.getLogger(__name__)
 
 # date is a field of CalendarState, which hides the type by that name
 # inside the class, as Formats' fields do.
@@ -144,32 +151,15 @@ _VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
 _DAY_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 _CLOCK_PATTERN = re.compile(r"\d{2}:\d{2}")
 
-# A new event with no time of its own: an hour from nine.
+# A new event with no time of its own starts at nine, and a new event
+# runs an hour unless that would take it past the end of its day.
 _NEW_STARTS = time(9)
-_NEW_ENDS = time(10)
+_NEW_LASTS = timedelta(hours=1)
 
 # The most days an event may run, a year, which is also the longest view.
 # A draft past that would have events() asked for thousands of days at
 # every change of a field.
 _LONGEST = 366
-
-_SIDE_HEADING = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
-
-
-class _Routes(Protocol):
-    """
-    What a declaration needs from the router it is handed: somewhere to
-    register its route, and the framework's answers to the questions only
-    the framework can answer.
-    """
-
-    def fragment_post(self, path: str) -> Callable[[Any], Any]: ...
-    def _get_query_values(self, request: Any) -> dict[str, list[str]]: ...
-    def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
-    def _url_for(self, request: Any, name: str, **params: Any) -> str: ...
-    def _refusal(self, error: Exception) -> HTTPStatus | None: ...
-    def _csrf_field(self) -> str | None: ...
-    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R: ...
 
 
 # Given the request and what it asked for, every event that answers it.
@@ -269,17 +259,6 @@ class _Posted:
 _FIELDS = tuple(each.name for each in fields(_Posted))
 
 
-def _one(asked: Mapping[str, list[str]], name: str) -> str | None:
-    values = asked.get(name)
-    return values[-1] if values else None
-
-
-def _many(asked: Mapping[str, list[str]], name: str) -> tuple[str, ...]:
-    return tuple(
-        part for value in asked.get(name, ()) for part in value.split(",") if part
-    )
-
-
 def _day(text: str) -> date | None:
     """
     A date typed or posted as YYYY-MM-DD, or None for anything else.
@@ -342,16 +321,6 @@ def _exists(moment: datetime, zone: tzinfo) -> bool:
     return aware.astimezone(UTC).astimezone(zone).replace(tzinfo=None) == moment
 
 
-def _bound_from(context: Context, component: object) -> BoundCalendar:
-    found = context.get(BoundCalendar)
-    if isinstance(found, BoundCalendar):
-        return found
-    raise ValueError(
-        f"{type(component).__name__} draws part of a calendar bound to a "
-        "request, and there is none here. It is drawn by Calendar.from_state()."
-    )
-
-
 def _slot(key: str) -> str:
     """
     The id of the element the dialog lands in, and every action targets.
@@ -359,19 +328,30 @@ def _slot(key: str) -> str:
     return f"{key}-dialog"
 
 
-@dataclass(frozen=True, slots=True)
-class _Urls:
+def _overlap(key: str) -> str:
     """
-    Where this calendar lives, for one request: the page it is drawn on,
-    which every link and form points at, and the route of each action.
+    The id of the dialog's overlap warning, which the check swaps.
     """
+    return f"{key}-overlap"
 
-    read: str
-    act: Mapping[str, str]
+
+def _state(key: str) -> str:
+    """
+    The id of the hidden fields that hold the whole state, which a click on
+    an empty slot reads.
+    """
+    return f"{key}-state"
+
+
+def _new(key: str) -> str:
+    """
+    The id of New event, where focus goes once the dialog has closed.
+    """
+    return f"{key}-new"
 
 
 @dataclass(frozen=True, slots=True)
-class BoundCalendar:
+class BoundCalendar(Bound):
     """
     One calendar for one request: what was asked, the events that answered,
     and the reader's today. Every part of the calendar reads this from the
@@ -382,37 +362,16 @@ class BoundCalendar:
     state: CalendarState
     events: list[Event]
     today: date
-    urls: _Urls
-    # Everything else the URL held, such as a table's state on the same
-    # page. Every link and form sends it back unchanged.
+    urls: Urls
     others: tuple[tuple[str, str], ...]
     formats: Formats
-
-    @property
-    def key(self) -> str:
-        return self.declaration.key
 
     def href(self, **changes: Any) -> str:
         """
         This calendar with something changed. Every link on it is one of
         these.
         """
-        asked = self._query(replace(self.state, **changes))
-        return self.urls.read + (f"?{urlencode(asked)}" if asked else "")
-
-    def _query(
-        self, state: CalendarState, *, without: AbstractSet[str] = frozenset()
-    ) -> list[tuple[str, str]]:
-        """
-        The query string for this calendar in state, as pairs: its own part
-        under its key, apart from without, and everything else as it was.
-        """
-        own = [
-            (self.declaration.param(name), value)
-            for name, value in self._params(state).items()
-            if name not in without
-        ]
-        return [*self.others, *own]
+        return self._link(replace(self.state, **changes))
 
     def _params(self, state: CalendarState) -> dict[str, str]:
         """
@@ -431,7 +390,7 @@ class BoundCalendar:
         return {name: value for name, value in asked.items() if value}
 
 
-class _Declaration:
+class _Declaration(Declaration[Routes]):
     """
     A calendar declared once, at class scope, and the route its dialog
     posts to.
@@ -447,7 +406,7 @@ class _Declaration:
 
     def __init__(
         self,
-        router: _Routes,
+        router: Routes,
         *,
         key: str,
         events: EventsFor,
@@ -459,7 +418,7 @@ class _Declaration:
         view: CalendarView = "week",
         week_start: Weekday = "monday",
     ) -> None:
-        self.key = key
+        super().__init__(router, key)
         self.events = events
         self.layers = list(layers)
         self.save = save
@@ -468,13 +427,9 @@ class _Declaration:
         self.search = search
         self.view = view
         self.week_start = week_start
-        self._router = router
-        # One spelling of the route's name, used to register it and to find
-        # it again. Two calendars on one view would otherwise both call
-        # theirs "act", since the router names a route after the handler.
-        self._act_route = f"{key}_act"
         self._check()
-        self._register()
+        if self.edits:
+            self._register_route(self._served(), self._act)
 
     def _check(self) -> None:
         if not self.key:
@@ -503,15 +458,13 @@ class _Declaration:
     def edits(self) -> bool:
         return self.save is not None or self.delete is not None
 
-    def param(self, name: str) -> str:
+    def _served(self) -> tuple[str, ...]:
         """
-        What one part of this calendar's state is called in the URL. Under
-        the key, because a page can hold two calendars.
+        The actions the route serves: the dialog, the overlap check and a
+        save with a save handler, and a delete with a delete handler.
         """
-        return f"{self.key}-{name}"
-
-    def _names(self) -> dict[str, str]:
-        return {self.param(name): name for name in _STATE}
+        saves = (_DIALOG, _OVERLAPS, _SAVE) if self.save is not None else ()
+        return (*saves, *((_DELETE,) if self.delete is not None else ()))
 
     async def draw(self, calendar: Calendar, context: Context) -> Component:
         """
@@ -541,34 +494,23 @@ class _Declaration:
         one is the default, and a hidden layer nobody declared is dropped.
         Anyone can type into a query string, and it is never an error page.
         """
-        names = self._names()
-        posted = {self.param(name): name for name in _FIELDS}
-        csrf = self._router._csrf_field()
-        own: dict[str, list[str]] = {}
-        given: dict[str, str] = {}
-        others: list[tuple[str, str]] = []
-        for name, found in values.items():
-            if name in names:
-                own[names[name]] = found
-            elif name in posted:
-                given[posted[name]] = found[-1] if found else ""
-            elif name != csrf:
-                others.extend((name, value) for value in found)
-        return self._state_from(own, today), _Posted(**given), tuple(others)
+        own, others = self._split(values, (*_STATE, *_FIELDS))
+        given = {name: one(own, name) or "" for name in _FIELDS if name in own}
+        return self._state_from(own, today), _Posted(**given), others
 
     def _state_from(self, asked: Mapping[str, list[str]], today: date) -> CalendarState:
-        view = _one(asked, _VIEW)
-        start = _one(asked, _START)
-        cursor = _day(_one(asked, _DATE) or "") or today
+        view = one(asked, _VIEW)
+        start = one(asked, _START)
+        cursor = _day(one(asked, _DATE) or "") or today
         declared = [layer.key for layer in self.layers]
-        hidden = tuple(key for key in _many(asked, _HIDE) if key in declared)
+        hidden = tuple(key for key in many(asked, _HIDE) if key in declared)
         return CalendarState(
             date=min(max(cursor, FIRST), LAST),
             view=view if view in _VIEWS else self.view,  # type: ignore[arg-type]
-            query=(_one(asked, _QUERY) or "").strip(),
+            query=(one(asked, _QUERY) or "").strip(),
             hidden=hidden,
             week_start=start if start in WEEKDAYS else self.week_start,  # type: ignore[arg-type]
-            weekdays=_one(asked, _WEEKDAYS) == "1",
+            weekdays=one(asked, _WEEKDAYS) == "1",
             layers=tuple(key for key in declared if key not in hidden),
         )
 
@@ -579,11 +521,17 @@ class _Declaration:
         others: tuple[tuple[str, str], ...],
         today: date,
         formats: Formats,
-        urls: _Urls | None = None,
+        urls: Urls | None = None,
     ) -> BoundCalendar:
         events = await self._router._run_sync(self._fetch, request, asked)
         return BoundCalendar(
-            self, asked, events, today, urls or self._urls_for(request), others, formats
+            self,
+            asked,
+            events,
+            today,
+            urls or self._urls_for(request, self._served()),
+            others,
+            formats,
         )
 
     def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
@@ -606,15 +554,6 @@ class _Declaration:
                 found.append(returned)
         return found
 
-    def _urls_for(self, request: Any) -> _Urls:
-        return _Urls(
-            read=self._router._url_for(request, PAGE_ROUTE),
-            act={
-                name: self._router._url_for(request, self._act_route, action=name)
-                for name in (_ACTIONS if self.edits else ())
-            },
-        )
-
     def _drawn(self, calendar: Calendar, bound: BoundCalendar) -> ComponentType:
         """
         The whole thing for one binding: the sidebar, then the search and
@@ -630,7 +569,9 @@ class _Declaration:
             # A click on an empty slot or day opens the dialog with that
             # time filled in. Only the calendar hears it: the sidebar's
             # picker has day cells of its own.
-            calendar.x_on("click", unsafe("slot($event)"))
+            # Under the internal key, so a click handler of the page's own
+            # on the Calendar is kept beside it.
+            calendar._attrs["x-on:click"] = "calendarSlot($event)"
         if self.edits:
             calendar.actions(lambda event: _event_actions(bound, event))
         return _Frame(bound).content(
@@ -748,7 +689,7 @@ class _Declaration:
             .errors({param(name): message for name, message in errors.items()})
             .class_("gap-4")
             .content(
-                *_carried(bound),
+                *carried(bound._query(bound.state)),
                 render_if(
                     csrf_field,
                     lambda name: html.input_(
@@ -805,29 +746,25 @@ class _Declaration:
                 .rows(3),
                 # Where the overlap warning lands, and announced when it
                 # does, since it arrives while the reader is elsewhere.
-                html.div(id=f"{key}-overlap", role="status"),
+                html.div(id=_overlap(key), role="status"),
             )
         )
-        form._attrs.update(
-            {
-                "x-target": _slot(key),
-                # The route says what is wrong, on the field, so the
-                # browser's own bubbles are not a second opinion.
-                "novalidate": True,
-                "x-data": f"{{ allDay: {json.dumps(all_day)} }}",
-                # Asked again whenever a field settles, which the date and
-                # time fields announce as a change once a value is read.
-                "@change.debounce.200ms": _overlaps_check(bound),
-            }
-        )
+        form.x_data(f"{{ allDay: {json.dumps(all_day)} }}")
+        # Asked again whenever a field settles, which the date and time
+        # fields announce as a change once a value is read.
+        form._attrs["x-on:change.debounce.200ms"] = _overlaps_check(bound)
+        # Neither has a modifier. The route says what is wrong, on the
+        # field, so the browser's own bubbles are not a second opinion.
+        form._attrs.update({"x-target": _slot(key), "novalidate": True})
         footer = [
-            render_when(
-                editing and self.delete is not None,
-                Button()
+            # Built only where there is a delete route to point it at.
+            render_if(
+                bound.urls.act.get(_DELETE) if editing else None,
+                lambda url: Button()
                 .variant("ghost")
                 .type("submit")
                 .form(form_id)
-                .formaction(bound.urls.act[_DELETE])
+                .formaction(url)
                 .class_("me-auto text-danger-text")
                 .content("Delete"),
             ),
@@ -847,66 +784,52 @@ class _Declaration:
             .footer(*footer)
         )
 
-    def _register(self) -> None:
+    async def _act(self, request: Any, context: Any, action: str) -> Any:
         """
-        The one route the dialog and the popover post to, when there is
-        anything to post. Reading needs no route of its own: the page the
-        calendar is drawn on reads its state from the query string.
+        One of the served actions, with the state and the dialog's fields
+        from the body the dialog and the popover's buttons post.
         """
-        if not self.edits:
-            return
-
-        async def act(view: Any, request: Any, context: Any, action: str) -> Any:
-            # Delete is the one action the delete handler serves; the dialog,
-            # the overlap check and a save all need the save handler.
-            handler = self.delete if action == _DELETE else self.save
-            # The state and the dialog's fields come in the body, from the
-            # fields the dialog and the popover's buttons carry.
-            formats: Formats = context.formats
-            today = _today(formats)
-            asked, body, others = self._read(
-                self._router._get_form_values(request), today
+        formats: Formats = context.formats
+        today = _today(formats)
+        asked, body, others = self._read(self._router._get_form_values(request), today)
+        if action == _DELETE and not body.id:
+            return HueResponse(
+                component=html.p(f"{self.key}: delete needs the event's id."),
+                status_code=HTTPStatus.NOT_FOUND,
             )
-            refused = None
-            if action not in _ACTIONS or handler is None:
-                refused = f"{self.key} has no action called {action!r}."
-            elif action == _DELETE and not body.id:
-                refused = f"{self.key}: delete needs the event's id."
-            if refused is not None or handler is None:
-                return HueResponse(
-                    component=html.p(refused or ""), status_code=HTTPStatus.NOT_FOUND
-                )
-            # Before the handler, so a view with no page to draw the
-            # calendar on is an error before anything is written.
-            urls = self._urls_for(request)
-            bound = BoundCalendar(self, asked, [], today, urls, others, formats)
+        # Before the handler, so a view with no page to draw the calendar on
+        # is an error before anything is written.
+        urls = self._urls_for(request, self._served())
+        bound = BoundCalendar(self, asked, [], today, urls, others, formats)
 
-            csrf_token: str = context.csrf_token
-            if action == _DIALOG:
-                shown = _prefilled(body, asked, self.layers)
+        csrf_token: str = context.csrf_token
+        if action == _DIALOG:
+            shown = _prefilled(body, asked, self.layers)
+            return HueResponse(
+                component=self._dialog(bound, shown, {}, csrf_token=csrf_token),
+                target=_slot(self.key),
+            )
+        if action == _OVERLAPS:
+            return await self._checked(request, bound, body)
+        if action == _SAVE and self.save is not None:
+            draft, errors = self._draft(body, formats)
+            if draft is None:
                 return HueResponse(
-                    component=self._dialog(bound, shown, {}, csrf_token=csrf_token),
+                    component=self._dialog(bound, body, errors, csrf_token=csrf_token),
                     target=_slot(self.key),
+                    status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
                 )
-            if action == _OVERLAPS:
-                return await self._checked(request, bound, body)
-            if action == _SAVE:
-                draft, errors = self._draft(body, formats)
-                if draft is None:
-                    return HueResponse(
-                        component=self._dialog(
-                            bound, body, errors, csrf_token=csrf_token
-                        ),
-                        target=_slot(self.key),
-                        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-                    )
-                return await self._changed(
-                    request, bound, handler, draft, "Save" if draft.id else "Create"
-                )
-            return await self._changed(request, bound, handler, body.id, "Delete")
-
-        act.__name__ = self._act_route
-        self._router.fragment_post(f"{self.key}/<str:action>/")(act)
+            verb = "Save" if draft.id else "Create"
+            return await self._changed(
+                request, bound, self.save, draft, verb, draft.title
+            )
+        if self.delete is None:  # pragma: no cover - only served with one
+            raise AssertionError(action)
+        # Named by the title the popover or the dialog posts beside the id.
+        named = body.title.strip() or "the event"
+        return await self._changed(
+            request, bound, self.delete, body.id, "Delete", named
+        )
 
     async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
         """
@@ -923,7 +846,7 @@ class _Declaration:
         )
         return HueResponse(
             component=_overlap_warning(found, bound.formats),
-            target=f"{self.key}-overlap",
+            target=_overlap(self.key),
         )
 
     async def _changed(
@@ -933,34 +856,20 @@ class _Declaration:
         handler: Callable[..., Any],
         given: Event | str,
         verb: str,
+        named: str,
     ) -> Any:
         """
         The calendar after a handler has run, with a toast saying what
         happened, or what failed.
-
-        A refusal from the handler, a not found or a permission denied,
-        keeps the framework's status but is answered here all the same:
-        the framework's own page has no slot on it for the browser to put
-        the answer in, and the form would be submitted again as a plain
-        request, landing the reader on that page.
         """
-        status = HTTPStatus.OK
-        try:
-            await self._router._run_sync(handler, request, given)
-        except Exception as error:
-            refused = self._router._refusal(error)
-            if refused is None:
-                # Logged with its traceback, since nothing is raised for an
-                # error tracker to catch. The reader is told on the page.
-                _log.exception("%s: %s failed", self.key, verb.lower())
-                status = HTTPStatus.INTERNAL_SERVER_ERROR
-            else:
-                status = refused
-            toast.danger(
-                f"{verb} failed", description="The calendar is shown as it is now."
-            )
-        else:
-            named = given.title if isinstance(given, Event) else "event"
+        status = await self._run(
+            request,
+            handler,
+            given,
+            label=verb,
+            description="The calendar is shown as it is now.",
+        )
+        if status == HTTPStatus.OK:
             toast.success(f'{_DONE[verb]} "{named}"')
         # Drawn after, because the events have just changed under it. The
         # whole thing, with an empty slot: the response targets the slot,
@@ -1049,19 +958,22 @@ def _prefilled(
     posted: _Posted, asked: CalendarState, layers: Sequence[Layer]
 ) -> _Posted:
     """
-    What a new event starts with when the request said nothing: an hour
-    from nine on the day the view is around, in the first layer.
+    What a new event starts with where the request said nothing: the day
+    the view is around, nine o'clock when no time was given, an hour that
+    stops at the end of its day, and the first layer.
     """
     filled = posted
     if not posted.starts:
-        day = asked.date.isoformat()
-        filled = replace(
-            filled,
-            starts=day,
-            starts_time=_NEW_STARTS.strftime("%H:%M"),
-            ends=day,
-            ends_time=_NEW_ENDS.strftime("%H:%M"),
-        )
+        filled = replace(filled, starts=asked.date.isoformat())
+    if not filled.all_day and not filled.starts_time:
+        filled = replace(filled, starts_time=_NEW_STARTS.strftime("%H:%M"))
+    if not filled.ends:
+        filled = replace(filled, ends=filled.starts)
+    starts, opens = _day(filled.starts), _clock(filled.starts_time)
+    if not filled.all_day and not filled.ends_time and starts and opens:
+        later = datetime.combine(starts, opens) + _NEW_LASTS
+        closes = time(23, 59) if later.date() != starts else later.time()
+        filled = replace(filled, ends_time=closes.strftime("%H:%M"))
     if not posted.layer and layers:
         filled = replace(filled, layer=layers[0].key)
     return filled
@@ -1121,7 +1033,7 @@ def _overlaps_check(bound: BoundCalendar) -> str:
     The request the dialog makes when a field settles: the form as it
     stands, answered with the warning or with nothing.
     """
-    url, target = bound.urls.act[_OVERLAPS], f"{bound.key}-overlap"
+    url, target = bound.urls.act[_OVERLAPS], _overlap(bound.key)
     return (
         f"$ajax({json.dumps(url)}, {{ method: 'post', target: {json.dumps(target)}, "
         f"body: new FormData($el) }})"
@@ -1237,23 +1149,6 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
     return actions
 
 
-def _carried(
-    bound: BoundCalendar,
-    *,
-    form: str | None = None,
-    without: AbstractSet[str] = frozenset(),
-    state: CalendarState | None = None,
-) -> tuple[ComponentType, ...]:
-    """
-    The URL's state apart from this calendar's without, as hidden fields,
-    tied to form when they sit outside it.
-    """
-    return tuple(
-        html.input_(type="hidden", name=name, value=value, form=form)
-        for name, value in bound._query(state or bound.state, without=without)
-    )
-
-
 def _marked(bound: BoundCalendar) -> list[date]:
     """
     Every day between first and last with something on it, for the
@@ -1317,16 +1212,18 @@ class _Frame(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         bound = self._bound
+        param = bound.declaration.param
         config = {
             "url": bound.urls.act.get(_DIALOG),
-            "key": bound.key,
             "target": _slot(bound.key),
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
-            "state": f"{bound.key}-state",
+            "state": _state(bound.key),
+            # What a click posts the day and the time it fell on under.
+            "fields": {"day": param("starts"), "time": param("starts_time")},
             "hour": views._HOUR,
         }
-        refocus = f"{bound.key}-new" if bound.declaration.save is not None else None
+        refocus = _new(bound.key) if bound.declaration.save is not None else None
         return html.div(
             *self._children,
             html.div(id=_slot(bound.key), **{"data-hue-refocus": refocus}),
@@ -1348,10 +1245,10 @@ class _Side(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = _bound_from(context, self)
+        bound = bound_from(context, BoundCalendar, self, "Calendar")
         declared, state, key = bound.declaration, bound.state, bound.key
         formats = bound.formats
-        view = f"{key}-view"
+        view = views.region_id(key)
         # Picking a day in the year view goes to that day; elsewhere the
         # view stays and moves to it.
         picked = replace(state, view="day" if state.view == "year" else state.view)
@@ -1360,9 +1257,9 @@ class _Side(ChainableComponent):
                 declared.save is not None,
                 Button()
                 .variant("primary")
-                .id(f"{key}-new")
+                .id(_new(key))
                 .content(HueIcon("plus"), "New event")
-                .x_on("click", unsafe("create()")),
+                .x_on("click", unsafe("calendarCreate()")),
             ),
             html.form(
                 DatePicker()
@@ -1376,7 +1273,7 @@ class _Side(ChainableComponent):
                 # Named so nothing in the picker's own scope, which has a
                 # day() of its own, can stand in for it.
                 .x_model(unsafe("pickedDay")),
-                *_carried(bound, without={_DATE}, state=picked),
+                *carried(bound._query(picked, without={_DATE})),
                 method="get",
                 action=bound.urls.read,
                 **swap(view),
@@ -1395,7 +1292,7 @@ class _Side(ChainableComponent):
             render_when(
                 bool(declared.layers),
                 html.section(
-                    html.h2("Calendars", class_=_SIDE_HEADING),
+                    html.h2("Calendars", class_=PANEL_LABEL),
                     html.ul(
                         *(_layer_row(bound, layer) for layer in declared.layers),
                         class_="flex flex-col gap-2",
@@ -1414,7 +1311,7 @@ class _Side(ChainableComponent):
                                 ":disabled": "!hiddenLayers.length",
                             },
                         ),
-                        *_carried(bound, without={_HIDE}),
+                        *carried(bound._query(bound.state, without={_HIDE})),
                         method="get",
                         action=bound.urls.read,
                         hidden=True,
@@ -1441,15 +1338,18 @@ class _Side(ChainableComponent):
             # each by id, and the whole state for the script that opens the
             # dialog from a click.
             html.div(
-                *_carried(bound, form=f"{key}-search", without={_QUERY}),
-                *_carried(bound, form=f"{key}-options", without={_START, _WEEKDAYS}),
-                html.div(*_carried(bound), id=f"{key}-state"),
+                *carried(bound._query(state, without={_QUERY}), form=f"{key}-search"),
+                *carried(
+                    bound._query(state, without={_START, _WEEKDAYS}),
+                    form=f"{key}-options",
+                ),
+                html.div(*carried(bound._query(state)), id=_state(key)),
                 hidden=True,
             ),
             id=f"{key}-side",
             aria_label="Calendar tools",
             class_="w-full flex-none flex-col gap-5 lg:flex lg:w-60",
-            **{":class": "side ? 'flex' : 'hidden lg:flex'", **SYNC},
+            **{":class": "calendarSide ? 'flex' : 'hidden lg:flex'", **SYNC},
         )
 
 
@@ -1497,7 +1397,7 @@ class _Band(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def _render(self, context: Context) -> Component:
-        bound = _bound_from(context, self)
+        bound = bound_from(context, BoundCalendar, self, "Calendar")
         declared, key = bound.declaration, bound.key
         return html.div(
             Button()
@@ -1507,9 +1407,19 @@ class _Band(ChainableComponent):
             .class_("lg:hidden")
             .aria_controls(f"{key}-side")
             .content(HueIcon("panel-left"))
-            .x_on("click", unsafe("side = !side"))
-            .x_bind("aria-expanded", unsafe("side")),
-            render_when(declared.search is not None, _search_form(bound)),
+            .x_on("click", unsafe("calendarSide = !calendarSide"))
+            .x_bind("aria-expanded", unsafe("calendarSide")),
+            render_when(
+                declared.search is not None,
+                search_form(
+                    declared,
+                    param=_QUERY,
+                    label=declared.search or "",
+                    value=bound.state.query,
+                    read=bound.urls.read,
+                    target=views.region_id(key),
+                ),
+            ),
             render_when(
                 declared.search is not None,
                 html.span(
@@ -1524,44 +1434,6 @@ class _Band(ChainableComponent):
             _options(bound),
             class_="flex flex-wrap items-center gap-2",
         )
-
-
-def _search_form(bound: BoundCalendar) -> ComponentType:
-    """
-    The search box's own GET form, so Enter submits it and it works with
-    Alpine off; typing submits it after a pause.
-    """
-    declared, key = bound.declaration, bound.key
-    return html.form(
-        SearchInput()
-        .name(declared.param(_QUERY))
-        .id(f"{key}-{_QUERY}")
-        .size("sm")
-        .label(declared.search or "")
-        .hidden_label()
-        .placeholder(declared.search or "")
-        .value(bound.state.query)
-        .leading_icon(HueIcon("search"))
-        # Stopped, so an escape that empties the box is not also an escape
-        # that closes whatever the calendar is inside.
-        .x_on(
-            "keydown.escape",
-            unsafe(
-                "if ($el.value) { $event.stopPropagation(); $el.value = ''; "
-                "$el.form.requestSubmit() }"
-            ),
-        ),
-        id=f"{key}-search",
-        method="get",
-        action=bound.urls.read,
-        class_="min-w-0 flex-1 basis-56 sm:max-w-[320px]",
-        **{
-            # replace rather than push: a word typed at speed would
-            # otherwise be a history entry per pause in it.
-            "x-target.replace": f"{key}-view",
-            f"@input.debounce.{SEARCH_DELAY}": "$el.requestSubmit()",
-        },
-    )
 
 
 def _options(bound: BoundCalendar) -> ComponentType:
@@ -1607,7 +1479,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 method="get",
                 action=bound.urls.read,
                 class_="flex w-52 flex-col gap-4",
-                **swap(f"{key}-view"),
+                **swap(views.region_id(key)),
                 **{"@change": "$el.requestSubmit()"},
             )
         )
