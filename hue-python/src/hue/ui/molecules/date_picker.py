@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -23,9 +23,7 @@ type Weekday = Literal[
 ]  # fmt: skip
 
 # Monday first, as date.weekday() and Formats.day_names count.
-WEEKDAYS: tuple[Weekday, ...] = (
-    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-)  # fmt: skip
+WEEKDAYS: tuple[Weekday, ...] = get_args(Weekday.__value__)
 
 # Six weeks, always, so the grid keeps its height from month to month.
 _CELLS = 42
@@ -57,7 +55,7 @@ _DISC = classnames(
     "in-data-filled:bg-accent in-data-filled:text-accent-fg",
     "in-data-filled:hover:bg-accent-hover",
     "in-aria-disabled:cursor-not-allowed in-aria-disabled:line-through",
-    "in-aria-disabled:opacity-40",
+    "in-aria-disabled:text-fg-disabled",
     # The marker dot, in the disc's own colour so it shows on a filled day.
     "in-data-marked:after:absolute in-data-marked:after:bottom-1",
     "in-data-marked:after:start-1/2 in-data-marked:after:size-1",
@@ -65,7 +63,7 @@ _DISC = classnames(
     "in-data-marked:after:bg-current",
 )
 _ITEM = classnames(
-    "h-11 cursor-pointer rounded-md text-sm font-medium text-fg",
+    "h-control-lg cursor-pointer rounded-md text-sm font-medium text-fg",
     "hover:bg-surface-hover data-current:font-bold",
     "data-current:not-aria-pressed:inset-ring",
     "data-current:not-aria-pressed:inset-ring-fg",
@@ -74,7 +72,7 @@ _ITEM = classnames(
     FOCUS_RING,
 )
 _TITLE = classnames(
-    "inline-flex h-control-xs items-center gap-1 rounded-sm px-2 font-ui",
+    "inline-flex h-control-xs items-center gap-1 rounded-md px-2 font-ui",
     "text-base font-bold text-fg",
 )
 
@@ -144,6 +142,9 @@ class DatePicker(FormControl):
         them, as in unavailable("saturday", "sunday").
         """
         _days(*(day for day in days if not isinstance(day, str)))
+        for day in days:
+            if isinstance(day, str) and day not in WEEKDAYS:
+                raise ValueError(f"{day!r} is not a weekday: one of {WEEKDAYS}.")
         self._props["unavailable"] = days
         return self
 
@@ -194,7 +195,7 @@ class DatePicker(FormControl):
             tabindex="-1",
             class_=classnames(
                 "inline-flex flex-col gap-2 outline-none select-none",
-                {"pointer-events-none opacity-50": disabled},
+                {"pointer-events-none **:text-fg-disabled": disabled},
                 self._get_prop("class_"),
             ),
             **{
@@ -218,10 +219,10 @@ class DatePicker(FormControl):
                 form=form,
                 # A disabled field is left out of what the form submits.
                 disabled=disabled or None,
-                **{":value": "day"},
+                **{":value": "iso"},
             ),
             # Keyed by position: a range picked on one day holds it twice.
-            **{"x-for": "(day, i) in value", ":key": "i"},
+            **{"x-for": "(iso, i) in value", ":key": "i"},
         )
         return html.div(
             submitted,
@@ -238,7 +239,10 @@ class DatePicker(FormControl):
         from Formats, so a framework's translations reach the grid.
         """
         days: tuple[date, ...] = self._get_prop("value", ())
-        value = sorted({day.isoformat() for day in days})
+        # A range on one day posts that day twice, and needs both back to be
+        # complete. Only several days can repeat one by mistake.
+        iso = [day.isoformat() for day in days]
+        value = sorted(set(iso) if mode == "multiple" else iso)
         limit = {"single": 1, "range": 2}.get(mode)
         if limit is not None and len(value) > limit:
             raise ValueError(f"A {mode} DatePicker cannot hold {len(value)} days.")
@@ -258,6 +262,7 @@ class DatePicker(FormControl):
             "markerLabel": self._get_prop("marker_label", ""),
             "disabled": self._get_prop("disabled", False),
             "monthNames": list(formats.month_names),
+            "monthNamesInDate": list(formats.month_names_in_date),
             "dayNames": list(formats.day_names),
         }
 

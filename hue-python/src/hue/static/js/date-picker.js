@@ -52,6 +52,13 @@ function today() {
 	return iso(utc(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
+// The day of the cell an event happened in, when that cell is root's own:
+// a picker inside something else with data-date answers for itself only.
+function pickedDay(root, event) {
+	const cell = event.target.closest("td[data-date]");
+	return cell && root.contains(cell) ? cell.dataset.date : null;
+}
+
 // The same day of the month n months on, clamped where it does not fit:
 // the 31st pages to the 30th.
 function addMonths(day, n) {
@@ -70,16 +77,19 @@ export function datePicker(config) {
 		disabled,
 		markerLabel,
 		monthNames,
+		monthNamesInDate,
 		dayNames,
 	} = config;
 	const unavailable = new Set(config.unavailable);
 	const closed = new Set(config.closed);
 	const markers = new Set(config.markers);
-	// Wednesday 14 October 2026, the order Formats.day() writes.
+	// Wednesday 14 October 2026, the words and order Formats.day() writes.
 	const name = (day) =>
-		`${dayNames[weekday(parse(day))]} ${+day.slice(8)} ${monthNames[+day.slice(5, 7) - 1]} ${day.slice(0, 4)}`;
+		`${dayNames[weekday(parse(day))]} ${+day.slice(8)} ${monthNamesInDate[+day.slice(5, 7) - 1]} ${day.slice(0, 4)}`;
 	const clamp = (day) => (min && day < min ? min : max && day > max ? max : day);
-	const inBounds = (year) => year >= FIRST_MONTH / 12 && year <= Math.floor(LAST_MONTH / 12);
+	// Whether every month shown from this first one is one the server takes.
+	const fits = (first) => first >= FIRST_MONTH && first + months - 1 <= LAST_MONTH;
+	const now = today();
 	// The selection as the picker last saw it, so a change from outside,
 	// through x-model, can be told from a pick.
 	let seen = config.value.join();
@@ -95,12 +105,17 @@ export function datePicker(config) {
 		level: "days",
 
 		init() {
-			this.focus = this.value[0] ?? clamp(today());
-			this.shown = monthOf(this.focus);
+			this.focus = this.value[0] ?? clamp(now);
+			this.shown = Math.min(monthOf(this.focus), LAST_MONTH - months + 1);
 			// A value set from outside moves the view to it. Picks are made
 			// on a shown month already, and a multiple pick must not page
 			// back to the earliest day.
 			this.$watch("value", (value) => {
+				// x-model can hand over anything; the cells need a list.
+				if (!Array.isArray(value)) {
+					this.value = [];
+					return;
+				}
 				if (value.join() === seen) return;
 				seen = value.join();
 				if (value[0]) this.show(value[0]);
@@ -110,7 +125,7 @@ export function datePicker(config) {
 		// Focus day, paging only when it falls outside the shown months.
 		show(day) {
 			const month = monthOf(day);
-			if (month < this.shown) this.shown = month;
+			if (month < this.shown) this.shown = Math.min(month, LAST_MONTH - months + 1);
 			else if (month > this.shown + months - 1) this.shown = month - months + 1;
 			this.focus = day;
 		},
@@ -162,7 +177,11 @@ export function datePicker(config) {
 			const inside = band && day > band[0] && day < band[1];
 			const filled =
 				mode !== "range" ? this.value.includes(day) : pending ? day === this.value[0] : ends;
-			const edge = !band || band[0] === band[1] ? null : day === band[0] ? "start" : day === band[1] ? "end" : null;
+			let edge = null;
+			if (band && band[0] !== band[1]) {
+				if (day === band[0]) edge = "start";
+				else if (day === band[1]) edge = "end";
+			}
 			return {
 				day,
 				number: +day.slice(8),
@@ -170,7 +189,7 @@ export function datePicker(config) {
 				label: markers.has(day) ? `${name(day)}, ${markerLabel}` : name(day),
 				// Every day of a committed range is selected; only its ends are filled.
 				selected: String(Boolean(filled || (!pending && inside))),
-				current: day === today() ? "date" : null,
+				current: day === now ? "date" : null,
 				unavailable: this.isUnavailable(day) ? "true" : null,
 				filled: filled || null,
 				band: edge ?? (inside ? "inside" : null),
@@ -208,7 +227,7 @@ export function datePicker(config) {
 			return {
 				":aria-pressed": () =>
 					String(Boolean(this.value[0]) && monthOf(this.value[0]) === this.year() * 12 + i),
-				":data-current": () => monthOf(today()) === this.year() * 12 + i || null,
+				":data-current": () => monthOf(now) === this.year() * 12 + i || null,
 				"x-on:click": () => this.chooseMonth(i),
 			};
 		},
@@ -218,8 +237,8 @@ export function datePicker(config) {
 				"x-text": () => this.yearAt(i),
 				":aria-pressed": () =>
 					String(Boolean(this.value[0]) && +this.value[0].slice(0, 4) === this.yearAt(i)),
-				":data-current": () => +today().slice(0, 4) === this.yearAt(i) || null,
-				":disabled": () => !inBounds(this.yearAt(i)) || null,
+				":data-current": () => +now.slice(0, 4) === this.yearAt(i) || null,
+				":disabled": () => !fits(this.shown + (this.yearAt(i) - this.year()) * 12) || null,
 				"x-on:click": () => this.chooseYear(this.yearAt(i)),
 			};
 		},
@@ -228,7 +247,7 @@ export function datePicker(config) {
 		// stop stays in a shown month. The panels' buttons page by 1, 12
 		// and 144.
 		page(n) {
-			if (this.shown + n < FIRST_MONTH || this.shown + n > LAST_MONTH) return;
+			if (!fits(this.shown + n)) return;
 			this.shown += n;
 			this.focus = addMonths(this.focus, n);
 		},
@@ -257,10 +276,10 @@ export function datePicker(config) {
 			this.switchTo("days", () => this.focusedCell());
 		},
 
+		// By whole years through page(), so the focused day moves with the
+		// view even when it sits in a later shown month of another year.
 		chooseYear(year) {
-			if (!inBounds(year)) return;
-			this.shown = year * 12 + (this.shown % 12);
-			this.focus = addMonths(this.focus, (year - +this.focus.slice(0, 4)) * 12);
+			this.page((year - this.year()) * 12);
 			// On the month being shown, which the year kept.
 			this.switchTo("months", () => this.$refs.months.querySelectorAll("[data-item]")[this.shown % 12]);
 		},
@@ -288,14 +307,14 @@ export function datePicker(config) {
 		},
 
 		click(event) {
-			const day = event.target.closest("[data-date]")?.dataset.date;
+			const day = pickedDay(this.$root, event);
 			if (!day) return;
 			this.show(day);
 			this.select(day);
 		},
 
 		preview(event) {
-			const day = event.target.closest("[data-date]")?.dataset.date;
+			const day = pickedDay(this.$root, event);
 			if (day && mode === "range" && this.value.length === 1) this.hover = day;
 		},
 

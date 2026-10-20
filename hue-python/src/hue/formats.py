@@ -95,6 +95,7 @@ class Formats:
             return self.localize(value)
         return value
 
+    # date-picker.js writes month() and day() again, in this word order.
     def month(self, value: _Day) -> str:
         """
         October 2026: a month's caption.

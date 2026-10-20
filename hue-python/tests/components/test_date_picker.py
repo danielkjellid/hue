@@ -65,6 +65,18 @@ class TestDatePicker:
         assert config["monthNames"][9] == "m10"
         assert config["dayNames"][0] == "d1"
 
+    @pytest.mark.asyncio
+    async def test_a_day_is_named_with_the_month_as_written_in_a_date(
+        self, context_args
+    ):
+        context_args["formats"] = Formats(
+            month_names_in_date=tuple(f"of m{n}" for n in range(1, 13))
+        )
+        html = await render_tree(_picker(), context_args=context_args)
+        config = _config(html)
+        assert config["monthNamesInDate"][9] == "of m10"
+        assert config["monthNames"][9] == "October"
+
     # value(): ISO strings, sorted, bounded by the mode
 
     @pytest.mark.asyncio
@@ -90,6 +102,26 @@ class TestDatePicker:
         assert _config(html)["value"] == ["2026-10-02", "2026-10-09"]
         with pytest.raises(ValueError, match="single"):
             await render_tree(_picker().value(*two), context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_a_one_day_range_keeps_both_ends(self, context_args):
+        day = date(2026, 10, 9)
+        html = await render_tree(
+            _picker().mode("range").value(day, day), context_args=context_args
+        )
+        assert _config(html)["value"] == ["2026-10-09", "2026-10-09"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_holds_a_day_once(self, context_args):
+        day = date(2026, 10, 9)
+        html = await render_tree(
+            _picker().mode("multiple").value(day, day), context_args=context_args
+        )
+        assert _config(html)["value"] == ["2026-10-09"]
+
+    def test_an_unknown_weekday_is_refused(self):
+        with pytest.raises(ValueError, match="weekday"):
+            _picker().unavailable("caturday")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
         "modifier", ["value", "min", "max", "unavailable", "markers"]
@@ -159,10 +191,10 @@ class TestDatePicker:
     @pytest.mark.asyncio
     async def test_each_day_is_submitted_under_the_name(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_attr(html, "template", "x-for", "(day, i) in value")
+        assert_attr(html, "template", "x-for", "(iso, i) in value")
         field = 'template input[type="hidden"]'
         assert_attr(html, field, "name", "due")
-        assert_attr(html, field, ":value", "day")
+        assert_attr(html, field, ":value", "iso")
         assert_no_selector(html, f"{field}[disabled]")
 
     @pytest.mark.asyncio
