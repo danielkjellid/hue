@@ -259,6 +259,7 @@ def test_the_repeat_and_calendar_selects_are_there_when_declared(mounted):
         ({"ends_time": "10:00"}, "Ends before it starts."),
         ({"ends_time": "11:00"}, "Starts and ends at the same time."),
         ({"all_day": "on", "ends": "2026-10-14"}, "Ends before it starts."),
+        ({"ends": "2027-10-17"}, "Ends more than a year after it starts."),
         ({"layer": ""}, "Choose a calendar."),
         ({"repeat": "yearly"}, "Choose how it repeats."),
     ],
@@ -339,6 +340,43 @@ def test_the_overlap_check_answers_in_the_dialogs_own_region(mounted):
     assert "Overlaps Review (13:00 to 14:00)." in html
     cleared = _act("overlaps", **_fields(all_day="on")).content.decode()
     assert re.fullmatch(r'<div id="events-overlap">\s*</div>', cleared.strip())
+
+
+def test_the_overlap_check_asks_for_the_drafts_days_in_every_layer_unsearched(
+    mounted,
+):
+    asked: list[Any] = []
+
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        asked.append((state.first, state.last, state.query, state.layers))
+        return []
+
+    mounted(events=events)
+    # The view is on March, with a search and a hidden layer; the draft
+    # is far away from both. Only its own day is asked for, in every layer
+    # and with no search, or a far draft reads thousands of days a
+    # keystroke and a clash the reader cannot see goes unmentioned.
+    _act(
+        "overlaps",
+        **_fields(starts="9998-12-30", ends="9998-12-30"),
+        **{"events-date": "2026-03-02", "events-q": "re", "events-hide": "home"},
+    )
+    assert asked == [(date(9998, 12, 30), date(9998, 12, 30), "", ("work", "home"))]
+
+
+def test_the_overlap_warning_names_two_counts_the_rest_and_skips_itself(mounted):
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        return [
+            Event(name, datetime(2026, 10, 15, 11), datetime(2026, 10, 15, 12), id=i)
+            for i, name in (("1", "A"), ("2", "B"), ("3", "C"))
+        ]
+
+    mounted(events=events)
+    html = _act("overlaps", **_fields()).content.decode()
+    assert "Overlaps A (11:00 to 12:00) and B (11:00 to 12:00) and 1 more." in html
+    # The event being edited is not in its own way.
+    html = _act("overlaps", **_fields(id="3")).content.decode()
+    assert "Overlaps A (11:00 to 12:00) and B (11:00 to 12:00)." in html
 
 
 def test_a_handler_that_fails_says_so_on_the_page(mounted):

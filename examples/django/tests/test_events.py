@@ -5,7 +5,7 @@ the dialog's route writes.
 """
 
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -13,6 +13,7 @@ import pytest
 from django.test import Client
 
 from example.events.models import Entry
+from example.events.repeats import occurrences
 
 _AJAX = {"HTTP_X_ALPINE_REQUEST": "true"}
 _OSLO = ZoneInfo("Europe/Oslo")
@@ -118,3 +119,17 @@ def test_a_delete_removes_the_entry_and_a_key_that_is_not_one_is_not_found(entri
     assert not Entry.objects.filter(title="Dentist").exists()
     assert _act("delete", id="abc").status_code == 404
     assert _act("delete", id="999999").status_code == 404
+
+
+def test_a_series_that_began_years_ago_still_lands_on_the_days_asked_for(entries):
+    standup = entries["Standup"]
+    # Counted from near the week asked for rather than walked from 2026.
+    found = list(occurrences(standup, date(9998, 12, 28), date(9999, 1, 3)))
+    assert [event.starts.date() for event in found] == [
+        date(9998, 12, 28) + timedelta(days=n) for n in range(5)
+    ]
+    # A long whole-day entry that started before the first day still counts.
+    freeze = entries["Release freeze"]
+    freeze.repeat = "weekly"
+    found = list(occurrences(freeze, date(2026, 10, 17), date(2026, 10, 17)))
+    assert [event.starts for event in found] == [date(2026, 10, 16)]

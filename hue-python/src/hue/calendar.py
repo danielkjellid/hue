@@ -156,6 +156,11 @@ _CLOCK_PATTERN = re.compile(r"\d{2}:\d{2}")
 _NEW_STARTS = time(9)
 _NEW_ENDS = time(10)
 
+# The most days an event may run, a year, which is also the longest view.
+# A draft past that would have events() asked for thousands of days at
+# every change of a field.
+_LONGEST = 366
+
 _SIDE_HEADING = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
 
 
@@ -658,14 +663,21 @@ class _Declaration:
     ) -> list[Event]:
         """
         The timed events that share a moment with the draft, apart from
-        the draft itself, from events() asked for the days it covers.
+        the draft itself: events() asked for the draft's own days, in every
+        layer and with no search, since an event the reader has hidden or
+        searched away is still in the way.
         """
         first, last = draft.span(formats)
-        # first and last follow the view, and the draft can be on any day,
-        # so a copy of the state is widened to reach it by hand.
-        covering = replace(asked)
-        object.__setattr__(covering, "first", min(asked.first, first))
-        object.__setattr__(covering, "last", max(asked.last, last))
+        # events() reads first and last, which follow the view, so a copy
+        # of the state is pointed at the draft's days by hand.
+        covering = replace(
+            asked,
+            query="",
+            hidden=(),
+            layers=tuple(layer.key for layer in self.layers),
+        )
+        object.__setattr__(covering, "first", first)
+        object.__setattr__(covering, "last", last)
         starts, ends = draft.moments(formats)
         found = []
         for event in self._fetch(request, covering):
@@ -942,7 +954,7 @@ def _when(
     When the posted fields say the event is, adding what is wrong with
     them to errors: whole days when all day is on, naive moments in the
     reader's time otherwise. A timed event has to end after it starts; a
-    whole-day one may end on the day it starts.
+    whole-day one may end on the day it starts. Neither runs past a year.
     """
     all_day = bool(posted.all_day)
     first, last = _day(posted.starts), _day(posted.ends)
@@ -966,6 +978,8 @@ def _when(
         errors["ends" if all_day else "ends_time"] = "Ends before it starts."
     elif ends == starts and not all_day:
         errors["ends_time"] = "Starts and ends at the same time."
+    elif first is not None and last is not None and (last - first).days > _LONGEST:
+        errors["ends"] = "Ends more than a year after it starts."
     return starts, ends
 
 
