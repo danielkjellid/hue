@@ -395,7 +395,7 @@ class _Draw:
         return f"{first.day} {names[first.month - 1]} {first.year} {_DASH} {end}"
 
     def clock(self, moment: datetime | time) -> str:
-        return moment.strftime(self.formats.time)
+        return self.formats.write(self.formats.time, moment)
 
     def name(self, event: Event) -> str:
         """
