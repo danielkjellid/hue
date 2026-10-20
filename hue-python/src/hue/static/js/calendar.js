@@ -6,22 +6,25 @@
  * agenda, opens the event dialog for that day, and the sidebar folds away
  * on a narrow screen. In the time grid the click also posts the half hour
  * under the pointer; everything else a new event starts with is the
- * server's to fill in. With a move URL
- * the events can be dragged: in the time grid a press on an empty slot
- * draws a ghost and opens the dialog over the dragged range, a press on an
- * event moves it, up and down and across the day columns, and one on its
- * bottom edge changes when it ends, all snapped to the quarter hour. A chip
- * in the month and a bar in the all-day row are dragged between days with
- * the browser's own drag and drop. Alt with an arrow key moves the focused
- * event the same way without a pointer, and with Shift changes its end.
+ * server's to fill in.
+ *
+ * With a move URL the events can be dragged, by one pointer drag for every
+ * view. In the time grid a press on an empty slot draws a ghost and opens
+ * the dialog over the dragged range, a press on an event moves it, up and
+ * down and across the day columns, and one on its bottom edge changes when
+ * it ends, all snapped to the quarter hour. A chip in the month and a bar
+ * in the all-day row move by whole days, counted from the day they were
+ * taken hold of by. Alt with an arrow key moves the focused event the same
+ * way without a pointer, and with Shift changes its end.
  *
  * The browser owns nothing: a change posts the id, the occurrence and the
  * new times to the route, which looks the event up and redraws. A press
  * that never travels five pixels is a click, and a drag that ends where it
  * began, or is cancelled, by Escape or by a redraw under it, puts the event
  * back. The state a request posts is read from the page at the time, since
- * this root is drawn once and the calendar moves under it. Focus across a swap is ajax-focus.js's, for
- * every component; after a move it goes to the event where it now is.
+ * this root is drawn once and the calendar moves under it. Focus across a
+ * swap is ajax-focus.js's, for every component; after a move it goes to the
+ * event where it now is.
  *
  * The state is named calendar-something so that no Popover or Dialog
  * inside, whose own state is open, can shadow it.
@@ -64,16 +67,11 @@ export function registerCalendarData(Alpine) {
 			// Where the time grid was scrolled to before the last swap, which
 			// the grid drawn by the response starts from.
 			gridScroll: null,
-			// The press or drag in progress in the time grid, or null.
+			// The press or drag in progress, or null.
 			drag: null,
 			// Set as a drag ends, so the click the browser sends after it
 			// opens neither the popover nor the dialog.
 			swallow: false,
-			// The chip being dragged between days, the day it was taken
-			// hold of by, and the day under it.
-			lifted: null,
-			from: null,
-			under: null,
 			// Set while a move is posted, so a held key does not post the
 			// time the event had before it moved again.
 			moving: false,
@@ -110,11 +108,6 @@ export function registerCalendarData(Alpine) {
 					// After pointerup as well, by when there is no drag left.
 					lostpointercapture: "cancel",
 					keydown: "keys",
-					dragstart: "lift",
-					dragover: "over",
-					dragleave: "leave",
-					dragend: "dropped",
-					drop: "drop",
 				};
 				for (const [type, name] of Object.entries(handlers)) {
 					calendar.addEventListener(type, (event) => this[name](event));
@@ -186,17 +179,22 @@ export function registerCalendarData(Alpine) {
 				// One that was cancelled, or redrawn under it, is over.
 				if (this.drag?.cancelled || (this.drag && !live(this.drag))) this.cancel();
 				if (this.drag) return;
-				const column = event.target.closest("div[data-date]");
+				// A month cell, or along the all-day row the day column under
+				// the pointer, is the day an event is taken hold of by: for a
+				// bar over several days, not the day it starts. Those move by
+				// whole days.
+				const cell = event.target.closest("td[data-date]");
+				const row = event.target.closest("[data-all-day-row]");
+				const column = cell ?? (row ? this.columnAt(event.clientX) : event.target.closest("div[data-date]"));
 				if (!column) return;
 				const button = event.target.closest("[data-event-id]");
 				const at = { x: event.clientX, y: event.clientY, moved: false, column };
 				if (button) {
-					// A bar in the all-day row is dragged between days instead.
-					if ("allDay" in button.dataset) return;
 					const li = button.closest("li");
+					const mode = event.target.closest("[data-resize]") ? "resize" : "move";
 					this.drag = {
 						...at,
-						mode: event.target.closest("[data-resize]") ? "resize" : "move",
+						mode: cell || row ? "days" : mode,
 						button,
 						li,
 						css: li.style.cssText,
@@ -213,7 +211,7 @@ export function registerCalendarData(Alpine) {
 					this.listen();
 					return;
 				}
-				if (event.target.closest("a, button, [role=dialog]")) return;
+				if (cell || row || event.target.closest("a, button, [role=dialog]")) return;
 				const from = this.minuteAt(column, event.clientY);
 				this.drag = { ...at, mode: "create", from, to: from, ghost: null };
 				column.setPointerCapture(event.pointerId);
@@ -258,6 +256,7 @@ export function registerCalendarData(Alpine) {
 					drag.ghost.textContent = `${clock(a)} – ${clock(b)}`;
 					return;
 				}
+				if (drag.mode === "days") return this.shiftDays(drag, event);
 				const at = when(drag.button);
 				const [low, high] = bounds(at, drag.mode);
 				const minutes = Math.round(((event.clientY - drag.y) / hour) * 60 / SNAP) * SNAP;
@@ -270,8 +269,7 @@ export function registerCalendarData(Alpine) {
 				const column = this.columnAt(event.clientX);
 				if (column) {
 					drag.days = daysBetween(drag.column.dataset.date, column.dataset.date);
-					drag.shift =
-						column.getBoundingClientRect().left - drag.column.getBoundingClientRect().left;
+					drag.shift = left(column) - left(drag.column);
 				}
 				Object.assign(drag.li.style, {
 					top: `${drag.top + (drag.minutes * hour) / 60}px`,
@@ -280,6 +278,26 @@ export function registerCalendarData(Alpine) {
 					transform: `translateX(${drag.shift}px)`,
 				});
 				readout(drag.button, at.starts + drag.minutes, at.ends + drag.minutes);
+			},
+
+			// A day under the pointer: in the month the cell, marked, and along
+			// the all-day row the day column, which the bar slides over to.
+			shiftDays(drag, event) {
+				const month = drag.column.tagName === "TD";
+				const found = month
+					? document.elementFromPoint(event.clientX, event.clientY)?.closest("td[data-date]")
+					: this.columnAt(event.clientX);
+				const day = found && this.$root.contains(found) ? found : null;
+				if (day) drag.days = daysBetween(drag.column.dataset.date, day.dataset.date);
+				if (!month) {
+					const shift = day ? left(day) - left(drag.column) : 0;
+					drag.li.style.transform = `translateX(${shift}px)`;
+					return;
+				}
+				if (day === drag.under) return;
+				drag.under?.classList.remove(...DROP);
+				drag.under = day;
+				day?.classList.add(...DROP);
 			},
 
 			release() {
@@ -329,6 +347,7 @@ export function registerCalendarData(Alpine) {
 			settle(drag) {
 				drag.column.parentElement.classList.remove("select-none");
 				drag.ghost?.remove();
+				drag.under?.classList.remove(...DROP);
 				if (!drag.li) return;
 				drag.li.style.cssText = drag.css;
 				drag.li.classList.remove(...DRAGGING);
@@ -344,60 +363,6 @@ export function registerCalendarData(Alpine) {
 				if (this.moving) return;
 				const [days, minutes] = step;
 				this.post(button, { days, minutes, resize: event.shiftKey });
-			},
-
-			lift(event) {
-				const button = event.target.closest("[data-event-id][draggable]");
-				if (!button) return;
-				this.lifted = button;
-				// The day under the pointer, which for a bar over several
-				// days is not the day it starts.
-				this.from = this.dropAt(event)[1] ?? button.dataset.starts.slice(0, 10);
-				event.dataTransfer.setData("text/plain", button.dataset.eventId);
-				event.dataTransfer.effectAllowed = "move";
-			},
-
-			over(event) {
-				const [cell] = this.dropAt(event);
-				if (!cell || !this.lifted) return;
-				event.preventDefault();
-				event.dataTransfer.dropEffect = "move";
-				if (cell === this.under) return;
-				this.under?.classList.remove(...DROP);
-				this.under = cell;
-				cell.classList.add(...DROP);
-			},
-
-			leave(event) {
-				if (!event.currentTarget.contains(event.relatedTarget)) this.dropped();
-			},
-
-			dropped() {
-				this.under?.classList.remove(...DROP);
-				this.under = null;
-				this.lifted = null;
-				this.from = null;
-			},
-
-			drop(event) {
-				const [cell, day] = this.dropAt(event);
-				const button = this.lifted;
-				const from = this.from;
-				this.dropped();
-				if (!cell || !button?.isConnected) return;
-				event.preventDefault();
-				const days = daysBetween(from, day);
-				if (days) this.post(button, { days });
-			},
-
-			// The day under a drag: a month cell, or the day column under the
-			// pointer along the all-day row.
-			dropAt(event) {
-				const cell = event.target.closest("td[data-date]");
-				if (cell) return [cell, cell.dataset.date];
-				const row = event.target.closest("[data-all-day-row]");
-				const column = row && this.columnAt(event.clientX);
-				return column ? [row, column.dataset.date] : [null];
 			},
 
 			// Whether the calendar came back: a change that is not one, or an
@@ -444,6 +409,10 @@ export function registerCalendarData(Alpine) {
 			},
 		}),
 	);
+}
+
+function left(element) {
+	return element.getBoundingClientRect().left;
 }
 
 // Whether what a drag holds is still on the page: a response that redrew

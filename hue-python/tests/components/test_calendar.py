@@ -575,11 +575,16 @@ class TestMonth:
         assert "max-md:h-2" not in _event(week, "Release freeze")["class"]
 
     @pytest.mark.asyncio
-    async def test_a_chip_is_dragged_between_days_only_when_movable(self, context_args):
+    async def test_a_finger_drags_a_chip_only_when_movable(self, context_args):
+        html = await _html(_calendar(_FREEZE).view("month"), context_args)
+        assert "touch-none" not in _event(html, "Release freeze")["class"]
         movable = _calendar(_FREEZE).view("month")
         movable._props["movable"] = True
         html = await _html(movable, context_args)
-        assert _event(html, "Release freeze")["draggable"] == "true"
+        button = _event(html, "Release freeze")
+        assert "touch-none" in button["class"]
+        # One pointer drag for every view, not the browser's drag and drop.
+        assert "draggable" not in button.attrs
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):
@@ -744,7 +749,6 @@ class TestEventPopover:
         assert button["data-starts"] == "2026-10-14T13:00"
         assert button["data-ends"] == "2026-10-14T14:30"
         assert "data-all-day" not in button.attrs
-        assert "draggable" not in button.attrs
 
     @pytest.mark.asyncio
     async def test_the_times_a_script_reads_are_the_readers_wall_clock(self):

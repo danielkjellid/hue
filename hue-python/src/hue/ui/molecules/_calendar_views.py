@@ -112,6 +112,8 @@ _TIME = "flex-none text-2xs tabular-nums text-fg-muted"
 # screens. The button's name says it all to a screen reader either way.
 _COMPACT = "max-md:h-2 max-md:px-0 max-md:leading-none"
 _HIDDEN = "max-md:hidden"
+# A finger on an event a declaration moves drags it rather than the page.
+_MOVABLE = "touch-none"
 _REPEAT = "ms-1 inline size-3 align-[-2px] text-fg-muted"
 
 
@@ -155,7 +157,7 @@ class EventButton(ChainableComponent):
 
     category = None
 
-    def __init__(self, event: Event, name: str, *, draggable: bool = False) -> None:
+    def __init__(self, event: Event, name: str) -> None:
         super().__init__()
         self._props["event"] = event
         self._attrs["aria_label"] = name
@@ -165,8 +167,6 @@ class EventButton(ChainableComponent):
             self._attrs["data-event-id"] = event.id
         if not event.timed:
             self._attrs["data-all-day"] = ""
-        if draggable:
-            self._attrs["draggable"] = "true"
 
     def _render(self, context: Context) -> Component:
         starts, ends = stamps(self._props["event"], Formats.from_context(context))
@@ -219,7 +219,7 @@ class Draw:
     actions: Actions | None
     own_id: str | None
     # Whether a declaration moves and resizes the events, which draws the
-    # resize handle and lets a chip be dragged between days.
+    # resize handle and lets a finger drag a chip rather than the page.
     movable: bool
     # An event's popover content by the event's identity, built once however
     # many days or cells the event is drawn in.
@@ -534,7 +534,7 @@ class Draw:
         continues past. compact folds it to a bare bar on a narrow screen.
         """
         button = (
-            EventButton(event, self.name(event), draggable=self.movable)
+            EventButton(event, self.name(event))
             .class_(
                 classnames(
                     _EVENT,
@@ -542,7 +542,7 @@ class Draw:
                     _TINT[event.tone],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
-                    {_COMPACT: compact},
+                    {_COMPACT: compact, _MOVABLE: self.movable},
                 )
             )
             .content(
@@ -564,8 +564,14 @@ class Draw:
         event = placed.event
         starts = starts_on(placed, self.formats)
         button = (
-            EventButton(event, self.name(event), draggable=self.movable)
-            .class_(classnames(_DOTTED, FOCUS_RING_INSET, {_COMPACT: compact}))
+            EventButton(event, self.name(event))
+            .class_(
+                classnames(
+                    _DOTTED,
+                    FOCUS_RING_INSET,
+                    {_COMPACT: compact, _MOVABLE: self.movable},
+                )
+            )
             .content(
                 html.span(
                     aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])
