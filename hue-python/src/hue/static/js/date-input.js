@@ -13,7 +13,7 @@
  */
 
 import { DAY, datePicker, dayName, iso, parse, today, utc } from "./date-picker.js";
-import { parseDay, parseMoment, parseTime, splitRange, strftime } from "./date-text.js";
+import { monthFirst, parseDay, parseMoment, parseTime, splitRange, strftime } from "./date-text.js";
 
 const pad = (n) => String(n).padStart(2, "0");
 const add = (day, n) => iso(parse(day) + n * DAY);
@@ -46,10 +46,9 @@ export function dateInput(config) {
 	const writeDay = (day) => write(day, formats.date);
 	const reading = () => ({
 		...config,
-		// 10/20/2026 is October where the format writes the month, the day
-		// and then the year. ISO puts the year first, and says nothing
-		// about how someone types day.month.year.
-		monthFirst: /%[mbB].*%d.*%[Yy]/.test(formats.date),
+		// The field's own format: a DateTimeInput's day is written by
+		// its datetime, whatever the date format says.
+		monthFirst: monthFirst(kind === "datetime" ? formats.datetime : formats.date),
 		today: today(),
 	});
 	const example = () => {
