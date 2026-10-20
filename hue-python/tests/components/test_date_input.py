@@ -60,6 +60,22 @@ class TestDateInput:
         assert config(html)["formats"]["date"] == "%d.%m.%Y"
 
     @pytest.mark.asyncio
+    async def test_names_are_written_from_formats_and_handed_to_the_script(
+        self, context_args
+    ):
+        abbreviations = tuple(f"m{i}." for i in range(1, 13))
+        context_args["formats"] = Formats(
+            date="%e %b %Y", month_abbreviations=abbreviations
+        )
+        html = await render_tree(
+            _field().value(date(2026, 7, 5)), context_args=context_args
+        )
+        # strftime would write Jul, in the process locale.
+        assert_attr(html, "input#starts", "value", " 5 m7. 2026")
+        assert_attr(html, "input#starts", "placeholder", "D Mon YYYY")
+        assert config(html)["monthAbbreviations"] == list(abbreviations)
+
+    @pytest.mark.asyncio
     async def test_no_value_is_empty(self, context_args):
         html = await render_tree(_field(), context_args=context_args)
         assert config(html)["committed"] == []

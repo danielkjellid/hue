@@ -94,13 +94,16 @@ _TO = " \N{EN DASH} "
 # since nobody has to type one.
 _UNFILLED = {
     "%Y": "YYYY",
-    "%y": "YY",
     "%m": "MM",
+    "%-m": "M",
     "%d": "DD",
+    "%-d": "D",
+    "%e": "D",
     "%B": "Month",
     "%b": "Mon",
     "%H": "HH",
     "%I": "hh",
+    "%-I": "h",
     "%M": "mm",
     "%p": "AM",
 }
@@ -110,7 +113,7 @@ def _unfilled(format: str) -> str:
     """
     The format with nothing in it: %d.%m.%Y reads DD.MM.YYYY.
     """
-    return re.sub(r"%.", lambda m: _UNFILLED.get(m.group(), ""), format).strip(" ,")
+    return re.sub(r"%-?.", lambda m: _UNFILLED.get(m.group(), ""), format).strip(" ,")
 
 
 class _PickerInput(FieldControl):
@@ -281,6 +284,7 @@ class _PickerInput(FieldControl):
                 "time": formats.time,
             },
             "dayAbbreviations": list(formats.day_abbreviations),
+            "monthAbbreviations": list(formats.month_abbreviations),
             "step": self._get_prop("step", 15),
         }
         root_attrs: dict[str, object] = {
@@ -403,10 +407,12 @@ def _written(kind: _Kind, committed: list[str], formats: Formats) -> str | None:
     if not committed or kind == "multiple":
         return None
     if kind == "time":
-        return time.fromisoformat(committed[0]).strftime(formats.time)
+        return formats.write(formats.time, time.fromisoformat(committed[0]))
     if kind == "datetime":
-        return datetime.fromisoformat(committed[0]).strftime(formats.datetime)
-    return _TO.join(date.fromisoformat(day).strftime(formats.date) for day in committed)
+        return formats.write(formats.datetime, datetime.fromisoformat(committed[0]))
+    return _TO.join(
+        formats.write(formats.date, date.fromisoformat(day)) for day in committed
+    )
 
 
 def _months(kind: _Kind) -> int:
@@ -440,7 +446,7 @@ def _times(formats: Formats, step: int, label: str) -> ComponentType:
     return html.div(
         *(
             html.div(
-                slot.strftime(formats.time),
+                formats.write(formats.time, slot),
                 role="option",
                 class_=_SLOT,
                 **{
