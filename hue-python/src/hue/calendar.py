@@ -37,6 +37,7 @@ from hue._calendar_chrome import (
 )
 from hue._calendar_edit import (
     _FIELDS,
+    _SERIES_SKIPPED,
     _event_actions,
     _fields,
     _first,
@@ -420,9 +421,13 @@ class _Declaration(Declaration[Routes]):
         The event events() has under this id, as it stands: the occurrence
         that started when occurrence says, or the first of them when the
         button that was pressed said nothing. Asked of events() itself
-        rather than of the page, which has nothing but the times.
+        rather than of the page, which has nothing but the times. A day
+        the calendar cannot draw is nobody's, and events() is never asked
+        for it.
         """
         day = _day(occurrence[:10]) if occurrence else None
+        if day is not None and not FIRST <= day <= LAST:
+            return None
         first, last = (day, day) if day else (asked.first, asked.last)
         for event in self.events(request, self._covering(asked, first, last)):
             if not isinstance(event, Event) or event.id != id:
@@ -565,8 +570,12 @@ class _Declaration(Declaration[Routes]):
             return refused(HTTPStatus.NOT_FOUND)
         edited = draft
         if draft.repeat:
-            starts, ends = _series(was, draft.starts, draft.ends, formats)
-            edited = replace(draft, starts=starts, ends=ends)
+            series = _series(was, draft.starts, draft.ends, formats)
+            if series is None:
+                errors = {"starts_time": _SERIES_SKIPPED}
+                status = HTTPStatus.UNPROCESSABLE_ENTITY
+                return self._shown(bound, body, errors, status, csrf_token)
+            edited = replace(draft, starts=series[0], ends=series[1])
         return await self._changed(
             request,
             bound,
@@ -596,6 +605,13 @@ class _Declaration(Declaration[Routes]):
         was = await self._router._run_sync(
             self._find, request, bound.state, body.id, body.occurrence, formats
         )
+        if was is None and body.undo:
+            # An Undo names the occurrence where the series landed, which
+            # its rule may skip: a weekday series dropped on a Saturday. It
+            # posts the times it goes back to, so any occurrence will do.
+            was = await self._router._run_sync(
+                self._find, request, bound.state, body.id, "", formats
+            )
         if was is None:
             return await self._failed(
                 request,
@@ -616,7 +632,16 @@ class _Declaration(Declaration[Routes]):
         landed = replace(was, starts=starts, ends=ends)
         # An Undo posts the series where it began, saved as posted.
         if not body.undo:
-            starts, ends = _series(was, starts, ends, formats)
+            series = _series(was, starts, ends, formats)
+            if series is None:
+                return await self._failed(
+                    request,
+                    bound,
+                    "Move",
+                    _SERIES_SKIPPED,
+                    HTTPStatus.UNPROCESSABLE_ENTITY,
+                )
+            starts, ends = series
         moved = replace(was, starts=starts, ends=ends)
         resized = stamps(was, formats)[0] == stamps(landed, formats)[0]
         verb = "Resize" if resized else "Move"

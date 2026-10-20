@@ -25,6 +25,7 @@ from hue._calendar_state import (
     _day,
     _overlap,
     _slot,
+    _zone,
 )
 from hue._declared import carried, csrf
 from hue.formats import Formats
@@ -190,11 +191,14 @@ def _first(event: Event) -> Event:
 
 def _series(
     was: Event, starts: Any, ends: Any, formats: Formats
-) -> tuple[date | datetime, date | datetime]:
+) -> tuple[date | datetime, date | datetime] | None:
     """
     Where one occurrence of a series put at starts to ends puts the series:
     its first occurrence as many days on, at the new time of day and as
-    long. Anything that is not a series goes where it was put.
+    long. Anything that is not a series goes where it was put. None when
+    that first occurrence would start or end in an hour the clocks skip,
+    which the occurrence that was moved was checked against for its own day
+    only.
     """
     first = was.series_starts
     if first is None:
@@ -205,7 +209,18 @@ def _series(
     begins: Any = (
         datetime.combine(day, starts.time()) if isinstance(starts, datetime) else day
     )
-    return begins, begins + (ends - starts)
+    finishes = begins + (ends - starts)
+    zone = _zone(formats)
+    if isinstance(begins, datetime) and zone is not None:
+        if not (_exists(begins, zone) and _exists(finishes, zone)):
+            return None
+    return begins, finishes
+
+
+# Why a series is refused when its first occurrence would land in that hour.
+_SERIES_SKIPPED = (
+    "The series would start in an hour that is skipped when the clocks go forward."
+)
 
 
 def _date_of(value: date) -> date:
