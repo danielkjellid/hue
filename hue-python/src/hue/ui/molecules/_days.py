@@ -39,11 +39,13 @@ class Event:
     ends is when it is over. Without ends it is one day, or one moment.
 
     id is what a route names it by. href makes the detail popover offer a
-    link to it; recurring draws the repeat mark, and expanding the rule into
-    occurrences is the app's job. color picks one of the six chart tokens.
+    link to it. repeat is the key of the rule it repeats by, which draws the
+    repeat mark; expanding the rule into occurrences is the app's job. layer
+    names the calendar it belongs to, under a declaration. color picks one of
+    the six chart tokens, the first unless its layer says otherwise.
 
         Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), color=4)
-        Event("Standup", datetime(2026, 10, 14, 9, 30), id="12", recurring=True)
+        Event("Standup", datetime(2026, 10, 14, 9, 30), id="12", repeat="weekly")
     """
 
     title: str
@@ -52,9 +54,10 @@ class Event:
     id: str | None = None
     location: str | None = None
     notes: str | None = None
-    recurring: bool = False
+    repeat: str | None = None
+    layer: str | None = None
     href: str | None = None
-    color: EventColor = 1
+    color: EventColor | None = None
 
     def __post_init__(self) -> None:
         # Refused here rather than misdrawn later: a date and a datetime
@@ -62,7 +65,7 @@ class Event:
         # no day at all. The title is every control's accessible name.
         if not self.title:
             raise ValueError("An Event needs a title; it is what the event is called.")
-        if self.color not in _COLORS:
+        if self.color is not None and self.color not in _COLORS:
             raise ValueError(
                 f"{self.title!r} has color {self.color!r}; it is one of 1 to 6."
             )
@@ -87,6 +90,13 @@ class Event:
     @property
     def timed(self) -> bool:
         return isinstance(self.starts, datetime)
+
+    @property
+    def tone(self) -> EventColor:
+        """
+        The chart token it is drawn in: its own, or the first.
+        """
+        return 1 if self.color is None else self.color
 
     def moments(self, formats: Formats) -> tuple[datetime, datetime]:
         """

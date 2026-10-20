@@ -237,7 +237,7 @@ class Draw:
             text = f"{event.title}, all day, {formats.day(first)}"
             if last != first:
                 text += f" to {formats.day(last)}"
-        return f"{text}, repeats" if event.recurring else text
+        return f"{text}, repeats" if event.repeat else text
 
     def times(self, event: Event, to: str = DASH, *, end_day: bool = True) -> str:
         """
@@ -426,7 +426,7 @@ class Draw:
         rows = (
             self._row("When", "clock", self.when(event)),
             render_when(
-                event.recurring, self._row("Repeats", "repeat", "Part of a series")
+                bool(event.repeat), self._row("Repeats", "repeat", "Part of a series")
             ),
             render_if(
                 event.location, lambda text: self._row("Location", "map-pin", text)
@@ -482,7 +482,7 @@ class Draw:
         """
         return (
             event.title,
-            render_when(event.recurring, HueIcon("repeat").class_(_REPEAT)),
+            render_when(bool(event.repeat), HueIcon("repeat").class_(_REPEAT)),
         )
 
     def chip(self, event: Event, before: bool, after: bool) -> ComponentType:
@@ -496,7 +496,7 @@ class Draw:
                 classnames(
                     _EVENT,
                     _CHIP,
-                    _TINT[event.color],
+                    _TINT[event.tone],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
                 )
@@ -524,7 +524,7 @@ class Draw:
             .class_(classnames(_DOTTED, FOCUS_RING_INSET))
             .content(
                 html.span(
-                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])
+                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])
                 ),
                 html.span(self.clock(starts), class_=_TIME),
                 html.span(*self.title_of(event), class_="min-w-0 truncate"),
@@ -721,7 +721,7 @@ def _timed(
         .class_(
             classnames(
                 _EVENT,
-                _TINT[event.color],
+                _TINT[event.tone],
                 FOCUS_RING_INSET,
                 "h-full overflow-hidden py-0.5 leading-4",
                 "flex items-baseline gap-1.5" if short else "block",
@@ -1004,7 +1004,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         )
         .content(
             html.span(when, class_="text-xs tabular-nums text-fg-muted"),
-            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])),
+            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])),
             html.span(
                 html.span(*draw.title_of(event), class_="font-semibold"),
                 render_if(

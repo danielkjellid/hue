@@ -29,7 +29,7 @@ _STANDUP = Event(
     "Standup",
     datetime(2026, 10, 12, 9),
     datetime(2026, 10, 12, 9, 15),
-    recurring=True,
+    repeat="weekly",
     href="/standup/",
 )
 

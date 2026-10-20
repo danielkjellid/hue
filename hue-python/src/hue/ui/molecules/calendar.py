@@ -106,7 +106,7 @@ class Calendar(ChainableComponent):
                         datetime(2026, 10, 12, 9),
                         datetime(2026, 10, 12, 9, 15),
                         id="5",
-                        recurring=True,
+                        repeat="weekly",
                         color=6,
                         href="#standup",
                     ),
