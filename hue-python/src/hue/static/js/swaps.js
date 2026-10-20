@@ -10,8 +10,8 @@
  * Alpine AJAX only moves focus to an autofocus element in what it merged
  * (as of 0.12.7). A link or button that a swap replaces takes focus down
  * to the body with it, and the next Enter does nothing. So hue notes what
- * had focus when a request starts, and once the response is merged it
- * focuses the element with the same id in the new markup. When that one
+ * has focus when a response comes in, and once it is merged it focuses
+ * the element with the same id in the new markup. When that one
  * is gone or hidden, such as a Reset that has nothing left to reset, it
  * tries the ids in the element's data-hue-refocus, in order.
  *
@@ -26,29 +26,32 @@
  * while the request was in flight.
  */
 export function keepFocusThroughSwaps() {
-	let kept = null;
-	let around = [];
+	// One note per response, the object ajax:sent and ajax:after both carry,
+	// so a check answered while a save is in flight neither uses nor clears
+	// the save's note.
+	const notes = new WeakMap();
 
-	document.addEventListener("ajax:before", () => {
+	// ajax:sent comes once the response is in, just before it is merged.
+	document.addEventListener("ajax:sent", (event) => {
 		const focused = document.activeElement;
-		kept = focused && focused !== document.body ? focused : null;
-		around = [];
+		if (!focused || focused === document.body) return;
+		const around = [];
 		for (
-			let node = kept?.parentElement;
+			let node = focused.parentElement;
 			node && node !== document.body;
 			node = node.parentElement
 		) {
 			if (node.id) around.push(node.id);
 		}
+		notes.set(event.detail, { lost: focused, around });
 	});
 
 	// On window, because Alpine AJAX fires ajax:after there when the element
 	// that sent the request was swapped away.
-	window.addEventListener("ajax:after", () => {
-		const lost = kept;
-		const ancestors = around;
-		kept = null;
-		if (!lost) return;
+	window.addEventListener("ajax:after", (event) => {
+		const note = notes.get(event.detail?.response);
+		if (!note) return;
+		const { lost, around } = note;
 		// After Alpine AJAX's own autofocus, which also waits a task.
 		setTimeout(() => {
 			const active = document.activeElement;
@@ -60,7 +63,7 @@ export function keepFocusThroughSwaps() {
 				found?.focus();
 				if (found && document.activeElement === found) return;
 			}
-			const ancestor = ancestors
+			const ancestor = around
 				.map((id) => document.getElementById(id))
 				.find(Boolean);
 			if (ancestor) landing(ancestor).focus({ preventScroll: true });
