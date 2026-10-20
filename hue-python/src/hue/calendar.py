@@ -20,7 +20,7 @@ from dataclasses import replace
 from datetime import date
 from functools import partial
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Literal
 
 from htmy import Context, html
 
@@ -41,7 +41,6 @@ from hue._calendar_edit import (
     _fields,
     _first,
     _id_of,
-    _landed,
     _overlap_warning,
     _Posted,
     _prefilled,
@@ -54,6 +53,7 @@ from hue._calendar_edit import (
     _when,
     _when_fields,
     dialog,
+    landing,
 )
 from hue._calendar_state import (
     _DATE,
@@ -324,6 +324,8 @@ class _Declaration(Declaration[Routes]):
         calendar.id(self.key).view(state.view).date(state.date).today(bound.today)
         calendar.week_start(state.week_start).weekdays(state.weekdays)
         calendar.events(bound.events)
+        if isinstance(bound.focus, Event):
+            calendar._props["focus"] = bound.focus
         calendar.href(lambda day, view: bound.href(date=day, view=view))
         if self.save is not None:
             # A click on an empty slot or day opens the dialog with that
@@ -544,13 +546,21 @@ class _Declaration(Declaration[Routes]):
                 "Create",
                 body=body,
                 undo=lambda made: _undo_create(bound, draft, _id_of(made)),
+                lands=draft if body.undo else None,
                 description=kept,
                 refused=refused,
             )
         if body.undo:
             # Put back as it was: a series from its first occurrence.
             return await self._changed(
-                request, bound, save, draft, "Save", body=body, undo=lambda _: None
+                request,
+                bound,
+                save,
+                draft,
+                "Save",
+                body=body,
+                undo=lambda _: None,
+                lands=draft,
             )
         was = await self._router._run_sync(
             self._find, request, bound.state, draft.id, body.occurrence, formats
@@ -574,7 +584,7 @@ class _Declaration(Declaration[Routes]):
             edited,
             "Save",
             body=body,
-            undo=lambda _: (_SAVE, _fields(bound, _first(was)), _landed(was, formats)),
+            undo=lambda _: (_SAVE, _fields(bound, _first(was))),
             description=kept,
             refused=refused,
         )
@@ -634,7 +644,8 @@ class _Declaration(Declaration[Routes]):
             moved,
             verb,
             body=body,
-            undo=lambda _: (_MOVE, back, _landed(was, formats)),
+            undo=lambda _: (_MOVE, back),
+            lands=landed,
         )
 
     async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
@@ -665,6 +676,7 @@ class _Declaration(Declaration[Routes]):
         *,
         body: _Posted,
         undo: Callable[[Any], _Undo | None],
+        lands: Event | None = None,
         description: str = "The calendar is shown as it is now.",
         refused: Callable[[HTTPStatus], Any] | None = None,
     ) -> Any:
@@ -675,9 +687,13 @@ class _Declaration(Declaration[Routes]):
         undo is given what the handler returned and says which action puts
         things back and with what fields, or None when nothing can. One
         level: the request an Undo makes carries the undo flag, and the
-        toast it earns offers none. refused answers a failure instead of
-        the calendar, as the dialog does over what was typed.
+        toast it earns offers none. lands is the event focus goes to once
+        the calendar is back, named by the id save returns when it has
+        none; an undone create sends it to New event. refused answers a
+        failure instead of the calendar, as the dialog does over what was
+        typed.
         """
+        focus: Event | Literal["new"] | None = None
         status, made = await self._run(
             request, handler, given, label=verb, description=description
         )
@@ -698,7 +714,11 @@ class _Declaration(Declaration[Routes]):
                 _said(verb, named, series, undone=bool(body.undo)),
                 action=render_if(back, lambda it: _undo_button(bound, *it)),
             )
-        return await self._redrawn(request, bound, status)
+            if body.undo and verb == "Delete":
+                focus = "new"
+            elif lands is not None:
+                focus = lands if lands.id else replace(lands, id=_id_of(made))
+        return await self._redrawn(request, bound, status, focus)
 
     async def _failed(
         self,
@@ -712,7 +732,11 @@ class _Declaration(Declaration[Routes]):
         return await self._redrawn(request, bound, status)
 
     async def _redrawn(
-        self, request: Any, bound: BoundCalendar, status: HTTPStatus
+        self,
+        request: Any,
+        bound: BoundCalendar,
+        status: HTTPStatus,
+        focus: Event | Literal["new"] | None = None,
     ) -> Any:
         """
         Drawn after the change, because the events have just moved under
@@ -728,8 +752,11 @@ class _Declaration(Declaration[Routes]):
             bound.urls,
             bound.shortcuts,
         )
+        if isinstance(focus, Event):
+            focus = landing(redrawn, focus)
         return HueResponse(
-            component=self._drawn(Calendar(), redrawn), status_code=status
+            component=self._drawn(Calendar(), replace(redrawn, focus=focus)),
+            status_code=status,
         )
 
     def _switch_on(self, registry: type[ShortcutRegistry] | None) -> None:

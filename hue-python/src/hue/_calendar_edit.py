@@ -107,7 +107,7 @@ _DONE = {
 
 # Which action an Undo posts to, the fields it posts, under the key, and
 # the event focus goes back to: its id, or else its title, and its start.
-type _Undo = tuple[str, Mapping[str, str | None], Mapping[str, str | None]]
+type _Undo = tuple[str, Mapping[str, str | None]]
 
 
 def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
@@ -140,7 +140,7 @@ def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo 
     if made is None:
         return None
     param = bound.declaration.param
-    return _DELETE, {param("id"): made, param("title"): draft.title}, {}
+    return _DELETE, {param("id"): made, param("title"): draft.title}
 
 
 def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
@@ -152,12 +152,23 @@ def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
         param("id"): None,
         param("occurrence"): None,
     }
-    landed = {"starts": stamps(was, bound.formats)[0], "title": was.title}
-    return _SAVE, fields, landed
+    return _SAVE, fields
 
 
-def _landed(was: Event, formats: Formats) -> dict[str, str | None]:
-    return {"id": was.id, "starts": stamps(was, formats)[0]}
+def landing(bound: BoundCalendar, wanted: Event) -> Event | None:
+    """
+    The event focus lands on once the calendar is back: the one with this
+    id, or this title for one save has not named, that starts where wanted
+    does, else the first of them drawn.
+    """
+    same = [
+        event
+        for event in bound.events
+        if (event.id == wanted.id if wanted.id else event.title == wanted.title)
+    ]
+    starts = stamps(wanted, bound.formats)[0]
+    exact = (event for event in same if stamps(event, bound.formats)[0] == starts)
+    return next(exact, same[0] if same else None)
 
 
 def _first(event: Event) -> Event:
@@ -200,13 +211,11 @@ def _undo_button(
     bound: BoundCalendar,
     action: str,
     posted: Mapping[str, Any],
-    landed: Mapping[str, str | None],
 ) -> Button:
     """
     The toast's Undo: the same route, told it is undoing, and the toast
-    dismissed once it has been pressed. Once the calendar is back, the
-    calendar is told which event to hand focus to, since the toast that
-    had it is gone.
+    dismissed once it has been pressed. The answer says where focus goes,
+    since the toast that had it is gone.
     """
     declared = bound.declaration
     request = ajax(
@@ -224,15 +233,7 @@ def _undo_button(
         .variant("outline")
         .size("xs")
         .content("Undo")
-        .x_on(
-            "click",
-            unsafe(
-                f"{request}.then(() => document.getElementById("
-                f"{json.dumps(_slot(bound.key))})?.dispatchEvent(new CustomEvent("
-                f'"hue:landed", {{ bubbles: true, detail: {json.dumps(landed)} }})))'
-                "; dismiss()"
-            ),
-        )
+        .x_on("click", unsafe(f"{request}; dismiss()"))
     )
 
 

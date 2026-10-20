@@ -23,8 +23,9 @@
  * began, or is cancelled, by Escape or by a redraw under it, puts the event
  * back. The state a request posts is read from the page at the time, since
  * this root is drawn once and the calendar moves under it. Focus across a
- * swap is ajax-focus.js's, for every component; after a move it goes to the
- * event where it now is.
+ * swap is ajax-focus.js's, for every component. After a move or an Undo the
+ * answer marks where focus goes with x-autofocus, which Alpine AJAX takes
+ * before ajax-focus.js looks.
  *
  * The state is named calendar-something so that no Popover or Dialog
  * inside, whose own state is open, can shadow it.
@@ -89,7 +90,6 @@ export function registerCalendarData(Alpine) {
 				// before the swap notes where it was.
 				this.$nextTick(fit);
 				narrow.addEventListener("change", fit);
-				this.$root.addEventListener("hue:landed", (event) => this.land(event.detail));
 				if (!move) return;
 				calendar.addEventListener(
 					"click",
@@ -385,27 +385,7 @@ export function registerCalendarData(Alpine) {
 				} finally {
 					this.moving = false;
 				}
-				const starts = fields.all_day ? fields.starts : `${fields.starts}T${fields.starts_time}`;
-				this.land({ id: button.dataset.eventId, starts });
 				return true;
-			},
-
-			// Focus to an event after a change: the one with this id, or this
-			// title for one an Undo made again, where it now starts, else to
-			// it wherever it is. Else ajax-focus.js has found somewhere in
-			// the calendar, unless focus was outside it, on a toast, and then
-			// New event has it.
-			land({ id = null, starts = null, title = null } = {}) {
-				const events = [...document.querySelectorAll(`#${CSS.escape(key)} [data-event-id]`)];
-				const named = (button) =>
-					id ? button.dataset.eventId === id : button.getAttribute("aria-label")?.startsWith(`${title},`);
-				const found =
-					events.find((button) => named(button) && button.dataset.starts === starts) ||
-					events.find((button) => id && named(button));
-				const fallback = this.$root.contains(document.activeElement)
-					? null
-					: document.getElementById(`${key}-new`);
-				(found || fallback)?.focus();
 			},
 		}),
 	);

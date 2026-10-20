@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
-from typing import TYPE_CHECKING, Any, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 from hue._declared import Bound, Pairs, Urls
 from hue.formats import Formats
@@ -227,6 +227,9 @@ class BoundCalendar(Bound):
     # The app's registry when it inherits CalendarShortcuts, so the keys
     # are switched on and the help lists them. None otherwise.
     shortcuts: type[ShortcutRegistry] | None = None
+    # Where focus lands once a change is drawn: an event, New event after
+    # an undone create, or nowhere in particular.
+    focus: Event | Literal["new"] | None = None
 
     def href(self, **changes: Any) -> str:
         """

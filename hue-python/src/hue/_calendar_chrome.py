@@ -295,6 +295,7 @@ class _Side(ChainableComponent):
                 Button()
                 .variant("primary")
                 .id(_new(key))
+                .x_autofocus(bound.focus == "new")
                 .content(HueIcon("plus"), "New event")
                 .x_on("click", unsafe("calendarCreate()")),
             ),

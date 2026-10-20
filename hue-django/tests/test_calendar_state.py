@@ -586,15 +586,6 @@ def _undo_of(html: str) -> tuple[str, dict[str, Any]] | None:
     return None if found is None else (found[1], json.loads(found[2])["body"])
 
 
-def _landed_of(html: str) -> dict[str, Any]:
-    """
-    The event the toast's Undo hands focus to once the calendar is back.
-    """
-    found = _undo_call(html)
-    assert found
-    return json.loads(found[3])
-
-
 def _undo_call(html: str) -> re.Match[str] | None:
     button = re.search(
         r"<button[^>]*@click=(['\"])(\$ajax.*?dismiss\(\))\1[^>]*>\s*Undo\s*</button>",
@@ -603,9 +594,7 @@ def _undo_call(html: str) -> re.Match[str] | None:
     if button is None:
         return None
     call = re.fullmatch(
-        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\)\.then\(.*detail: (\{.*\}) \}\)\)\); '
-        r"dismiss\(\)",
-        unescape(button[2]),
+        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\); dismiss\(\)', unescape(button[2])
     )
     assert call, button[2]
     return call
@@ -637,8 +626,6 @@ def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
             "events-undo": "1",
         },
     )
-    # And hands focus back to the review where it was.
-    assert _landed_of(html) == {"id": "1", "starts": "2026-10-14T13:00"}
 
 
 def test_a_move_of_the_end_alone_is_a_resize_and_a_series_moves_as_one(mounted):
@@ -821,6 +808,42 @@ def test_a_delete_offers_no_undo_without_a_save_to_undo_it_with(mounted):
     assert response.status_code == 200
     assert 'Deleted "Pairing"' in unescape(response.content.decode())
     assert _undo_of(response.content.decode()) is None
+
+
+def _autofocused(html: str) -> list[str]:
+    """
+    The tags marked for Alpine AJAX to focus once the answer is in.
+    """
+    return re.findall(r"<(?:button|a)\b[^>]*\bx-autofocus\b[^>]*>", html)
+
+
+def test_a_move_hands_focus_to_the_event_where_it_now_is(mounted):
+    stored = [_REVIEW]
+    mounted(
+        events=lambda r, s: list(stored), save=lambda r, e: stored.__setitem__(0, e)
+    )
+    marked = _autofocused(_act("move", **_moved()).content.decode())
+    assert len(marked) == 1
+    assert 'data-starts="2026-10-15T14:00"' in marked[0]
+
+
+def test_an_undone_delete_hands_focus_to_the_event_it_made_again(mounted):
+    again = replace(_REVIEW, id="9")
+    mounted(events=lambda r, s: [_REVIEW, again], save=lambda r, e: 9)
+    posted = {**_fields(title="Review"), "events-undo": "1"}
+    marked = _autofocused(_act("save", **posted).content.decode())
+    assert len(marked) == 1
+    assert 'data-event-id="9"' in marked[0]
+
+
+def test_an_undone_create_hands_focus_to_new_event(mounted):
+    mounted()
+    posted = {"events-id": "9", "events-title": "Pairing", "events-undo": "1"}
+    marked = _autofocused(_act("delete", **posted).content.decode())
+    assert len(marked) == 1
+    assert 'id="events-new"' in marked[0]
+    # A change that is not an undo or a move leaves focus to the page.
+    assert _autofocused(_act("delete", **{"events-id": "9"}).content.decode()) == []
 
 
 def test_undo_goes_one_level(mounted):
