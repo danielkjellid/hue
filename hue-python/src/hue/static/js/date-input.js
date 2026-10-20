@@ -141,18 +141,29 @@ export function dateInput(config) {
 
 		commit(values) {
 			this.committed = values;
-			this.error = null;
+			this.refuseText("");
 			this.sync();
 			// After the submitted fields are redrawn, so a listener reads
 			// the new value from the form.
 			this.$nextTick(() => this.$refs.input.dispatchEvent(new Event("change", { bubbles: true })));
 		},
 
+		// Text that is not the value holds the form back, as a browser's
+		// own field does, rather than let it submit the old value.
+		refuseText(message) {
+			this.error = message || null;
+			this.$refs.input.setCustomValidity(message);
+		},
+
 		// Returns whether there was anything to read: unchanged text is
 		// left alone, so a format this cannot read still survives a blur.
 		commitText() {
 			const text = this.text.trim();
-			if (text === this.display()) return false;
+			if (text === this.display().trim()) {
+				// Typed back to the value, so its refusal is over.
+				if (this.$refs.input.validity.customError) this.refuseText("");
+				return false;
+			}
 			if (!text) {
 				this.commit([]);
 				return true;
@@ -160,7 +171,7 @@ export function dateInput(config) {
 			const values = this.read(text);
 			const refused = values ? this.check(values) : `Could not read "${text}". Try ${example()}.`;
 			if (refused) {
-				this.error = refused;
+				this.refuseText(refused);
 			} else if (kind === "multiple") {
 				this.commit([...new Set([...this.committed, ...values])].sort());
 			} else {
