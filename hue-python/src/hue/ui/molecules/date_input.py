@@ -23,7 +23,13 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
 from hue.ui.molecules import _overlay
 from hue.ui.molecules.combobox import _TOKEN, _TOKEN_REMOVE
-from hue.ui.molecules.date_picker import DatePicker, DatePickerMode, Weekday
+from hue.ui.molecules.date_picker import (
+    DatePicker,
+    DatePickerMode,
+    DayRules,
+    Weekday,
+    _days,
+)
 from hue.ui.molecules.field import (
     Field,
     error_component,
@@ -460,37 +466,11 @@ def _step(minutes: int) -> int:
     return minutes
 
 
-class _CalendarInput(_PickerInput):
+class _CalendarInput(DayRules, _PickerInput):
     """
     A field whose popover holds a month grid, refusing the same days a
     DatePicker does.
     """
-
-    def min(self, value: date) -> Self:
-        """
-        The first day that can be picked or typed.
-        """
-        self._props["min"] = value
-        return self
-
-    def max(self, value: date) -> Self:
-        """
-        The last day that can be picked or typed.
-        """
-        self._props["max"] = value
-        return self
-
-    def unavailable(self, *days: date | Weekday) -> Self:
-        """
-        Days that refuse a pick: dates, or weekdays by name for every one of
-        them, as in unavailable("saturday", "sunday").
-        """
-        self._props["unavailable"] = days
-        return self
-
-    def week_start(self, value: Weekday) -> Self:
-        self._props["week_start"] = value
-        return self
 
     def _grid(self, formats: Formats, picker: DatePicker) -> ComponentType:
         mode: DatePickerMode = picker._get_prop("mode")
@@ -521,9 +501,7 @@ class DateInput(_CalendarInput):
         The days it starts with: one, the two ends of a range, or several.
         A datetime is refused, since the field holds days.
         """
-        if any(isinstance(day, datetime) for day in days):
-            raise ValueError("A DateInput holds days. Pass value.date().")
-        self._props["value"] = days
+        self._props["value"] = _days(*days)
         return self
 
     def mode(self, value: DatePickerMode, *, presets: bool = False) -> Self:
