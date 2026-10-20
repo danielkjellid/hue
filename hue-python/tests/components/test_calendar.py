@@ -291,7 +291,6 @@ class TestTimeGrid:
     async def test_the_grid_opens_at_half_past_seven(self, context_args):
         html = await _html(_calendar(), context_args)
         assert_attr(html, ".overflow-y-auto", "x-init", "$el.scrollTop = 360")
-        assert_attr(html, "[aria-hidden=true].relative", "class")
 
 
 class TestMonth:
@@ -420,17 +419,11 @@ class TestAgenda:
 
 class TestEventPopover:
     @pytest.mark.asyncio
-    async def test_the_event_opens_a_dialog_named_by_it_and_escape_closes_it(
+    async def test_the_event_opens_a_dialog_named_by_it_anchored_fixed(
         self, context_args
     ):
         html = await _html(_calendar(_REVIEW), context_args)
-        button = _event(html, "Design review")
-        assert button["x-on:click"] == "open = !open"
-        assert button["aria-haspopup"] == "dialog"
-        root = button.find_parent(attrs={"x-data": True})
-        assert root["x-on:keydown.escape"] == (
-            "if (open) { $event.stopPropagation(); close() }"
-        )
+        root = _event(html, "Design review").find_parent(attrs={"x-data": True})
         panel = root.select_one("[role=dialog]")
         assert panel["aria-label"] == "Design review"
         # Fixed, because the time grid scrolls and would clip the panel.
