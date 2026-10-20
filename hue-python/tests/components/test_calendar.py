@@ -153,6 +153,26 @@ class TestFrame:
         )
 
     @pytest.mark.asyncio
+    async def test_a_week_title_names_a_month_in_its_in_date_form(self, context_args):
+        english = Formats().month_names
+        polish = Formats(
+            month_names=(*english[:8], "wrzesień", "październik", *english[10:]),
+            month_names_in_date=(
+                *english[:8],
+                "września",
+                "października",
+                *english[10:],
+            ),
+        )
+        html = await _html(
+            Calendar().date(date(2026, 9, 30)).href(_href),
+            {**context_args, "formats": polish},
+        )
+        assert select(html, "h2")[0].get_text() == (
+            f"28 września {_DASH} 4 października 2026"
+        )
+
+    @pytest.mark.asyncio
     async def test_a_week_title_names_the_days_shown(self, context_args):
         seven = await _html(_calendar().id("cal"), context_args)
         five = await _html(_calendar().weekdays().id("cal"), context_args)

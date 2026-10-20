@@ -209,7 +209,7 @@ class Draw:
         December 2026 to 3 January 2027, with a dash between: as little of
         the start as tells it apart from the end.
         """
-        names = self.formats.month_names
+        names = self.formats.month_names_in_date
         end = f"{last.day} {names[last.month - 1]} {last.year}"
         if (first.year, first.month) == (last.year, last.month):
             return f"{first.day} {DASH} {end}"
@@ -968,7 +968,7 @@ def _agenda_day(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
             html.span(
                 formats.day_abbreviations[day.weekday()],
                 html.br(),
-                f"{formats.month_names[day.month - 1]} {day.year}",
+                formats.month(day),
                 class_="text-xs leading-tight text-fg-muted",
             ),
             class_="flex items-center gap-2 self-start",
