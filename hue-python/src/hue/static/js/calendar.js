@@ -3,10 +3,15 @@
  * a form cannot.
  *
  * A click on an empty part of a day, in the time grid, the month or the
- * agenda, opens the event dialog with that time filled in, and the sidebar
- * folds away on a narrow screen. The state a click posts is read from the
- * page at the click, since this root is drawn once and the calendar moves
- * under it. Focus across a swap is ajax-focus.js's, for every component.
+ * agenda, opens the event dialog for that day, and the sidebar folds away
+ * on a narrow screen. In the time grid the click also posts the half hour
+ * under the pointer; everything else a new event starts with is the
+ * server's to fill in. The state a click posts is read from the page at
+ * the click, since this root is drawn once and the calendar moves under
+ * it. Focus across a swap is ajax-focus.js's, for every component.
+ *
+ * The state is named calendar-something so that no Popover or Dialog
+ * inside, whose own state is open, can shadow it.
  *
  * Dragging an event to move or resize it will post to the same save action
  * with the event's id and its new times, and attaches here.
@@ -14,37 +19,30 @@
 export function registerCalendarData(Alpine) {
 	Alpine.data(
 		"hueCalendar",
-		({ url = null, key = "", target = "", state = "", hour = 48 } = {}) => ({
-			side: false,
+		({ url = null, target = "", state = "", fields = {}, hour = 48 } = {}) => ({
+			calendarSide: false,
 
-			create() {
-				this.open(new FormData());
+			calendarCreate() {
+				this.calendarOpen(new FormData());
 			},
 
-			slot(event) {
+			calendarSlot(event) {
 				// Not on an event, a day's number or a popover over either.
 				if (event.target.closest("a, button, [role=dialog]")) return;
 				const cell = event.target.closest("[data-date]");
 				if (!cell) return;
-				const day = cell.dataset.date;
-				// The half hour under the pointer in the time grid, whose
-				// columns are divs; a month cell or an agenda day starts at nine.
-				let from = 9 * 60;
-				if (cell.tagName === "DIV") {
+				const body = new FormData();
+				body.set(fields.day, cell.dataset.date);
+				if ("timed" in cell.dataset) {
 					const top = cell.getBoundingClientRect().top;
 					const half = Math.floor(((event.clientY - top) / hour) * 2);
-					from = Math.min(Math.max(half * 30, 0), 23 * 60);
+					const from = Math.min(Math.max(half * 30, 0), 23 * 60 + 30);
+					body.set(fields.time, clock(from));
 				}
-				// Under the key, as the dialog posts them.
-				const body = new FormData();
-				body.set(`${key}-starts`, day);
-				body.set(`${key}-starts_time`, clock(from));
-				body.set(`${key}-ends`, day);
-				body.set(`${key}-ends_time`, clock(Math.min(from + 60, 23 * 60 + 59)));
-				this.open(body);
+				this.calendarOpen(body);
 			},
 
-			open(body) {
+			calendarOpen(body) {
 				if (!url) return;
 				const carried = document.getElementById(state);
 				for (const input of carried?.querySelectorAll("input") ?? []) {
