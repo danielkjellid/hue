@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
 
@@ -10,51 +9,8 @@ from hue.types.core import ComponentType
 from hue.ui import Alert, Calendar, Event
 
 from hue_docs.content import _prose as pr
+from hue_docs.content._declared import Request, Router
 from hue_docs.models import ProsePage
-
-
-class _Request:
-    """
-    Just enough of a request to carry a query string.
-    """
-
-    def __init__(self, **params: str) -> None:
-        self.params = params
-
-
-class _Router:
-    """
-    A stand-in, because a docs page has no view to hang routes on. A real
-    declaration is handed the view's own Router and registers its route on
-    it; here it is registered on nothing and never called.
-    """
-
-    def fragment_post(self, path: str) -> Any:
-        return lambda view_func: view_func
-
-    def _get_query_values(self, request: Any) -> dict[str, list[str]]:
-        return {name: [value] for name, value in request.params.items()}
-
-    def _get_form_values(self, request: Any) -> dict[str, list[str]]:
-        # Nothing is ever posted to a docs page.
-        return {}
-
-    def _refusal(self, error: Exception) -> None:
-        return None
-
-    def _csrf_field(self) -> None:
-        return None
-
-    def _url_for(self, request: Any, name: str, **params: Any) -> str:
-        # Django reverses these against the URLconf. Here they are spelled
-        # out, since there is nothing to reverse against.
-        action = params.get("action")
-        return f"/calendars/{action}/" if action else "/calendars/"
-
-    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
-        # A list has no event loop to keep off.
-        return func(*args)
-
 
 _LAYERS = [
     Layer("product", "Product"),
@@ -133,7 +89,7 @@ def _calendar(key: str) -> Any:
     keys, because the key is the id every part of a calendar is named from.
     """
     return build_calendar_state(
-        _Router(),
+        Router("calendars"),
         key=key,
         events=_events,
         layers=_LAYERS,
@@ -152,7 +108,7 @@ def _specimen(key: str, **params: str) -> ComponentType:
     return pr.section(
         HueContext(
             Calendar.from_state(_calendar(key)),
-            request=_Request(
+            request=Request(
                 **{f"{key}-{name}": value for name, value in params.items()}
             ),
             csrf_token="",
