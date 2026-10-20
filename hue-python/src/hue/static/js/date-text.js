@@ -54,37 +54,74 @@ function real(year, month, day) {
 	return iso(at).endsWith(`-${pad(month)}-${pad(day)}`) ? iso(at) : null;
 }
 
-/**
- * A day from today, tomorrow or yesterday, 2026-10-20, 20.10.2026,
- * 20/10/26, 20 Oct 2026 or Oct 20, 2026, after an optional weekday. Month
- * and weekday names are matched by prefix against the names given, so a
- * framework's translations are read as well as written. monthFirst reads
- * 10/20/2026 as October, for a format that writes it that way.
- */
-export function parseDay(text, { monthNames, dayNames, monthFirst, today }) {
-	let s = text.trim().toLowerCase();
-	const lead = /^(\p{L}+)\.?,?\s+/u.exec(s);
-	if (lead && lead[1].length >= 2 && dayNames.some((n) => n.toLowerCase().startsWith(lead[1]))) {
-		s = s.slice(lead[0].length);
-	}
-	const relative = { today: 0, tomorrow: 1, yesterday: -1 }[s];
-	if (relative !== undefined) return iso(parse(today) + relative * DAY);
+// Names compared as typed: any case, and without the dot an abbreviation
+// may end in, since the patterns below read past one.
+const plain = (name) => name.toLowerCase().replace(/\.$/, "");
 
-	const named = (word) =>
-		word.length >= 3 ? monthNames.findIndex((n) => n.toLowerCase().startsWith(word)) + 1 : 0;
-	let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+/**
+ * The month a word names, 1 to 12: an exact name or abbreviation, or else
+ * the start of only one month's. 0 when it names none, or more than one,
+ * as "jui" does in French until the abbreviation says June.
+ */
+function monthOf(word, { monthNames, monthAbbreviations = [] }) {
+	const names = [...monthNames, ...monthAbbreviations].map(plain);
+	const months = (match) => new Set(names.flatMap((name, i) => (match(name) ? [(i % 12) + 1] : [])));
+	let found = months((name) => name === word);
+	if (!found.size && word.length >= 3) found = months((name) => name.startsWith(word));
+	return found.size === 1 ? [...found][0] : 0;
+}
+
+const isWeekday = (word, { dayNames, dayAbbreviations = [] }) =>
+	word.length >= 2 && [...dayNames, ...dayAbbreviations].some((name) => plain(name).startsWith(word));
+
+// 26 is the year within 50 of today's that ends in 26.
+function century(year, today) {
+	const now = +today.slice(0, 4);
+	const near = now - (now % 100) + year;
+	return near > now + 50 ? near - 100 : near < now - 50 ? near + 100 : near;
+}
+
+function readDay(s, options) {
+	const relative = { today: 0, tomorrow: 1, yesterday: -1 }[s];
+	if (relative !== undefined) return iso(parse(options.today) + relative * DAY);
+	let m = /^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(s);
 	if (m) return real(+m[1], +m[2], +m[3]);
 	m = /^(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})$/.exec(s);
 	if (m) {
-		const year = m[3].length === 2 ? 2000 + +m[3] : +m[3];
-		return monthFirst ? real(year, +m[1], +m[2]) : real(year, +m[2], +m[1]);
+		const year = m[3].length === 2 ? century(+m[3], options.today) : +m[3];
+		return options.monthFirst ? real(year, +m[1], +m[2]) : real(year, +m[2], +m[1]);
 	}
 	m = /^(\d{1,2})\.?\s+(\p{L}+)\.?,?\s+(\d{4})$/u.exec(s);
-	if (m && named(m[2])) return real(+m[3], named(m[2]), +m[1]);
+	if (m && monthOf(m[2], options)) return real(+m[3], monthOf(m[2], options), +m[1]);
 	m = /^(\p{L}+)\.?\s+(\d{1,2}),?\s+(\d{4})$/u.exec(s);
-	if (m && named(m[1])) return real(+m[3], named(m[1]), +m[2]);
+	if (m && monthOf(m[1], options)) return real(+m[3], monthOf(m[1], options), +m[2]);
 	return null;
 }
+
+/**
+ * A day from today, tomorrow or yesterday, 2026-10-20, 20.10.2026,
+ * 20/10/26, 20 Oct 2026 or Oct 20, 2026, after an optional weekday. Month
+ * and weekday names are matched against the names given, so a framework's
+ * translations are read as well as written. monthFirst reads 10/20/2026 as
+ * October, for a format that writes it that way. A leading word is only
+ * taken for a weekday when the text does not read with it, since "mar" is
+ * martes and marzo both.
+ */
+export function parseDay(text, options) {
+	const s = text.trim().toLowerCase();
+	const lead = /^(\p{L}+)\.?,?\s+/u.exec(s);
+	return (
+		readDay(s, options) ??
+		(lead && isWeekday(lead[1], options) ? readDay(s.slice(lead[0].length), options) : null)
+	);
+}
+
+/**
+ * Whether a format writes the month, then the day, then the year, so that
+ * 10/20/2026 typed in its field is October. ISO puts the year first, and
+ * says nothing about how someone types day.month.year.
+ */
+export const monthFirst = (format) => /%-?[mbB].*%(?:-?d|e).*%Y/.test(format);
 
 /**
  * HH:MM from 14:30, 14.30, 1430, 2:30 pm or 9a.
@@ -103,13 +140,14 @@ export function parseTime(text) {
 
 /**
  * A day and, when one follows it, a time: the last word or two are tried
- * as the time, so 2026-10-20 14:30 and 20 Oct 2026, 2:30 pm both read.
- * The time is null when only a day was typed.
+ * as the time, so 2026-10-20 14:30, 2026-10-20T14:30 and 20 Oct 2026,
+ * 2:30 pm all read. The time is null when only a day was typed.
  */
 export function parseMoment(text, options) {
 	const day = parseDay(text, options);
 	if (day) return { day, time: null };
-	const words = text.trim().split(/\s+/);
+	// The submitted value, 2026-10-20T14:30, reads back too.
+	const words = text.trim().replace(/^(\d{4}-\d{1,2}-\d{1,2})T/i, "$1 ").split(/\s+/);
 	for (const n of [1, 2]) {
 		const time = parseTime(words.slice(-n).join(" "));
 		const rest = parseDay(words.slice(0, -n).join(" ").replace(/,$/, ""), options);
