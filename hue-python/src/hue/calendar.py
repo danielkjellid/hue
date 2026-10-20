@@ -26,21 +26,18 @@ from htmy import Context, html
 
 from hue import toast
 from hue._calendar_chrome import (
-    _VIEW_KEYS,
+    _DRAGS,
     CalendarShortcuts,
     _Band,
     _Frame,
     _keys_in,
-    _on,
-    _open,
     _Side,
+    _switch_on,
 )
 from hue._calendar_edit import (
     _FIELDS,
     _SERIES_SKIPPED,
     _event_actions,
-    _fields,
-    _first,
     _id_of,
     _overlap_warning,
     _Posted,
@@ -51,8 +48,9 @@ from hue._calendar_edit import (
     _undo_button,
     _undo_create,
     _undo_delete,
+    _undo_move,
+    _undo_save,
     _when,
-    _when_fields,
     dialog,
     landing,
 )
@@ -74,7 +72,6 @@ from hue._calendar_state import (
     CalendarState,
     Layer,
     _day,
-    _new,
     _overlap,
     _slot,
     _today,
@@ -202,7 +199,7 @@ class _Declaration(Declaration[Routes]):
         keys = self._keys(context)
         # On for the page, which the shortcut host reads once the whole
         # body has rendered.
-        self._switch_on(keys)
+        _switch_on(self, keys)
         bound = await self._bind(hue.request, asked, others, today, formats, keys=keys)
         return self._drawn(calendar, bound)
 
@@ -458,7 +455,7 @@ class _Declaration(Declaration[Routes]):
         # On for this response too, whichever it is: the host that answers a
         # fragment replaces the page's, and a dialog that was cancelled makes
         # no request of its own to switch them back on.
-        self._switch_on(bound.shortcuts)
+        _switch_on(self, bound.shortcuts)
 
         csrf_token: str = context.csrf_token
         if action == _DIALOG:
@@ -583,7 +580,7 @@ class _Declaration(Declaration[Routes]):
             edited,
             "Save",
             body=body,
-            undo=lambda _: _Undo(_SAVE, _fields(bound, _first(was))),
+            undo=lambda _: _undo_save(bound, was),
             description=kept,
             refused=refused,
         )
@@ -645,11 +642,6 @@ class _Declaration(Declaration[Routes]):
         moved = replace(was, starts=starts, ends=ends)
         resized = stamps(was, formats)[0] == stamps(landed, formats)[0]
         verb = "Resize" if resized else "Move"
-        back = {
-            **_when_fields(bound, _first(was)),
-            bound.declaration.param("id"): was.id,
-            bound.declaration.param("occurrence"): stamps(landed, formats)[0],
-        }
         return await self._changed(
             request,
             bound,
@@ -657,7 +649,7 @@ class _Declaration(Declaration[Routes]):
             moved,
             verb,
             body=body,
-            undo=lambda _: _Undo(_MOVE, back),
+            undo=lambda _: _undo_move(bound, was, landed),
             lands=landed,
         )
 
@@ -771,50 +763,6 @@ class _Declaration(Declaration[Routes]):
             component=self._drawn(Calendar(), replace(redrawn, focus=focus)),
             status_code=status,
         )
-
-    def _switch_on(self, registry: type[ShortcutRegistry] | None) -> None:
-        """
-        The calendar's keys, on for this response when the app's registry
-        has them. Each one presses the control that does the same thing,
-        so a key and a click are the one code path.
-        """
-        if registry is None:
-            return
-        key = self.key
-        pressed = {
-            CalendarShortcuts.calendar_today: f"{key}-today",
-            CalendarShortcuts.calendar_previous: f"{key}-previous",
-            CalendarShortcuts.calendar_next: f"{key}-next",
-            **{
-                shortcut: f"{key}-switch-{view}"
-                for view, shortcut in _VIEW_KEYS.items()
-            },
-        }
-        if self.save is not None:
-            pressed[CalendarShortcuts.calendar_new] = _new(key)
-        for shortcut, target in pressed.items():
-            shortcuts.use(shortcut, action=_on(target, "click"))
-        if self.search is not None:
-            shortcuts.use(
-                CalendarShortcuts.calendar_search,
-                action=_on(f"{key}-{_QUERY}", "focus"),
-            )
-        shortcuts.use(CalendarShortcuts.calendar_help, action=_open(f"{key}-help"))
-
-
-# What the calendar hears to drag and move its events, under the internal
-# keys like the slot's click, so the page's own handlers are kept beside
-# them.
-_DRAGS = {
-    "x-on:pointerdown": "calendarPress($event)",
-    "x-on:pointermove": "calendarStretch($event)",
-    "x-on:pointerup": "calendarRelease()",
-    "x-on:pointercancel": "calendarCancel()",
-    # After pointerup as well, by when there is no drag left.
-    "x-on:lostpointercapture": "calendarCancel()",
-    "x-on:keydown": "calendarKeys($event)",
-    "x-on:click.capture": "calendarSwallow($event)",
-}
 
 
 # What a view calls, at class scope, to declare a calendar.

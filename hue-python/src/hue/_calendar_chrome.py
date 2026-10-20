@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from datetime import date, timedelta
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from htmy import Context, html
 
@@ -22,6 +22,7 @@ from hue._calendar_state import (
     _WEEKDAYS,
     BoundCalendar,
     Layer,
+    _help,
     _new,
     _side,
     _slot,
@@ -31,7 +32,7 @@ from hue._calendar_state import (
 )
 from hue._declared import bound_from, carried, search_form, search_id
 from hue.js import Expression, call, close, unsafe
-from hue.shortcuts import Shortcut, ShortcutRegistry
+from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
 from hue.ui._styles import PANEL_LABEL
@@ -48,6 +49,9 @@ from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.popover import Popover
 from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
+
+if TYPE_CHECKING:
+    from hue.calendar import _Declaration
 
 
 def _on(element_id: str, method: str) -> Expression:
@@ -118,6 +122,50 @@ _VIEW_KEYS: dict[CalendarView, Shortcut] = {
 _SNAP = 15
 _SNAPPED = "a quarter hour" if _SNAP == 15 else f"{_SNAP} minutes"
 
+# What the calendar hears to drag and move its events, under the internal
+# keys like the slot's click, so the page's own handlers are kept beside
+# them.
+_DRAGS = {
+    "x-on:pointerdown": "calendarPress($event)",
+    "x-on:pointermove": "calendarStretch($event)",
+    "x-on:pointerup": "calendarRelease()",
+    "x-on:pointercancel": "calendarCancel()",
+    # After pointerup as well, by when there is no drag left.
+    "x-on:lostpointercapture": "calendarCancel()",
+    "x-on:keydown": "calendarKeys($event)",
+    "x-on:click.capture": "calendarSwallow($event)",
+}
+
+
+def _switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) -> None:
+    """
+    The calendar's keys, on for this response when the app's registry has
+    them. Each one presses the control that does the same thing, so a key
+    and a click are the one code path.
+    """
+    if registry is None:
+        return
+    key = declared.key
+    pressed = {
+        CalendarShortcuts.calendar_today: views.control_id(key, "today"),
+        CalendarShortcuts.calendar_previous: views.control_id(key, "previous"),
+        CalendarShortcuts.calendar_next: views.control_id(key, "next"),
+        **{
+            shortcut: views.switch_id(key, view)
+            for view, shortcut in _VIEW_KEYS.items()
+        },
+    }
+    if declared.save is not None:
+        pressed[CalendarShortcuts.calendar_new] = _new(key)
+    for shortcut, target in pressed.items():
+        shortcuts.use(shortcut, action=_on(target, "click"))
+    if declared.search is not None:
+        shortcuts.use(
+            CalendarShortcuts.calendar_search,
+            action=_on(declared.param(_QUERY), "focus"),
+        )
+    shortcuts.use(CalendarShortcuts.calendar_help, action=_open(_help(key)))
+
 
 def _marked(bound: BoundCalendar) -> list[date]:
     """
@@ -162,13 +210,14 @@ def _matches(bound: BoundCalendar) -> str:
 class _Frame(ChainableComponent):
     """
     Offers one binding to every part of a calendar rendered inside it, and
-    holds the slot the dialog lands in.
+    holds the slot the dialog lands in and the help for the keys.
 
-    Its x-data is hueCalendar: whether the sidebar is open on a narrow
-    screen, and the click on an empty slot that opens the dialog. The slot
-    says where focus goes when the dialog closes under it: New event, the
-    one control that is always there, since what opened the dialog may be
-    gone with the sidebar's refresh.
+    Its x-data is hueCalendar, configured here: the sidebar on a narrow
+    screen, the click on an empty slot, and the drags and keys that move
+    an event, which the Calendar inside listens for. The slot says where
+    focus goes when the dialog closes under it: New event, the one control
+    that is always there, since what opened the dialog may be gone with
+    the sidebar's refresh.
     """
 
     category: ClassVar[str | None] = None
@@ -182,7 +231,7 @@ class _Frame(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         bound = self._bound
-        param = bound.declaration.param
+        key = bound.key
         config = {
             "url": bound.urls.act.get(_DIALOG),
             "move": bound.urls.act.get(_MOVE),
@@ -191,8 +240,9 @@ class _Frame(ChainableComponent):
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
             "state": _state(bound.key),
-            # What a click posts the day and the time it fell on under.
-            "fields": {"day": param("starts"), "time": param("starts_time")},
+            # The tabs a week on a phone is fitted with.
+            "weekTab": views.switch_id(key, "week"),
+            "dayTab": views.switch_id(key, "day"),
             "hour": views._HOUR,
             "snap": _SNAP,
         }
@@ -252,7 +302,7 @@ class _Help(ChainableComponent):
         rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
         return (
             Dialog()
-            .id(f"{bound.key}-help")
+            .id(_help(bound.key))
             .title("Keyboard shortcuts")
             .size("sm")
             .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
@@ -547,7 +597,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 .size("sm")
                 .class_("mt-3 w-full justify-between")
                 .content("Keyboard shortcuts", Kbd("?"))
-                .x_on("click", unsafe(f"{close()}; {_open(f'{key}-help')}")),
+                .x_on("click", unsafe(f"{close()}; {_open(_help(key))}")),
             ),
         )
     )

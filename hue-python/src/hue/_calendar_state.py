@@ -195,6 +195,13 @@ def _new(key: str) -> str:
     return f"{key}-new"
 
 
+def _help(key: str) -> str:
+    """
+    The id of the shortcuts' help dialog, which ? and the view options open.
+    """
+    return f"{key}-help"
+
+
 def _side(key: str) -> str:
     """
     The id of the sidebar, which the toolbar's button opens.

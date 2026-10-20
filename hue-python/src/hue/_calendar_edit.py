@@ -16,6 +16,7 @@ from htmy import html
 from hue._calendar_state import (
     _DELETE,
     _DIALOG,
+    _MOVE,
     _OVERLAPS,
     _SAVE,
     BoundCalendar,
@@ -159,6 +160,28 @@ def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
         param("occurrence"): None,
     }
     return _Undo(_SAVE, fields)
+
+
+def _undo_save(bound: BoundCalendar, was: Event) -> _Undo:
+    """
+    An edit put back: the fields events() had, a series from its first
+    occurrence.
+    """
+    return _Undo(_SAVE, _fields(bound, _first(was)))
+
+
+def _undo_move(bound: BoundCalendar, was: Event, landed: Event) -> _Undo:
+    """
+    A move put back: the times events() had, a series from its first
+    occurrence, posted for the occurrence where the event landed.
+    """
+    param = bound.declaration.param
+    fields = {
+        **_when_fields(bound, _first(was)),
+        param("id"): was.id,
+        param("occurrence"): stamps(landed, bound.formats)[0],
+    }
+    return _Undo(_MOVE, fields)
 
 
 def landing(bound: BoundCalendar, wanted: Event) -> Event | None:
