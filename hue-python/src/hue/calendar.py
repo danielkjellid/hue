@@ -183,6 +183,8 @@ _NEW_LASTS = timedelta(hours=1)
 # A draft past that would have events() asked for thousands of days at
 # every change of a field.
 _LONGEST = 366
+# The group of keys that one calendar on a page holds, the first to ask.
+_KEYS_CLAIM = "calendar"
 
 
 # Given the request and what it asked for, every event that answers it.
@@ -532,17 +534,36 @@ class _Declaration(Declaration[Routes]):
             self._router._get_query_values(hue.request), today
         )
         bound = await self._bind(
-            hue.request, asked, others, today, formats, keys=_keys_in(hue.shortcuts)
+            hue.request, asked, others, today, formats, keys=self._keys(context)
         )
         return self._drawn(calendar, bound)
 
+    def claim_keys(self) -> None:
+        """
+        Ask for the calendar's keys on this request's page, where the first
+        calendar to ask has them. Called as the view builds the page, in
+        the order its calendars are written, rather than as they render,
+        which is in no order a reader would guess.
+        """
+        shortcuts.claim(_KEYS_CLAIM, self.key)
+
     def keys_on(self, context: Context) -> None:
         """
-        Switch the calendar's keys on for the page being rendered. Called
-        from Calendar's own render, which htmy runs before anything async,
-        the page's shortcut host included; draw() runs after it.
+        Switch the calendar's keys on for the page being rendered, when it
+        holds them. Called from Calendar's own render; the page's shortcut
+        host reads them once the whole body has rendered.
         """
-        self._switch_on(_keys_in(HueContext.from_context(context).shortcuts))
+        self._switch_on(self._keys(context))
+
+    def _keys(self, context: Context) -> type[ShortcutRegistry] | None:
+        """
+        The app's registry when it has the calendar's keys and this
+        calendar holds them on the page, else None.
+        """
+        registry = _keys_in(HueContext.from_context(context).shortcuts)
+        if registry is None or not shortcuts.claim(_KEYS_CLAIM, self.key):
+            return None
+        return registry
 
     def _read(
         self, values: Mapping[str, list[str]], today: date

@@ -161,8 +161,11 @@ class BasePage:
                 .class_("min-h-screen bg-canvas relative")
                 .x_data(self.inject_x_data())
                 .content(
-                    self.body,
-                    render_if(ctx.shortcuts, ShortcutHost),
+                    render_if(
+                        ctx.shortcuts,
+                        lambda registry: ShortcutHost(registry, self.body),
+                        self.body,
+                    ),
                     self.configure_alpine(ctx),
                 ),
             ),

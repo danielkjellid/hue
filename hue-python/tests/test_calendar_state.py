@@ -12,17 +12,19 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from hue import calendar as declared
-from hue import scope
+from hue import html, scope
 from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.js import unsafe
+from hue.pages import create_page_base
 from hue.renderer import render_tree
 from hue.shortcuts import ShortcutRegistry, shortcuts
 from hue.ui import Calendar, Event
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _TODAY = date(2026, 10, 14)
+_Page = create_page_base(css_url="/s.css", js_url="/a.js", html_title_factory=str)
 _LAYERS = [Layer("work", "Work"), Layer("home", "Home", color=3)]
 
 
@@ -483,3 +485,40 @@ class TestKeys:
         assert shortcuts.used() == []
         assert_no_selector(html, "#events-help")
         assert "Keyboard shortcuts" not in html
+
+    @pytest.mark.asyncio
+    async def test_a_calendar_inside_an_async_component_still_binds_its_keys(
+        self, _request
+    ):
+        class Late:
+            def __init__(self, child: Any) -> None:
+                self.child = child
+
+            async def htmy(self, context: Any) -> Any:
+                return self.child
+
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        page = _Page(title="Events", body=Late(Late(Calendar.from_state(_declared()))))
+        rendered = await render_tree(page, context_args=args)
+        assert_selector(rendered, "#hue-shortcuts button[x-on\\:click*='events-today']")
+
+    @pytest.mark.asyncio
+    async def test_of_two_calendars_on_a_page_the_first_drawn_has_the_keys(
+        self, _request
+    ):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        rooms = build_calendar_state(_Router(), key="rooms", events=_events)
+        page = _Page(
+            title="Two",
+            body=html.div(Calendar.from_state(_declared()), Calendar.from_state(rooms)),
+        )
+        rendered = await render_tree(page, context_args=args)
+        today = [
+            item.action
+            for item in shortcuts.used()
+            if item.shortcut is CalendarShortcuts.calendar_today
+        ]
+        assert today == ['document.getElementById("events-today")?.click()']
+        # Only the one the keys drive offers their help.
+        assert_selector(rendered, "#events-help")
+        assert_no_selector(rendered, "#rooms-help")
