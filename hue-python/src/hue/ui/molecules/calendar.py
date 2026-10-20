@@ -45,6 +45,12 @@ type _Actions = Callable[[Event], Iterable[ComponentType]]
 
 _AGENDA_DAYS = 30
 
+# The days a calendar can be around. A grid reaches into the weeks either
+# side of its range, so the years at the ends of what a date can hold
+# would overflow; a date outside is moved in, and no step leads out.
+_FIRST = date(2, 1, 1)
+_LAST = date(9998, 12, 31)
+
 #: The range separator. An en dash, which is what a range takes.
 _DASH = "\u2013"
 
@@ -275,6 +281,7 @@ class Calendar(ChainableComponent):
         cursor: date | None = self._get_prop("date")
         if cursor is None:
             raise ValueError("Calendar needs a date(): the day its view is around.")
+        cursor = min(max(cursor, _FIRST), _LAST)
         view: CalendarView = self._get_prop("view", "week")
         attrs = self._get_base_html_attrs()
         own_id: str | None = attrs.pop("id", None)
@@ -535,10 +542,8 @@ class _Draw:
         )
 
     def _step(self, name: str, count: int, label: str, icon: str) -> ComponentType:
-        try:
-            day = _VIEWS[self.view].step(self.cursor, count)
-        except (OverflowError, ValueError):
-            # Past either end of the years a date can hold.
+        day = _VIEWS[self.view].step(self.cursor, count)
+        if not _FIRST <= day <= _LAST:
             return ""
         return self.link(
             day,

@@ -148,6 +148,30 @@ class TestFrame:
         assert_no_selector(html, "a")
         assert select(html, "h2")[0].get_text() == f"12 {_DASH} 18 October 2026"
 
+    @pytest.mark.parametrize("view", ["day", "week", "month", "year", "agenda"])
+    @pytest.mark.asyncio
+    async def test_the_ends_of_the_calendar_render_and_lead_no_further(
+        self, context_args, view
+    ):
+        # A grid reaches into the weeks around its range, so the last pages
+        # a date can draw stop a year short of either end.
+        for day, step, edge in (
+            (date.min, "Previous", "0002-01-01"),
+            (date.max, "Next", "9998-12-31"),
+        ):
+            calendar = _calendar().date(day).view(view).week_start("saturday")
+            html = await _html(calendar, context_args)
+            assert_no_selector(html, f"a[aria-label={step}]")
+            switcher = select(html, "nav[aria-label=View] [aria-current=page]")[0]
+            assert switcher["href"] == f"/cal/{view}/{edge}/"
+
+    @pytest.mark.asyncio
+    async def test_next_never_leads_past_the_last_page(self, context_args):
+        html = await _html(
+            _calendar().date(date(9998, 12, 20)).view("agenda"), context_args
+        )
+        assert_no_selector(html, "a[aria-label=Next]")
+
     @pytest.mark.asyncio
     async def test_today_is_a_link_only_when_told(self, context_args):
         html = await _html(_calendar(), context_args)
