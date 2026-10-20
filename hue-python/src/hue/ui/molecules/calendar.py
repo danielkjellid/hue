@@ -918,7 +918,10 @@ class _Draw:
             self.event(event, button),
             class_="absolute flex",
             style=(
-                f"top: {start * _HOUR // 60}px; height: {height}px; "
+                # The least height a line of text needs can still reach past
+                # midnight, so the box moves up rather than out of the grid.
+                f"top: {min(start * _HOUR // 60, 24 * _HOUR - height)}px; "
+                f"height: {height}px; "
                 f"left: calc({slot.column} / {slot.columns} * 100% + 2px); "
                 f"width: calc(100% / {slot.columns} - 4px)"
             ),

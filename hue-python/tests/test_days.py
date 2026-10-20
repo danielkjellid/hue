@@ -110,10 +110,18 @@ def test_minutes_cut_an_event_at_midnight_and_widen_a_moment():
     day = date(2026, 10, 14)
     late = Event("Late", datetime(2026, 10, 14, 23), datetime(2026, 10, 15, 1))
     assert minutes(Placed(late, day, False, True), Formats()) == (23 * 60, 24 * 60)
+    after = Placed(late, date(2026, 10, 15), True, False)
+    assert minutes(after, Formats()) == (0, 60)
     moment = Event("Moment", datetime(2026, 10, 14, 9, 5))
     assert minutes(Placed(moment, day, False, False), Formats()) == (545, 560)
     aware = Event("Deploy", datetime(2026, 10, 14, 7, tzinfo=UTC))
     assert minutes(Placed(aware, day, False, False), _OSLO)[0] == 9 * 60
+
+
+def test_a_moment_widened_at_the_end_of_the_day_moves_up_instead():
+    day = date(2026, 10, 14)
+    tiny = Event("Tiny", datetime(2026, 10, 14, 23, 55), datetime(2026, 10, 14, 23, 59))
+    assert minutes(Placed(tiny, day, False, False), Formats()) == (1425, 1440)
 
 
 def test_overlapping_spans_share_the_width_and_separate_ones_take_it_all():

@@ -291,6 +291,14 @@ class TestTimeGrid:
         assert "top: 0px; height: 94px" in boxes[0]["style"]
 
     @pytest.mark.asyncio
+    async def test_a_moment_before_midnight_stays_inside_the_grid(self, context_args):
+        tiny = Event("Tiny", datetime(2026, 10, 14, 23, 55), datetime(2026, 10, 14, 23, 59))
+        html = await _html(_calendar(tiny).view("day"), context_args)
+        style = select(html, "li.absolute")[0]["style"]
+        top, height = (int(n) for n in re.findall(r"(?:top|height): (\d+)px", style))
+        assert top + height <= 24 * 48
+
+    @pytest.mark.asyncio
     async def test_a_multi_day_timed_event_fills_the_days_between(self, context_args):
         conference = Event(
             "Conference", datetime(2026, 10, 11, 9), datetime(2026, 10, 14, 17)

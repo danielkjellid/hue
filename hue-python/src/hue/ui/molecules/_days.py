@@ -209,12 +209,14 @@ def minutes(placed: Placed, formats: Formats) -> tuple[int, int]:
     Where a timed event sits on the day it is placed on, in minutes from
     midnight: from the start of the day when it began earlier, to midnight
     when it ends later. One shorter than a quarter of an hour is widened to
-    one, so it still has a box to be seen in.
+    one, so it still has a box to be seen in, and moved up when that would
+    take it past midnight.
     """
     starts, ends = placed.event.moments(formats)
     start = starts.hour * 60 + starts.minute if starts.date() == placed.day else 0
     end = ends.hour * 60 + ends.minute if ends.date() == placed.day else MIDNIGHT
-    return start, max(end, start + _LEAST)
+    end = min(max(end, start + _LEAST), MIDNIGHT)
+    return min(start, end - _LEAST), end
 
 
 @dataclass(frozen=True, slots=True)
