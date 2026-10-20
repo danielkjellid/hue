@@ -86,8 +86,8 @@ _EVENTS = """
             ),
             Event(
                 "Deploy window",
-                datetime(2026, 10, 16, 20),
                 datetime(2026, 10, 16, 22),
+                datetime(2026, 10, 17, 2),
                 id="10",
                 color=2,
             ),
