@@ -133,7 +133,7 @@ def test_first_and_last_cover_the_view_and_the_month_the_picker_shows():
     [
         {},
         {"events-view": "weekly", "events-date": "14-10-2026"},
-        {"events-date": "2026-13-01", "events-start": "tuesday"},
+        {"events-date": "2026-13-01", "events-start": "someday"},
         {"events-date": "0001-01-01", "events-weekdays": "yes"},
     ],
 )
@@ -153,7 +153,7 @@ async def test_the_state_is_read_under_the_key(context_args):
             "events-date": "2026-03-02",
             "events-q": " planning ",
             "events-hide": "home,gone",
-            "events-start": "sunday",
+            "events-start": "wednesday",
             "events-weekdays": "1",
             "other-view": "day",
         },
@@ -163,7 +163,7 @@ async def test_the_state_is_read_under_the_key(context_args):
         view="month",
         query="planning",
         hidden=("home",),
-        week_start="sunday",
+        week_start="wednesday",
         weekdays=True,
         layers=("work",),
     )
@@ -278,7 +278,7 @@ class TestDrawn:
         assert_selector(html, "#events-dialog")
         assert_attr(html, "form#events-search input[name=events-q]", "type", "search")
         assert_attr(html, "#events-matches", "role", "status")
-        assert_selector(html, "form#events-options input[name=events-start]", count=3)
+        assert_selector(html, "form#events-options input[name=events-start]", count=7)
         # The picker marks the days with something on, and submits under
         # the date's name.
         picker = select(html, "#events-picker")[0]

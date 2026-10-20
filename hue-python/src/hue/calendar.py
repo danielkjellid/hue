@@ -102,18 +102,11 @@ from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.textarea import Textarea
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _calendar_views as views
-from hue.ui.molecules._days import WEEKDAYS, EventColor, WeekStart, month_grid, week_of
-from hue.ui.molecules.calendar import (
-    _AGENDA_DAYS,
-    _FIRST,
-    _LAST,
-    _SOLID,
-    Calendar,
-    CalendarView,
-    Event,
-)
+from hue.ui.molecules._calendar_views import FIRST, LAST, CalendarView
+from hue.ui.molecules._days import EventColor, month_grid, week_of
+from hue.ui.molecules.calendar import Calendar, Event
 from hue.ui.molecules.date_input import DateInput, TimeInput
-from hue.ui.molecules.date_picker import DatePicker
+from hue.ui.molecules.date_picker import WEEKDAYS, DatePicker, Weekday
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.form import Form
 from hue.ui.molecules.popover import Popover
@@ -145,7 +138,6 @@ _DELETE = "delete"
 _ACTIONS = (_DIALOG, _OVERLAPS, _SAVE, _DELETE)
 
 _VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
-_STARTS: tuple[WeekStart, ...] = get_args(WeekStart.__value__)
 
 # YYYY-MM-DD and HH:MM and nothing else; fromisoformat would also take
 # 20261014 and 09:30:15.
@@ -221,7 +213,7 @@ class CalendarState:
     view: CalendarView = "week"
     query: str = ""
     hidden: tuple[str, ...] = ()
-    week_start: WeekStart = "monday"
+    week_start: Weekday = "monday"
     weekdays: bool = False
     layers: tuple[str, ...] = ()
     first: _Day = field(init=False)
@@ -249,7 +241,7 @@ class CalendarState:
             return grid[0][0], grid[-1][-1]
         if self.view == "year":
             return date(cursor.year, 1, 1), date(cursor.year, 12, 31)
-        return cursor, cursor + timedelta(days=_AGENDA_DAYS - 1)
+        return cursor, cursor + timedelta(days=views._AGENDA_DAYS - 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,7 +457,7 @@ class _Declaration:
         repeats: Mapping[str, str] | None = None,
         search: str | None = None,
         view: CalendarView = "week",
-        week_start: WeekStart = "monday",
+        week_start: Weekday = "monday",
     ) -> None:
         self.key = key
         self.events = events
@@ -571,11 +563,11 @@ class _Declaration:
         declared = [layer.key for layer in self.layers]
         hidden = tuple(key for key in _many(asked, _HIDE) if key in declared)
         return CalendarState(
-            date=min(max(cursor, _FIRST), _LAST),
+            date=min(max(cursor, FIRST), LAST),
             view=view if view in _VIEWS else self.view,  # type: ignore[arg-type]
             query=(_one(asked, _QUERY) or "").strip(),
             hidden=hidden,
-            week_start=start if start in _STARTS else self.week_start,  # type: ignore[arg-type]
+            week_start=start if start in WEEKDAYS else self.week_start,  # type: ignore[arg-type]
             weekdays=_one(asked, _WEEKDAYS) == "1",
             layers=tuple(key for key in declared if key not in hidden),
         )
@@ -1485,7 +1477,9 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
         ),
         html.span(
             aria_hidden="true",
-            class_=classnames("size-2.5 flex-none rounded-xs", _SOLID[layer.color]),
+            class_=classnames(
+                "size-2.5 flex-none rounded-xs", views._SOLID[layer.color]
+            ),
         ),
         class_="flex items-center gap-3",
     )
@@ -1600,7 +1594,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 .content(
                     *(
                         Radio().value(day).label(names[WEEKDAYS.index(day)])
-                        for day in _STARTS
+                        for day in WEEKDAYS
                     )
                 ),
                 Checkbox()
