@@ -29,6 +29,7 @@ _EVENTS = [
         layer="eng",
         repeat="weekdays",
         location="Huddle room",
+        series_starts=datetime(2026, 10, 12, 9),
     ),
     Event(
         "Design review",
@@ -205,11 +206,20 @@ def _build() -> ComponentType:
             "colour of its own takes its layer's. repeat is your own key for the "
             "rule it repeats by; the calendar draws the repeat mark and shows the "
             "key's label in the dialog, and expanding the rule into occurrences "
-            "is your job, since only you know what the rule means."
+            "is your job, since only you know what the rule means. Each "
+            "occurrence also says when the series' first occurrence starts, in "
+            "series_starts. An editable calendar refuses an occurrence without "
+            "it, because moving one occurrence moves the whole series from there."
         ),
         pr.code(
             'Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), layer="eng")\n'
-            'Event("Standup", datetime(2026, 10, 14, 9, 30), id="12", repeat="weekly")'
+            "Event(\n"
+            '    "Standup",\n'
+            "    datetime(2026, 10, 14, 9, 30),\n"
+            '    id="12",\n'
+            '    repeat="weekly",\n'
+            "    series_starts=datetime(2026, 9, 30, 9, 30),\n"
+            ")"
         ),
         pr.h2("The URL is the state"),
         pr.p(
@@ -340,22 +350,30 @@ def _build() -> ComponentType:
             "event was held, and the new times. The browser knows nothing else "
             "about the event, so the route looks it up through events() on the "
             "day it started, in every layer and with no search, and hands save "
-            "the same Event at the new times. The notes, the location and the "
-            "repeat key cannot be lost on the way, and recurrence stays yours: "
-            "save is handed the one event a series is, with the moved "
-            "occurrence's times, and the toast says all occurrences moved. A "
+            "the same Event at the new times, so the notes, the location and the "
+            "repeat key cannot be lost on the way. A series moves as a whole. "
+            "save is handed the event the series is: its first occurrence's day "
+            "moved by as many days as the occurrence was, at the occurrence's "
+            "new time and length. An app that keeps a series as its first "
+            "occurrence and the rule saves that as it saves any edit, and an "
+            "edit of one occurrence in the dialog reaches save the same way. A "
             "drag that ends where it began posts nothing, and one the browser "
-            "cancels, or Escape does, puts the event back."
+            "cancels, or Escape does, puts the event back. A key pressed again "
+            "before the calendar is back is dropped, so a held key never posts "
+            "a time the event no longer has."
         ),
         pr.h2("Undo"),
         pr.p(
             "Every toast that says a change was made offers to undo it, through "
-            "the same route. After an edit it saves the fields the event had, "
-            "after a move it moves the event back, and after a delete it saves "
-            "the fields back without the id, so an undone delete is a new event "
-            "with a new id. After a create it deletes the id save returned. Undo "
-            "goes one level: the toast an Undo earns offers none, and the toast "
-            "leaves the screen after a few seconds, as toasts do."
+            "the same route. After an edit it saves the event as it was, after a "
+            "move it moves it back, and after a delete it saves the event as "
+            "events() had it, without the id, so an undone delete is a new event "
+            "with a new id. A series comes back from its first occurrence. After "
+            "a create it deletes the id save returned. Once the calendar is "
+            "back, focus goes to the event the Undo restored, or to New event "
+            "after an undone create. Undo goes one level: the toast an Undo "
+            "earns offers none, and the toast leaves the screen after a few "
+            "seconds, as toasts do."
         ),
         pr.h2("Keyboard shortcuts"),
         pr.p(
@@ -367,7 +385,9 @@ def _build() -> ComponentType:
             "drawn, and like every shortcut they are silent while someone types "
             "or a dialog is open, and off when single-key shortcuts are switched "
             "off. Each one presses the control that does the same thing, so a key "
-            "and a click cannot drift apart."
+            "and a click cannot drift apart. Only one calendar on a page answers "
+            "to them, the first one the view builds. Another calendar on the "
+            "same page draws without the keys and without the help dialog."
         ),
         pr.code(
             "from hue.calendar import CalendarShortcuts\n"

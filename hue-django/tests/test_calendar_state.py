@@ -334,13 +334,13 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
 
 def test_the_fields_become_the_event_the_handler_is_handed(mounted):
     mounted(repeats={"weekly": "Every week"})
-    _act("save", **_fields(id="7", repeat="weekly", location=" Room 3B ", notes=""))
+    _act("save", **_fields(id="1", repeat="weekly", location=" Room 3B ", notes=""))
     assert _SAVED == [
         Event(
             "Pairing",
             datetime(2026, 10, 15, 11),
             datetime(2026, 10, 15, 12, 30),
-            id="7",
+            id="1",
             location="Room 3B",
             repeat="weekly",
             layer="home",
@@ -582,16 +582,33 @@ def _undo_of(html: str) -> tuple[str, dict[str, Any]] | None:
     The action the toast's Undo posts to and the fields it posts, or None
     when the toast offers none.
     """
+    found = _undo_call(html)
+    return None if found is None else (found[1], json.loads(found[2])["body"])
+
+
+def _landed_of(html: str) -> dict[str, Any]:
+    """
+    The event the toast's Undo hands focus to once the calendar is back.
+    """
+    found = _undo_call(html)
+    assert found
+    return json.loads(found[3])
+
+
+def _undo_call(html: str) -> re.Match[str] | None:
     button = re.search(
-        r"<button[^>]*@click=(['\"])(.*?)\1[^>]*>\s*Undo\s*</button>", html
+        r"<button[^>]*@click=(['\"])(\$ajax.*?dismiss\(\))\1[^>]*>\s*Undo\s*</button>",
+        html,
     )
     if button is None:
         return None
     call = re.fullmatch(
-        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\); dismiss\(\)', unescape(button[2])
+        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\)\.then\(.*detail: (\{.*\}) \}\)\)\); '
+        r"dismiss\(\)",
+        unescape(button[2]),
     )
     assert call, button[2]
-    return call[1], json.loads(call[2])["body"]
+    return call
 
 
 def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
@@ -620,6 +637,8 @@ def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
             "events-undo": "1",
         },
     )
+    # And hands focus back to the review where it was.
+    assert _landed_of(html) == {"id": "1", "starts": "2026-10-14T13:00"}
 
 
 def test_a_move_of_the_end_alone_is_a_resize_and_a_series_moves_as_one(mounted):
@@ -637,9 +656,62 @@ def test_a_move_of_the_end_alone_is_a_resize_and_a_series_moves_as_one(mounted):
     )
     assert 'Resized "Review"' in html
     assert _SAVED[-1].ends == datetime(2026, 10, 14, 15)
-    mounted(events=lambda r, s: [replace(_REVIEW, repeat="weekly")])
+
+
+def test_a_series_moves_from_its_first_occurrence_and_undo_puts_that_back(mounted):
+    # The review every week since 30 September, as events() hands out the
+    # one on the 14th: moved a day later and an hour on, the whole series is.
+    weekly = replace(_REVIEW, repeat="weekly", series_starts=datetime(2026, 9, 30, 13))
+    mounted(events=lambda r, s: [weekly])
     html = unescape(_act("move", **_moved()).content.decode())
     assert 'Moved all occurrences of "Review"' in html
+    assert (_SAVED[-1].starts, _SAVED[-1].ends) == (
+        datetime(2026, 10, 1, 14),
+        datetime(2026, 10, 1, 15),
+    )
+    # The Undo names the occurrence where it now is, and posts the series
+    # back where it began, which is saved as it is posted.
+    action, back = _undo_of(html)
+    assert action == "move"
+    assert back["events-occurrence"] == "2026-10-15T14:00"
+    assert back["events-starts"] == "2026-09-30"
+    assert back["events-starts_time"] == "13:00"
+    moved = replace(
+        weekly,
+        starts=datetime(2026, 10, 15, 14),
+        ends=datetime(2026, 10, 15, 15),
+        series_starts=datetime(2026, 10, 1, 14),
+    )
+    mounted(events=lambda r, s: [moved])
+    _act("move", **back)
+    assert (_SAVED[-1].starts, _SAVED[-1].ends) == (
+        datetime(2026, 9, 30, 13),
+        datetime(2026, 9, 30, 14),
+    )
+
+
+def test_a_series_that_does_not_say_where_it_starts_is_refused_by_name(mounted):
+    mounted(events=lambda r, s: [replace(_REVIEW, repeat="weekly")])
+    with pytest.raises(TypeError, match="series_starts"):
+        Client().get(f"/{MOUNT}")
+
+
+def test_a_move_keeps_an_event_timed_or_whole_day_whatever_is_posted(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    _act("move", **_moved(all_day="1"))
+    assert _SAVED[-1].starts == datetime(2026, 10, 15, 14)
+
+
+@pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
+def test_a_date_past_what_a_calendar_draws_is_refused_on_move_and_save(mounted, day):
+    mounted(events=lambda r, s: [_REVIEW])
+    when = {"starts": day, "ends": day}
+    with override_settings(TIME_ZONE="Europe/Oslo"):
+        moved = _act("move", **_moved(**when))
+        saved = _act("save", **_fields(**when))
+    assert (moved.status_code, saved.status_code) == (422, 422)
+    assert "Enter a date in the years 2 to 9998." in unescape(saved.content.decode())
+    assert _SAVED == []
 
 
 def test_a_move_looks_the_event_up_on_its_own_day_in_every_layer_unsearched(mounted):
@@ -721,18 +793,19 @@ def test_an_edit_is_undone_by_saving_the_fields_events_had(mounted):
     assert "events-layer" in back and "events-location" not in back
 
 
-def test_a_delete_is_undone_by_saving_the_fields_back_without_the_id(mounted):
-    mounted()
+def test_a_delete_is_undone_by_saving_the_event_events_had_without_the_id(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
     html = _act(
-        "delete", **_fields(id="1", occurrence="2026-10-14T13:00", notes="Bring it")
+        "delete", **_fields(id="1", occurrence="2026-10-14T13:00", notes="Posted")
     ).content.decode()
     action, back = _undo_of(html)
     assert action == "save"
     assert "events-id" not in back and "events-occurrence" not in back
-    assert back["events-title"] == "Pairing" and back["events-notes"] == "Bring it"
-    # Posted with the id alone, as the dialog's own Delete never does, it
-    # is deleted and offers no way back.
-    assert _undo_of(_act("delete", **{"events-id": "1"}).content.decode()) is None
+    # What events() has, not what the browser posted.
+    assert back["events-title"] == "Review"
+    assert back["events-notes"] == "Bring the matrix."
+    # An event events() does not have is deleted and offers no way back.
+    assert _undo_of(_act("delete", **{"events-id": "9"}).content.decode()) is None
 
 
 def test_undo_goes_one_level(mounted):

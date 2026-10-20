@@ -54,8 +54,9 @@ the same page. Alpine AJAX swaps the calendar in place for all of them.
 events() is the only part that is not fixed, so it is the only part that is
 a function. It receives the request and the state, and returns the events
 between asked.first and asked.last that match the query and belong to the
-layers shown. Expanding a repeating event into its occurrences is its job.
-An event without a colour takes its layer's.
+layers shown. Expanding a repeating event into its occurrences is its job,
+and each occurrence says in series_starts when the series' first one
+starts. An event without a colour takes its layer's.
 
 save and delete make the calendar editable: a New event button, a click on
 an empty slot or day, and Edit, Duplicate and Delete in an event's popover
@@ -71,11 +72,14 @@ Dragging an event in the time grid, between the days of the month or
 along the all-day row posts a move: the id, which occurrence, and the new
 times. The route looks the event up through events() and hands save the
 same event at the new times, so a field the browser never had, the notes
-or the rule it repeats by, cannot be lost on the way. Every change raises
-a toast with an Undo, which posts the previous fields through the same
-route, one level deep: an undone delete is a new event with a new id, and
-an undone create is a delete of the id save returned, so a save that
-returns nothing leaves a create with no undo.
+or the rule it repeats by, cannot be lost on the way. A series moves as a
+whole: save gets its first occurrence moved by as many days as the one
+that was dragged, at that one's new time and length, and the dialog's
+edit of an occurrence does the same. Every change raises a toast with an
+Undo, which posts the event as it was through the same route, a series
+from its first occurrence, one level deep: an undone delete is a new
+event with a new id, and an undone create is a delete of the id save
+returned, so a save that returns nothing leaves a create with no undo.
 
 The keys the design gives the calendar, T, J and K, the views, N, / and
 ?, are scoped shortcuts in CalendarShortcuts, on while a calendar is drawn
@@ -289,10 +293,6 @@ class _Posted:
 
 
 _FIELDS = tuple(each.name for each in fields(_Posted))
-# The fields an event is made of, apart from which one and why.
-_EVENT_FIELDS = tuple(
-    name for name in _FIELDS if name not in ("id", "occurrence", "undo")
-)
 
 
 def _day(text: str) -> date | None:
@@ -633,6 +633,16 @@ class _Declaration(Declaration[Routes]):
                     f"{self.key}: events() returned {returned!r}, which is not an "
                     f"Event. Build one per row: Event(title, starts, ends)."
                 )
+            if (
+                self.save is not None
+                and returned.repeat
+                and (returned.series_starts is None)
+            ):
+                raise TypeError(
+                    f"{self.key}: events() returned {returned.title!r}, which "
+                    f"repeats, without series_starts. Moving it moves the whole "
+                    f"series, from when its first occurrence starts."
+                )
             own = colors.get(returned.layer or "")
             if returned.color is None and own is not None:
                 found.append(replace(returned, color=own))
@@ -941,10 +951,11 @@ class _Declaration(Declaration[Routes]):
             return await self._moved(request, bound, body, self.save)
         if self.delete is None:  # pragma: no cover - only served with one
             raise AssertionError(action)
-        # Undone by saving the fields back without the id, so an undone
-        # delete is a new event. An old client posting the id alone gets
-        # its delete and no undo.
-        whole, _ = self._draft(body, formats)
+        # Undone by saving the event back as events() had it, series and
+        # all, without the id, so an undone delete is a new event.
+        was = await self._router._run_sync(
+            self._find, request, bound.state, body.id, body.occurrence, formats
+        )
         return await self._changed(
             request,
             bound,
@@ -952,7 +963,7 @@ class _Declaration(Declaration[Routes]):
             body.id,
             "Delete",
             body=body,
-            undo=lambda _: (_SAVE, _posted_fields(bound, body)) if whole else None,
+            undo=lambda _: _undo_delete(bound, was),
         )
 
     def _shown(
@@ -1017,17 +1028,34 @@ class _Declaration(Declaration[Routes]):
                 description=kept,
                 refused=refused,
             )
+        if body.undo:
+            # Put back as it was: a series from its first occurrence.
+            return await self._changed(
+                request, bound, save, draft, "Save", body=body, undo=lambda _: None
+            )
         was = await self._router._run_sync(
             self._find, request, bound.state, draft.id, body.occurrence, formats
         )
+        if was is None:
+            return await self._failed(
+                request,
+                bound,
+                "Save",
+                "The event is no longer there.",
+                HTTPStatus.NOT_FOUND,
+            )
+        edited = draft
+        if draft.repeat:
+            starts, ends = _series(was, draft.starts, draft.ends, formats)
+            edited = replace(draft, starts=starts, ends=ends)
         return await self._changed(
             request,
             bound,
             save,
-            draft,
+            edited,
             "Save",
             body=body,
-            undo=lambda _: (_SAVE, _fields(bound, was)) if was else None,
+            undo=lambda _: (_SAVE, _fields(bound, _first(was)), _landed(was, formats)),
             description=kept,
             refused=refused,
         )
@@ -1058,25 +1086,36 @@ class _Declaration(Declaration[Routes]):
                 HTTPStatus.NOT_FOUND,
             )
         errors: dict[str, str] = {}
-        starts, ends = _when(body, errors, _zone(formats))
+        # Timed or whole days as it is, whatever the body says.
+        posted = replace(body, all_day="" if was.timed else "1")
+        starts, ends = _when(posted, errors, _zone(formats))
         try:
             if errors or starts is None or ends is None:
                 raise ValueError(next(iter(errors.values()), "Enter a time."))
+            landed = replace(was, starts=starts, ends=ends)
+            # An Undo posts the series where it began, saved as posted.
+            if not body.undo:
+                starts, ends = _series(was, starts, ends, formats)
             moved = replace(was, starts=starts, ends=ends)
         except ValueError as error:
             return await self._failed(
                 request, bound, "Move", str(error), HTTPStatus.UNPROCESSABLE_ENTITY
             )
-        verb = (
-            "Resize" if stamps(was, formats)[0] == stamps(moved, formats)[0] else "Move"
-        )
+        resized = stamps(was, formats)[0] == stamps(landed, formats)[0]
+        verb = "Resize" if resized else "Move"
         back = {
-            **_when_fields(bound, was),
+            **_when_fields(bound, _first(was)),
             bound.declaration.param("id"): was.id,
-            bound.declaration.param("occurrence"): stamps(moved, formats)[0],
+            bound.declaration.param("occurrence"): stamps(landed, formats)[0],
         }
         return await self._changed(
-            request, bound, save, moved, verb, body=body, undo=lambda _: (_MOVE, back)
+            request,
+            bound,
+            save,
+            moved,
+            verb,
+            body=body,
+            undo=lambda _: (_MOVE, back, _landed(was, formats)),
         )
 
     async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
@@ -1209,8 +1248,9 @@ _DONE = {
     "Resize": "Resized",
 }
 
-# Which action an Undo posts to, and the fields it posts, under the key.
-type _Undo = tuple[str, Mapping[str, str | None]]
+# Which action an Undo posts to, the fields it posts, under the key, and
+# the event focus goes back to: its id, or else its title, and its start.
+type _Undo = tuple[str, Mapping[str, str | None], Mapping[str, str | None]]
 
 
 def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
@@ -1243,15 +1283,73 @@ def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo 
     if made is None:
         return None
     param = bound.declaration.param
-    return _DELETE, {param("id"): made, param("title"): draft.title}
+    return _DELETE, {param("id"): made, param("title"): draft.title}, {}
+
+
+def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
+    if was is None:
+        return None
+    param = bound.declaration.param
+    fields = {
+        **_fields(bound, _first(was)),
+        param("id"): None,
+        param("occurrence"): None,
+    }
+    landed = {"starts": stamps(was, bound.formats)[0], "title": was.title}
+    return _SAVE, fields, landed
+
+
+def _landed(was: Event, formats: Formats) -> dict[str, str | None]:
+    return {"id": was.id, "starts": stamps(was, formats)[0]}
+
+
+def _first(event: Event) -> Event:
+    """
+    The event as it is stored: an occurrence of a series as its first one,
+    anything else as it is.
+    """
+    first: Any = event.series_starts
+    if first is None:
+        return event
+    ends = None if event.ends is None else first + (event.ends - event.starts)  # type: ignore[operator]
+    return replace(event, starts=first, ends=ends)
+
+
+def _series(
+    was: Event, starts: Any, ends: Any, formats: Formats
+) -> tuple[date | datetime, date | datetime]:
+    """
+    Where one occurrence of a series put at starts to ends puts the series:
+    its first occurrence as many days on, at the new time of day and as
+    long. Anything that is not a series goes where it was put.
+    """
+    first = was.series_starts
+    if first is None:
+        return starts, ends
+    shift = _date_of(starts) - was.span(formats)[0]
+    day = _date_of(formats.moment(first) if isinstance(first, datetime) else first)
+    day += shift
+    begins: Any = (
+        datetime.combine(day, starts.time()) if isinstance(starts, datetime) else day
+    )
+    return begins, begins + (ends - starts)
+
+
+def _date_of(value: date) -> date:
+    return value.date() if isinstance(value, datetime) else value
 
 
 def _undo_button(
-    bound: BoundCalendar, action: str, posted: Mapping[str, Any]
+    bound: BoundCalendar,
+    action: str,
+    posted: Mapping[str, Any],
+    landed: Mapping[str, str | None],
 ) -> Button:
     """
     The toast's Undo: the same route, told it is undoing, and the toast
-    dismissed once it has been pressed.
+    dismissed once it has been pressed. Once the calendar is back, the
+    calendar is told which event to hand focus to, since the toast that
+    had it is gone.
     """
     declared = bound.declaration
     request = ajax(
@@ -1269,7 +1367,15 @@ def _undo_button(
         .variant("outline")
         .size("xs")
         .content("Undo")
-        .x_on("click", unsafe(f"{request}; dismiss()"))
+        .x_on(
+            "click",
+            unsafe(
+                f"{request}.then(() => document.getElementById("
+                f"{json.dumps(_slot(bound.key))})?.dispatchEvent(new CustomEvent("
+                f'"hue:landed", {{ bubbles: true, detail: {json.dumps(landed)} }})))'
+                "; dismiss()"
+            ),
+        )
     )
 
 
@@ -1345,11 +1451,8 @@ def _when(
     whole-day one may end on the day it starts. Neither runs past a year.
     """
     all_day = bool(posted.all_day)
-    first, last = _day(posted.starts), _day(posted.ends)
-    if first is None:
-        errors["starts"] = "Enter a date."
-    if last is None:
-        errors["ends"] = "Enter a date."
+    first = _drawn_day(posted.starts, "starts", errors)
+    last = _drawn_day(posted.ends, "ends", errors)
     starts: date | datetime | None = first
     ends: date | datetime | None = last
     if not all_day:
@@ -1363,6 +1466,21 @@ def _when(
     elif first is not None and last is not None and (last - first).days > _LONGEST:
         errors["ends"] = "Ends more than a year after it starts."
     return starts, ends
+
+
+def _drawn_day(text: str, name: str, errors: dict[str, str]) -> date | None:
+    """
+    A posted date a calendar can draw, or None with what is wrong with it
+    in errors. Clamped here, which also keeps a moment in year 1 from
+    overflowing when it is made aware.
+    """
+    day = _day(text)
+    if day is None:
+        errors[name] = "Enter a date."
+    elif not FIRST <= day <= LAST:
+        errors[name] = f"Enter a date in the years {FIRST.year} to {LAST.year}."
+        return None
+    return day
 
 
 def _clocked(
@@ -1460,17 +1578,6 @@ def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
         first, last = event.span(bound.formats)
         when = {"all_day": "1", "starts": first.isoformat(), "ends": last.isoformat()}
     return {bound.declaration.param(name): value for name, value in when.items()}
-
-
-def _posted_fields(bound: BoundCalendar, posted: _Posted) -> dict[str, str | None]:
-    """
-    The fields a delete was posted with, under the key and without the id,
-    for the Undo that saves them back as a new event.
-    """
-    return {
-        bound.declaration.param(name): getattr(posted, name) or None
-        for name in _EVENT_FIELDS
-    }
 
 
 def _title_field(name: str, value: str) -> ComponentType:
