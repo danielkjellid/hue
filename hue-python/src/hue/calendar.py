@@ -816,30 +816,67 @@ class _Declaration(Declaration[Routes]):
         csrf_token: str = context.csrf_token
         if action == _DIALOG:
             shown = _prefilled(body, asked, self.layers)
-            return HueResponse(
-                component=self._dialog(bound, shown, {}, csrf_token=csrf_token),
-                target=_slot(self.key),
-            )
+            return self._shown(bound, shown, {}, HTTPStatus.OK, csrf_token)
         if action == _OVERLAPS:
             return await self._checked(request, bound, body)
         if action == _SAVE and self.save is not None:
-            draft, errors = self._draft(body, formats)
-            if draft is None:
-                return HueResponse(
-                    component=self._dialog(bound, body, errors, csrf_token=csrf_token),
-                    target=_slot(self.key),
-                    status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-                )
-            verb = "Save" if draft.id else "Create"
-            return await self._changed(
-                request, bound, self.save, draft, verb, draft.title
-            )
+            return await self._saved(request, bound, body, csrf_token)
         if self.delete is None:  # pragma: no cover - only served with one
             raise AssertionError(action)
         # Named by the title the popover or the dialog posts beside the id.
         named = body.title.strip() or "the event"
+        status = await self._run(
+            request,
+            self.delete,
+            body.id,
+            label="Delete",
+            description="The calendar is shown as it is now.",
+        )
+        return await self._changed(request, bound, status, f'Deleted "{named}"')
+
+    def _shown(
+        self,
+        bound: BoundCalendar,
+        posted: _Posted,
+        errors: Mapping[str, str],
+        status: HTTPStatus,
+        csrf_token: str,
+    ) -> HueResponse:
+        """
+        The dialog over the posted fields, in the slot.
+        """
+        return HueResponse(
+            component=self._dialog(bound, posted, errors, csrf_token=csrf_token),
+            target=_slot(self.key),
+            status_code=status,
+        )
+
+    async def _saved(
+        self, request: Any, bound: BoundCalendar, body: _Posted, csrf_token: str
+    ) -> Any:
+        """
+        The calendar once the dialog's fields are saved, or the dialog again
+        over them when they could not be: a field error, or a handler that
+        failed or refused, so nothing typed is lost.
+        """
+        assert self.save is not None  # served only with one
+        draft, errors = self._draft(body, bound.formats)
+        if draft is None:
+            return self._shown(
+                bound, body, errors, HTTPStatus.UNPROCESSABLE_ENTITY, csrf_token
+            )
+        verb = "Save" if draft.id else "Create"
+        status = await self._run(
+            request,
+            self.save,
+            draft,
+            label=verb,
+            description="What you entered is still in the dialog.",
+        )
+        if status != HTTPStatus.OK:
+            return self._shown(bound, body, {}, status, csrf_token)
         return await self._changed(
-            request, bound, self.delete, body.id, "Delete", named
+            request, bound, status, f'{_DONE[verb]} "{draft.title}"'
         )
 
     async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
@@ -861,27 +898,15 @@ class _Declaration(Declaration[Routes]):
         )
 
     async def _changed(
-        self,
-        request: Any,
-        bound: BoundCalendar,
-        handler: Callable[..., Any],
-        given: Event | str,
-        verb: str,
-        named: str,
+        self, request: Any, bound: BoundCalendar, status: HTTPStatus, done: str
     ) -> Any:
         """
         The calendar after a handler has run, with a toast saying what
-        happened, or what failed.
+        happened when it worked. _run has already raised the one for a
+        failure.
         """
-        status = await self._run(
-            request,
-            handler,
-            given,
-            label=verb,
-            description="The calendar is shown as it is now.",
-        )
         if status == HTTPStatus.OK:
-            toast.success(f'{_DONE[verb]} "{named}"')
+            toast.success(done)
         # Drawn after, because the events have just changed under it. The
         # whole thing, with an empty slot: the response targets the slot,
         # which closes the dialog, and the synced parts refresh.
@@ -893,8 +918,8 @@ class _Declaration(Declaration[Routes]):
         )
 
 
-# What a toast says once a change has been made.
-_DONE = {"Create": "Created", "Save": "Saved", "Delete": "Deleted"}
+# What a toast says once a save has been made.
+_DONE = {"Create": "Created", "Save": "Saved"}
 
 
 # What a view calls, at class scope, to declare a calendar.

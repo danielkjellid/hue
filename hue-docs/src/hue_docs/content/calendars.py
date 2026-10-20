@@ -303,13 +303,13 @@ def _build() -> ComponentType:
             "so two calendars on one page keep their dialogs apart and a page "
             "parameter called title is left alone. The form also carries Django's "
             "CSRF token, so it posts even where the script has failed. If a "
-            "handler raises, the reader gets a danger toast, the calendar redraws "
-            "as it now is, and the error is logged with its traceback under "
-            "hue.calendar. A "
-            "permission denied or a not found, such as a save of an event someone "
-            "else has deleted, keeps its status but is answered the same way, "
-            "since Django's own page has nowhere on it for the browser to put "
-            "the answer."
+            "handler raises, the reader gets a danger toast and the error is "
+            "logged with its traceback under hue.calendar. A save that failed "
+            "keeps the dialog open over what was typed, and a delete that failed "
+            "redraws the calendar as it now is. A permission denied or a not "
+            "found, such as a save of an event someone else has deleted, keeps "
+            "its status but is answered the same way, since Django's own page has "
+            "nowhere on it for the browser to put the answer."
         ),
         pr.h2("What the reader sees and hears"),
         pr.p(
