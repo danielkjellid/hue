@@ -20,7 +20,7 @@
 export function registerCalendarData(Alpine) {
 	Alpine.data(
 		"hueCalendar",
-		({ url = null, target = "", state = "", home = "", hour = 48 } = {}) => ({
+		({ url = null, key = "", target = "", state = "", home = "", hour = 48 } = {}) => ({
 			side: false,
 			focused: null,
 
@@ -93,11 +93,12 @@ export function registerCalendarData(Alpine) {
 					const half = Math.floor(((event.clientY - top) / hour) * 2);
 					from = Math.min(Math.max(half * 30, 0), 23 * 60);
 				}
+				// Under the key, as the dialog posts them.
 				const body = new FormData();
-				body.set("starts", day);
-				body.set("starts_time", clock(from));
-				body.set("ends", day);
-				body.set("ends_time", clock(Math.min(from + 60, 23 * 60 + 59)));
+				body.set(`${key}-starts`, day);
+				body.set(`${key}-starts_time`, clock(from));
+				body.set(`${key}-ends`, day);
+				body.set(`${key}-ends_time`, clock(Math.min(from + 60, 23 * 60 + 59)));
 				this.open(body);
 			},
 
