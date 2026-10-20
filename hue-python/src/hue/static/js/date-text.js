@@ -9,7 +9,7 @@
 
 import { DAY, iso, parse, utc, weekday } from "./date-picker.js";
 
-const pad = (n, width = 2) => String(n).padStart(width, "0");
+export const pad = (n) => String(n).padStart(2, "0");
 
 /**
  * The value written with a strftime format, for the directives Formats

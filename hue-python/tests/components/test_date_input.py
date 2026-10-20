@@ -47,6 +47,8 @@ class TestDateInput:
         # Anchored fixed, so a Dialog's hidden overflow cannot clip it.
         assert_attr(html, "#starts-picker", "x-anchor.fixed.bottom-start.offset.6")
         assert_selector(html, 'table[role="grid"]', count=1)
+        # The dialog takes the field's label, so the grid has no legend.
+        assert_no_selector(html, "legend")
 
     @pytest.mark.asyncio
     async def test_the_value_is_iso_and_written_with_formats(self, context_args):
@@ -64,6 +66,12 @@ class TestDateInput:
         context_args["formats"] = Formats(date="%d/%m/%y")
         with pytest.raises(ValueError, match="DateInput cannot read %y back"):
             await render_tree(_field(), context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_a_literal_percent_stays_in_the_placeholder(self, context_args):
+        context_args["formats"] = Formats(date="%d.%m.%Y %%")
+        html = await render_tree(_field(), context_args=context_args)
+        assert_attr(html, "input#starts", "placeholder", "DD.MM.YYYY %")
 
     @pytest.mark.asyncio
     async def test_names_are_written_from_formats_and_handed_to_the_script(
@@ -129,7 +137,17 @@ class TestDateInput:
         html = await render_tree(field, context_args=context_args)
         presets = select(html, '[role="group"][aria-label="Presets"] button')
         assert [b.text.strip() for b in presets][:2] == ["Today", "Yesterday"]
-        assert presets[2]["x-bind"] == "preset(2)"
+        # By id, which date-input.js keys the same days by.
+        assert presets[2]["x-bind"] == 'preset("last-7-days")'
+
+    @pytest.mark.asyncio
+    async def test_the_range_separator_is_handed_to_the_script(self, context_args):
+        html = await render_tree(
+            _field().mode("range").value(date(2026, 10, 1), date(2026, 10, 2)),
+            context_args=context_args,
+        )
+        assert_attr(html, "input#starts", "value", "2026-10-01 \u2013 2026-10-02")
+        assert config(html)["rangeSeparator"] == " \u2013 "
 
     @pytest.mark.asyncio
     async def test_no_presets_unless_asked(self, context_args):
@@ -196,7 +214,9 @@ class TestDateInput:
         assert alert.select_one("[x-text]").text == "Too late"
         assert alert.select_one('[x-text="error"]')
         assert_attr(html, "input#starts", "aria-invalid", "true")
-        assert_attr(html, "input#starts", "aria-describedby", "starts-error")
+        assert_attr(
+            html, "input#starts", "aria-describedby", "starts-hint starts-error"
+        )
         assert config(html)["error"] == "Too late"
         assert select(html, "#starts-hint")[0].parent["x-show"] == "!error"
 
@@ -206,13 +226,12 @@ class TestDateInput:
         html = await render_tree(field, context_args=context_args)
         assert select(html, "#starts-error")[0].parent.has_attr("x-cloak")
         assert not select(html, "input#starts")[0].has_attr("aria-invalid")
-        assert_attr(html, "input#starts", "aria-describedby", "starts-hint")
+        # The error element is empty until there is one, so it can describe
+        # the field from the start and a typed error needs no new binding.
         assert_attr(
-            html,
-            "input#starts",
-            ":aria-describedby",
-            'error ? "starts-error" : "starts-hint"',
+            html, "input#starts", "aria-describedby", "starts-error starts-hint"
         )
+        assert not select(html, "input#starts")[0].has_attr(":aria-describedby")
         assert config(html)["error"] is None
 
     @pytest.mark.asyncio
