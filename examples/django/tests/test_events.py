@@ -4,8 +4,10 @@ gives the days shown, what the search and the layers narrow, and what
 the dialog's route writes.
 """
 
+import json
 import re
 from datetime import date, datetime, timedelta
+from html import unescape
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -218,3 +220,92 @@ def test_a_time_the_clocks_skip_is_refused_rather_than_moved(db):
     assert _aware(datetime(2026, 3, 29, 3, 30)) == _at(2026, 3, 29, 3, 30)
     with pytest.raises(ValueError, match="02:30 is skipped"):
         _aware(datetime(2026, 3, 29, 2, 30))
+
+
+def _standups(day: str) -> list[str]:
+    """
+    The standups the week around day shows, as the day and the time each
+    starts.
+    """
+    labels = re.findall(
+        r'aria-label="Standup, \w+ (\d+ \w+) \d{4}, (\d\d:\d\d) to',
+        _read(**{"events-date": day}),
+    )
+    return [f"{date} {clock}" for date, clock in labels]
+
+
+def _undo(response: Any) -> Any:
+    """
+    Press the Undo on the toast a response raised: its action and fields.
+    """
+    html = unescape(response.content.decode())
+    button = re.search(r"\$ajax\(\"[^\"]*/(\w+)/\", (\{.*?\})\)\.then", html)
+    assert button, "the toast offers an Undo"
+    posted = json.loads(button[2])["body"]
+    return Client().post(f"/events/events/{button[1]}/", posted, **_AJAX)
+
+
+_FIRST_WEEK = ["28 September", "29 September", "30 September", "1 October", "2 October"]
+_THIS_WEEK = ["12 October", "13 October", "14 October", "15 October", "16 October"]
+
+
+def _at_each(days: list[str], clock: str) -> list[str]:
+    return [f"{day} {clock}" for day in days]
+
+
+@pytest.mark.parametrize("action", ["move", "save"])
+def test_a_series_moved_from_one_occurrence_moves_whole_and_undo_restores_it(
+    entries, action
+):
+    standup = entries["Standup"]
+    occurrence = {"id": str(standup.pk), "occurrence": "2026-10-14T09:00"}
+    when = {"starts": "2026-10-14", "starts_time": "10:00",
+            "ends": "2026-10-14", "ends_time": "10:15"}  # fmt: skip
+    edited = {"title": "Standup", "layer": "eng", "repeat": "weekdays"}
+    moved = _act(action, **occurrence, **when, **(edited if action == "save" else {}))
+    assert moved.status_code == 200
+    # Every standup an hour later, from the first week on, and one a day.
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "10:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "10:00")
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 10)
+
+    assert _undo(moved).status_code == 200
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "09:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "09:00")
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 9)
+    assert standup.ends == _at(2026, 9, 28, 9, 15)
+
+
+def test_a_series_moved_a_day_keeps_its_first_occurrence_as_far_ahead(entries):
+    standup = entries["Standup"]
+    _act("move", id=str(standup.pk), occurrence="2026-10-14T09:00",
+         starts="2026-10-15", starts_time="09:00",
+         ends="2026-10-15", ends_time="09:15")  # fmt: skip
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 29, 9)
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK[1:], "09:00")
+
+
+def test_a_deleted_series_comes_back_whole_from_undo(entries):
+    standup = entries["Standup"]
+    deleted = _act("delete", id=str(standup.pk), occurrence="2026-10-14T09:00",
+                   title="Standup", layer="eng", repeat="weekdays",
+                   location="Huddle room", starts="2026-10-14", starts_time="09:00",
+                   ends="2026-10-14", ends_time="09:15")  # fmt: skip
+    assert _standups("2026-10-14") == []
+    assert _undo(deleted).status_code == 200
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "09:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "09:00")
+
+
+def test_year_one_is_refused_on_the_field_rather_than_overflowing(entries):
+    dentist = entries["Dentist"]
+    when = {"starts": "0001-01-01", "starts_time": "00:00",
+            "ends": "0001-01-01", "ends_time": "00:30"}  # fmt: skip
+    moved = _act("move", id=str(dentist.pk), occurrence="2026-10-15T15:00", **when)
+    saved = _act("save", title="Old", layer="eng", **when)
+    assert (moved.status_code, saved.status_code) == (422, 422)
+    dentist.refresh_from_db()
+    assert dentist.starts == _at(2026, 10, 15, 15)

@@ -43,6 +43,9 @@ class Event:
     repeat mark; expanding the rule into occurrences is the app's job. layer
     names the calendar it belongs to, under a declaration. color picks one of
     the six chart tokens, the first unless its layer says otherwise.
+    series_starts is when the first occurrence of the series it belongs to
+    starts, which an editable calendar needs from every occurrence it is
+    handed: moving one occurrence moves the series from there.
 
         Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), color=4)
         Event("Standup", datetime(2026, 10, 14, 9, 30), id="12", repeat="weekly")
@@ -58,6 +61,7 @@ class Event:
     layer: str | None = None
     href: str | None = None
     color: EventColor | None = None
+    series_starts: date | datetime | None = None
 
     def __post_init__(self) -> None:
         # Refused here rather than misdrawn later: a date and a datetime
@@ -68,6 +72,13 @@ class Event:
         if self.color is not None and self.color not in _COLORS:
             raise ValueError(
                 f"{self.title!r} has color {self.color!r}; it is one of 1 to 6."
+            )
+        if self.series_starts is not None and isinstance(
+            self.series_starts, datetime
+        ) != isinstance(self.starts, datetime):
+            raise ValueError(
+                f"{self.title!r} and the series it belongs to start with "
+                f"different kinds of value. Both are dates, or both datetimes."
             )
         if self.ends is None:
             return

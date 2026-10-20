@@ -40,8 +40,10 @@ class Entry(models.Model):
 
     def event(self, starts: datetime, ends: datetime) -> Event:
         """
-        One occurrence, at the moments given, as the calendar draws it.
+        One occurrence, at the moments given, as the calendar draws it,
+        saying where its series starts, which a move shifts from.
         """
+        first = timezone.localtime(self.starts) if self.repeat else None
         return Event(
             self.title,
             starts.date() if self.all_day else starts,
@@ -51,6 +53,7 @@ class Entry(models.Model):
             notes=self.notes or None,
             repeat=self.repeat or None,
             layer=self.layer,
+            series_starts=first.date() if first and self.all_day else first,
         )
 
     @classmethod
