@@ -13,35 +13,31 @@
  */
 
 import { DAY, datePicker, dayName, iso, parse, today, utc } from "./date-picker.js";
-import { monthFirst, parseDay, parseMoment, parseTime, splitRange, strftime } from "./date-text.js";
+import { monthFirst, pad, parseDay, parseMoment, parseTime, splitRange, strftime } from "./date-text.js";
 
-const pad = (n) => String(n).padStart(2, "0");
 const add = (day, n) => iso(parse(day) + n * DAY);
 // The last day of the month n months after day's: day 0 of the one after.
 const monthEnd = (day, n) => iso(utc(+day.slice(0, 4), +day.slice(5, 7) + n, 0));
 const monthStart = (day, n) => add(monthEnd(day, n - 1), 1);
 
-// The ranges behind DateInput's presets, in the order the server draws
-// their labels, around today.
-const PRESETS = [
-	(t) => [t, t],
-	(t) => [add(t, -1), add(t, -1)],
-	(t) => [add(t, -6), t],
-	(t) => [add(t, -29), t],
-	(t) => [monthStart(t, 0), monthEnd(t, 0)],
-	(t) => [monthStart(t, -1), monthEnd(t, -1)],
-	(t) => [t, add(t, 6)],
-];
+// The ranges behind DateInput's presets, by the ids the server draws
+// their labels with, around today.
+export const PRESETS = {
+	today: (t) => [t, t],
+	yesterday: (t) => [add(t, -1), add(t, -1)],
+	"last-7-days": (t) => [add(t, -6), t],
+	"last-30-days": (t) => [add(t, -29), t],
+	"this-month": (t) => [monthStart(t, 0), monthEnd(t, 0)],
+	"last-month": (t) => [monthStart(t, -1), monthEnd(t, -1)],
+	"next-7-days": (t) => [t, add(t, 6)],
+};
 
 // Where the time list opens when there is no time yet.
 const MORNING = "09:00";
 
 export function dateInput(config) {
-	const { kind, formats, step, inert } = config;
-	const picker = datePicker({
-		...config,
-		mode: kind === "range" || kind === "multiple" ? kind : "single",
-	});
+	const { kind, formats, step, inert, rangeSeparator: to } = config;
+	const picker = datePicker(config);
 	const write = (value, format) => strftime(format, value, config);
 	const writeDay = (day) => write(day, formats.date);
 	const reading = () => ({
@@ -54,7 +50,7 @@ export function dateInput(config) {
 	const example = () => {
 		const t = today();
 		return {
-			range: `${writeDay(t)} \u2013 ${writeDay(add(t, 7))}`,
+			range: `${writeDay(t)}${to}${writeDay(add(t, 7))}`,
 			datetime: write(`${t}T14:30`, formats.datetime),
 			time: write("14:30", formats.time),
 		}[kind] ?? writeDay(t);
@@ -96,7 +92,7 @@ export function dateInput(config) {
 		display() {
 			const [first, last] = this.committed;
 			if (!first || kind === "multiple") return "";
-			if (kind === "range") return last ? `${writeDay(first)} \u2013 ${writeDay(last)}` : "";
+			if (kind === "range") return last ? `${writeDay(first)}${to}${writeDay(last)}` : "";
 			if (kind === "datetime") return write(first, formats.datetime);
 			if (kind === "time") return write(first, formats.time);
 			return writeDay(first);
@@ -107,7 +103,7 @@ export function dateInput(config) {
 		},
 
 		removeLabel(day) {
-			return `Remove ${dayName(day, config.dayNames, config.monthNames)}`;
+			return `Remove ${dayName(day, config.dayNames, config.monthNamesInDate)}`;
 		},
 
 		// The text as values, or null when it reads as nothing.
@@ -250,11 +246,11 @@ export function dateInput(config) {
 			if (!start) return "Pick a start date";
 			if (!end) return "Pick an end date";
 			const count = Math.round((parse(end) - parse(start)) / DAY) + 1;
-			return `${writeDay(start)} \u2013 ${writeDay(end)}, ${count} ${count === 1 ? "day" : "days"}`;
+			return `${writeDay(start)}${to}${writeDay(end)}, ${count} ${count === 1 ? "day" : "days"}`;
 		},
 
-		preset(i) {
-			const range = () => PRESETS[i](today());
+		preset(id) {
+			const range = () => PRESETS[id](today());
 			return {
 				":aria-pressed": () => String(this.value.join() === range().join()),
 				":disabled": () => Boolean(this.check(range())),
@@ -363,7 +359,7 @@ export function dateInput(config) {
 			if (!this.open) return;
 			// Back to the days first when the grid is on its month or year
 			// panel; that is the grid's own Escape.
-			if (event.key === "Escape" && this.open && this.level === "days") {
+			if (event.key === "Escape" && this.level === "days") {
 				// Only the popover closes, not a dialog the field sits in.
 				event.preventDefault();
 				event.stopPropagation();

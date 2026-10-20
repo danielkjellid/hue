@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from datetime import date, datetime, time
 from typing import Any, Literal
@@ -16,13 +15,14 @@ from hue.ui._styles import (
     FOCUS_RING_INSET,
     GROUP_SHELL,
     GROUPED_CONTROL,
+    TOKEN,
+    TOKEN_REMOVE,
     ControlSize,
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
 from hue.ui.molecules import _overlay
-from hue.ui.molecules.combobox import _TOKEN, _TOKEN_REMOVE
 from hue.ui.molecules.date_picker import (
     DatePicker,
     DatePickerMode,
@@ -30,13 +30,7 @@ from hue.ui.molecules.date_picker import (
     Weekday,
     _days,
 )
-from hue.ui.molecules.field import (
-    Field,
-    error_component,
-    error_id,
-    hint_component,
-    hint_id,
-)
+from hue.ui.molecules.field import Field, error_component, error_id, hint_component
 from hue.utils import classnames, render_if, render_when
 
 type _Kind = Literal["single", "range", "multiple", "datetime", "time"]
@@ -66,17 +60,17 @@ _SLOT = classnames(
     "aria-selected:focus-visible:inset-ring-accent-fg",
 )
 
-# The design's range presets. date-input.js holds the days behind each, in
-# this order, since only the reader's browser knows the reader's today.
-_PRESETS = (
-    "Today",
-    "Yesterday",
-    "Last 7 days",
-    "Last 30 days",
-    "This month",
-    "Last month",
-    "Next 7 days",
-)
+# The design's range presets. date-input.js holds the days behind each id,
+# since only the reader's browser knows the reader's today.
+_PRESETS = {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last-7-days": "Last 7 days",
+    "last-30-days": "Last 30 days",
+    "this-month": "This month",
+    "last-month": "Last month",
+    "next-7-days": "Next 7 days",
+}
 
 # How the grid picks for each kind of field. A day and a time pick one day.
 _MODES: dict[_Kind, DatePickerMode] = {
@@ -87,7 +81,7 @@ _MODES: dict[_Kind, DatePickerMode] = {
     "time": "single",
 }
 
-# Between the ends of a range, as date-input.js writes it.
+# Between the ends of a range, handed to date-input.js to write the same.
 _TO = " \N{EN DASH} "
 
 # How a strftime directive reads in a placeholder. A weekday is dropped,
@@ -106,6 +100,7 @@ _UNFILLED = {
     "%-I": "h",
     "%M": "mm",
     "%p": "AM",
+    "%%": "%",
 }
 
 
@@ -190,7 +185,7 @@ class _PickerInput(FieldControl):
         TimeInput has none to draw, but date-input.js builds on its data.
         """
         picker = DatePicker().mode(_MODES[kind])
-        keys = ("min", "max", "unavailable", "week_start", "disabled", "required")
+        keys = (*DayRules.KEYS, "disabled")
         picker._props.update({k: self._props[k] for k in keys if k in self._props})
         return picker
 
@@ -238,13 +233,6 @@ class _PickerInput(FieldControl):
         if placeholder is None:
             placeholder = _placeholder(pattern, kind)
         written = _written(kind, committed, formats)
-        caller = self._attrs.get("aria_describedby")
-        hinted = classnames(hint_id(control_id) if hint else None, caller) or None
-        errored = classnames(
-            hint_id(control_id) if hint and horizontal else None,
-            error_id(control_id),
-            caller,
-        )
         attrs = self._control_attrs(
             context,
             type="text",
@@ -264,14 +252,15 @@ class _PickerInput(FieldControl):
             required=(required and kind != "multiple") or None,
             aria_required="true" if required and kind == "multiple" else None,
             aria_invalid="true" if error is not None else None,
-            aria_describedby=errored if error is not None else hinted,
+            # The error element below is always drawn, empty until there is
+            # an error, so it describes the field from the start.
+            aria_describedby=self._describedby(
+                context, None if error else error_id(control_id)
+            ),
             **{
                 "x-ref": "input",
                 "x-model": "text",
                 ":aria-invalid": "error ? 'true' : null",
-                ":aria-describedby": (
-                    f"error ? {json.dumps(errored)} : {json.dumps(hinted)}"
-                ),
                 "x-on:blur": "commitText()",
                 "x-on:keydown": "inputKey($event)",
             },
@@ -305,6 +294,7 @@ class _PickerInput(FieldControl):
             },
             "dayAbbreviations": list(formats.day_abbreviations),
             "monthAbbreviations": list(formats.month_abbreviations),
+            "rangeSeparator": _TO,
             "step": self._get_prop("step", 15),
         }
         root_attrs: dict[str, object] = {
@@ -366,13 +356,13 @@ class _PickerInput(FieldControl):
                         HueIcon("x").class_("size-3"),
                         type="button",
                         disabled=inert or None,
-                        class_=_TOKEN_REMOVE,
+                        class_=TOKEN_REMOVE,
                         **{
                             ":aria-label": "removeLabel(day)",
                             "x-on:click": "removeDay(day)",
                         },
                     ),
-                    class_=_TOKEN,
+                    class_=TOKEN,
                 ),
                 **{"x-for": "day in committed", ":key": "day"},
             ),
@@ -586,9 +576,9 @@ class DateInput(_CalendarInput):
                     text,
                     type="button",
                     class_=_PRESET,
-                    **{"x-bind": f"preset({i})"},
+                    **{"x-bind": call("preset", key)},
                 )
-                for i, text in enumerate(_PRESETS)
+                for key, text in _PRESETS.items()
             ),
             role="group",
             aria_label="Presets",

@@ -126,3 +126,16 @@ GROUP_ADDON = (
     "flex items-center gap-[5px] px-[11px] whitespace-nowrap "
     "bg-surface-sunken text-sm text-fg-muted"
 )
+
+
+#: A chosen value shown as a removable chip, in a Combobox and in a DateInput
+#: that holds several days.
+TOKEN = (
+    "inline-flex h-6 items-center gap-0.5 rounded-sm bg-surface-active ps-[9px] "
+    "pe-[3px] text-xs font-medium text-fg"
+)
+
+TOKEN_REMOVE = (
+    f"{FOCUS_RING} inline-flex size-[18px] flex-none cursor-pointer items-center "
+    "justify-center rounded-xs text-fg-muted hover:bg-border-hover hover:text-fg"
+)

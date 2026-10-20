@@ -119,6 +119,9 @@ class DayRules:
 
     _props: dict[str, Any]  # provided by ChainableComponent
 
+    # The props the modifiers below set, which a field hands on to its grid.
+    KEYS = ("min", "max", "unavailable", "week_start")
+
     def min(self, value: date) -> Self:
         """
         The first day that can be picked or typed.
