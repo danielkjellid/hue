@@ -15,7 +15,7 @@ from django.http import Http404, HttpRequest, QueryDict
 from django.middleware.csrf import get_token
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from django.utils.dates import MONTHS, MONTHS_ALT, WEEKDAYS, WEEKDAYS_ABBR
+from django.utils.dates import MONTHS, MONTHS_3, MONTHS_ALT, WEEKDAYS, WEEKDAYS_ABBR
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.router import HueResponse, PathParseResult
@@ -83,6 +83,12 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
                 month_names_in_date=tuple(_month_in_date(m) for m in range(1, 13)),
                 day_names=tuple(str(WEEKDAYS[d]) for d in range(7)),
                 day_abbreviations=tuple(str(WEEKDAYS_ABBR[d]) for d in range(7)),
+                # Title-cased, as Django's own short month (the M format
+                # character) writes them. MONTHS_AP is the press's style, with
+                # "Sept." and March in full, which is not one short name each.
+                month_abbreviations=tuple(
+                    str(MONTHS_3[m]).title() for m in range(1, 13)
+                ),
             ),
             shortcuts=settings.HUE_SHORTCUTS,
         )

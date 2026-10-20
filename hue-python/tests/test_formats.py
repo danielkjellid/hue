@@ -32,6 +32,7 @@ def test_anything_else_has_no_spelling_here():
         {"month_names_in_date": ("January",) * 13},
         {"day_names": ("Monday",) * 8},
         {"day_abbreviations": ()},
+        {"month_abbreviations": ("Jan",) * 13},
     ],
 )
 def test_a_name_list_of_the_wrong_length_is_refused(wrong):
@@ -59,3 +60,36 @@ def test_a_moment_is_moved_into_the_readers_time_only_when_it_can_be():
     # A naive datetime has no zone to convert from.
     assert formats.moment(datetime(2026, 3, 1, 23, 30)).day == 1
     assert Formats().moment(aware) is aware
+
+
+def test_names_are_written_from_formats_not_the_process_locale():
+    french = Formats(
+        month_abbreviations=(
+            "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août",
+            "sept.", "oct.", "nov.", "déc.",
+        ),
+        day_abbreviations=("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."),
+        date="%a %e %b %Y",
+    )  # fmt: skip
+    assert french.text(date(2026, 7, 5)) == "dim.  5 juil. 2026"
+
+
+def test_every_directive_is_written_the_same_on_every_platform():
+    moment = datetime(2026, 3, 5, 0, 7)
+    written = Formats().write("%d %-d %e %m %-m %Y %H %M %I %-I %p %%", moment)
+    assert written == "05 5  5 03 3 2026 00 07 12 12 AM %"
+    assert Formats().write("%Y %B %A", date(26, 10, 1)) == "0026 October Thursday"
+
+
+@pytest.mark.parametrize(
+    ("field", "pattern", "directive"),
+    [
+        ("date", "%d/%m/%y", "%y"),
+        ("date", "%Y-%m-%d %H:%M", "%H"),
+        ("time", "%Y %H:%M", "%Y"),
+        ("datetime", "%j %H:%M", "%j"),
+    ],
+)
+def test_a_pattern_a_field_cannot_read_back_is_refused(field, pattern, directive):
+    with pytest.raises(ValueError, match=f"Formats.{field} uses {directive}"):
+        Formats(**{field: pattern})

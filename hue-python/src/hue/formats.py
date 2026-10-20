@@ -9,7 +9,8 @@ and every component that writes a value reads the same answer.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
@@ -20,6 +21,32 @@ from htmy import Context
 # those names inside the class.
 type _Moment = datetime
 type _Day = date
+type _Time = time
+
+# The directives a pattern may use: the ones date-text.js writes the same
+# way and reads back. Everything is spelled out here rather than handed to
+# strftime, which writes names in the process locale and pads differently
+# per platform. %y is left out because 26 cannot say which century it was.
+_DAY_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+    "d": lambda f, v: f"{v.day:02}",
+    "-d": lambda f, v: str(v.day),
+    "e": lambda f, v: f"{v.day:2}",
+    "m": lambda f, v: f"{v.month:02}",
+    "-m": lambda f, v: str(v.month),
+    "Y": lambda f, v: f"{v.year:04}",
+    "B": lambda f, v: f.month_names[v.month - 1],
+    "b": lambda f, v: f.month_abbreviations[v.month - 1],
+    "A": lambda f, v: f.day_names[v.weekday()],
+    "a": lambda f, v: f.day_abbreviations[v.weekday()],
+}
+_TIME_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+    "H": lambda f, v: f"{v.hour:02}",
+    "M": lambda f, v: f"{v.minute:02}",
+    "I": lambda f, v: f"{v.hour % 12 or 12:02}",
+    "-I": lambda f, v: str(v.hour % 12 or 12),
+    "p": lambda f, v: "AM" if v.hour < 12 else "PM",
+}
+_DIRECTIVE = re.compile(r"%(-?.)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,12 +56,16 @@ class Formats:
     is the one spelling no reader gets wrong, and the names of the months and
     the days, English by default.
 
+    A pattern may only use the directives a date field reads back: %d %-d
+    %e %m %-m %Y %B %b %A %a for a day, %H %M %I %-I %p for a time, and
+    %%. Anything else is refused when the Formats is made.
+
     localize turns an aware datetime into the reader's time before it is
     written, as a framework's templates would. Without one, an aware
     datetime is written in its own timezone.
 
-    The names are plain sequences rather than strftime's %A and %B, which
-    read the process locale: a framework fills them per request from its
+    The names are plain sequences rather than strftime's %A, %a, %B and %b,
+    which read the process locale: a framework fills them per request from its
     own translations, the way it fills the patterns from its settings. Days
     are Monday first, as date.weekday() counts them. month_names_in_date is
     the month as written inside a date, which some languages decline: Polish
@@ -57,6 +88,10 @@ class Formats:
     day_abbreviations: tuple[str, ...] = (
         "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
     )  # fmt: skip
+    month_abbreviations: tuple[str, ...] = (
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+        "Nov", "Dec",
+    )  # fmt: skip
 
     def __post_init__(self) -> None:
         # A framework's config is the one boundary. Everything after indexes
@@ -66,11 +101,24 @@ class Formats:
             ("month_names_in_date", 12),
             ("day_names", 7),
             ("day_abbreviations", 7),
+            ("month_abbreviations", 12),
         ):
             if len(getattr(self, name)) != wanted:
                 raise ValueError(
                     f"Formats.{name} needs {wanted} names, January or Monday first."
                 )
+        for name, known in (
+            ("date", _DAY_DIRECTIVES.keys()),
+            ("time", _TIME_DIRECTIVES.keys()),
+            ("datetime", _DAY_DIRECTIVES.keys() | _TIME_DIRECTIVES.keys()),
+        ):
+            pattern: str = getattr(self, name)
+            for directive in _DIRECTIVE.findall(pattern):
+                if directive != "%" and directive not in known:
+                    raise ValueError(
+                        f"Formats.{name} uses %{directive}, which a field "
+                        f"cannot read back. It may use {_listed(known)}."
+                    )
 
     def text(self, value: Any) -> str | None:
         """
@@ -79,12 +127,29 @@ class Formats:
         """
         # datetime before date: every datetime is a date too.
         if isinstance(value, datetime):
-            return self.moment(value).strftime(self.datetime)
+            return self.write(self.datetime, self.moment(value))
         if isinstance(value, date):
-            return value.strftime(self.date)
+            return self.write(self.date, value)
         if isinstance(value, time):
-            return value.strftime(self.time)
+            return self.write(self.time, value)
         return None
+
+    def write(self, pattern: str, value: _Day | _Time) -> str:
+        """
+        The value written with one of this Formats' own patterns, the way
+        date-text.js writes it in the browser.
+        """
+
+        def one(match: re.Match[str]) -> str:
+            directive = match.group(1)
+            if directive == "%":
+                return "%"
+            if directive in _TIME_DIRECTIVES:
+                clock = value.time() if isinstance(value, datetime) else value
+                return _TIME_DIRECTIVES[directive](self, clock)
+            return _DAY_DIRECTIVES[directive](self, value)
+
+        return _DIRECTIVE.sub(one, pattern)
 
     def moment(self, value: _Moment) -> _Moment:
         """
@@ -116,3 +181,7 @@ class Formats:
     def from_context(cls, context: Context) -> Formats:
         found = context.get(cls)
         return found if isinstance(found, cls) else cls()
+
+
+def _listed(directives: Iterable[str]) -> str:
+    return " ".join(sorted(f"%{d}" for d in directives))
