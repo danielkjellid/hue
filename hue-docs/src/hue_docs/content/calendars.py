@@ -6,7 +6,7 @@ from typing import Any
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContext
 from hue.types.core import ComponentType
-from hue.ui import Alert, Calendar, Event
+from hue.ui import Calendar, Event
 
 from hue_docs.content import _prose as pr
 from hue_docs.content._declared import Request, Router
@@ -130,12 +130,12 @@ _DECLARATION = """def events_for(
     return [entry.event() for entry in found]
 
 
-def save_entry(request: HttpRequest, event: Event) -> None:
+def save_entry(request: HttpRequest, event: Event) -> int | None:
     fields = Entry.fields_of(event)
     if event.id is None:
-        Entry.objects.create(**fields)
-    else:
-        Entry.objects.filter(pk=event.id).update(**fields)
+        return Entry.objects.create(**fields).pk
+    Entry.objects.filter(pk=event.id).update(**fields)
+    return None
 
 
 def delete_entry(request: HttpRequest, id: str) -> None:
@@ -275,11 +275,14 @@ def _build() -> ComponentType:
             "layer, location, notes and repeat key, and the id of the event it "
             "replaces, or None for a new one. The times are naive, in the "
             "reader's time, or dates for a whole day. Make them aware with your "
-            "framework's current timezone when you store them. delete receives "
-            "the request and the id. Duplicate is a save of a copy with no id."
+            "framework's current timezone when you store them. For a new event, "
+            "return the id you gave it, or the saved Event with it set: that is "
+            "what the toast's Undo deletes, and without it a create has no Undo. "
+            "delete receives the request and the id. Duplicate is a save of a "
+            "copy with no id."
         ),
         pr.code(
-            "def save_entry(request: HttpRequest, event: Event) -> None: ...\n"
+            "def save_entry(request: HttpRequest, event: Event) -> int | None: ...\n"
             "def delete_entry(request: HttpRequest, id: str) -> None: ..."
         ),
         pr.p(
@@ -311,6 +314,75 @@ def _build() -> ComponentType:
             "its status but is answered the same way, since Django's own page has "
             "nowhere on it for the browser to put the answer."
         ),
+        pr.h2("Dragging"),
+        pr.p(
+            "With a save, the events can be dragged. In the time grid, dragging "
+            "on an empty slot draws the range and opens the dialog over it, "
+            "dragging an event moves it, up and down the day and into another "
+            "column, and dragging its bottom edge changes when it ends. "
+            "Everything snaps to the quarter hour and stays inside the day, and "
+            "the event shows the times it will have before it is let go. In the "
+            "month and along the all-day row, a chip is dragged to another day, "
+            "which moves the event by whole days and keeps its length. A press "
+            "that does not travel is still a click, so a slot still opens the "
+            "dialog and an event its popover. On a touchscreen a finger on an "
+            "event drags it and a finger on an empty slot scrolls the grid."
+        ),
+        pr.p(
+            "The keyboard can do the same without the dialog. With an event "
+            "focused, Alt with the up and down arrows moves it a quarter hour, "
+            "Alt with left and right moves it a day, and Shift as well changes "
+            "when it ends instead. Focus stays on the event, whose name says its "
+            "new time."
+        ),
+        pr.p(
+            "A drag or a key press posts move: the id, which occurrence of the "
+            "event was held, and the new times. The browser knows nothing else "
+            "about the event, so the route looks it up through events() on the "
+            "day it started, in every layer and with no search, and hands save "
+            "the same Event at the new times. The notes, the location and the "
+            "repeat key cannot be lost on the way, and recurrence stays yours: "
+            "save is handed the one event a series is, with the moved "
+            "occurrence's times, and the toast says all occurrences moved. A "
+            "drag that ends where it began posts nothing, and one the browser "
+            "cancels, or Escape does, puts the event back."
+        ),
+        pr.h2("Undo"),
+        pr.p(
+            "Every toast that says a change was made offers to undo it, through "
+            "the same route. After an edit it saves the fields the event had, "
+            "after a move it moves the event back, and after a delete it saves "
+            "the fields back without the id, so an undone delete is a new event "
+            "with a new id. After a create it deletes the id save returned. Undo "
+            "goes one level: the toast an Undo earns offers none, and the toast "
+            "leaves the screen after a few seconds, as toasts do."
+        ),
+        pr.h2("Keyboard shortcuts"),
+        pr.p(
+            "The calendar's keys are scoped shortcuts in CalendarShortcuts: T for "
+            "today, J and K for previous and next, D, W, M, Y and A for the views, "
+            "N for a new event, / for the search and ? for a dialog that lists "
+            "them. An app gets them by inheriting the class in its own registry, "
+            "the one HUE_SHORTCUTS names. They are on only where a calendar is "
+            "drawn, and like every shortcut they are silent while someone types "
+            "or a dialog is open, and off when single-key shortcuts are switched "
+            "off. Each one presses the control that does the same thing, so a key "
+            "and a click cannot drift apart."
+        ),
+        pr.code(
+            "from hue.calendar import CalendarShortcuts\n"
+            "from hue.shortcuts import Shortcut\n\n\n"
+            "class Shortcuts(CalendarShortcuts):\n"
+            '    billing = Shortcut("Go to Billing", "g", "b", href="/billing/")'
+        ),
+        pr.p(
+            "The design also gives the arrow keys to previous and next. They are "
+            "left out: on their own they move through the sidebar's picker and "
+            "any listbox on the page, which is why the registry refuses them. "
+            "The help dialog, opened with ? or from the view options, lists every "
+            "shortcut on for the page, the app's own included, and the keys that "
+            "move a focused event."
+        ),
         pr.h2("What the reader sees and hears"),
         pr.p(
             "The range in the title is announced from a live region outside what "
@@ -322,7 +394,12 @@ def _build() -> ComponentType:
         pr.p(
             "Below the lg breakpoint the sidebar folds away behind a button at "
             "the start of the toolbar, and the dialog docks to the bottom edge as "
-            "a sheet, as every Dialog does."
+            "a sheet, as every Dialog does. Below md a week is shown as the day "
+            "it is around: the day view is fetched into place and the URL keeps "
+            "saying week, so the same link opens the week on a wider screen. The "
+            "month shows bars rather than words there, and the time grid's "
+            "columns never get narrower than a time can be read in, so a week "
+            "that is asked for by its tab scrolls sideways."
         ),
         pr.p(
             "The names of the months and days come from Formats, which hue-django "
@@ -372,24 +449,6 @@ def _build() -> ComponentType:
                     "calendar moves there."
                 ),
             ]
-        ),
-        Alert()
-        .variant("warning")
-        .title("What is not done yet")
-        .content(
-            pr.bullets(
-                [
-                    pr.p(
-                        "Dragging an event to move or resize it. It will be a save "
-                        "of the new times through the same route."
-                    ),
-                    pr.p(
-                        "Undo. A delete removes the event straight away, with a "
-                        "toast and no way back yet."
-                    ),
-                    pr.p("Keyboard shortcuts for the views, Today and New event."),
-                ]
-            )
         ),
     )
 
