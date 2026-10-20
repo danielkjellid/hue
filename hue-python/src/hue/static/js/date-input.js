@@ -74,11 +74,12 @@ export function dateInput(config) {
 
 		sync() {
 			this.text = this.display();
-			this.value = this.days();
+			this.value = this.committedDays();
 		},
 
-		// What the grid draws for the committed value.
-		days() {
+		// What the grid draws for the committed value. Not days(), which is
+		// the grid's own reading of what it holds now.
+		committedDays() {
 			if (kind === "time") return [];
 			if (kind === "datetime") return this.committed.slice(0, 1).map((v) => v.slice(0, 10));
 			return [...this.committed];
@@ -178,7 +179,7 @@ export function dateInput(config) {
 
 		expand() {
 			if (inert || this.open) return;
-			this.value = this.days();
+			this.value = this.committedDays();
 			this.hover = null;
 			this.level = "days";
 			// The grid's own start: the first day of the value, or today.
@@ -204,7 +205,7 @@ export function dateInput(config) {
 		// it should be. A range waiting for Apply is dropped.
 		dismiss() {
 			this.open = false;
-			this.value = this.days();
+			this.value = this.committedDays();
 			// A grid left on its months would take the next Escape.
 			this.level = "days";
 		},
@@ -220,8 +221,8 @@ export function dateInput(config) {
 
 		select(day) {
 			const done = picker.select.call(this, day);
-			if (kind === "multiple" && this.value.join() !== this.committed.join()) {
-				this.commit([...this.value]);
+			if (kind === "multiple" && this.days().join() !== this.committed.join()) {
+				this.commit([...this.days()]);
 			} else if (done && kind === "single") {
 				this.commit([day]);
 				this.close();
@@ -232,17 +233,17 @@ export function dateInput(config) {
 		},
 
 		apply() {
-			const refused = this.check(this.value);
+			const refused = this.check(this.days());
 			if (refused) {
 				this.error = refused;
 				return;
 			}
-			this.commit([...this.value]);
+			this.commit([...this.days()]);
 			this.close();
 		},
 
 		summary() {
-			const [start, end] = this.value;
+			const [start, end] = this.days();
 			if (!start) return "Pick a start date";
 			if (!end) return "Pick an end date";
 			const count = Math.round((parse(end) - parse(start)) / DAY) + 1;
@@ -252,12 +253,12 @@ export function dateInput(config) {
 		preset(id) {
 			const range = () => PRESETS[id](today());
 			return {
-				":aria-pressed": () => String(this.value.join() === range().join()),
+				":aria-pressed": () => String(this.days().join() === range().join()),
 				":disabled": () => Boolean(this.check(range())),
 				"x-on:click": () => {
 					this.value = range();
 					this.hover = null;
-					this.show(this.value[0]);
+					this.show(this.days()[0]);
 				},
 			};
 		},
@@ -291,7 +292,7 @@ export function dateInput(config) {
 				this.close();
 				return;
 			}
-			const day = this.days()[0] ?? today();
+			const day = this.committedDays()[0] ?? today();
 			const refused = this.check([day]);
 			if (refused) this.error = refused;
 			else this.commit([`${day}T${time}`]);

@@ -21,6 +21,7 @@ from hue.ui._styles import (
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
+from hue.ui.base import modelable
 from hue.ui.form import FieldControl
 from hue.ui.molecules import _overlay
 from hue.ui.molecules.date_picker import (
@@ -29,6 +30,7 @@ from hue.ui.molecules.date_picker import (
     DayRules,
     Weekday,
     _days,
+    _Grid,
 )
 from hue.ui.molecules.field import Field, error_component, error_id, hint_component
 from hue.utils import classnames, render_if, render_when
@@ -185,7 +187,7 @@ class _PickerInput(FieldControl):
         TimeInput has none to draw, but date-input.js builds on its data.
         """
         picker = DatePicker().mode(_MODES[kind])
-        keys = (*DayRules.KEYS, "disabled")
+        keys = DayRules.KEYS
         picker._props.update({k: self._props[k] for k in keys if k in self._props})
         return picker
 
@@ -282,7 +284,16 @@ class _PickerInput(FieldControl):
             button.aria_controls(popover_id)
 
         config: dict[str, Any] = {
-            **picker._config(formats, _MODES[kind], _months(kind), start),
+            **picker._config(
+                _Grid(
+                    formats=formats,
+                    mode=_MODES[kind],
+                    months=_months(kind),
+                    size="md",
+                    start=start,
+                    disabled=disabled,
+                )
+            ),
             "kind": kind,
             "committed": committed,
             "inert": inert,
@@ -311,8 +322,7 @@ class _PickerInput(FieldControl):
         }
         caller_model = self._attrs.get("x-model")
         if caller_model:
-            root_attrs["x-modelable"] = "committed"
-            root_attrs["x-model"] = caller_model
+            root_attrs.update(modelable(caller_model, "committed"))
 
         submitted = html.template(
             html.input_(
@@ -486,8 +496,15 @@ class _CalendarInput(DayRules, _PickerInput):
 
     def _grid(self, formats: Formats, picker: DatePicker) -> ComponentType:
         mode: DatePickerMode = picker._get_prop("mode")
-        start: Weekday = self._get_prop("week_start", "monday")
-        return html.div(*picker._panels(formats, mode, _months(mode), "md", start))
+        grid = _Grid(
+            formats=formats,
+            mode=mode,
+            months=_months(mode),
+            size="md",
+            start=self._get_prop("week_start", "monday"),
+            disabled=self._get_prop("disabled", False),
+        )
+        return html.div(*picker._panels(grid))
 
 
 class DateInput(_CalendarInput):

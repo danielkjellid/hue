@@ -249,7 +249,7 @@ class TestDateInput:
             _field().x_model(unsafe("days")), context_args=context_args
         )
         assert_attr(html, _ROOT, "x-modelable", "committed")
-        assert_attr(html, _ROOT, "x-model", "days")
+        assert_attr(html, _ROOT, "x-model.parent", "days")
         assert_attr(html, "input#starts", "x-model", "text")
 
     @pytest.mark.asyncio
