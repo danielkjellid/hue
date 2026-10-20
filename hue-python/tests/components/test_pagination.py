@@ -89,6 +89,24 @@ class TestPagination:
         )
         assert_selector(html, 'nav a[href="?page=4"]')
         assert_no_selector(html, "nav button")
+        # Without an id of its own there is nothing to name the links under.
+        assert_no_selector(html, "nav [id]")
+
+    @pytest.mark.asyncio
+    async def test_the_links_are_named_under_the_paginations_id(self, context_args):
+        html = await render_tree(
+            Pagination()
+            .page(15)
+            .total_pages(15)
+            .href(lambda p: f"?page={p}")
+            .id("rows-pages"),
+            context_args=context_args,
+        )
+        assert_attr(html, "#rows-pages-previous", "href", "?page=14")
+        assert_attr(html, "#rows-pages-page-15", "aria-current", "page")
+        # A spent step is a span with nothing to find again, so focus falls
+        # to the current page instead.
+        assert_no_selector(html, "#rows-pages-next")
 
     @pytest.mark.asyncio
     async def test_without_one_they_are_buttons(self, context_args):

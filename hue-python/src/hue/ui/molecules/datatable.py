@@ -488,13 +488,17 @@ class DataTable(ChainableComponent):
         # swaps the rows in place; without one it follows the link. The
         # rows and not the frame, so the toolbar above them - and the
         # caret in the search box in it - is left where it was.
-        target = rows_id(self._attrs.get("id"))
+        frame_id: str | None = self._attrs.get("id")
+        target = rows_id(frame_id)
 
         return head.sorted(current).content(
             html.a(
                 column.label,
                 _sort_icon(current),
                 href=href(following),
+                # Named under the frame, so the link a reader pressed can
+                # be found again once the response has replaced it.
+                id=None if frame_id is None else f"{frame_id}-sort-{column.sort}",
                 class_=classnames(_SORT_TRIGGER, FOCUS_RING),
                 # The order is a place, as a page or a filter is.
                 **swap(target),

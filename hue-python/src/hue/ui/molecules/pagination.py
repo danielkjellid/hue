@@ -122,19 +122,17 @@ class Pagination(SwapsTarget):
             # breaking.
             nav = (
                 html.nav(
-                    self._step(0, "Previous page", "chevron-left", False),
+                    self._step("previous", 0, False),
                     self._number(1, current=True, inert=True),
-                    self._step(2, "Next page", "chevron-right", False),
+                    self._step("next", 2, False),
                     aria_label="Pagination, single page",
                     class_="flex items-center gap-1",
                 )
                 if total_pages <= 1
                 else html.nav(
-                    self._step(page - 1, "Previous page", "chevron-left", page > 1),
+                    self._step("previous", page - 1, page > 1),
                     *self._numbers(page, total_pages),
-                    self._step(
-                        page + 1, "Next page", "chevron-right", page < total_pages
-                    ),
+                    self._step("next", page + 1, page < total_pages),
                     aria_label="Pagination",
                     class_="flex items-center gap-1",
                 )
@@ -184,10 +182,20 @@ class Pagination(SwapsTarget):
         return html.a(
             str(number),
             href=href(number),
+            id=self._part_id(f"page-{number}"),
             aria_current="page" if current else None,
             class_=classes,
             **self._swap_attrs(),
         )
+
+    def _part_id(self, name: str) -> str | None:
+        """
+        The id of one of the links, under the pagination's own, so that
+        the one a reader pressed can be found again once a response has
+        replaced it. Nothing without an id of its own to hang them off.
+        """
+        own_id: str | None = self._attrs.get("id")
+        return None if own_id is None else f"{own_id}-{name}"
 
     def _sizes(self, options: list[int]) -> ComponentType:
         """
@@ -219,7 +227,8 @@ class Pagination(SwapsTarget):
             class_="flex items-center gap-2 [&_select]:w-20",
         )
 
-    def _step(self, number: int, label: str, icon: str, enabled: bool) -> ComponentType:
+    def _step(self, name: str, number: int, enabled: bool) -> ComponentType:
+        label, icon = _STEPS[name]
         glyph = HueIcon(icon).class_("size-3.5")
         href = self._get_prop("href")
 
@@ -236,16 +245,25 @@ class Pagination(SwapsTarget):
             return html.button(
                 glyph,
                 type="button",
+                id=self._part_id(name),
                 aria_label=label,
                 class_=classnames(STEP, STEP_IDLE, FOCUS_RING),
             )
         return html.a(
             glyph,
             href=href(number),
+            id=self._part_id(name),
             aria_label=label,
             class_=classnames(STEP, STEP_IDLE, FOCUS_RING),
             **self._swap_attrs(),
         )
+
+
+# The two steps, by the name their id ends in.
+_STEPS = {
+    "previous": ("Previous page", "chevron-left"),
+    "next": ("Next page", "chevron-right"),
+}
 
 
 def _cursor_step(label: str, enabled: bool) -> ComponentType:
