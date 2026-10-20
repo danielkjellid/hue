@@ -107,6 +107,57 @@ def test_a_save_writes_an_aware_entry_and_the_dialog_edits_it(entries):
     assert review.starts == _at(2026, 10, 16, 9)
 
 
+def test_a_move_keeps_what_the_browser_never_had_and_undo_puts_it_back(entries):
+    review = entries["Design review"]
+    moved = _act(
+        "move",
+        id=str(review.pk),
+        occurrence="2026-10-14T13:00",
+        starts="2026-10-15",
+        starts_time="09:00",
+        ends="2026-10-15",
+        ends_time="10:30",
+    )
+    assert moved.status_code == 200
+    review.refresh_from_db()
+    assert (review.starts, review.ends) == (
+        _at(2026, 10, 15, 9),
+        _at(2026, 10, 15, 10, 30),
+    )
+    assert review.notes == "Walk the matrix."
+    # The toast's Undo posts a move back, which lands where it was.
+    html = moved.content.decode()
+    back = re.search(r'"events-starts_time": "(\d\d:\d\d)"[^}]*"events-undo"', html)
+    assert back and back[1] == "13:00"
+    _act(
+        "move",
+        id=str(review.pk),
+        occurrence="2026-10-15T09:00",
+        starts="2026-10-14",
+        starts_time="13:00",
+        ends="2026-10-14",
+        ends_time="14:30",
+        undo="1",
+    )
+    review.refresh_from_db()
+    assert review.starts == _at(2026, 10, 14, 13)
+
+
+def test_a_create_is_undone_by_the_key_save_returns(entries):
+    made = _act("save", title="Pairing", starts="2026-10-15", starts_time="11:00",
+                ends="2026-10-15", ends_time="12:30", layer="eng")  # fmt: skip
+    pk = Entry.objects.get(title="Pairing").pk
+    assert f'"events-id": "{pk}"' in made.content.decode()
+    assert _act("delete", id=str(pk), undo="1").status_code == 200
+    assert not Entry.objects.filter(title="Pairing").exists()
+
+
+def test_the_calendars_keys_are_bound_on_the_page(entries):
+    html = _read()
+    assert 'id="hue-shortcuts"' in html
+    assert "events-switch-month" in html and 'id="events-help"' in html
+
+
 def test_a_field_that_cannot_be_read_is_an_error_and_writes_nothing(entries):
     response = _act("save", title="", starts="2026-10-15", ends="2026-10-15")
     assert response.status_code == 422
