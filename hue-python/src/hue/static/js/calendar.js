@@ -200,6 +200,10 @@ export function registerCalendarData(Alpine) {
 						button,
 						li,
 						css: li.style.cssText,
+						// Where this part of the event sits in its own column,
+						// which for the second day of an overnight event is not
+						// where the event starts.
+						top: li.offsetTop,
 						time: button.querySelector("[data-time]")?.textContent,
 						days: 0,
 						minutes: 0,
@@ -265,12 +269,12 @@ export function registerCalendarData(Alpine) {
 				}
 				const column = this.columnAt(event.clientX);
 				if (column) {
-					drag.days = daysBetween(at.day, column.dataset.date);
+					drag.days = daysBetween(drag.column.dataset.date, column.dataset.date);
 					drag.shift =
 						column.getBoundingClientRect().left - drag.column.getBoundingClientRect().left;
 				}
 				Object.assign(drag.li.style, {
-					top: `${((at.starts + drag.minutes) * hour) / 60}px`,
+					top: `${drag.top + (drag.minutes * hour) / 60}px`,
 					left: "2px",
 					width: "calc(100% - 4px)",
 					transform: `translateX(${drag.shift}px)`,
