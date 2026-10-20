@@ -156,24 +156,41 @@ class EventButton(ChainableComponent):
 
     category = None
 
-    def __init__(self, event: Event, name: str) -> None:
+    def __init__(self, event: Event, name: str, *, draggable: bool = False) -> None:
         super().__init__()
+        self._props["event"] = event
         self._attrs["aria_label"] = name
-        # What a script that moves or resizes events reads it by.
+        # What the script that moves or resizes events reads it by. The
+        # times are the reader's wall clock, as the dialog posts them.
         if event.id is not None:
             self._attrs["data-event-id"] = event.id
-        self._attrs["data-starts"] = event.starts.isoformat()
-        self._attrs["data-ends"] = (event.ends or event.starts).isoformat()
         if not event.timed:
             self._attrs["data-all-day"] = ""
+        if draggable:
+            self._attrs["draggable"] = "true"
 
     def _render(self, context: Context) -> Component:
+        starts, ends = stamps(self._props["event"], Formats.from_context(context))
         return html.button(
             *self._children,
             type="button",
             class_=self._get_prop("class_"),
+            data_starts=starts,
+            data_ends=ends,
             **self._get_base_html_attrs(),
         )
+
+
+def stamps(event: Event, formats: Formats) -> tuple[str, str]:
+    """
+    When an event starts and ends as the browser and the move route spell
+    it: the reader's wall clock to the minute, or the dates of a whole day.
+    """
+    if event.timed:
+        starts, ends = event.moments(formats)
+        return starts.strftime("%Y-%m-%dT%H:%M"), ends.strftime("%Y-%m-%dT%H:%M")
+    first, last = event.span(formats)
+    return first.isoformat(), last.isoformat()
 
 
 def region_id(own_id: str) -> str:
@@ -202,6 +219,9 @@ class Draw:
     href: Href | None
     actions: Actions | None
     own_id: str | None
+    # Whether a declaration moves and resizes the events, which draws the
+    # resize handle and lets a chip be dragged between days.
+    movable: bool
     # An event's popover content by the event's identity, built once however
     # many days or cells the event is drawn in.
     panels: dict[int, ComponentType] = field(default_factory=dict, compare=False)
@@ -382,15 +402,15 @@ class Draw:
             # The new view's heading rather than its current tab, which is
             # where swaps.js would otherwise land.
             tabs.data("hue-refocus", self.heading or "")
-        return tabs.content(
-            *(
-                Tab()
-                .href(href(self.cursor, view))
-                .current(view == self.view)
-                .content(each.label)
-                for view, each in VIEWS.items()
-            )
-        )
+        items = []
+        for view, each in VIEWS.items():
+            tab = Tab().href(href(self.cursor, view)).current(view == self.view)
+            # Named, so a key can press the same link a click would, and
+            # focus comes back to the tab once it is drawn again.
+            if self.own_id is not None:
+                tab.id(f"{self.own_id}-switch-{view}")
+            items.append(tab.content(each.label))
+        return tabs.content(*items)
 
     def number(self, day: date, events: int = 0) -> ComponentType:
         """
@@ -511,7 +531,7 @@ class Draw:
         continues past. compact folds it to a bare bar on a narrow screen.
         """
         button = (
-            EventButton(event, self.name(event))
+            EventButton(event, self.name(event), draggable=self.movable)
             .class_(
                 classnames(
                     _EVENT,
@@ -539,7 +559,7 @@ class Draw:
         event = placed.event
         starts = starts_on(placed, self.formats)
         button = (
-            EventButton(event, self.name(event))
+            EventButton(event, self.name(event), draggable=self.movable)
             .class_(classnames(_DOTTED, FOCUS_RING_INSET, {_COMPACT: compact}))
             .content(
                 html.span(
@@ -632,6 +652,7 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 ),
                 html.div(class_="min-h-7 border-s border-border"),
             ),
+            data_all_day_row="",
             class_="grid min-w-max border-b border-border",
             style=columns,
         ),
@@ -642,8 +663,11 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 class_="grid",
                 style=f"{columns}; height: {24 * _HOUR}px",
             ),
+            data_time_grid="",
             class_="max-h-[42rem] min-w-max overflow-y-auto",
-            **{"x-init": f"$el.scrollTop = {_OPENS_AT}"},
+            # Where it was before the last swap when a declaration kept it,
+            # else just before most days start.
+            **{"x-init": f"$el.scrollTop = $data.gridScroll ?? {_OPENS_AT}"},
         ),
         class_="flex flex-col overflow-x-auto",
     )
@@ -732,8 +756,12 @@ def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         render_when(day == draw.today, _now()),
         data_date=day.isoformat(),
         # A column the hours run down, which a click reads a time off.
+        # pan-y: a finger on an empty slot scrolls the grid, and only one
+        # on an event drags it.
         data_timed="",
-        class_=classnames("relative border-s border-border", {_WEEKEND: weekend(day)}),
+        class_=classnames(
+            "relative touch-pan-y border-s border-border", {_WEEKEND: weekend(day)}
+        ),
         style=_HOUR_LINES,
     )
 
@@ -766,6 +794,8 @@ def _timed(
                 {
                     "rounded-t-none": placed.continues_before,
                     "rounded-b-none": placed.continues_after,
+                    # Movable, a finger on it drags it rather than the grid.
+                    "relative touch-none": draw.movable,
                 },
             )
         )
@@ -777,6 +807,17 @@ def _timed(
             html.span(
                 draw.clock(starts) if short else draw.times(event, end_day=False),
                 class_=classnames("tabular-nums text-fg-muted", time_classes),
+                # Rewritten while the event is dragged, so the reader sees
+                # where it will land before letting go.
+                data_time="",
+            ),
+            render_when(
+                draw.movable,
+                html.span(
+                    aria_hidden="true",
+                    data_resize="",
+                    class_="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize",
+                ),
             ),
         )
     )

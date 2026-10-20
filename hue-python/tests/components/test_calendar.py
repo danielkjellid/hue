@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from htmy.renderer import default
 
+from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.renderer import render_tree
 from hue.ui import Button, Calendar, Event
@@ -457,9 +458,30 @@ class TestTimeGrid:
         assert_no_selector(elsewhere, "[x-data*=minute]")
 
     @pytest.mark.asyncio
-    async def test_the_grid_opens_at_half_past_seven(self, context_args):
+    async def test_the_grid_opens_at_half_past_seven_unless_told_where_it_was(
+        self, context_args
+    ):
         html = await _html(_calendar(), context_args)
-        assert_attr(html, ".overflow-y-auto", "x-init", "$el.scrollTop = 360")
+        assert_attr(
+            html,
+            "[data-time-grid]",
+            "x-init",
+            "$el.scrollTop = $data.gridScroll ?? 360",
+        )
+
+    @pytest.mark.asyncio
+    async def test_only_a_movable_event_has_a_resize_handle(self, context_args):
+        html = await _html(_calendar(_REVIEW), context_args)
+        assert_no_selector(html, "[data-resize]")
+        assert "touch-none" not in _event(html, "Design review")["class"]
+        movable = _calendar(_REVIEW)
+        movable._props["movable"] = True
+        html = await _html(movable, context_args)
+        button = _event(html, "Design review")
+        assert button.select_one("[data-resize]")["aria-hidden"] == "true"
+        assert "touch-none" in button["class"]
+        # The time is marked, so a drag can rewrite it as it goes.
+        assert button.select_one("[data-time]").get_text() == f"13:00 {_DASH} 14:30"
 
 
 class TestMonth:
@@ -552,6 +574,13 @@ class TestMonth:
         # The week's all-day row and the +more popover keep their words.
         week = await _html(_calendar(_REVIEW, _FREEZE), context_args)
         assert "max-md:h-2" not in _event(week, "Release freeze")["class"]
+
+    @pytest.mark.asyncio
+    async def test_a_chip_is_dragged_between_days_only_when_movable(self, context_args):
+        movable = _calendar(_FREEZE).view("month")
+        movable._props["movable"] = True
+        html = await _html(movable, context_args)
+        assert _event(html, "Release freeze")["draggable"] == "true"
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):
@@ -732,6 +761,21 @@ class TestEventPopover:
         html = await _html(_calendar(_REVIEW), context_args)
         button = _event(html, "Design review")
         assert button["data-event-id"] == "1"
-        assert button["data-starts"] == "2026-10-14T13:00:00"
-        assert button["data-ends"] == "2026-10-14T14:30:00"
+        assert button["data-starts"] == "2026-10-14T13:00"
+        assert button["data-ends"] == "2026-10-14T14:30"
         assert "data-all-day" not in button.attrs
+        assert "draggable" not in button.attrs
+
+    @pytest.mark.asyncio
+    async def test_the_times_a_script_reads_are_the_readers_wall_clock(self):
+        # An aware event is stamped in the timezone it is drawn in, which is
+        # what the dialog posts back, rather than in the zone it arrived in.
+        oslo = ZoneInfo("Europe/Oslo")
+        args = HueContextArgs(
+            request=None,
+            csrf_token="t",
+            formats=Formats(localize=lambda moment: moment.astimezone(oslo)),
+        )
+        review = Event("Review", datetime(2026, 10, 14, 11, tzinfo=UTC), id="1")
+        html = await _html(_calendar(review), args)
+        assert _event(html, "Review")["data-starts"] == "2026-10-14T13:00"
