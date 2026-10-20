@@ -12,9 +12,10 @@ from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.form import FormControl
-from hue.ui.molecules.field import error_component
-from hue.utils import classnames, render_if
+from hue.ui.atoms.text import required_marker
+from hue.ui.form import FieldControl
+from hue.ui.molecules.field import error_component, hint_component
+from hue.utils import classnames, render_if, render_when
 
 type DatePickerMode = Literal["single", "range", "multiple"]
 type DatePickerSize = Literal["sm", "md"]
@@ -84,15 +85,16 @@ _SIZES: dict[DatePickerSize, tuple[str, str, str]] = {
 }
 
 
-class DatePicker(FormControl):
+class DatePicker(FieldControl):
     """
     A month to pick a day, a range or several days from, inline on the page.
 
     mode() picks how a click selects, months() shows several side by side,
     and min(), max() and unavailable() say which days refuse. markers() puts
     a dot under days that have something on them. The caption's title jumps
-    by month and year. The days are submitted under name, one hidden field
-    each, and x_model binds the same list of ISO dates.
+    by month and year. The label is the legend over the months. The days
+    are submitted under name, one hidden field each, and x_model binds the
+    same list of ISO dates.
     """
 
     category = "Inputs"
@@ -148,6 +150,14 @@ class DatePicker(FormControl):
         self._props["unavailable"] = days
         return self
 
+    def hidden_label(self, value: bool = True) -> Self:
+        """
+        Keep the legend for screen readers but take it off the screen, for a
+        picker whose purpose is plain from where it sits.
+        """
+        self._props["hidden_label"] = value
+        return self
+
     def markers(self, *days: date, label: str = "has events") -> Self:
         """
         Days with something on them, drawn with a dot. The label is added to
@@ -173,8 +183,13 @@ class DatePicker(FormControl):
         months: int = self._get_prop("months", 1)
         size: DatePickerSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
+        required: bool = self._get_prop("required", False)
+        hidden_label: bool = self._get_prop("hidden_label", False)
         start: Weekday = self._get_prop("week_start", "monday")
         error: str | None = self._error(context)
+        hint: str | None = self._get_prop("hint")
+        control_id = self._input_id()
+        legend_id = f"{control_id}-label"
         formats = Formats.from_context(context)
 
         if label is None:
@@ -187,17 +202,17 @@ class DatePicker(FormControl):
         config = self._config(formats, mode, months, start)
         attrs = self._control_attrs(
             context,
-            role="group",
-            aria_label=label,
+            aria_labelledby=legend_id,
             aria_describedby=self._describedby(context),
             aria_invalid="true" if error is not None else None,
             # So focus can wait here while the panels swap.
             tabindex="-1",
             class_=classnames(
-                "inline-flex flex-col gap-2 outline-none select-none",
+                "inline-flex min-w-0 flex-col gap-2 outline-none select-none",
                 {"pointer-events-none **:text-fg-disabled": disabled},
                 self._get_prop("class_"),
             ),
+            disabled=disabled or None,
             **{
                 "x-data": call("hueDatePicker", config),
                 "x-on:keydown": "key($event)",
@@ -206,8 +221,8 @@ class DatePicker(FormControl):
                 "x-on:mouseleave": "hover = null",
             },
         )
-        # A div is no form's, so the form goes on the submitted fields. The
-        # caller's x-model binds the list of days.
+        # A fieldset's form ties only the fieldset, so it goes on the
+        # submitted fields. The caller's x-model binds the list of days.
         form = attrs.pop("form", None)
         if "x-model" in attrs:
             attrs["x-modelable"] = "value"
@@ -224,10 +239,24 @@ class DatePicker(FormControl):
             # Keyed by position: a range picked on one day holds it twice.
             **{"x-for": "(iso, i) in value", ":key": "i"},
         )
-        return html.div(
+        legend = html.legend(
+            label,
+            render_when(required, required_marker()),
+            id=legend_id,
+            # A legend is no flex item of its fieldset, so the gap is written
+            # out as a margin.
+            class_=classnames(
+                "mb-2 inline-flex items-center gap-[5px] font-ui text-sm",
+                "font-medium leading-[1.4] text-fg",
+                {"sr-only": hidden_label},
+            ),
+        )
+        return html.fieldset(
+            legend,
             submitted,
             *self._panels(formats, mode, months, size, start),
-            render_if(error, lambda text: error_component(text, self._input_id())),
+            render_if(hint, lambda text: hint_component(text, control_id)),
+            render_if(error, lambda text: error_component(text, control_id)),
             **attrs,
         )
 

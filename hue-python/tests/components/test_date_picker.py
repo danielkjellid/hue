@@ -19,16 +19,21 @@ def _config(html: str) -> dict:
     """
     What the root hands date-picker.js.
     """
-    source = select(html, '[role="group"]')[0]["x-data"]
+    source = select(html, "fieldset")[0]["x-data"]
     assert source.startswith("hueDatePicker(")
     return json.loads(source.removeprefix("hueDatePicker(").removesuffix(")"))
 
 
 class TestDatePicker:
     @pytest.mark.asyncio
-    async def test_a_named_group_holding_a_grid_of_six_weeks(self, context_args):
+    async def test_a_group_named_by_its_legend_holding_a_grid_of_six_weeks(
+        self, context_args
+    ):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_attr(html, '[role="group"]', "aria-label", "Due date")
+        assert select(html, "fieldset > legend")[0].text.strip() == "Due date"
+        assert_attr(html, "legend", "id", "due-label")
+        assert_attr(html, "fieldset", "aria-labelledby", "due-label")
+        assert_no_selector(html, "[aria-label='Due date']")
         assert_selector(html, 'table[role="grid"]', count=1)
         assert_attr(html, 'table[role="grid"]', ":aria-label", "title(0)")
         assert_selector(html, "tbody td[x-bind]", count=42)
@@ -41,6 +46,16 @@ class TestDatePicker:
     async def test_a_missing_label_raises(self, context_args):
         with pytest.raises(ValueError, match="label"):
             await render_tree(DatePicker().name("due"), context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_hidden_label_keeps_the_legend_for_screen_readers(self, context_args):
+        html = await render_tree(_picker().hidden_label(), context_args=context_args)
+        assert "sr-only" in select(html, "legend")[0]["class"]
+
+    @pytest.mark.asyncio
+    async def test_the_legend_shows_by_default(self, context_args):
+        html = await render_tree(_picker(), context_args=context_args)
+        assert "sr-only" not in select(html, "legend")[0]["class"]
 
     @pytest.mark.asyncio
     async def test_week_start_turns_the_header(self, context_args):
@@ -209,7 +224,7 @@ class TestDatePicker:
     async def test_form_goes_on_the_submitted_fields(self, context_args):
         html = await render_tree(_picker().form("booking"), context_args=context_args)
         assert_attr(html, 'template input[type="hidden"]', "form", "booking")
-        assert_no_selector(html, '[role="group"][form]')
+        assert_no_selector(html, "fieldset[form]")
 
     # x_model: binds the list of days
 
@@ -218,8 +233,8 @@ class TestDatePicker:
         html = await render_tree(
             _picker().x_model(unsafe("days")), context_args=context_args
         )
-        assert_attr(html, '[role="group"]', "x-model", "days")
-        assert_attr(html, '[role="group"]', "x-modelable", "value")
+        assert_attr(html, "fieldset", "x-model", "days")
+        assert_attr(html, "fieldset", "x-modelable", "value")
 
     @pytest.mark.asyncio
     async def test_without_x_model_nothing_is_modelable(self, context_args):
@@ -234,17 +249,31 @@ class TestDatePicker:
         assert_attr(html, "table", "aria-required", "true")
 
     @pytest.mark.asyncio
+    async def test_required_marks_the_legend(self, context_args):
+        html = await render_tree(_picker().required(), context_args=context_args)
+        assert_attr(html, "legend span", "aria-hidden", "true")
+
+    @pytest.mark.asyncio
     async def test_not_required_says_nothing(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
         assert_no_selector(html, "[aria-required]")
+        assert_no_selector(html, "legend [aria-hidden]")
+
+    @pytest.mark.asyncio
+    async def test_a_hint_is_shown_and_describes_the_group(self, context_args):
+        html = await render_tree(
+            _picker().hint("Weekdays only."), context_args=context_args
+        )
+        assert select(html, "#due-hint")[0].text == "Weekdays only."
+        assert_attr(html, "fieldset", "aria-describedby", "due-hint")
 
     @pytest.mark.asyncio
     async def test_an_error_is_shown_and_describes_the_group(self, context_args):
         html = await render_tree(
             _picker().error("Pick a weekday."), context_args=context_args
         )
-        assert_attr(html, '[role="group"]', "aria-invalid", "true")
-        assert_attr(html, '[role="group"]', "aria-describedby", "due-error")
+        assert_attr(html, "fieldset", "aria-invalid", "true")
+        assert_attr(html, "fieldset", "aria-describedby", "due-error")
         assert_attr(html, "#due-error", "role", "alert")
 
     @pytest.mark.asyncio
@@ -257,6 +286,7 @@ class TestDatePicker:
     async def test_two_on_one_page_share_no_id(self, context_args):
         page = Stack().content(
             _picker().error("Wrong."),
+            _picker().id("due-2").hint("Again.").error("Wrong."),
             DatePicker().name("other").label("Other").error("Wrong."),
         )
         html = await render_tree(page, context_args=context_args)
