@@ -1,0 +1,504 @@
+"""
+What a declared calendar edits with: the dialog's fields, how they become an
+Event, the popover's actions and the Undo a change offers.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, fields, replace
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
+from typing import Any
+
+from htmy import html
+
+from hue._calendar_state import (
+    _DELETE,
+    _DIALOG,
+    _OVERLAPS,
+    _SAVE,
+    BoundCalendar,
+    CalendarState,
+    Layer,
+    _clock,
+    _day,
+    _overlap,
+    _slot,
+)
+from hue.formats import Formats
+from hue.js import Expression, ajax, close, unsafe
+from hue.types.core import ComponentType
+from hue.ui.atoms.button import Button
+from hue.ui.atoms.icon import HueIcon
+from hue.ui.atoms.input import TextInput
+from hue.ui.molecules._calendar_views import FIRST, LAST, stamps
+from hue.ui.molecules.calendar import Event
+
+# A new event with no time of its own starts at nine, and a new event
+# runs an hour unless that would take it past the end of its day.
+_NEW_STARTS = time(9)
+_NEW_LASTS = timedelta(hours=1)
+
+# The most days an event may run, a year, which is also the longest view.
+# A draft past that would have events() asked for thousands of days at
+# every change of a field.
+_LONGEST = 366
+
+
+@dataclass(frozen=True, slots=True)
+class _Posted:
+    """
+    The dialog's fields as the form posts them, every one text, so that a
+    value that cannot be read is an error on its field and never a 422
+    nobody drew. Each is posted under the key, like the state, so a page
+    parameter called title is nobody's business but the page's.
+    """
+
+    id: str = ""
+    title: str = ""
+    all_day: str = ""
+    starts: str = ""
+    starts_time: str = ""
+    ends: str = ""
+    ends_time: str = ""
+    layer: str = ""
+    location: str = ""
+    notes: str = ""
+    repeat: str = ""
+    # Set by Duplicate, which saves with no dialog open to keep a failure in.
+    copy: str = ""
+    # When the occurrence the reader took hold of started, as its button
+    # stamps it, which tells it from the rest of a series.
+    occurrence: str = ""
+    # Set on the request an Undo makes, whose own toast offers no undo.
+    undo: str = ""
+
+
+_FIELDS = tuple(each.name for each in fields(_Posted))
+
+
+def _exists(moment: datetime, zone: tzinfo) -> bool:
+    """
+    Whether a naive time is one the clocks in zone show that day. The hour
+    they skip going forward is not, and zoneinfo would answer for it with
+    the hour after and say nothing.
+    """
+    aware = moment.replace(tzinfo=zone)
+    return aware.astimezone(UTC).astimezone(zone).replace(tzinfo=None) == moment
+
+
+# What a toast says once a change has been made.
+_DONE = {
+    "Create": "Created",
+    "Save": "Saved",
+    "Delete": "Deleted",
+    "Move": "Moved",
+    "Resize": "Resized",
+}
+
+# Which action an Undo posts to, the fields it posts, under the key, and
+# the event focus goes back to: its id, or else its title, and its start.
+type _Undo = tuple[str, Mapping[str, str | None], Mapping[str, str | None]]
+
+
+def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
+    """
+    The toast's title. A series is said to move or go as a whole, since
+    the app's save and delete are handed the one event the series is.
+    """
+    if undone:
+        return f'{"Removed" if verb == "Delete" else "Restored"} "{named}"'
+    if series and verb == "Move":
+        return f'Moved all occurrences of "{named}"'
+    if series and verb == "Delete":
+        return f'Deleted "{named}" and its occurrences'
+    return f'{_DONE[verb]} "{named}"'
+
+
+def _id_of(made: Any) -> str | None:
+    """
+    The id a save handler returned for a new event, as the id, the Event
+    it saved or nothing. A bool is a yes, not an id.
+    """
+    if isinstance(made, Event):
+        return made.id
+    if isinstance(made, str | int) and not isinstance(made, bool):
+        return str(made)
+    return None
+
+
+def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo | None:
+    if made is None:
+        return None
+    param = bound.declaration.param
+    return _DELETE, {param("id"): made, param("title"): draft.title}, {}
+
+
+def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
+    if was is None:
+        return None
+    param = bound.declaration.param
+    fields = {
+        **_fields(bound, _first(was)),
+        param("id"): None,
+        param("occurrence"): None,
+    }
+    landed = {"starts": stamps(was, bound.formats)[0], "title": was.title}
+    return _SAVE, fields, landed
+
+
+def _landed(was: Event, formats: Formats) -> dict[str, str | None]:
+    return {"id": was.id, "starts": stamps(was, formats)[0]}
+
+
+def _first(event: Event) -> Event:
+    """
+    The event as it is stored: an occurrence of a series as its first one,
+    anything else as it is.
+    """
+    first: Any = event.series_starts
+    if first is None:
+        return event
+    ends = None if event.ends is None else first + (event.ends - event.starts)  # type: ignore[operator]
+    return replace(event, starts=first, ends=ends)
+
+
+def _series(
+    was: Event, starts: Any, ends: Any, formats: Formats
+) -> tuple[date | datetime, date | datetime]:
+    """
+    Where one occurrence of a series put at starts to ends puts the series:
+    its first occurrence as many days on, at the new time of day and as
+    long. Anything that is not a series goes where it was put.
+    """
+    first = was.series_starts
+    if first is None:
+        return starts, ends
+    shift = _date_of(starts) - was.span(formats)[0]
+    day = _date_of(formats.moment(first) if isinstance(first, datetime) else first)
+    day += shift
+    begins: Any = (
+        datetime.combine(day, starts.time()) if isinstance(starts, datetime) else day
+    )
+    return begins, begins + (ends - starts)
+
+
+def _date_of(value: date) -> date:
+    return value.date() if isinstance(value, datetime) else value
+
+
+def _undo_button(
+    bound: BoundCalendar,
+    action: str,
+    posted: Mapping[str, Any],
+    landed: Mapping[str, str | None],
+) -> Button:
+    """
+    The toast's Undo: the same route, told it is undoing, and the toast
+    dismissed once it has been pressed. Once the calendar is back, the
+    calendar is told which event to hand focus to, since the toast that
+    had it is gone.
+    """
+    declared = bound.declaration
+    request = ajax(
+        bound.urls.act[action],
+        method="post",
+        target=_slot(bound.key),
+        body={
+            **dict(bound.query(bound.state)),
+            **posted,
+            declared.param("undo"): "1",
+        },
+    )
+    return (
+        Button()
+        .variant("outline")
+        .size("xs")
+        .content("Undo")
+        .x_on(
+            "click",
+            unsafe(
+                f"{request}.then(() => document.getElementById("
+                f"{json.dumps(_slot(bound.key))})?.dispatchEvent(new CustomEvent("
+                f'"hue:landed", {{ bubbles: true, detail: {json.dumps(landed)} }})))'
+                "; dismiss()"
+            ),
+        )
+    )
+
+
+def _when(
+    posted: _Posted, errors: dict[str, str], zone: tzinfo | None
+) -> tuple[date | datetime | None, date | datetime | None]:
+    """
+    When the posted fields say the event is, adding what is wrong with
+    them to errors: whole days when all day is on, naive moments in the
+    reader's time otherwise. A timed event has to end after it starts; a
+    whole-day one may end on the day it starts. Neither runs past a year.
+    """
+    all_day = bool(posted.all_day)
+    first = _drawn_day(posted.starts, "starts", errors)
+    last = _drawn_day(posted.ends, "ends", errors)
+    starts: date | datetime | None = first
+    ends: date | datetime | None = last
+    if not all_day:
+        starts, ends = _clocked(first, last, posted, errors, zone)
+    if starts is None or ends is None:
+        return starts, ends
+    if ends < starts:
+        errors["ends" if all_day else "ends_time"] = "Ends before it starts."
+    elif ends == starts and not all_day:
+        errors["ends_time"] = "Starts and ends at the same time."
+    elif first is not None and last is not None and (last - first).days > _LONGEST:
+        errors["ends"] = "Ends more than a year after it starts."
+    return starts, ends
+
+
+def _drawn_day(text: str, name: str, errors: dict[str, str]) -> date | None:
+    """
+    A posted date a calendar can draw, or None with what is wrong with it
+    in errors. Clamped here, which also keeps a moment in year 1 from
+    overflowing when it is made aware.
+    """
+    day = _day(text)
+    if day is None:
+        errors[name] = "Enter a date."
+    elif not FIRST <= day <= LAST:
+        errors[name] = f"Enter a date in the years {FIRST.year} to {LAST.year}."
+        return None
+    return day
+
+
+def _clocked(
+    first: date | None,
+    last: date | None,
+    posted: _Posted,
+    errors: dict[str, str],
+    zone: tzinfo | None,
+) -> tuple[datetime | None, datetime | None]:
+    """
+    The moments a timed event's fields say, adding what is wrong with the
+    times to errors.
+
+    With a zone, a time the clocks skip that day is refused rather than
+    moved: made aware, 02:30 the night they go forward would come out as
+    03:30, and an event typed to run until 03:30 would be no time at all.
+    """
+    opens, closes = _clock(posted.starts_time), _clock(posted.ends_time)
+    if opens is None:
+        errors["starts_time"] = "Enter a time."
+    if closes is None:
+        errors["ends_time"] = "Enter a time."
+    starts = datetime.combine(first, opens) if first and opens else None
+    ends = datetime.combine(last, closes) if last and closes else None
+    if zone is None:
+        return starts, ends
+    skipped = "That time is skipped when the clocks go forward."
+    if starts is not None and not _exists(starts, zone):
+        errors["starts_time"] = skipped
+        starts = None
+    if ends is not None and not _exists(ends, zone):
+        errors["ends_time"] = skipped
+        ends = None
+    return starts, ends
+
+
+def _prefilled(
+    posted: _Posted, asked: CalendarState, layers: Sequence[Layer]
+) -> _Posted:
+    """
+    What a new event starts with where the request said nothing: the day
+    the view is around, nine o'clock when no time was given, an hour that
+    stops at the end of its day, and the first layer.
+    """
+    filled = posted
+    if not posted.starts:
+        filled = replace(filled, starts=asked.date.isoformat())
+    if not filled.all_day and not filled.starts_time:
+        filled = replace(filled, starts_time=_NEW_STARTS.strftime("%H:%M"))
+    if not filled.ends:
+        filled = replace(filled, ends=filled.starts)
+    starts, opens = _day(filled.starts), _clock(filled.starts_time)
+    if not filled.all_day and not filled.ends_time and starts and opens:
+        later = datetime.combine(starts, opens) + _NEW_LASTS
+        closes = time(23, 59) if later.date() != starts else later.time()
+        filled = replace(filled, ends_time=closes.strftime("%H:%M"))
+    if not posted.layer and layers:
+        filled = replace(filled, layer=layers[0].key)
+    return filled
+
+
+def _fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
+    """
+    An event as the dialog's fields, under the key, for the popover's
+    actions to post and an Undo to post back.
+    """
+    given = {
+        "id": event.id,
+        "occurrence": stamps(event, bound.formats)[0],
+        "title": event.title,
+        "layer": event.layer,
+        "location": event.location,
+        "notes": event.notes,
+        "repeat": event.repeat,
+    }
+    return {
+        **{bound.declaration.param(name): value for name, value in given.items()},
+        **_when_fields(bound, event),
+    }
+
+
+def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
+    """
+    When an event is, as the dialog's fields under the key.
+    """
+    if event.timed:
+        starts, ends = event.moments(bound.formats)
+        when = {
+            "starts": starts.date().isoformat(),
+            "starts_time": starts.strftime("%H:%M"),
+            "ends": ends.date().isoformat(),
+            "ends_time": ends.strftime("%H:%M"),
+        }
+    else:
+        first, last = event.span(bound.formats)
+        when = {"all_day": "1", "starts": first.isoformat(), "ends": last.isoformat()}
+    return {bound.declaration.param(name): value for name, value in when.items()}
+
+
+def _title_field(name: str, value: str) -> ComponentType:
+    """
+    The title, which the dialog opens on. The attribute is autofocus itself
+    rather than x-autofocus alone: the focus trap reads the one and Alpine
+    AJAX the other, and the dialog is only ever fetched, never on a page as
+    it loads, so the attribute cannot steal focus there.
+    """
+    field = (
+        TextInput()
+        .name(name)
+        .label("Title")
+        .value(value)
+        .placeholder("Design review")
+        .autocomplete("off")
+        .required()
+        .x_autofocus()
+    )
+    field._attrs["autofocus"] = True
+    return field
+
+
+def _overlaps_check(bound: BoundCalendar) -> str:
+    """
+    The request the dialog makes when a field settles: the form as it
+    stands, answered with the warning or with nothing.
+    """
+    url, target = bound.urls.act[_OVERLAPS], _overlap(bound.key)
+    return (
+        f"$ajax({json.dumps(url)}, {{ method: 'post', target: {json.dumps(target)}, "
+        f"body: new FormData($el) }})"
+    )
+
+
+def _overlap_warning(found: list[Event], formats: Formats) -> ComponentType:
+    """
+    Which events the draft overlaps, two by name and the rest counted, or
+    nothing. A warning rather than a refusal: two meetings at once is a
+    choice the reader may be making on purpose.
+    """
+    if not found:
+        return ""
+
+    def named(event: Event) -> str:
+        starts, ends = event.moments(formats)
+        return (
+            f"{event.title} ({starts.strftime(formats.time)} to "
+            f"{ends.strftime(formats.time)})"
+        )
+
+    text = " and ".join(named(event) for event in found[:2])
+    if len(found) > 2:
+        text += f" and {len(found) - 2} more"
+    return html.p(
+        HueIcon("triangle-alert").class_("mt-0.5 size-4 flex-none"),
+        html.span(f"Overlaps {text}."),
+        class_="flex items-start gap-2 text-sm text-warning-text",
+    )
+
+
+def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
+    """
+    The popover's buttons: Edit opens the dialog over the event's fields,
+    Duplicate saves a copy of them, Delete removes it. Each posts the state
+    too, so the calendar comes back as it was.
+    """
+    declared = bound.declaration
+    slot = _slot(bound.key)
+    carried: dict[str, Any] = dict(bound.query(bound.state))
+    fields = {**carried, **_fields(bound, event)}
+
+    def then_close(expression: Expression) -> Expression:
+        # The popover first, which hands focus back to the event, so the
+        # dialog that follows has somewhere to return it.
+        return unsafe(f"{close()}; {expression}")
+
+    actions: list[ComponentType] = []
+    if declared.save is not None:
+        actions.append(
+            Button()
+            .variant("outline")
+            .size("sm")
+            .content(HueIcon("pencil"), "Edit")
+            .x_on(
+                "click",
+                then_close(
+                    ajax(
+                        bound.urls.act[_DIALOG], method="post", target=slot, body=fields
+                    )
+                ),
+            )
+        )
+        actions.append(
+            Button()
+            .variant("ghost")
+            .size("sm")
+            .content(HueIcon("copy"), "Duplicate")
+            .x_on(
+                "click",
+                then_close(
+                    ajax(
+                        bound.urls.act[_SAVE],
+                        method="post",
+                        target=slot,
+                        # A copy of this occurrence alone, with a title that
+                        # says so, the way the design duplicates.
+                        body={
+                            **fields,
+                            declared.param("id"): None,
+                            declared.param("repeat"): None,
+                            declared.param("title"): f"{event.title} (copy)",
+                            declared.param("copy"): "1",
+                        },
+                    )
+                ),
+            )
+        )
+    if declared.delete is not None and event.id is not None:
+        actions.append(
+            Button()
+            .variant("ghost")
+            .size("sm")
+            .icon_only("Delete event")
+            .class_("ms-auto")
+            .content(HueIcon("trash-2"))
+            .x_on(
+                "click",
+                then_close(
+                    # The whole event, so the Undo can save it back.
+                    ajax(
+                        bound.urls.act[_DELETE], method="post", target=slot, body=fields
+                    )
+                ),
+            )
+        )
+    return actions
