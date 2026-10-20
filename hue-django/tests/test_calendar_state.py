@@ -305,7 +305,7 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
     ]
     html = response.content.decode()
     assert "Created &quot;Pairing&quot;" in html or 'Created "Pairing"' in html
-    assert '<div id="events-dialog"></div>' in html
+    assert re.search(r'<div id="events-dialog"[^>]*></div>', html)
     assert "Thursday 15 October 2026" in html
 
 
@@ -421,7 +421,7 @@ def test_a_refusal_from_the_handler_keeps_its_status_and_answers_on_the_page(
     assert response.status_code == status
     html = response.content.decode()
     assert "Create failed" in html
-    assert '<div id="events-dialog"></div>' in html
+    assert re.search(r'<div id="events-dialog"[^>]*></div>', html)
 
 
 def test_the_dialogs_form_carries_the_csrf_token_for_a_plain_submit(mounted):
