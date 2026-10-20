@@ -309,3 +309,45 @@ def test_year_one_is_refused_on_the_field_rather_than_overflowing(entries):
     assert (moved.status_code, saved.status_code) == (422, 422)
     dentist.refresh_from_db()
     assert dentist.starts == _at(2026, 10, 15, 15)
+
+
+def test_undo_finds_a_series_moved_onto_a_day_its_rule_skips(entries):
+    # Wednesday's standup dropped on Saturday moves the series three days
+    # on, and Saturday has no standup for the Undo to name.
+    standup = entries["Standup"]
+    moved = _act("move", id=str(standup.pk), occurrence="2026-10-14T09:00",
+                 starts="2026-10-17", starts_time="09:00",
+                 ends="2026-10-17", ends_time="09:15")  # fmt: skip
+    assert moved.status_code == 200
+    assert _undo(moved).status_code == 200
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 9)
+
+
+def test_an_occurrence_past_the_years_a_calendar_draws_is_not_found(entries):
+    dentist = entries["Dentist"]
+    moved = _act("move", id=str(dentist.pk), occurrence="9999-12-31T23:00",
+                 starts="2026-10-15", starts_time="16:00",
+                 ends="2026-10-15", ends_time="16:45")  # fmt: skip
+    assert moved.status_code == 404
+    dentist.refresh_from_db()
+    assert dentist.starts == _at(2026, 10, 15, 15)
+
+
+@pytest.mark.parametrize("action", ["move", "save"])
+def test_a_series_whose_first_occurrence_would_be_skipped_is_refused(db, action):
+    # Every Sunday at 02:30 from 22 March: a week later is the night the
+    # clocks go forward, which has no 02:30.
+    night = Entry.objects.create(
+        title="Night shift", layer="eng", repeat="weekly",
+        starts=_at(2026, 3, 22, 2, 30), ends=_at(2026, 3, 22, 3, 30),
+    )  # fmt: skip
+    edited = {"title": "Night shift", "layer": "eng", "repeat": "weekly"}
+    response = _act(action, id=str(night.pk), occurrence="2026-04-05T02:30",
+                    starts="2026-04-12", starts_time="02:30",
+                    ends="2026-04-12", ends_time="03:30",
+                    **(edited if action == "save" else {}))  # fmt: skip
+    assert response.status_code == 422
+    assert "skipped when the clocks go forward" in unescape(response.content.decode())
+    night.refresh_from_db()
+    assert night.starts == _at(2026, 3, 22, 2, 30)
