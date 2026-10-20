@@ -26,14 +26,22 @@ from hue._calendar_state import (
     _overlap,
     _slot,
 )
+from hue._declared import carried, csrf
 from hue.formats import Formats
 from hue.js import Expression, ajax, close, unsafe
 from hue.types.core import ComponentType
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import TextInput
+from hue.ui.atoms.native_select import NativeSelect
+from hue.ui.atoms.switch import Switch
+from hue.ui.atoms.textarea import Textarea
 from hue.ui.molecules._calendar_views import FIRST, LAST, stamps
 from hue.ui.molecules.calendar import Event
+from hue.ui.molecules.date_input import DateInput, TimeInput
+from hue.ui.molecules.dialog import Dialog
+from hue.ui.molecules.form import Form
+from hue.utils import render_if, render_when
 
 # A new event with no time of its own starts at nine, and a new event
 # runs an hour unless that would take it past the end of its day.
@@ -365,6 +373,147 @@ def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
         first, last = event.span(bound.formats)
         when = {"all_day": "1", "starts": first.isoformat(), "ends": last.isoformat()}
     return {bound.declaration.param(name): value for name, value in when.items()}
+
+
+def dialog(
+    bound: BoundCalendar,
+    posted: _Posted,
+    errors: Mapping[str, str],
+    *,
+    csrf_token: str,
+) -> ComponentType:
+    """
+    The event dialog, open, over the posted fields: a new event, or an
+    existing one when they carry an id. The form carries the
+    framework's CSRF token, so it still posts where the script has
+    failed and the browser submits it on its own.
+    """
+    declared, key = bound.declaration, bound.key
+    editing = bool(posted.id)
+    all_day = bool(posted.all_day)
+    form_id = f"{key}-form"
+    layers = [(layer.key, layer.name) for layer in declared.layers]
+    week_start = bound.state.week_start
+    # The controls are named under the key, which is also what makes
+    # their ids the calendar's own on a page with two of them.
+    param = declared.param
+
+    def when(label: str, name: str) -> list[ComponentType]:
+        day = _day(getattr(posted, name))
+        moment = _clock(getattr(posted, f"{name}_time"))
+        day_field = DateInput().name(param(name)).label(label)
+        day_field.week_start(week_start)
+        time_field = TimeInput().name(param(f"{name}_time")).label(f"{label} at")
+        if day is not None:
+            day_field.value(day)
+        if moment is not None:
+            time_field.value(moment)
+        # Hidden rather than removed while all day is on, so the times
+        # come back when it is switched off again. The route ignores
+        # them for a whole-day event.
+        return [day_field, html.div(time_field, **{"x-show": "!allDay"})]
+
+    form = (
+        Form()
+        .id(form_id)
+        .action(bound.urls.act[_SAVE])
+        .method("post")
+        .errors({param(name): message for name, message in errors.items()})
+        .class_("gap-4")
+        .content(
+            *carried(bound.query(bound.state)),
+            csrf(declared, csrf_token),
+            render_when(
+                editing,
+                html.input_(type="hidden", name=param("id"), value=posted.id),
+            ),
+            render_when(
+                editing,
+                html.input_(
+                    type="hidden",
+                    name=param("occurrence"),
+                    value=posted.occurrence,
+                ),
+            ),
+            _title_field(param("title"), posted.title),
+            Switch()
+            .name(param("all_day"))
+            .label("All day")
+            .checked(all_day)
+            .x_model(unsafe("allDay")),
+            html.div(
+                *when("Starts", "starts"),
+                *when("Ends", "ends"),
+                class_="grid grid-cols-2 gap-3",
+            ),
+            render_when(
+                bool(layers or declared.repeats),
+                html.div(
+                    render_when(
+                        bool(layers),
+                        NativeSelect()
+                        .name(param("layer"))
+                        .label("Calendar")
+                        .options(layers)
+                        .value(posted.layer or (layers[0][0] if layers else "")),
+                    ),
+                    render_when(
+                        bool(declared.repeats),
+                        NativeSelect()
+                        .name(param("repeat"))
+                        .label("Repeat")
+                        .options([("", "Does not repeat"), *declared.repeats.items()])
+                        .value(posted.repeat),
+                    ),
+                    class_="grid grid-cols-2 gap-3",
+                ),
+            ),
+            TextInput()
+            .name(param("location"))
+            .label("Location")
+            .value(posted.location)
+            .placeholder("Room, address or link")
+            .leading_icon(HueIcon("map-pin")),
+            Textarea().name(param("notes")).label("Notes").value(posted.notes).rows(3),
+            # Where the overlap warning lands, and announced when it
+            # does, since it arrives while the reader is elsewhere.
+            html.div(id=_overlap(key), role="status"),
+        )
+    )
+    form.x_data(f"{{ allDay: {json.dumps(all_day)} }}")
+    # Asked again whenever a field settles, which the date and time
+    # fields announce as a change once a value is read.
+    form._attrs["x-on:change.debounce.200ms"] = _overlaps_check(bound)
+    # Neither has a modifier. The route says what is wrong, on the
+    # field, so the browser's own bubbles are not a second opinion.
+    form._attrs.update({"x-target": _slot(key), "novalidate": True})
+    footer = [
+        # Built only where there is a delete route to point it at.
+        render_if(
+            bound.urls.act.get(_DELETE) if editing else None,
+            lambda url: Button()
+            .variant("ghost")
+            .type("submit")
+            .form(form_id)
+            .formaction(url)
+            .class_("me-auto text-danger-text")
+            .content("Delete"),
+        ),
+        Button().variant("ghost").content("Cancel").x_on("click", close()),
+        Button()
+        .variant("primary")
+        .type("submit")
+        .form(form_id)
+        .content("Save changes" if editing else "Save event"),
+    ]
+    return (
+        Dialog()
+        .open()
+        .size("lg")
+        .title("Edit event" if editing else "New event")
+        .content(form)
+        .footer(*footer)
+    )
 
 
 def _title_field(name: str, value: str) -> ComponentType:
