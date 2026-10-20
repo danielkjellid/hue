@@ -47,7 +47,8 @@ TIME_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
     "-I": lambda f, v: str(v.hour % 12 or 12),
     "p": lambda f, v: "AM" if v.hour < 12 else "PM",
 }
-_DIRECTIVE = re.compile(r"%(-?.)")
+# A strftime directive, with the platform flag a few of the above take.
+DIRECTIVE = re.compile(r"%(-?.)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,9 +58,13 @@ class Formats:
     is the one spelling no reader gets wrong, and the names of the months and
     the days, English by default.
 
-    A pattern may use any strftime directive. The date fields read back only
-    %d %-d %e %m %-m %Y %B %b %A %a for a day, %H %M %I %-I %p for a time,
-    and %%, and refuse to render with anything else.
+    A pattern may use any strftime directive, but the date fields render
+    only with one whose text they can read back. A day there is %Y with a
+    month and a day: in numbers split by a dot, slash or dash, year first,
+    day first or month first (%d.%m.%Y), or around the month's name (%d %B
+    %Y, %B %d, %Y). A weekday may come first and a dot last. A time is %H
+    and %M, or %I and %M with %p, and in a date with a time it follows the
+    day. %y, seconds and other words are refused.
 
     localize turns an aware datetime into the reader's time before it is
     written, as a framework's templates would. Without one, an aware
@@ -140,7 +145,7 @@ class Formats:
                 return DAY_DIRECTIVES[directive](self, value)
             return value.strftime(match.group())
 
-        return _DIRECTIVE.sub(one, pattern)
+        return DIRECTIVE.sub(one, pattern)
 
     def moment(self, value: _Moment) -> _Moment:
         """

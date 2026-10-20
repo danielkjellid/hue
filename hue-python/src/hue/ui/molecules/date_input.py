@@ -7,7 +7,7 @@ from typing import Any, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.formats import DAY_DIRECTIVES, TIME_DIRECTIVES, Formats
+from hue.formats import DIRECTIVE, Formats
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -97,12 +97,13 @@ _UNFILLED = {
     "%e": "D",
     "%B": "Month",
     "%b": "Mon",
+    "%A": "",
+    "%a": "",
     "%H": "HH",
     "%I": "hh",
     "%-I": "h",
     "%M": "mm",
     "%p": "AM",
-    "%%": "%",
 }
 
 
@@ -110,14 +111,40 @@ def _unfilled(format: str) -> str:
     """
     The format with nothing in it: %d.%m.%Y reads DD.MM.YYYY.
     """
-    return re.sub(r"%-?.", lambda m: _UNFILLED.get(m.group(), ""), format).strip(" ,")
+    return DIRECTIVE.sub(lambda m: _UNFILLED[m.group()], format).lstrip(" ,.")
 
 
-# What each kind of field reads back from its format.
-_READS = {
-    "time": TIME_DIRECTIVES.keys(),
-    "datetime": DAY_DIRECTIVES.keys() | TIME_DIRECTIVES.keys(),
+# The formats whose text date-text.js reads back: its readDay, parseTime and
+# parseMoment patterns, written over the directives rather than the digits
+# and names they write. Change one with the other.
+_D = r"(?:%-?d|%e)"
+_SEP = r"[-./]\s*"
+_DAY = (
+    r"(?:%[Aa]\.?,?\s+)?(?:"
+    rf"%Y{_SEP}%-?m{_SEP}{_D}"
+    rf"|{_D}{_SEP}%-?m{_SEP}%Y"
+    rf"|%-?m{_SEP}{_D}{_SEP}%Y"
+    rf"|{_D}\.?\s+%[Bb]\.?,?\s+%Y"
+    rf"|%[Bb]\.?\s+{_D},?\s+%Y"
+    r")\.?"
+)
+# Minutes, since the time list steps through them, and twelve hours only
+# with AM or PM, which is how 02:30 says it is 14:30.
+_TIME = r"(?:%H[:.]?%M|%-?I[:.]?%M\s*%p)"
+_READABLE = {
+    "time": re.compile(_TIME),
+    "datetime": re.compile(rf"{_DAY},?\s+{_TIME}|%Y-%-?m-%-?dT{_TIME}"),
 }
+_DAYS = re.compile(_DAY)
+# What the refusal suggests instead, each of them readable.
+_EXAMPLES = {"time": "%H:%M", "datetime": "%d.%m.%Y %H:%M"}
+
+
+def _reads(kind: _Kind, pattern: str) -> bool:
+    """
+    Whether date-text.js reads back the text the pattern writes.
+    """
+    return _READABLE.get(kind, _DAYS).fullmatch(pattern) is not None
 
 
 def _pattern(formats: Formats, kind: _Kind) -> str:
@@ -208,14 +235,12 @@ class _PickerInput(FieldControl):
         formats = Formats.from_context(context)
         kind = self._kind()
         pattern = _pattern(formats, kind)
-        readable = _READS.get(kind, DAY_DIRECTIVES.keys())
-        for directive in re.findall(r"%(-?.)", pattern):
-            if directive != "%" and directive not in readable:
-                raise ValueError(
-                    f"A {type(self).__name__} cannot read %{directive} back, "
-                    f"which its format {pattern!r} writes. It reads "
-                    f"{' '.join(sorted(f'%{d}' for d in readable))} and %%."
-                )
+        if not _reads(kind, pattern):
+            raise ValueError(
+                f"A {type(self).__name__} cannot read back the text its format "
+                f"{pattern!r} writes. A format like "
+                f"{_EXAMPLES.get(kind, '%d.%m.%Y')!r} reads; Formats says which do."
+            )
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
         readonly: bool = self._get_prop("readonly", False)

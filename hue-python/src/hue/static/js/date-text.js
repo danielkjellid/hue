@@ -13,8 +13,9 @@ export const pad = (n) => String(n).padStart(2, "0");
 
 /**
  * The value written with a strftime format, for the directives Formats
- * allows and written the way it writes them, names included. Formats
- * refuses any other directive before a page gets one.
+ * spells out itself and written the way it writes them, names included.
+ * The date fields refuse to render with a format this cannot write or
+ * the readers below cannot read back.
  */
 export function strftime(format, value, names) {
 	const [day, time] = value.includes("T")
@@ -81,12 +82,15 @@ function century(year, today) {
 	return near > now + 50 ? near - 100 : near < now - 50 ? near + 100 : near;
 }
 
-function readDay(s, options) {
+function readDay(text, options) {
+	// 2026. 10. 20. and 20.10.2026. end in a dot.
+	const s = text.replace(/\.$/, "");
 	const relative = { today: 0, tomorrow: 1, yesterday: -1 }[s];
 	if (relative !== undefined) return iso(parse(options.today) + relative * DAY);
-	let m = /^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(s);
+	let m = /^(\d{4})[-./]\s*(\d{1,2})[-./]\s*(\d{1,2})$/.exec(s);
 	if (m) return real(+m[1], +m[2], +m[3]);
-	m = /^(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})$/.exec(s);
+	// Never ISO, which the pattern above has already read.
+	m = /^(\d{1,2})[-./]\s*(\d{1,2})[-./]\s*(\d{2}|\d{4})$/.exec(s);
 	if (m) {
 		const year = m[3].length === 2 ? century(+m[3], options.today) : +m[3];
 		return options.monthFirst ? real(year, +m[1], +m[2]) : real(year, +m[2], +m[1]);
@@ -100,12 +104,14 @@ function readDay(s, options) {
 
 /**
  * A day from today, tomorrow or yesterday, 2026-10-20, 20.10.2026,
- * 20/10/26, 20 Oct 2026 or Oct 20, 2026, after an optional weekday. Month
- * and weekday names are matched against the names given, so a framework's
- * translations are read as well as written. monthFirst reads 10/20/2026 as
- * October, for a format that writes it that way. A leading word is only
- * taken for a weekday when the text does not read with it, since "mar" is
- * martes and marzo both.
+ * 20-10-2026, 20/10/26, 20 Oct 2026 or Oct 20, 2026, after an optional
+ * weekday. Month and weekday names are matched against the names given,
+ * so a framework's translations are read as well as written. monthFirst
+ * reads 10/20/2026 as October, for a format that writes it that way. A
+ * leading word is only taken for a weekday when the text does not read
+ * with it, since "mar" is martes and marzo both. date_input.py mirrors
+ * these patterns, and those of parseTime and parseMoment, to refuse a
+ * format whose text they would not read.
  */
 export function parseDay(text, options) {
 	const s = text.trim().toLowerCase();
