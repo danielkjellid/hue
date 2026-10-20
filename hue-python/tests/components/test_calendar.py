@@ -74,6 +74,9 @@ class TestFrame:
         assert_attr(html, "#cal > #cal-view", "x-sync")
         assert_attr(html, "#cal-next", "x-target.push", "cal-view")
         assert_attr(html, "nav[aria-label=View] a", "x-target.push", "cal-view")
+        # Inside the region it swaps, so every response already carries it;
+        # a sync mark would have it swapped a second time.
+        assert "x-sync" not in select(html, "nav[aria-label=View]")[0].attrs
 
     @pytest.mark.asyncio
     async def test_without_an_id_the_links_are_plain_navigation(self, context_args):
@@ -166,6 +169,8 @@ class TestFrame:
             calendar = _calendar().date(day).view(view).week_start("saturday")
             html = await _html(calendar, context_args)
             assert_no_selector(html, f"a[aria-label={step}]")
+            # Spent, as a Pagination step is: still there and still named.
+            assert_attr(html, f"span[aria-label={step}]", "aria-disabled", "true")
             switcher = select(html, "nav[aria-label=View] [aria-current=page]")[0]
             assert switcher["href"] == f"/cal/{view}/{edge}/"
 
@@ -231,6 +236,15 @@ class TestTimeGrid:
         ]
 
     @pytest.mark.asyncio
+    async def test_the_week_starts_on_any_weekday_a_date_picker_takes(
+        self, context_args
+    ):
+        html = await _html(_calendar().week_start("wednesday"), context_args)
+        days = [column["data-date"] for column in select(html, "div[data-date]")]
+        assert days[0] == "2026-10-14"
+        assert days[-1] == "2026-10-20"
+
+    @pytest.mark.asyncio
     async def test_a_day_view_is_one_column_around_the_date(self, context_args):
         html = await _html(_calendar(_REVIEW).view("day"), context_args)
         assert [c["data-date"] for c in select(html, "[data-date]")] == ["2026-10-14"]
@@ -247,6 +261,22 @@ class TestTimeGrid:
         assert "left: calc(1 / 2 * 100% + 2px)" in pairing["style"]
         assert "top: 480px; height: 94px" in audit["style"]
         assert "width: calc(100% / 1 - 4px)" in review["style"]
+
+    @pytest.mark.asyncio
+    async def test_back_to_back_short_events_do_not_cover_each_other(
+        self, context_args
+    ):
+        # A quarter of an hour draws taller than it lasts, so the next one
+        # along would land under it unless the two share the width.
+        one = Event("One", datetime(2026, 10, 14, 9), datetime(2026, 10, 14, 9, 15))
+        two = Event("Two", datetime(2026, 10, 14, 9, 15), datetime(2026, 10, 14, 9, 30))
+        html = await _html(_calendar(one, two).view("day"), context_args)
+        boxes = [
+            _event(html, title).find_parent("li", class_="absolute")["style"]
+            for title in ("One", "Two")
+        ]
+        lefts = [re.search(r"left: calc\((\d+) / (\d+)", s).groups() for s in boxes]
+        assert lefts == [("0", "2"), ("1", "2")]
 
     @pytest.mark.asyncio
     async def test_an_event_is_named_by_its_title_time_and_day(self, context_args):
@@ -383,6 +413,15 @@ class TestTimeGrid:
         assert_no_selector(elsewhere, "[x-data*=minute]")
 
     @pytest.mark.asyncio
+    async def test_the_now_line_stops_its_clock_when_it_is_swapped_out(
+        self, context_args
+    ):
+        html = await _html(_calendar().today(_WEDNESDAY), context_args)
+        line = select(html, "[x-data*=minute]")[0]
+        assert "timer = setInterval(" in line["x-init"]
+        assert "destroy() { clearInterval(this.timer) }" in line["x-data"]
+
+    @pytest.mark.asyncio
     async def test_the_grid_opens_at_half_past_seven(self, context_args):
         html = await _html(_calendar(), context_args)
         assert_attr(html, ".overflow-y-auto", "x-init", "$el.scrollTop = 360")
@@ -444,7 +483,25 @@ class TestMonth:
         more = cell.select_one("button[aria-label^='+3 more']")
         assert more.get_text(strip=True) == "+3 more"
         panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
-        assert len(panel.select("button[data-starts]")) == 5
+        hidden = [b["aria-label"].split(",")[0] for b in panel.select("[data-starts]")]
+        assert hidden == ["Talk 0", "Talk 1", "Talk 2"]
+
+    @pytest.mark.asyncio
+    async def test_an_events_actions_run_once_however_many_days_it_covers(
+        self, context_args
+    ):
+        calls: list[str] = []
+
+        def actions(event: Event) -> list[Button]:
+            calls.append(event.title)
+            return [Button().size("sm").content("Edit")]
+
+        offsite = Event("Offsite", date(2026, 10, 5), date(2026, 10, 23))
+        html = await _html(
+            _calendar(offsite).view("month").actions(actions), context_args
+        )
+        assert len(select(html, "button[data-all-day]")) == 19
+        assert calls == ["Offsite"]
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):
@@ -466,6 +523,21 @@ class TestMonth:
         freeze = _event(html, "Release freeze")
         assert "bg-chart-4/15" in freeze["class"]
         assert len(select(html, "td[data-date='2026-10-17'] button[data-all-day]")) == 1
+
+    @pytest.mark.asyncio
+    async def test_an_event_from_the_day_before_leads_its_day_from_midnight(
+        self, context_args
+    ):
+        late = Event("Deploy", datetime(2026, 10, 14, 22), datetime(2026, 10, 15, 2))
+        early = Event("Backup", datetime(2026, 10, 15, 1), datetime(2026, 10, 15, 3))
+        html = await _html(_calendar(early, late).view("month"), context_args)
+        cell = select(html, "td[data-date='2026-10-15']")[0]
+        first, second = cell.select("button[data-starts]")
+        assert first["aria-label"].startswith("Deploy,")
+        assert first.select("span")[1].get_text() == "00:00"
+        assert second["aria-label"].startswith("Backup,")
+        before = select(html, "td[data-date='2026-10-14'] button[data-starts]")[0]
+        assert before.select("span")[1].get_text() == "22:00"
 
 
 class TestYear:
@@ -520,7 +592,10 @@ class TestEventPopover:
         html = await _html(_calendar(_REVIEW), context_args)
         root = _event(html, "Design review").find_parent(attrs={"x-data": True})
         panel = root.select_one("[role=dialog]")
-        assert panel["aria-label"] == "Design review"
+        # Named by the heading Popover draws, rather than a label beside one.
+        assert "aria-label" not in panel.attrs
+        assert panel[":aria-labelledby"] == "$id('hue-popover-title')"
+        assert panel.select_one("[\\:id]").get_text(strip=True) == "Design review"
         # Fixed, because the time grid scrolls and would clip the panel.
         assert panel["x-anchor.fixed.bottom-start.offset.6"].startswith("$root")
 
@@ -530,10 +605,12 @@ class TestEventPopover:
         review = _event(html, "Design review").find_parent(attrs={"x-data": True})
         rows = [dt.get_text() for dt in review.select("dt")]
         assert rows == ["When", "Location", "Notes"]
-        assert f"Wednesday 14 October 2026 · 13:00 {_DASH} 14:30" in review.get_text()
+        when = f"Wednesday 14 October 2026 · 13:00 {_DASH} 14:30"
+        assert review.select_one("[role=dialog]").get_text().count(when) == 1
         assert "Bring the matrix." in review.get_text()
         standup = _event(html, "Standup").find_parent(attrs={"x-data": True})
         assert [dt.get_text() for dt in standup.select("dt")] == ["When", "Repeats"]
+        assert standup.select("dd")[1].get_text(strip=True) == "Part of a series"
         freeze = _event(html, "Release freeze").find_parent(attrs={"x-data": True})
         assert f"Friday 16 October 2026 {_DASH} Saturday 17 October 2026 · All day" in (
             freeze.get_text()

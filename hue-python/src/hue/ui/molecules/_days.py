@@ -17,13 +17,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any, Literal, get_args
 
 from hue.formats import Formats
-
-# The three days a week starts on anywhere: ISO's Monday, the Americas'
-# Sunday, the Middle East's Saturday.
-type WeekStart = Literal["monday", "saturday", "sunday"]
-
-# As date.weekday() counts them.
-_WEEKDAY: dict[WeekStart, int] = {"monday": 0, "saturday": 5, "sunday": 6}
+from hue.ui.molecules.date_picker import WEEKDAYS, Weekday
 
 # One of the chart tokens, which stay apart from each other in both themes
 # and under every simulated colour-vision deficiency. 1 is the accent.
@@ -33,10 +27,6 @@ _COLORS: tuple[int, ...] = get_args(EventColor.__value__)
 
 # The minutes in a day, where a timed event that runs past midnight is cut.
 MIDNIGHT = 24 * 60
-
-# A timed event takes at least this much of a column, so two that start
-# together still read as side by side when one of them is a moment long.
-_LEAST = 15
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,16 +113,24 @@ class Event:
         return first, max(first, last)
 
 
-def week_of(day: date, start: WeekStart) -> tuple[date, ...]:
+def week_of(day: date, start: Weekday) -> tuple[date, ...]:
     """
     The seven days of the week day falls in, from the start day on.
     """
-    offset = (day.weekday() - _WEEKDAY[start]) % 7
+    offset = (day.weekday() - WEEKDAYS.index(start)) % 7
     first = day - timedelta(days=offset)
     return tuple(first + timedelta(days=n) for n in range(7))
 
 
-def month_grid(month: date, start: WeekStart) -> tuple[tuple[date, ...], ...]:
+def weekend(day: date) -> bool:
+    """
+    Saturday and Sunday, whichever day the week starts on: a week that
+    starts on Sunday still ends its working days on Friday.
+    """
+    return day.weekday() >= 5
+
+
+def month_grid(month: date, start: Weekday) -> tuple[tuple[date, ...], ...]:
     """
     Six weeks from the one the month starts in. Always six, so the grid is
     the same height for every month and nothing under it moves when the
@@ -182,11 +180,13 @@ def place(
     found: dict[date, list[tuple[tuple[Any, ...], Placed]]] = {}
     for event in events:
         a, b = event.span(formats)
-        order = _order(event, a, b, formats)
         day = max(a, first)
         while day <= min(b, last):
             found.setdefault(day, []).append(
-                (order, Placed(event, day, day > a, day < b))
+                (
+                    _order(event, a, b, day, formats),
+                    Placed(event, day, day > a, day < b),
+                )
             )
             day += timedelta(days=1)
     return {
@@ -195,27 +195,31 @@ def place(
     }
 
 
-def _order(event: Event, first: date, last: date, formats: Formats) -> tuple[Any, ...]:
-    # Timed events after the all-day ones, by start time; among the all-day
+def _order(
+    event: Event, first: date, last: date, day: date, formats: Formats
+) -> tuple[Any, ...]:
+    # Timed events after the all-day ones, by when they start on the day,
+    # which is midnight for one that began the day before; among the all-day
     # ones the longest first, so a bar sits above the single days under it.
     if event.timed:
-        return (1, 0, event.moments(formats)[0].time())
+        starts = event.moments(formats)[0].time() if day == first else time.min
+        return (1, 0, starts)
     return (0, (first - last).days, time.min)
 
 
-def minutes(placed: Placed, formats: Formats) -> tuple[int, int]:
+def minutes(placed: Placed, formats: Formats, least: int) -> tuple[int, int]:
     """
     Where a timed event sits on the day it is placed on, in minutes from
     midnight: from the start of the day when it began earlier, to midnight
-    when it ends later. One shorter than a quarter of an hour is widened to
-    one, so it still has a box to be seen in, and moved up when that would
-    take it past midnight.
+    when it ends later. One shorter than least is widened to it, the time
+    its box is drawn over, and moved up when that would take it past
+    midnight.
     """
     starts, ends = placed.event.moments(formats)
     start = starts.hour * 60 + starts.minute if starts.date() == placed.day else 0
     end = ends.hour * 60 + ends.minute if ends.date() == placed.day else MIDNIGHT
-    end = min(max(end, start + _LEAST), MIDNIGHT)
-    return min(start, end - _LEAST), end
+    end = min(max(end, start + least), MIDNIGHT)
+    return min(start, end - least), end
 
 
 @dataclass(frozen=True, slots=True)
