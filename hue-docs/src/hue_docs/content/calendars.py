@@ -345,8 +345,9 @@ def _build() -> ComponentType:
             "The keyboard can do the same without the dialog. With an event "
             "focused, Alt with the up and down arrows moves it a quarter hour, "
             "Alt with left and right moves it a day, and Shift as well changes "
-            "when it ends instead. Focus stays on the event, whose name says its "
-            "new time."
+            "when it ends instead: up and down by a quarter hour for a timed "
+            "event, left and right by a day for an all-day one. Focus stays on "
+            "the event, whose name says its new time."
         ),
         pr.p(
             "A drag or a key press posts move: the id, which occurrence of the "
@@ -390,7 +391,9 @@ def _build() -> ComponentType:
             "off. Each one presses the control that does the same thing, so a key "
             "and a click cannot drift apart. Only one calendar on a page answers "
             "to them, the first one the view builds. Another calendar on the "
-            "same page draws without the keys and without the help dialog."
+            "same page draws without the keys and without the help dialog, "
+            "until the reader changes something in it: the calendar that "
+            "answered last holds the keys."
         ),
         pr.code(
             "from hue.calendar import CalendarShortcuts\n"
