@@ -247,7 +247,7 @@ export function registerCalendarData(Alpine) {
 				}
 				if (drag.mode === "days") return this.shiftDays(drag, event);
 				const at = when(drag.button);
-				const [low, high] = bounds(at, drag.mode, snap);
+				const [low, high] = bounds(at, drag.mode === "resize", snap);
 				const minutes = Math.round(((event.clientY - drag.y) / hour) * 60 / snap) * snap;
 				drag.minutes = Math.min(Math.max(minutes, low), high);
 				if (drag.mode === "resize") {
@@ -276,8 +276,10 @@ export function registerCalendarData(Alpine) {
 				const found = month
 					? document.elementFromPoint(event.clientX, event.clientY)?.closest("td[data-date]")
 					: this.columnAt(event.clientX);
-				const day = found && this.$root.contains(found) ? found : null;
-				if (day) drag.days = daysBetween(drag.column.dataset.date, day.dataset.date);
+				// The calendar's own days: the sidebar's picker has cells too.
+				const day = found && document.getElementById(key)?.contains(found) ? found : null;
+				// Off the calendar the event goes nowhere, whatever it passed over.
+				drag.days = day ? daysBetween(drag.column.dataset.date, day.dataset.date) : 0;
 				if (!month) {
 					const shift = day ? left(day) - left(drag.column) : 0;
 					drag.li.style.transform = `translateX(${shift}px)`;
@@ -436,12 +438,13 @@ function split(stamp) {
 	return [day, hours * 60 + minutes];
 }
 
-// How far a move or a resize may go in minutes: the event stays inside its
-// day, unless it already ran past midnight, and keeps a snap of length.
-function bounds(at, mode, snap) {
-	const limit = Math.max(DAY, at.ends);
-	if (mode === "resize") return [snap - at.length, limit - at.ends];
-	return [-at.starts, limit - at.ends];
+// How far a move or a resize may go in minutes: the event starts inside its
+// day, ends by the midnight after the day it ends on, and keeps a snap of
+// length. One that ends by midnight stays inside its day.
+function bounds(at, resize, snap) {
+	const limit = Math.max(DAY, Math.ceil(at.ends / DAY) * DAY);
+	if (resize) return [snap - at.length, limit - at.ends];
+	return [-at.starts, Math.min(limit - at.ends, DAY - snap - at.starts)];
 }
 
 // The fields a change to an event posts, or null for one that would take
@@ -455,10 +458,10 @@ function shifted(button, { days = 0, minutes = 0, resize = false }, snap) {
 		return ends < starts ? null : { all_day: "1", starts, ends };
 	}
 	if (resize && days) return null;
-	const limit = Math.max(DAY, at.ends);
+	const [low, high] = bounds(at, resize, snap);
+	if (minutes < low || minutes > high) return null;
 	const starts = resize ? at.starts : at.starts + minutes;
 	const ends = at.ends + minutes;
-	if (starts < 0 || ends > limit || ends < starts + snap) return null;
 	const day = shiftDay(at.day, resize ? 0 : days);
 	return {
 		starts: day,
