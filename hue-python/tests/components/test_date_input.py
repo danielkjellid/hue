@@ -80,7 +80,7 @@ class TestDateInput:
             await render_tree(field, context_args=context_args)
 
     def test_a_datetime_is_refused(self):
-        with pytest.raises(ValueError, match="holds days"):
+        with pytest.raises(ValueError, match="Pass a date"):
             _field().value(datetime(2026, 10, 9, 12))
 
     # mode(): a range has two months, a footer, and presets when asked
