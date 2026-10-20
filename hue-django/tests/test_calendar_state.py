@@ -8,6 +8,7 @@ save and a delete with the calendar in the state it was in.
 
 import asyncio
 import re
+from collections import Counter
 from datetime import date, datetime
 from typing import Any
 from unittest.mock import MagicMock
@@ -19,6 +20,7 @@ from django.http import HttpRequest, QueryDict
 from django.test import Client
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
+from hue import html
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
@@ -70,8 +72,9 @@ def _view(**given: Any) -> Any:
 @pytest.fixture
 def mounted(urlpatterns_: list[Any]) -> Any:
     def build(**given: Any) -> Any:
+        # Mounted again, the new view takes the old one's place.
         view = _view(**given)
-        urlpatterns_.append(path(MOUNT, include(view.urls)))
+        urlpatterns_[:] = [path(MOUNT, include(view.urls))]
         clear_url_caches()
         return view
 
@@ -110,18 +113,29 @@ def _hrefs(html: str) -> dict[str, str]:
     return found
 
 
+def _ids(html: str) -> Counter[str]:
+    return Counter(re.findall(r'\sid="([^"]+)"', html))
+
+
 def _act(action: str, **posted: str) -> Any:
     return Client().post(f"/{MOUNT}events/{action}/", posted, **_AJAX)
 
 
-_FIELDS = {
-    "title": "Pairing",
-    "starts": "2026-10-15",
-    "starts_time": "11:00",
-    "ends": "2026-10-15",
-    "ends_time": "12:30",
-    "layer": "home",
-}
+def _fields(**changed: str) -> dict[str, str]:
+    """
+    The dialog's fields as it posts them, under the key, for an hour and a
+    half on Thursday, with any of them changed.
+    """
+    whole = {
+        "title": "Pairing",
+        "starts": "2026-10-15",
+        "starts_time": "11:00",
+        "ends": "2026-10-15",
+        "ends_time": "12:30",
+        "layer": "home",
+        **changed,
+    }
+    return {f"events-{name}": value for name, value in whole.items()}
 
 
 def test_the_page_draws_the_state_the_url_asks_for(mounted):
@@ -168,6 +182,9 @@ def _on_the_loop() -> bool:
     return True
 
 
+# The dialog
+
+
 def test_the_dialog_opens_in_the_slot_with_the_state_and_a_time_filled_in(mounted):
     mounted()
     response = _act("dialog", **{"events-view": "month", "events-date": "2026-10-21"})
@@ -182,20 +199,84 @@ def test_the_dialog_opens_in_the_slot_with_the_state_and_a_time_filled_in(mounte
     assert 'name="events-view" value="month"' in html
 
 
-def test_a_field_that_cannot_be_read_comes_back_on_the_dialog(mounted):
+def test_the_dialogs_controls_are_named_and_identified_under_the_key(mounted):
+    mounted(repeats={"weekly": "Every week"})
+    html = _act("dialog").content.decode()
+    for name in (
+        "title",
+        "all_day",
+        "starts",
+        "starts_time",
+        "ends",
+        "ends_time",
+        "layer",
+        "repeat",
+        "location",
+        "notes",
+    ):
+        assert f'name="events-{name}"' in html, name
+        assert f'id="events-{name}"' in html, name
+        assert f'for="events-{name}"' in html, name
+    assert 'id="title"' not in html
+    assert "x-autofocus" in re.search(r'<input[^>]*id="events-title"[^>]*>', html)[0]
+
+
+def test_an_existing_event_can_be_deleted_from_its_dialog(mounted):
     mounted()
-    response = _act("save", **{**_FIELDS, "title": "", "ends_time": "10:00"})
+    html = _act("dialog", **_fields(id="7")).content.decode()
+    assert "Edit event" in html
+    assert 'name="events-id" value="7"' in html
+    delete = re.search(r'<button[^>]*formaction="/planning/events/delete/"[^>]*>', html)
+    assert delete and 'form="events-form"' in delete[0]
+    # A new event has nothing to delete, and neither has a calendar
+    # without a delete.
+    assert "/planning/events/delete/" not in _act("dialog").content.decode()
+    mounted(delete=None)
+    assert (
+        "/planning/events/delete/"
+        not in _act("dialog", **_fields(id="7")).content.decode()
+    )
+
+
+def test_the_repeat_and_calendar_selects_are_there_when_declared(mounted):
+    mounted(repeats={"weekly": "Every week"})
+    html = _act("dialog").content.decode()
+    assert re.search(r'<select[^>]*name="events-repeat"', html)
+    assert "Does not repeat" in html and "Every week" in html
+    assert re.search(r'<select[^>]*name="events-layer"', html)
+    mounted(repeats=None, layers=[])
+    html = _act("dialog").content.decode()
+    assert 'name="events-repeat"' not in html
+    assert 'name="events-layer"' not in html
+
+
+@pytest.mark.parametrize(
+    ("changed", "wrong"),
+    [
+        ({"title": "  "}, "Give the event a title."),
+        ({"starts": "14.10.2026"}, "Enter a date."),
+        ({"ends_time": "2pm"}, "Enter a time."),
+        ({"ends_time": "10:00"}, "Ends before it starts."),
+        ({"ends_time": "11:00"}, "Starts and ends at the same time."),
+        ({"all_day": "on", "ends": "2026-10-14"}, "Ends before it starts."),
+        ({"layer": ""}, "Choose a calendar."),
+        ({"repeat": "yearly"}, "Choose how it repeats."),
+    ],
+)
+def test_a_field_that_cannot_be_read_comes_back_on_the_dialog(mounted, changed, wrong):
+    mounted(repeats={"weekly": "Every week"})
+    response = _act("save", **_fields(**changed))
     assert response.status_code == 422
     html = response.content.decode()
-    assert "Give the event a title." in html
-    assert "Ends before it starts." in html
+    assert wrong in html
+    assert 'aria-invalid="true"' in html
     assert _SAVED == []
 
 
 def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounted):
     mounted()
     response = _act(
-        "save", **{**_FIELDS, "events-view": "day", "events-date": "2026-10-15"}
+        "save", **_fields(), **{"events-view": "day", "events-date": "2026-10-15"}
     )
     assert response.status_code == 200
     assert _SAVED == [
@@ -212,9 +293,30 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
     assert "Thursday 15 October 2026" in html
 
 
+def test_the_fields_become_the_event_the_handler_is_handed(mounted):
+    mounted(repeats={"weekly": "Every week"})
+    _act("save", **_fields(id="7", repeat="weekly", location=" Room 3B ", notes=""))
+    assert _SAVED == [
+        Event(
+            "Pairing",
+            datetime(2026, 10, 15, 11),
+            datetime(2026, 10, 15, 12, 30),
+            id="7",
+            location="Room 3B",
+            repeat="weekly",
+            layer="home",
+        )
+    ]
+    # A whole day is a pair of dates, which may be the same day, and a
+    # calendar without layers asks for none.
+    mounted(layers=[])
+    _act("save", **_fields(all_day="on", layer="", ends="2026-10-15"))
+    assert _SAVED == [Event("Pairing", date(2026, 10, 15), date(2026, 10, 15))]
+
+
 def test_a_delete_reaches_the_handler(mounted):
     mounted()
-    response = _act("delete", id="1", title="Review")
+    response = _act("delete", **{"events-id": "1", "events-title": "Review"})
     assert response.status_code == 200
     assert _DELETED == ["1"]
     assert "Deleted" in response.content.decode()
@@ -225,18 +327,17 @@ def test_the_overlap_check_answers_in_the_dialogs_own_region(mounted):
     mounted()
     response = _act(
         "overlaps",
-        **{
-            **_FIELDS,
-            "starts": "2026-10-14",
-            "starts_time": "13:30",
-            "ends": "2026-10-14",
-            "ends_time": "14:30",
-        },
+        **_fields(
+            starts="2026-10-14",
+            starts_time="13:30",
+            ends="2026-10-14",
+            ends_time="14:30",
+        ),
     )
     html = response.content.decode()
     assert html.startswith('<div id="events-overlap">')
     assert "Overlaps Review (13:00 to 14:00)." in html
-    cleared = _act("overlaps", **{**_FIELDS, "all_day": "on"}).content.decode()
+    cleared = _act("overlaps", **_fields(all_day="on")).content.decode()
     assert re.fullmatch(r'<div id="events-overlap">\s*</div>', cleared.strip())
 
 
@@ -245,7 +346,7 @@ def test_a_handler_that_fails_says_so_on_the_page(mounted):
         raise RuntimeError("down")
 
     mounted(save=fail)
-    response = _act("save", **_FIELDS)
+    response = _act("save", **_fields())
     assert response.status_code == 500
     assert "Create failed" in response.content.decode()
 
@@ -255,13 +356,13 @@ def test_a_refusal_from_the_handler_is_djangos_own_answer(mounted):
         raise PermissionDenied
 
     mounted(save=refuse)
-    assert _act("save", **_FIELDS).status_code == 403
+    assert _act("save", **_fields()).status_code == 403
 
 
 def test_an_action_that_is_not_one_is_not_found_and_the_route_wants_ajax(mounted):
     mounted()
     assert _act("archive").status_code == 404
-    assert Client().post(f"/{MOUNT}events/save/", _FIELDS).status_code == 400
+    assert Client().post(f"/{MOUNT}events/save/", _fields()).status_code == 400
 
 
 def test_without_handlers_there_is_no_route(mounted):
@@ -269,7 +370,7 @@ def test_without_handlers_there_is_no_route(mounted):
     assert [route.path for route in view.router.routes] == []
 
 
-def test_two_calendars_on_one_view_keep_their_own_routes_and_states(urlpatterns_):
+def test_two_calendars_on_one_page_keep_their_own_routes_states_and_ids(urlpatterns_):
     class TwoView(HueView):
         router = Router[HttpRequest]()
         rooms = build_calendar_state(
@@ -279,8 +380,13 @@ def test_two_calendars_on_one_view_keep_their_own_routes_and_states(urlpatterns_
             router, key="desks", events=_events, save=lambda r, e: None
         )
 
-        async def index(self, request: Any, context: Any) -> Any:  # pragma: no cover
-            raise NotImplementedError
+        async def index(self, request: Any, context: Any) -> Any:
+            return Page(
+                title="Two",
+                body=html.div(
+                    Calendar.from_state(self.rooms), Calendar.from_state(self.desks)
+                ),
+            )
 
     urlpatterns_.append(path(MOUNT, include(TwoView.urls)))
     clear_url_caches()
@@ -288,12 +394,22 @@ def test_two_calendars_on_one_view_keep_their_own_routes_and_states(urlpatterns_
         ("rooms/<str:action>/", "rooms_act"),
         ("desks/<str:action>/", "desks_act"),
     ]
-    request = MagicMock()
-    request.GET = QueryDict("rooms-view=month&desks-view=year")
-    request.resolver_match = resolve(f"/{MOUNT}")
-    rooms = _render(Calendar.from_state(TwoView.rooms), request)
-    desks = _render(Calendar.from_state(TwoView.desks), request)
-    assert "October 2026" in rooms and ">2026<" in desks
+    page = Client().get(f"/{MOUNT}", {"rooms-view": "month", "desks-view": "year"})
+    rooms_html = page.content.decode()
+    assert "October 2026" in rooms_html and ">2026<" in rooms_html
     # Each carries the other's state unchanged.
+    request = _request(**{"desks-view": "year"})
+    rooms = _render(Calendar.from_state(TwoView.rooms), request)
     assert "desks-view=year" in _hrefs(rooms.replace("rooms-", "events-"))["next"]
-    assert "rooms-view=month" in _hrefs(desks.replace("desks-", "events-"))["next"]
+    # Nothing on the page, the two dialogs included, shares an id. A dialog
+    # arrives inside its slot, which the page already holds.
+    dialogs = "".join(
+        Client()
+        .post(f"/{MOUNT}{key}/dialog/", {}, **_AJAX)
+        .content.decode()
+        .removeprefix(f'<div id="{key}-dialog">')
+        for key in ("rooms", "desks")
+    )
+    repeated = {name for name, n in _ids(rooms_html + dialogs).items() if n > 1}
+    assert repeated == set()
+    assert {"rooms-title", "desks-title"} <= set(_ids(dialogs))

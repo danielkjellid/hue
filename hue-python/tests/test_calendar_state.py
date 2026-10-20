@@ -1,17 +1,18 @@
 """
-The state a declared calendar reads off a request, the event it reads off
-the dialog, and what it draws around the calendar. The route itself is
-tested against a real Django view in hue-django.
+The state a declared calendar reads off a request and what it draws around
+the calendar, through the page a view renders: the state is what events()
+is handed, and the links are what comes back. The route itself is tested
+against a real Django view in hue-django.
 """
 
-import asyncio
 from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from hue import calendar as declared
-from hue.calendar import CalendarState, Layer, _Posted, build_calendar_state
+from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.renderer import render_tree
@@ -67,30 +68,37 @@ def _declared(router: _Router | None = None, **given: Any) -> Any:
     return build_calendar_state(router or _Router(), key="events", **given)
 
 
-def _posted(**fields: str) -> _Posted:
-    whole = {
-        "title": "Review",
-        "starts": "2026-10-14",
-        "starts_time": "13:00",
-        "ends": "2026-10-14",
-        "ends_time": "14:00",
-    }
-    return _Posted(**{**whole, **fields})
-
-
 @pytest.fixture(autouse=True)
 def _october(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(declared, "_today", lambda formats: _TODAY)
 
 
-async def _html(component: Any, context_args: Any) -> str:
-    return await render_tree(component, context_args=context_args)
-
-
-def _bound(declaration: Any, **query: str) -> Any:
+async def _drawn(declaration: Any, context_args: Any, **query: str) -> str:
+    """
+    The page a view renders for this query.
+    """
     declaration._router.query = {name: [value] for name, value in query.items()}
-    asked, others = declaration._read(declaration._router.query, _TODAY)
-    return asyncio.run(declaration._bind(None, asked, others, _TODAY, Formats()))
+    page = Calendar.from_state(declaration)
+    return await render_tree(page, context_args=context_args)
+
+
+async def _asked(context_args: Any, **query: str) -> CalendarState:
+    """
+    The state events() is handed for a page with this query, which is the
+    one public reading of what the URL said.
+    """
+    seen: list[CalendarState] = []
+
+    def events(request: Any, asked: CalendarState) -> list[Event]:
+        seen.append(asked)
+        return []
+
+    await _drawn(_declared(events=events, layers=_LAYERS), context_args, **query)
+    return seen[0]
+
+
+def _href(html: str, element_id: str) -> str:
+    return select(html, f"#{element_id}")[0]["href"]
 
 
 # The state
@@ -119,38 +127,36 @@ def test_first_and_last_cover_the_view_and_the_month_the_picker_shows():
     assert (agenda.first, agenda.last) == (date(2026, 9, 28), date(2026, 11, 12))
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "typed",
     [
         {},
-        {"events-view": ["weekly"], "events-date": ["14-10-2026"]},
-        {"events-date": ["2026-13-01"], "events-start": ["tuesday"]},
-        {"events-date": ["0001-01-01"], "events-weekdays": ["yes"]},
+        {"events-view": "weekly", "events-date": "14-10-2026"},
+        {"events-date": "2026-13-01", "events-start": "tuesday"},
+        {"events-date": "0001-01-01", "events-weekdays": "yes"},
     ],
 )
-def test_what_is_not_a_state_is_the_default(typed):
-    asked, _ = _declared()._read(typed, _TODAY)
-    expected = CalendarState(date(2, 1, 1) if "0001" in str(typed) else _TODAY)
-    assert asked == expected
+async def test_what_is_not_a_state_is_the_default(context_args, typed):
+    cursor = date(2, 1, 1) if "0001" in str(typed) else _TODAY
+    assert await _asked(context_args, **typed) == CalendarState(
+        cursor, layers=("work", "home")
+    )
 
 
-def test_the_state_is_read_under_the_key_and_the_rest_rides_along():
-    asked, others = _declared(layers=_LAYERS)._read(
-        {
-            "events-view": ["month"],
-            "events-date": ["2026-03-02"],
-            "events-q": [" planning "],
-            "events-hide": ["home,gone"],
-            "events-start": ["sunday"],
-            "events-weekdays": ["1"],
-            "tab": ["a", "b"],
-            "other-view": ["day"],
-            # The dialog's own fields, posted beside the state, which no
-            # link may carry on.
-            "title": ["Review"],
-            "starts_time": ["13:00"],
+@pytest.mark.asyncio
+async def test_the_state_is_read_under_the_key(context_args):
+    asked = await _asked(
+        context_args,
+        **{
+            "events-view": "month",
+            "events-date": "2026-03-02",
+            "events-q": " planning ",
+            "events-hide": "home,gone",
+            "events-start": "sunday",
+            "events-weekdays": "1",
+            "other-view": "day",
         },
-        _TODAY,
     )
     assert asked == CalendarState(
         date(2026, 3, 2),
@@ -161,47 +167,73 @@ def test_the_state_is_read_under_the_key_and_the_rest_rides_along():
         weekdays=True,
         layers=("work",),
     )
-    assert others == (("tab", "a"), ("tab", "b"), ("other-view", "day"))
 
 
-def test_links_carry_only_what_differs_from_the_defaults():
-    bound = _bound(_declared(week_start="sunday"), tab="all")
-    assert bound.href() == "/events/?tab=all"
-    assert bound.href(date=date(2026, 10, 21), view="month") == (
-        "/events/?tab=all&events-view=month&events-date=2026-10-21"
+@pytest.mark.asyncio
+async def test_the_rest_of_the_query_rides_along_and_the_dialogs_fields_do_not(
+    context_args,
+):
+    # A page parameter that happens to share a name with one of the
+    # dialog's fields is the page's; the field under the key is not.
+    html = await _drawn(
+        _declared(),
+        context_args,
+        **{"tab": "a", "title": "Report", "events-title": "Review"},
     )
-    assert bound.href(week_start="monday", weekdays=True) == (
-        "/events/?tab=all&events-start=monday&events-weekdays=1"
+    assert _href(html, "events-next") == (
+        "/events/?tab=a&title=Report&events-date=2026-10-21"
     )
 
 
-def test_events_is_asked_for_the_days_and_the_layers_shown():
-    asked: list[CalendarState] = []
+@pytest.mark.asyncio
+async def test_links_carry_only_what_differs_from_the_defaults(context_args):
+    html = await _drawn(_declared(week_start="sunday"), context_args, tab="all")
+    assert _href(html, "events-today") == "/events/?tab=all"
+    assert _href(html, "events-next") == "/events/?tab=all&events-date=2026-10-21"
+    # Back to Monday is a change from this calendar's default, so it is said.
+    html = await _drawn(
+        _declared(week_start="sunday"),
+        context_args,
+        **{"events-start": "monday", "events-weekdays": "1"},
+    )
+    assert _href(html, "events-today") == (
+        "/events/?events-start=monday&events-weekdays=1"
+    )
 
-    def events(request: Any, state: CalendarState) -> list[Event]:
-        asked.append(state)
-        return []
 
-    _bound(_declared(events=events, layers=_LAYERS), **{"events-hide": "work"})
-    assert asked[0].layers == ("home",)
-    assert (asked[0].first, asked[0].last) == (date(2026, 9, 28), date(2026, 11, 8))
+@pytest.mark.asyncio
+async def test_events_is_asked_for_the_days_and_the_layers_shown(context_args):
+    asked = await _asked(context_args, **{"events-hide": "work"})
+    assert asked.layers == ("home",)
+    assert (asked.first, asked.last) == (date(2026, 9, 28), date(2026, 11, 8))
 
 
-def test_an_event_takes_its_layers_colour_unless_it_chose_one():
-    bound = _bound(_declared(layers=_LAYERS))
-    assert [event.color for event in bound.events] == [None, 3]
-    chosen = _bound(
+@pytest.mark.asyncio
+async def test_an_event_takes_its_layers_colour_unless_it_chose_one(context_args):
+    html = await _drawn(
         _declared(
             layers=_LAYERS,
-            events=lambda r, s: [Event("Own", _TODAY, layer="home", color=5)],
-        )
+            events=lambda r, s: [
+                Event("Own", _TODAY, layer="home", color=5),
+                Event("Home", _TODAY, layer="home"),
+            ],
+        ),
+        context_args,
     )
-    assert chosen.events[0].color == 5
+    own, home = (
+        select(html, f"#events-view button[aria-label^='{title},']")[0]["class"]
+        for title in ("Own", "Home")
+    )
+    assert "border-chart-5" in own
+    assert "border-chart-3" in home
 
 
-def test_something_that_is_not_an_event_is_refused_by_name():
+@pytest.mark.asyncio
+async def test_something_that_is_not_an_event_is_refused_by_name(context_args):
     with pytest.raises(TypeError, match="events"):
-        _bound(_declared(events=lambda r, s: [{"title": "Offsite"}]))
+        await _drawn(
+            _declared(events=lambda r, s: [{"title": "Offsite"}]), context_args
+        )
 
 
 # The declaration
@@ -230,80 +262,6 @@ def test_a_declaration_that_cannot_work_is_refused(given, complaint):
         build_calendar_state(_Router(), **given)
 
 
-# The dialog's fields
-
-
-def test_the_fields_become_an_event_in_the_readers_time():
-    event, errors = _declared(
-        layers=_LAYERS, save=lambda r, e: None, repeats={"weekly": "Weekly"}
-    )._draft(
-        _posted(id="7", layer="home", repeat="weekly", location=" Room 3B ", notes="")
-    )
-    assert errors == {}
-    assert event == Event(
-        "Review",
-        datetime(2026, 10, 14, 13),
-        datetime(2026, 10, 14, 14),
-        id="7",
-        location="Room 3B",
-        repeat="weekly",
-        layer="home",
-    )
-
-
-def test_a_whole_day_event_is_a_pair_of_dates_that_may_be_the_same_day():
-    event, errors = _declared()._draft(
-        _posted(all_day="on", starts_time="", ends_time="")
-    )
-    assert errors == {}
-    assert (event.starts, event.ends) == (date(2026, 10, 14), date(2026, 10, 14))
-
-
-@pytest.mark.parametrize(
-    ("fields", "wrong"),
-    [
-        ({"title": "  "}, {"title": "Give the event a title."}),
-        ({"starts": "14.10.2026"}, {"starts": "Enter a date."}),
-        ({"ends_time": "2pm"}, {"ends_time": "Enter a time."}),
-        ({"ends_time": "12:00"}, {"ends_time": "Ends before it starts."}),
-        ({"ends_time": "13:00"}, {"ends_time": "Starts and ends at the same time."}),
-        (
-            {"all_day": "on", "ends": "2026-10-13"},
-            {"ends": "Ends before it starts."},
-        ),
-        ({"repeat": "yearly"}, {"repeat": "Choose how it repeats."}),
-    ],
-)
-def test_what_cannot_be_read_is_an_error_on_its_field(fields, wrong):
-    event, errors = _declared(save=lambda r, e: None)._draft(_posted(**fields))
-    assert event is None
-    assert errors == wrong
-
-
-def test_a_layer_is_required_when_there_are_layers():
-    assert _declared(layers=_LAYERS)._draft(_posted())[1] == {
-        "layer": "Choose a calendar."
-    }
-    assert _declared()._draft(_posted())[1] == {}
-
-
-def test_the_overlap_check_names_the_timed_events_that_share_a_moment():
-    found = _declared()._overlapping(
-        None,
-        CalendarState(_TODAY),
-        Event("New", datetime(2026, 10, 14, 13, 30), datetime(2026, 10, 14, 15)),
-        Formats(),
-    )
-    assert [event.title for event in found] == ["Review"]
-    # Not the event being edited, and not a whole-day one.
-    itself = Event(
-        "Review", datetime(2026, 10, 14, 13), datetime(2026, 10, 14, 15), id="1"
-    )
-    assert (
-        _declared()._overlapping(None, CalendarState(_TODAY), itself, Formats()) == []
-    )
-
-
 # What is drawn
 
 
@@ -312,9 +270,8 @@ class TestDrawn:
     async def test_the_sidebar_the_toolbar_and_the_calendar_hang_off_the_key(
         self, context_args
     ):
-        html = await _html(
-            Calendar.from_state(_declared(layers=_LAYERS, search="Search events")),
-            context_args,
+        html = await _drawn(
+            _declared(layers=_LAYERS, search="Search events"), context_args
         )
         assert_attr(html, "aside#events-side", "x-sync")
         assert_attr(html, "#events-view", "x-sync")
@@ -334,12 +291,20 @@ class TestDrawn:
         assert_selector(html, "#events-state")
 
     @pytest.mark.asyncio
+    async def test_without_a_search_there_is_no_box_and_no_count(self, context_args):
+        html = await _drawn(_declared(), context_args)
+        assert_no_selector(html, "#events-search")
+        assert_no_selector(html, "#events-matches")
+
+    @pytest.mark.asyncio
     async def test_a_hidden_layer_is_unticked_and_the_forms_carry_the_rest(
         self, context_args
     ):
-        declaration = _declared(layers=_LAYERS, search="Search events")
-        declaration._router.query = {"events-hide": ["home"], "events-view": ["month"]}
-        html = await _html(Calendar.from_state(declaration), context_args)
+        html = await _drawn(
+            _declared(layers=_LAYERS, search="Search events"),
+            context_args,
+            **{"events-hide": "home", "events-view": "month"},
+        )
         assert_attr(html, "#events-show-work", "checked")
         assert "checked" not in select(html, "#events-show-home")[0].attrs
         carried = select(html, "input[form=events-search]")
@@ -352,27 +317,40 @@ class TestDrawn:
     async def test_the_search_says_how_many_it_found_among_the_days_shown(
         self, context_args
     ):
-        declaration = _declared(search="Search events")
-        declaration._router.query = {"events-q": ["re"]}
-        html = await _html(Calendar.from_state(declaration), context_args)
+        html = await _drawn(
+            _declared(search="Search events"), context_args, **{"events-q": "re"}
+        )
         assert select(html, "#events-matches")[0].get_text() == '1 event matches "re".'
+
+    @pytest.mark.asyncio
+    async def test_the_sidebar_names_the_timezone_when_the_framework_sets_one(self):
+        oslo = ZoneInfo("Europe/Oslo")
+        args = HueContextArgs(
+            request=None,
+            csrf_token="tok",
+            formats=Formats(localize=lambda moment: moment.astimezone(oslo)),
+        )
+        html = await _drawn(_declared(), args)
+        assert "Times in Europe/Oslo" in select(html, "#events-side")[0].get_text()
+        # Without one the times are shown as given, and nothing is claimed.
+        html = await _drawn(_declared(), HueContextArgs(request=None, csrf_token="t"))
+        assert "Times in" not in html
 
     @pytest.mark.asyncio
     async def test_without_a_save_there_is_nothing_to_create_or_edit_with(
         self, context_args
     ):
-        html = await _html(Calendar.from_state(_declared()), context_args)
+        html = await _drawn(_declared(), context_args)
         assert_no_selector(html, "#events-new")
         assert_no_selector(html, "[aria-label='Delete event']")
         assert "@click" not in select(html, "#events")[0].attrs
 
     @pytest.mark.asyncio
-    async def test_with_handlers_the_popover_posts_the_event_back(self, context_args):
-        html = await _html(
-            Calendar.from_state(
-                _declared(save=lambda r, e: None, delete=lambda r, i: None)
-            ),
-            context_args,
+    async def test_with_handlers_the_popover_posts_the_event_back_under_the_key(
+        self, context_args
+    ):
+        html = await _drawn(
+            _declared(save=lambda r, e: None, delete=lambda r, i: None), context_args
         )
         assert_attr(html, "#events-new", "@click", "create()")
         assert_attr(html, "#events", "@click", "slot($event)")
@@ -383,7 +361,7 @@ class TestDrawn:
         ]
         # One event is in the week; the offsite is the week after.
         assert len(edits) == 1
-        assert '"starts_time": "13:00"' in edits[0]["@click"]
+        assert '"events-starts_time": "13:00"' in edits[0]["@click"]
         assert_selector(html, "[aria-label='Delete event']", count=1)
 
     @pytest.mark.asyncio
@@ -399,88 +377,3 @@ class TestDrawn:
         assert_selector(html, "#desks-side")
         assert_selector(html, "#rooms-picker")
         assert_selector(html, "#desks-picker")
-
-
-class TestDialog:
-    async def _dialog(
-        self, declaration: Any, posted: _Posted, errors: dict[str, str]
-    ) -> Any:
-        asked, others = declaration._read({}, _TODAY)
-        bound = await declaration._bind(None, asked, others, _TODAY, Formats())
-        return declaration._dialog(bound, posted, errors)
-
-    @pytest.mark.asyncio
-    async def test_a_new_event_has_the_fields_and_posts_the_state(self, context_args):
-        declaration = _declared(
-            layers=_LAYERS, save=lambda r, e: None, repeats={"weekly": "Every week"}
-        )
-        html = await _html(await self._dialog(declaration, _posted(), {}), context_args)
-        assert_attr(html, "[role=dialog]", "aria-modal", "true")
-        assert "New event" in html
-        form = select(html, "form#events-form")[0]
-        assert form["action"] == "/events/save/"
-        assert form["x-target"] == "events-dialog"
-        assert "novalidate" in form.attrs
-        for name in ("title", "all_day", "starts", "starts_time", "ends", "ends_time"):
-            assert_selector(html, f"#events-form [name={name}]")
-        assert_attr(html, "input[name=title]", "x-autofocus")
-        assert [
-            o.get_text(strip=True) for o in select(html, "select[name=layer] option")
-        ] == [
-            "Work",
-            "Home",
-        ]
-        assert [
-            o.get_text(strip=True) for o in select(html, "select[name=repeat] option")
-        ] == [
-            "Does not repeat",
-            "Every week",
-        ]
-        assert_attr(html, "#events-overlap", "role", "status")
-        assert_no_selector(html, "[formaction='/events/delete/']")
-
-    @pytest.mark.asyncio
-    async def test_an_existing_event_can_be_deleted_from_its_dialog(self, context_args):
-        declaration = _declared(save=lambda r, e: None, delete=lambda r, i: None)
-        html = await _html(
-            await self._dialog(declaration, _posted(id="7"), {}), context_args
-        )
-        assert "Edit event" in html
-        assert_attr(html, "input[name=id]", "value", "7")
-        assert_attr(html, "[formaction='/events/delete/']", "form", "events-form")
-        assert_no_selector(html, "select[name=layer]")
-        assert_no_selector(html, "select[name=repeat]")
-
-    @pytest.mark.asyncio
-    async def test_errors_land_on_their_fields(self, context_args):
-        declaration = _declared(save=lambda r, e: None)
-        html = await _html(
-            await self._dialog(
-                declaration,
-                _posted(title=""),
-                {
-                    "title": "Give the event a title.",
-                    "ends_time": "Ends before it starts.",
-                },
-            ),
-            context_args,
-        )
-        assert_attr(html, "input[name=title]", "aria-invalid", "true")
-        assert "Give the event a title." in html
-        assert "Ends before it starts." in html
-
-
-def test_the_overlap_warning_names_two_and_counts_the_rest():
-    found = [
-        Event("A", datetime(2026, 10, 14, 13), datetime(2026, 10, 14, 14)),
-        Event("B", datetime(2026, 10, 14, 13), datetime(2026, 10, 14, 15)),
-        Event("C", datetime(2026, 10, 14, 13), datetime(2026, 10, 14, 16)),
-    ]
-    html = asyncio.run(
-        render_tree(
-            declared._overlap_warning(found, Formats()),
-            context_args=HueContextArgs(request=None, csrf_token=""),
-        )
-    )
-    assert "Overlaps A (13:00 to 14:00) and B (13:00 to 15:00) and 1 more." in html
-    assert declared._overlap_warning([], Formats()) == ""

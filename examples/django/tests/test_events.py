@@ -51,7 +51,12 @@ def _read(**params: str) -> str:
 
 
 def _act(action: str, **posted: Any) -> Any:
-    return Client().post(f"/events/events/{action}/", {**_WEEK, **posted}, **_AJAX)
+    """
+    One of the route's actions, with the dialog's fields posted under the
+    key as the dialog posts them.
+    """
+    fields = {f"events-{name}": value for name, value in posted.items()}
+    return Client().post(f"/events/events/{action}/", {**_WEEK, **fields}, **_AJAX)
 
 
 def test_the_page_draws_the_week_with_a_series_expanded_onto_its_days(entries):

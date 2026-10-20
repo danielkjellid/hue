@@ -341,7 +341,10 @@ def _build() -> ComponentType:
             "the key. The dialog, the popover's buttons and a slot click post the "
             "calendar's state along with the fields, so after a save the calendar "
             "comes back in the view the reader was in, with a toast saying what "
-            "happened. If a handler raises, the reader gets a danger toast, the "
+            "happened. The fields are posted under the key like the state, "
+            "events-title and events-starts, and those are the controls' ids too, "
+            "so two calendars on one page keep their dialogs apart and a page "
+            "parameter called title is left alone. If a handler raises, the reader gets a danger toast, the "
             "calendar redraws as it now is, and the error is logged with its "
             "traceback. A permission denied or a not found is Django's own answer."
         ),
