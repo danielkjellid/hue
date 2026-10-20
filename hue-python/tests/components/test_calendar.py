@@ -380,6 +380,18 @@ class TestTimeGrid:
         assert first["aria-label"] == second["aria-label"] == name
 
     @pytest.mark.asyncio
+    async def test_a_short_end_of_an_overnight_event_shows_midnight(self, context_args):
+        late = Event(
+            "Late", datetime(2026, 10, 14, 23, 30), datetime(2026, 10, 15, 0, 30)
+        )
+        html = await _html(_calendar(late), context_args)
+        first, second = (
+            box.select_one("button") for box in select(html, "li.absolute")
+        )
+        assert first.select("span")[-1].get_text() == "23:30"
+        assert second.select("span")[-1].get_text() == "00:00"
+
+    @pytest.mark.asyncio
     async def test_an_event_ending_at_midnight_fills_its_day_and_stops(
         self, context_args
     ):
