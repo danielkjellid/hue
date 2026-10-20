@@ -200,7 +200,13 @@ class _Frame(ChainableComponent):
         return html.div(
             *self._children,
             html.div(id=_slot(bound.key), **{"data-hue-refocus": refocus}),
-            render_when(bound.shortcuts is not None, _Help(bound)),
+            # Synced, so the help comes with whichever calendar's answer
+            # takes the keys, also on a page where another one drew them.
+            html.div(
+                render_when(bound.shortcuts is not None, _Help(bound)),
+                id=f"{bound.key}-shortcuts",
+                **SYNC,
+            ),
             class_="flex flex-col gap-4 lg:flex-row lg:items-start",
             **{"x-data": call("hueCalendar", config)},
         )

@@ -260,6 +260,16 @@ class Draw:
     def clock(self, moment: datetime | time) -> str:
         return self.formats.write(self.formats.time, moment)
 
+    def button(self, event: Event, *, continued: bool) -> EventButton:
+        """
+        The control that opens an event, named in full. Marked for focus
+        once a change is drawn on the copy where the event starts, and on
+        none of the copies that carry it on into the days after.
+        """
+        return EventButton(event, self.name(event)).x_autofocus(
+            event is self.focus and not continued
+        )
+
     def name(self, event: Event) -> str:
         """
         The whole of an event in words, for the control that opens it: a
@@ -533,8 +543,7 @@ class Draw:
         continues past. compact folds it to a bare bar on a narrow screen.
         """
         button = (
-            EventButton(event, self.name(event))
-            .x_autofocus(event is self.focus)
+            self.button(event, continued=before)
             .class_(
                 classnames(
                     _EVENT,
@@ -564,8 +573,7 @@ class Draw:
         event = placed.event
         starts = starts_on(placed, self.formats)
         button = (
-            EventButton(event, self.name(event))
-            .x_autofocus(event is self.focus)
+            self.button(event, continued=placed.continues_before)
             .class_(
                 classnames(
                     _DOTTED,
@@ -788,8 +796,7 @@ def _timed(
     else:
         title_classes, time_classes = "block truncate", "block truncate"
     button = (
-        EventButton(event, draw.name(event))
-        .x_autofocus(event is draw.focus)
+        draw.button(event, continued=placed.continues_before)
         .class_(
             classnames(
                 _EVENT,
@@ -803,7 +810,7 @@ def _timed(
                     "rounded-t-none": placed.continues_before,
                     "rounded-b-none": placed.continues_after,
                     # Movable, a finger on it drags it rather than the grid.
-                    "relative touch-none": draw.movable,
+                    f"relative {_MOVABLE}": draw.movable,
                 },
             )
         )
@@ -1080,8 +1087,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         nth = (placed.day - first).days + 1
         when = "All day" if total == 1 else f"Day {nth} of {total}"
     button = (
-        EventButton(event, draw.name(event))
-        .x_autofocus(event is draw.focus)
+        draw.button(event, continued=placed.continues_before)
         .class_(
             classnames(
                 "grid w-full cursor-pointer grid-cols-[6.5rem_auto_minmax(0,1fr)] "
