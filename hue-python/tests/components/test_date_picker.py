@@ -91,9 +91,13 @@ class TestDatePicker:
         with pytest.raises(ValueError, match="single"):
             await render_tree(_picker().value(*two), context_args=context_args)
 
-    def test_a_datetime_is_refused(self):
-        with pytest.raises(ValueError, match="days"):
-            _picker().value(datetime(2026, 10, 9, 12, 0))
+    @pytest.mark.parametrize(
+        "modifier", ["value", "min", "max", "unavailable", "markers"]
+    )
+    @pytest.mark.parametrize("day", [datetime(2026, 10, 9, 12, 0), None])
+    def test_only_dates_are_taken(self, modifier, day):
+        with pytest.raises(ValueError, match="takes dates"):
+            getattr(_picker(), modifier)(day)
 
     def test_no_months_is_refused(self):
         with pytest.raises(ValueError, match="at least one"):
@@ -155,7 +159,7 @@ class TestDatePicker:
     @pytest.mark.asyncio
     async def test_each_day_is_submitted_under_the_name(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_attr(html, "template", "x-for", "day in value")
+        assert_attr(html, "template", "x-for", "(day, i) in value")
         field = 'template input[type="hidden"]'
         assert_attr(html, field, "name", "due")
         assert_attr(html, field, ":value", "day")

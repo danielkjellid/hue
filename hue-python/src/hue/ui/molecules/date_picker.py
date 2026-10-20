@@ -105,12 +105,9 @@ class DatePicker(FormControl):
 
     def value(self, *days: date) -> Self:
         """
-        The days selected to start with. A datetime is refused, since the
-        picker holds days.
+        The days selected to start with.
         """
-        if any(isinstance(day, datetime) for day in days):
-            raise ValueError("A DatePicker holds days. Pass value.date().")
-        self._props["value"] = days
+        self._props["value"] = _days(*days)
         return self
 
     def mode(self, value: DatePickerMode) -> Self:
@@ -131,14 +128,14 @@ class DatePicker(FormControl):
         """
         The first day that can be picked.
         """
-        self._props["min"] = value
+        (self._props["min"],) = _days(value)
         return self
 
     def max(self, value: date) -> Self:
         """
         The last day that can be picked.
         """
-        self._props["max"] = value
+        (self._props["max"],) = _days(value)
         return self
 
     def unavailable(self, *days: date | Weekday) -> Self:
@@ -146,6 +143,7 @@ class DatePicker(FormControl):
         Days that refuse a pick: dates, or weekdays by name for every one of
         them, as in unavailable("saturday", "sunday").
         """
+        _days(*(day for day in days if not isinstance(day, str)))
         self._props["unavailable"] = days
         return self
 
@@ -155,7 +153,7 @@ class DatePicker(FormControl):
         each one's accessible name, since a dot says nothing to a screen
         reader.
         """
-        self._props["markers"] = days
+        self._props["markers"] = _days(*days)
         self._props["marker_label"] = label
         return self
 
@@ -222,7 +220,8 @@ class DatePicker(FormControl):
                 disabled=disabled or None,
                 **{":value": "day"},
             ),
-            **{"x-for": "day in value", ":key": "day"},
+            # Keyed by position: a range picked on one day holds it twice.
+            **{"x-for": "(day, i) in value", ":key": "i"},
         )
         return html.div(
             submitted,
@@ -405,6 +404,17 @@ class DatePicker(FormControl):
             ),
             class_="flex flex-col gap-1.5",
         )
+
+
+def _days(*days: date) -> tuple[date, ...]:
+    """
+    The picker holds days. A datetime would compare as text against the
+    days it is checked with and quietly match none of them.
+    """
+    for day in days:
+        if not isinstance(day, date) or isinstance(day, datetime):
+            raise ValueError(f"A DatePicker takes dates, not {day!r}.")
+    return days
 
 
 def _caption(*parts: ComponentType) -> ComponentType:

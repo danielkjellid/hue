@@ -79,6 +79,10 @@ export function datePicker(config) {
 	const name = (day) =>
 		`${dayNames[weekday(parse(day))]} ${+day.slice(8)} ${monthNames[+day.slice(5, 7) - 1]} ${day.slice(0, 4)}`;
 	const clamp = (day) => (min && day < min ? min : max && day > max ? max : day);
+	const inBounds = (year) => year >= FIRST_MONTH / 12 && year <= Math.floor(LAST_MONTH / 12);
+	// The selection as the picker last saw it, so a change from outside,
+	// through x-model, can be told from a pick.
+	let seen = config.value.join();
 
 	return {
 		value: [...config.value],
@@ -93,6 +97,14 @@ export function datePicker(config) {
 		init() {
 			this.focus = this.value[0] ?? clamp(today());
 			this.shown = monthOf(this.focus);
+			// A value set from outside moves the view to it. Picks are made
+			// on a shown month already, and a multiple pick must not page
+			// back to the earliest day.
+			this.$watch("value", (value) => {
+				if (value.join() === seen) return;
+				seen = value.join();
+				if (value[0]) this.show(value[0]);
+			});
 		},
 
 		// Focus day, paging only when it falls outside the shown months.
@@ -207,6 +219,7 @@ export function datePicker(config) {
 				":aria-pressed": () =>
 					String(Boolean(this.value[0]) && +this.value[0].slice(0, 4) === this.yearAt(i)),
 				":data-current": () => +today().slice(0, 4) === this.yearAt(i) || null,
+				":disabled": () => !inBounds(this.yearAt(i)) || null,
 				"x-on:click": () => this.chooseYear(this.yearAt(i)),
 			};
 		},
@@ -245,6 +258,7 @@ export function datePicker(config) {
 		},
 
 		chooseYear(year) {
+			if (!inBounds(year)) return;
 			this.shown = year * 12 + (this.shown % 12);
 			this.focus = addMonths(this.focus, (year - +this.focus.slice(0, 4)) * 12);
 			// On the month being shown, which the year kept.
@@ -268,6 +282,7 @@ export function datePicker(config) {
 		select(day) {
 			if (disabled || this.isUnavailable(day)) return false;
 			this.value = PICK[mode](this.value, day);
+			seen = this.value.join();
 			this.hover = null;
 			return mode === "single" || (mode === "range" && this.value.length === 2);
 		},
