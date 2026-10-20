@@ -446,14 +446,9 @@ class _Draw:
         """
         formats = self.formats
         if event.timed:
-            starts, ends = event.moments(formats)
-            if ends.date() == starts.date():
-                when = f"{self.clock(starts)} to {self.clock(ends)}, "
-                when += formats.day(starts.date())
-            else:
-                when = f"{self.clock(starts)} {formats.day(starts.date())} to "
-                when += f"{self.clock(ends)} {formats.day(ends.date())}"
-            text = f"{event.title}, {when}"
+            starts = event.moments(formats)[0]
+            text = f"{event.title}, {formats.day(starts.date())}, "
+            text += self.times(event, "to")
         else:
             first, last = event.span(formats)
             text = f"{event.title}, all day, {formats.day(first)}"
@@ -461,18 +456,22 @@ class _Draw:
                 text += f" to {formats.day(last)}"
         return f"{text}, repeats" if event.recurring else text
 
+    def times(self, event: Event, to: str = _DASH, *, end_day: bool = True) -> str:
+        """
+        A timed event by the clock: 13:00 to 14:30, with the end's day after
+        its time when the event ends on another day and end_day asks for it.
+        """
+        starts, ends = event.moments(self.formats)
+        text = f"{self.clock(starts)} {to} {self.clock(ends)}"
+        if end_day and ends.date() != starts.date():
+            text += f" {self.formats.day(ends.date())}"
+        return text
+
     def when(self, event: Event) -> str:
         formats = self.formats
         if event.timed:
-            starts, ends = event.moments(formats)
-            if ends.date() == starts.date():
-                span = f"{self.clock(starts)} {_DASH} {self.clock(ends)}"
-            else:
-                span = (
-                    f"{self.clock(starts)} {_DASH} {self.clock(ends)} "
-                    f"{formats.day(ends.date())}"
-                )
-            return f"{formats.day(starts.date())} · {span}"
+            starts = event.moments(formats)[0]
+            return f"{formats.day(starts.date())} · {self.times(event)}"
         first, last = event.span(formats)
         days = formats.day(first)
         if last != first:
@@ -882,7 +881,7 @@ class _Draw:
     ) -> ComponentType:
         event = placed.event
         start, end = span
-        starts, ends = event.moments(self.formats)
+        starts = event.moments(self.formats)[0]
         height = max((end - start) * _HOUR // 60 - 2, 18)
         short = end - start < _SHORT
         if short:
@@ -913,9 +912,7 @@ class _Draw:
                 class_=classnames("font-semibold", title_classes),
             ),
             html.span(
-                self.clock(starts)
-                if short
-                else f"{self.clock(starts)} {_DASH} {self.clock(ends)}",
+                self.clock(starts) if short else self.times(event, end_day=False),
                 class_=classnames("tabular-nums text-fg-muted", time_classes),
             ),
         )
@@ -1178,8 +1175,7 @@ class _Draw:
         event = placed.event
         formats = self.formats
         if event.timed:
-            starts, ends = event.moments(formats)
-            when = f"{self.clock(starts)} {_DASH} {self.clock(ends)}"
+            when = self.times(event, end_day=False)
         else:
             first, last = event.span(formats)
             total = (last - first).days + 1

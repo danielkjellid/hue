@@ -248,10 +248,10 @@ class TestTimeGrid:
     async def test_an_event_is_named_by_its_title_time_and_day(self, context_args):
         html = await _html(_calendar(_REVIEW, _STANDUP), context_args)
         assert _event(html, "Design review")["aria-label"] == (
-            "Design review, 13:00 to 14:30, Wednesday 14 October 2026"
+            "Design review, Wednesday 14 October 2026, 13:00 to 14:30"
         )
         standup = _event(html, "Standup")
-        assert standup["aria-label"].endswith("Monday 12 October 2026, repeats")
+        assert standup["aria-label"].endswith("09:00 to 09:15, repeats")
         assert standup.select_one("svg title").get_text() == "repeat"
         assert _event(html, "Design review").select_one("svg") is None
 
@@ -292,7 +292,7 @@ class TestTimeGrid:
         assert "rounded-t-none" not in first["class"]
         assert "rounded-t-none" in second["class"]
         assert "rounded-b-none" not in second["class"]
-        name = "Late, 23:00 Wednesday 14 October 2026 to 01:00 Thursday 15 October 2026"
+        name = "Late, Wednesday 14 October 2026, 23:00 to 01:00 Thursday 15 October 2026"
         assert first["aria-label"] == second["aria-label"] == name
 
     @pytest.mark.asyncio
