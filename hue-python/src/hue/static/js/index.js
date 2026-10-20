@@ -3,6 +3,7 @@ import focus from "@alpinejs/focus";
 import ajax from "@imacrayon/alpine-ajax";
 import Alpine from "alpinejs";
 import { clearStaleBusyMarks } from "./ajax-busy.js";
+import { registerCalendarData } from "./calendar.js";
 import { registerChartData } from "./chart-loader.js";
 import { registerComboboxData } from "./combobox.js";
 import { registerCommandData } from "./command.js";
@@ -50,6 +51,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 
 	clearStaleBusyMarks();
 
+	registerCalendarData(Alpine);
 	registerChartData(Alpine);
 	registerComboboxData(Alpine);
 	registerCommandData(Alpine);

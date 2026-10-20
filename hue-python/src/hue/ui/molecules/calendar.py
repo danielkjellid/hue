@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -9,7 +10,7 @@ from typing_extensions import Self
 from hue.formats import Formats
 from hue.types.core import Component
 from hue.ui._styles import LOADING
-from hue.ui.base import ChainableComponent
+from hue.ui.base import Awaited, ChainableComponent
 from hue.ui.molecules._calendar_views import (
     FIRST,
     LAST,
@@ -23,6 +24,9 @@ from hue.ui.molecules._days import Event, EventColor
 from hue.ui.molecules.date_picker import Weekday
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
+
+if TYPE_CHECKING:
+    from hue.calendar import _Declaration
 
 __all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
 
@@ -62,6 +66,17 @@ class Calendar(ChainableComponent):
     """
 
     category = "Data"
+
+    @classmethod
+    def from_state(cls, declaration: _Declaration) -> Self:
+        """
+        The calendar a declaration describes, bound to the request of the
+        page it is rendered on, with the sidebar, the search and the event
+        dialog around it.
+        """
+        calendar = cls()
+        calendar._props["declaration"] = declaration
+        return calendar
 
     @classmethod
     def example(cls) -> Self:
@@ -168,6 +183,18 @@ class Calendar(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        declaration: _Declaration | None = self._get_prop("declaration")
+        if declaration is not None:
+            # A copy without the declaration goes in, or drawing it would
+            # hand it straight back to the declaration again.
+            undeclared = Calendar()
+            undeclared._props = {
+                k: v for k, v in self._props.items() if k != "declaration"
+            }
+            undeclared._attrs = dict(self._attrs)
+            undeclared._children = self._children
+            return Awaited(lambda context: declaration.draw(undeclared, context))
+
         cursor: date | None = self._get_prop("date")
         if cursor is None:
             raise ValueError("Calendar needs a date(): the day its view is around.")

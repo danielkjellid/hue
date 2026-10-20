@@ -312,6 +312,23 @@ class TextInput(_BaseInput):
     _input_type = "text"
 
 
+class SearchInput(TextInput):
+    """
+    A text input with the search type, which gives it the search role and a
+    search key on a phone's keyboard. Drawn by the declared table and the
+    declared calendar for their search boxes, and not exported: a search
+    box is a GET form around one of these, which they build.
+    """
+
+    _input_type = "search"
+
+
+# How long a search box waits after the last keystroke before it submits.
+# Long enough that a word typed at speed is one request rather than five,
+# short enough that the rows have moved by the time you look at them.
+SEARCH_DELAY = "300ms"
+
+
 class EmailInput(_BaseInput):
     """
     An email input, with autocomplete preset to email.
