@@ -14,19 +14,19 @@ from typing import Any, NamedTuple
 from htmy import html
 
 from hue._calendar_state import (
-    _DELETE,
-    _DIALOG,
-    _MOVE,
-    _OVERLAPS,
-    _SAVE,
+    DELETE,
+    DIALOG,
+    MOVE,
+    OVERLAPS,
+    SAVE,
     BoundCalendar,
     CalendarState,
     Layer,
-    _clock,
-    _day,
-    _overlap,
-    _slot,
-    _zone,
+    overlap_id,
+    read_clock,
+    read_day,
+    slot_id,
+    zone_of,
 )
 from hue._declared import carried, csrf
 from hue.formats import Formats
@@ -57,7 +57,7 @@ _LONGEST = 366
 
 
 @dataclass(frozen=True, slots=True)
-class _Posted:
+class Posted:
     """
     The dialog's fields as the form posts them, every one text, so that a
     value that cannot be read is an error on its field and never a 422
@@ -85,7 +85,7 @@ class _Posted:
     undo: str = ""
 
 
-_FIELDS = tuple(each.name for each in fields(_Posted))
+FIELDS = tuple(each.name for each in fields(Posted))
 
 
 def _exists(moment: datetime, zone: tzinfo) -> bool:
@@ -108,7 +108,7 @@ _DONE = {
 }
 
 
-class _Undo(NamedTuple):
+class Undo(NamedTuple):
     """
     Which action an Undo posts to, and the fields it posts, under the key.
     """
@@ -117,7 +117,7 @@ class _Undo(NamedTuple):
     fields: Mapping[str, str | None]
 
 
-def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
+def said(verb: str, named: str, series: bool, *, undone: bool) -> str:
     """
     The toast's title. A series is said to move or go as a whole, since
     the app's save and delete are handed the one event the series is.
@@ -131,7 +131,7 @@ def _said(verb: str, named: str, series: bool, *, undone: bool) -> str:
     return f'{_DONE[verb]} "{named}"'
 
 
-def _id_of(made: Any) -> str | None:
+def id_of(made: Any) -> str | None:
     """
     The id a save handler returned for a new event, as the id, the Event
     it saved or nothing. A bool is a yes, not an id.
@@ -143,14 +143,14 @@ def _id_of(made: Any) -> str | None:
     return None
 
 
-def _undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> _Undo | None:
+def undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> Undo | None:
     if made is None:
         return None
     param = bound.declaration.param
-    return _Undo(_DELETE, {param("id"): made, param("title"): draft.title})
+    return Undo(DELETE, {param("id"): made, param("title"): draft.title})
 
 
-def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
+def undo_delete(bound: BoundCalendar, was: Event | None) -> Undo | None:
     if was is None:
         return None
     param = bound.declaration.param
@@ -159,18 +159,18 @@ def _undo_delete(bound: BoundCalendar, was: Event | None) -> _Undo | None:
         param("id"): None,
         param("occurrence"): None,
     }
-    return _Undo(_SAVE, fields)
+    return Undo(SAVE, fields)
 
 
-def _undo_save(bound: BoundCalendar, was: Event) -> _Undo:
+def undo_save(bound: BoundCalendar, was: Event) -> Undo:
     """
     An edit put back: the fields events() had, a series from its first
     occurrence.
     """
-    return _Undo(_SAVE, _fields(bound, _first(was)))
+    return Undo(SAVE, _fields(bound, _first(was)))
 
 
-def _undo_move(bound: BoundCalendar, was: Event, landed: Event) -> _Undo:
+def undo_move(bound: BoundCalendar, was: Event, landed: Event) -> Undo:
     """
     A move put back: the times events() had, a series from its first
     occurrence, posted for the occurrence where the event landed.
@@ -181,7 +181,7 @@ def _undo_move(bound: BoundCalendar, was: Event, landed: Event) -> _Undo:
         param("id"): was.id,
         param("occurrence"): stamps(landed, bound.formats)[0],
     }
-    return _Undo(_MOVE, fields)
+    return Undo(MOVE, fields)
 
 
 def landing(bound: BoundCalendar, wanted: Event) -> Event | None:
@@ -212,7 +212,7 @@ def _first(event: Event) -> Event:
     return replace(event, starts=first, ends=ends)
 
 
-def _series(
+def series_moved(
     was: Event, starts: Any, ends: Any, formats: Formats
 ) -> tuple[date | datetime, date | datetime] | None:
     """
@@ -233,7 +233,7 @@ def _series(
         datetime.combine(day, starts.time()) if isinstance(starts, datetime) else day
     )
     finishes = begins + (ends - starts)
-    zone = _zone(formats)
+    zone = zone_of(formats)
     if isinstance(begins, datetime) and zone is not None:
         if not (_exists(begins, zone) and _exists(finishes, zone)):
             return None
@@ -241,7 +241,7 @@ def _series(
 
 
 # Why a series is refused when its first occurrence would land in that hour.
-_SERIES_SKIPPED = (
+SERIES_SKIPPED = (
     "The series would start in an hour that is skipped when the clocks go forward."
 )
 
@@ -250,9 +250,9 @@ def _date_of(value: date) -> date:
     return value.date() if isinstance(value, datetime) else value
 
 
-def _undo_button(
+def undo_button(
     bound: BoundCalendar,
-    undo: _Undo,
+    undo: Undo,
 ) -> Button:
     """
     The toast's Undo: the same route, told it is undoing, and the toast
@@ -263,7 +263,7 @@ def _undo_button(
     request = ajax(
         bound.urls.act[undo.action],
         method="post",
-        target=_slot(bound.key),
+        target=slot_id(bound.key),
         body={
             **dict(bound.query(bound.state)),
             **undo.fields,
@@ -279,8 +279,8 @@ def _undo_button(
     )
 
 
-def _when(
-    posted: _Posted, errors: dict[str, str], zone: tzinfo | None
+def when_posted(
+    posted: Posted, errors: dict[str, str], zone: tzinfo | None
 ) -> tuple[date | datetime | None, date | datetime | None]:
     """
     When the posted fields say the event is, adding what is wrong with
@@ -312,7 +312,7 @@ def _drawn_day(text: str, name: str, errors: dict[str, str]) -> date | None:
     in errors. Clamped here, which also keeps a moment in year 1 from
     overflowing when it is made aware.
     """
-    day = _day(text)
+    day = read_day(text)
     if day is None:
         errors[name] = "Enter a date."
     elif not FIRST <= day <= LAST:
@@ -324,7 +324,7 @@ def _drawn_day(text: str, name: str, errors: dict[str, str]) -> date | None:
 def _clocked(
     first: date | None,
     last: date | None,
-    posted: _Posted,
+    posted: Posted,
     errors: dict[str, str],
     zone: tzinfo | None,
 ) -> tuple[datetime | None, datetime | None]:
@@ -336,7 +336,7 @@ def _clocked(
     moved: made aware, 02:30 the night they go forward would come out as
     03:30, and an event typed to run until 03:30 would be no time at all.
     """
-    opens, closes = _clock(posted.starts_time), _clock(posted.ends_time)
+    opens, closes = read_clock(posted.starts_time), read_clock(posted.ends_time)
     if opens is None:
         errors["starts_time"] = "Enter a time."
     if closes is None:
@@ -355,9 +355,7 @@ def _clocked(
     return starts, ends
 
 
-def _prefilled(
-    posted: _Posted, asked: CalendarState, layers: Sequence[Layer]
-) -> _Posted:
+def prefilled(posted: Posted, asked: CalendarState, layers: Sequence[Layer]) -> Posted:
     """
     What a new event starts with where the request said nothing: the day
     the view is around, nine o'clock when no time was given, an hour that
@@ -370,7 +368,7 @@ def _prefilled(
         filled = replace(filled, starts_time=_NEW_STARTS.strftime("%H:%M"))
     if not filled.ends:
         filled = replace(filled, ends=filled.starts)
-    starts, opens = _day(filled.starts), _clock(filled.starts_time)
+    starts, opens = read_day(filled.starts), read_clock(filled.starts_time)
     if not filled.all_day and not filled.ends_time and starts and opens:
         later = datetime.combine(starts, opens) + _NEW_LASTS
         closes = time(23, 59) if later.date() != starts else later.time()
@@ -420,7 +418,7 @@ def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
 
 def dialog(
     bound: BoundCalendar,
-    posted: _Posted,
+    posted: Posted,
     errors: Mapping[str, str],
     *,
     csrf_token: str,
@@ -442,8 +440,8 @@ def dialog(
     param = declared.param
 
     def when(label: str, name: str) -> list[ComponentType]:
-        day = _day(getattr(posted, name))
-        moment = _clock(getattr(posted, f"{name}_time"))
+        day = read_day(getattr(posted, name))
+        moment = read_clock(getattr(posted, f"{name}_time"))
         day_field = DateInput().name(param(name)).label(label)
         day_field.week_start(week_start)
         time_field = TimeInput().name(param(f"{name}_time")).label(f"{label} at")
@@ -459,7 +457,7 @@ def dialog(
     form = (
         Form()
         .id(form_id)
-        .action(bound.urls.act[_SAVE])
+        .action(bound.urls.act[SAVE])
         .method("post")
         .errors({param(name): message for name, message in errors.items()})
         .class_("gap-4")
@@ -520,7 +518,7 @@ def dialog(
             Textarea().name(param("notes")).label("Notes").value(posted.notes).rows(3),
             # Where the overlap warning lands, and announced when it
             # does, since it arrives while the reader is elsewhere.
-            html.div(id=_overlap(key), role="status"),
+            html.div(id=overlap_id(key), role="status"),
         )
     )
     form.x_data(f"{{ allDay: {json.dumps(all_day)} }}")
@@ -529,11 +527,11 @@ def dialog(
     form._attrs["x-on:change.debounce.200ms"] = _overlaps_check(bound)
     # Neither has a modifier. The route says what is wrong, on the
     # field, so the browser's own bubbles are not a second opinion.
-    form._attrs.update({"x-target": _slot(key), "novalidate": True})
+    form._attrs.update({"x-target": slot_id(key), "novalidate": True})
     footer = [
         # Built only where there is a delete route to point it at.
         render_if(
-            bound.urls.act.get(_DELETE) if editing else None,
+            bound.urls.act.get(DELETE) if editing else None,
             lambda url: Button()
             .variant("ghost")
             .type("submit")
@@ -585,14 +583,14 @@ def _overlaps_check(bound: BoundCalendar) -> str:
     The request the dialog makes when a field settles: the form as it
     stands, answered with the warning or with nothing.
     """
-    url, target = bound.urls.act[_OVERLAPS], _overlap(bound.key)
+    url, target = bound.urls.act[OVERLAPS], overlap_id(bound.key)
     return (
         f"$ajax({json.dumps(url)}, {{ method: 'post', target: {json.dumps(target)}, "
         f"body: new FormData($el) }})"
     )
 
 
-def _overlap_warning(found: list[Event], formats: Formats) -> ComponentType:
+def overlap_warning(found: list[Event], formats: Formats) -> ComponentType:
     """
     Which events the draft overlaps, two by name and the rest counted, or
     nothing. A warning rather than a refusal: two meetings at once is a
@@ -618,14 +616,14 @@ def _overlap_warning(found: list[Event], formats: Formats) -> ComponentType:
     )
 
 
-def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
+def event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
     """
     The popover's buttons: Edit opens the dialog over the event's fields,
     Duplicate saves a copy of them, Delete removes it. Each posts the state
     too, so the calendar comes back as it was.
     """
     declared = bound.declaration
-    slot = _slot(bound.key)
+    slot = slot_id(bound.key)
     carried: dict[str, Any] = dict(bound.query(bound.state))
     fields = {**carried, **_fields(bound, event)}
 
@@ -645,7 +643,7 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
                 "click",
                 then_close(
                     ajax(
-                        bound.urls.act[_DIALOG], method="post", target=slot, body=fields
+                        bound.urls.act[DIALOG], method="post", target=slot, body=fields
                     )
                 ),
             )
@@ -659,7 +657,7 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
                 "click",
                 then_close(
                     ajax(
-                        bound.urls.act[_SAVE],
+                        bound.urls.act[SAVE],
                         method="post",
                         target=slot,
                         # A copy of this occurrence alone, with a title that
@@ -688,7 +686,7 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
                 then_close(
                     # The whole event, so the Undo can save it back.
                     ajax(
-                        bound.urls.act[_DELETE], method="post", target=slot, body=fields
+                        bound.urls.act[DELETE], method="post", target=slot, body=fields
                     )
                 ),
             )

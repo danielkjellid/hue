@@ -26,56 +26,56 @@ from htmy import Context, html
 
 from hue import toast
 from hue._calendar_chrome import (
-    _DRAGS,
+    DRAGS,
+    Band,
     CalendarShortcuts,
-    _Band,
-    _Frame,
-    _keys_in,
-    _Side,
-    _switch_on,
+    Frame,
+    Side,
+    keys_in,
+    switch_on,
 )
 from hue._calendar_edit import (
-    _FIELDS,
-    _SERIES_SKIPPED,
-    _event_actions,
-    _id_of,
-    _overlap_warning,
-    _Posted,
-    _prefilled,
-    _said,
-    _series,
-    _Undo,
-    _undo_button,
-    _undo_create,
-    _undo_delete,
-    _undo_move,
-    _undo_save,
-    _when,
+    FIELDS,
+    SERIES_SKIPPED,
+    Posted,
+    Undo,
     dialog,
+    event_actions,
+    id_of,
     landing,
+    overlap_warning,
+    prefilled,
+    said,
+    series_moved,
+    undo_button,
+    undo_create,
+    undo_delete,
+    undo_move,
+    undo_save,
+    when_posted,
 )
 from hue._calendar_state import (
-    _DATE,
-    _DELETE,
-    _DIALOG,
-    _HIDE,
-    _MOVE,
-    _OVERLAPS,
-    _QUERY,
-    _SAVE,
-    _START,
-    _STATE,
-    _VIEW,
-    _VIEWS,
-    _WEEKDAYS,
+    DATE,
+    DELETE,
+    DIALOG,
+    HIDE,
+    MOVE,
+    OVERLAPS,
+    QUERY,
+    SAVE,
+    START,
+    STATE,
+    VIEW,
+    VIEWS,
+    WEEKDAYS_ONLY,
     BoundCalendar,
     CalendarState,
     Layer,
-    _day,
-    _overlap,
-    _slot,
-    _today,
-    _zone,
+    overlap_id,
+    read_day,
+    slot_id,
+    today_in,
+    zone_of,
 )
 from hue._declared import Declaration, Pairs, Routes, Urls, many, one
 from hue.context import HueContext
@@ -179,8 +179,8 @@ class _Declaration(Declaration[Routes]):
         The actions the route serves: the dialog, the overlap check, a save
         and a move with a save handler, and a delete with a delete handler.
         """
-        saves = (_DIALOG, _OVERLAPS, _SAVE, _MOVE) if self.save is not None else ()
-        return (*saves, *((_DELETE,) if self.delete is not None else ()))
+        saves = (DIALOG, OVERLAPS, SAVE, MOVE) if self.save is not None else ()
+        return (*saves, *((DELETE,) if self.delete is not None else ()))
 
     async def draw(self, calendar: Calendar, context: Context) -> Component:
         """
@@ -192,14 +192,14 @@ class _Declaration(Declaration[Routes]):
         """
         hue = HueContext.from_context(context)
         formats = Formats.from_context(context)
-        today = _today(formats)
+        today = today_in(formats)
         asked, _, others = self._read(
             self._router._get_query_values(hue.request), today
         )
         keys = self._keys(context)
         # On for the page, which the shortcut host reads once the whole
         # body has rendered.
-        _switch_on(self, keys)
+        switch_on(self, keys)
         bound = await self._bind(hue.request, asked, others, today, formats, keys=keys)
         return self._drawn(calendar, bound)
 
@@ -217,14 +217,14 @@ class _Declaration(Declaration[Routes]):
         The app's registry when it has the calendar's keys and this
         calendar holds them on the page, else None.
         """
-        registry = _keys_in(HueContext.from_context(context).shortcuts)
+        registry = keys_in(HueContext.from_context(context).shortcuts)
         if registry is None or not shortcuts.claim(_KEYS_CLAIM, self.key):
             return None
         return registry
 
     def _read(
         self, values: Mapping[str, list[str]], today: date
-    ) -> tuple[CalendarState, _Posted, Pairs]:
+    ) -> tuple[CalendarState, Posted, Pairs]:
         """
         A query or a posted form, split into this calendar's state, the
         dialog's fields, and everything else, which goes back out as it
@@ -235,23 +235,23 @@ class _Declaration(Declaration[Routes]):
         one is the default, and a hidden layer nobody declared is dropped.
         Anyone can type into a query string, and it is never an error page.
         """
-        own, others = self._split(values, (*_STATE, *_FIELDS))
-        given = {name: one(own, name) or "" for name in _FIELDS if name in own}
-        return self._state_from(own, today), _Posted(**given), others
+        own, others = self._split(values, (*STATE, *FIELDS))
+        given = {name: one(own, name) or "" for name in FIELDS if name in own}
+        return self._state_from(own, today), Posted(**given), others
 
     def _state_from(self, asked: Mapping[str, list[str]], today: date) -> CalendarState:
-        view = one(asked, _VIEW)
-        start = one(asked, _START)
-        cursor = _day(one(asked, _DATE) or "") or today
+        view = one(asked, VIEW)
+        start = one(asked, START)
+        cursor = read_day(one(asked, DATE) or "") or today
         declared = [layer.key for layer in self.layers]
-        hidden = tuple(key for key in many(asked, _HIDE) if key in declared)
+        hidden = tuple(key for key in many(asked, HIDE) if key in declared)
         return CalendarState(
             date=min(max(cursor, FIRST), LAST),
-            view=view if view in _VIEWS else self.view,  # type: ignore[arg-type]
-            query=(one(asked, _QUERY) or "").strip(),
+            view=view if view in VIEWS else self.view,  # type: ignore[arg-type]
+            query=(one(asked, QUERY) or "").strip(),
             hidden=hidden,
             week_start=start if start in WEEKDAYS else self.week_start,  # type: ignore[arg-type]
-            weekdays=one(asked, _WEEKDAYS) == "1",
+            weekdays=one(asked, WEEKDAYS_ONLY) == "1",
             layers=tuple(key for key in declared if key not in hidden),
         )
 
@@ -327,17 +327,17 @@ class _Declaration(Declaration[Routes]):
             # element. Under the internal keys, so a click handler of the
             # page's own on the Calendar is kept beside them.
             calendar._attrs["x-on:click"] = "calendarSlot($event)"
-            calendar._attrs.update(_DRAGS)
+            calendar._attrs.update(DRAGS)
             calendar._props["movable"] = True
         if self.edits:
-            calendar.actions(lambda event: _event_actions(bound, event))
-        return _Frame(bound).content(
-            _Side(),
-            html.div(_Band(), calendar, class_="flex min-w-0 flex-1 flex-col gap-3"),
+            calendar.actions(lambda event: event_actions(bound, event))
+        return Frame(bound).content(
+            Side(),
+            html.div(Band(), calendar, class_="flex min-w-0 flex-1 flex-col gap-3"),
         )
 
     def _draft(
-        self, posted: _Posted, formats: Formats
+        self, posted: Posted, formats: Formats
     ) -> tuple[Event | None, dict[str, str]]:
         """
         The posted fields as an Event, or what is wrong with them by field.
@@ -346,7 +346,7 @@ class _Declaration(Declaration[Routes]):
         title = posted.title.strip()
         if not title:
             errors["title"] = "Give the event a title."
-        starts, ends = _when(posted, errors, _zone(formats))
+        starts, ends = when_posted(posted, errors, zone_of(formats))
         layer = posted.layer or None
         if self.layers and layer not in {each.key for each in self.layers}:
             errors["layer"] = "Choose a calendar."
@@ -422,7 +422,7 @@ class _Declaration(Declaration[Routes]):
         the calendar cannot draw is nobody's, and events() is never asked
         for it.
         """
-        day = _day(occurrence[:10]) if occurrence else None
+        day = read_day(occurrence[:10]) if occurrence else None
         if day is not None and not FIRST <= day <= LAST:
             return None
         first, last = (day, day) if day else (asked.first, asked.last)
@@ -439,9 +439,9 @@ class _Declaration(Declaration[Routes]):
         from the body the dialog and the popover's buttons post.
         """
         formats: Formats = context.formats
-        today = _today(formats)
+        today = today_in(formats)
         asked, body, others = self._read(self._router._get_form_values(request), today)
-        if action in (_DELETE, _MOVE) and not body.id:
+        if action in (DELETE, MOVE) and not body.id:
             return HueResponse(
                 component=html.p(f"{self.key}: {action} needs the event's id."),
                 status_code=HTTPStatus.NOT_FOUND,
@@ -450,22 +450,22 @@ class _Declaration(Declaration[Routes]):
         # is an error before anything is written.
         urls = self._urls_for(request, self._served())
         bound = BoundCalendar(
-            self, asked, [], today, urls, others, formats, _keys_in(context.shortcuts)
+            self, asked, [], today, urls, others, formats, keys_in(context.shortcuts)
         )
         # On for this response too, whichever it is: the host that answers a
         # fragment replaces the page's, and a dialog that was cancelled makes
         # no request of its own to switch them back on.
-        _switch_on(self, bound.shortcuts)
+        switch_on(self, bound.shortcuts)
 
         csrf_token: str = context.csrf_token
-        if action == _DIALOG:
-            shown = _prefilled(body, asked, self.layers)
+        if action == DIALOG:
+            shown = prefilled(body, asked, self.layers)
             return self._shown(bound, shown, {}, HTTPStatus.OK, csrf_token)
-        if action == _OVERLAPS:
+        if action == OVERLAPS:
             return await self._checked(request, bound, body)
-        if action == _SAVE and self.save is not None:
+        if action == SAVE and self.save is not None:
             return await self._saved(request, bound, body, self.save, csrf_token)
-        if action == _MOVE and self.save is not None:
+        if action == MOVE and self.save is not None:
             return await self._moved(request, bound, body, self.save)
         if self.delete is None:  # pragma: no cover - only served with one
             raise AssertionError(action)
@@ -481,13 +481,13 @@ class _Declaration(Declaration[Routes]):
             body.id,
             "Delete",
             body=body,
-            undo=lambda _: _undo_delete(bound, was),
+            undo=lambda _: undo_delete(bound, was),
         )
 
     def _shown(
         self,
         bound: BoundCalendar,
-        posted: _Posted,
+        posted: Posted,
         errors: Mapping[str, str],
         status: HTTPStatus,
         csrf_token: str,
@@ -497,7 +497,7 @@ class _Declaration(Declaration[Routes]):
         """
         return HueResponse(
             component=dialog(bound, posted, errors, csrf_token=csrf_token),
-            target=_slot(self.key),
+            target=slot_id(self.key),
             status_code=status,
         )
 
@@ -505,7 +505,7 @@ class _Declaration(Declaration[Routes]):
         self,
         request: Any,
         bound: BoundCalendar,
-        body: _Posted,
+        body: Posted,
         save: Callable[..., Any],
         csrf_token: str,
     ) -> Any:
@@ -542,7 +542,7 @@ class _Declaration(Declaration[Routes]):
                 draft,
                 "Create",
                 body=body,
-                undo=lambda made: _undo_create(bound, draft, _id_of(made)),
+                undo=lambda made: undo_create(bound, draft, id_of(made)),
                 lands=draft if body.undo else None,
                 description=kept,
                 refused=refused,
@@ -567,9 +567,9 @@ class _Declaration(Declaration[Routes]):
             return refused(HTTPStatus.NOT_FOUND)
         edited = draft
         if draft.repeat:
-            series = _series(was, draft.starts, draft.ends, formats)
+            series = series_moved(was, draft.starts, draft.ends, formats)
             if series is None:
-                errors = {"starts_time": _SERIES_SKIPPED}
+                errors = {"starts_time": SERIES_SKIPPED}
                 status = HTTPStatus.UNPROCESSABLE_ENTITY
                 return self._shown(bound, body, errors, status, csrf_token)
             edited = replace(draft, starts=series[0], ends=series[1])
@@ -580,7 +580,7 @@ class _Declaration(Declaration[Routes]):
             edited,
             "Save",
             body=body,
-            undo=lambda _: _undo_save(bound, was),
+            undo=lambda _: undo_save(bound, was),
             description=kept,
             refused=refused,
         )
@@ -589,7 +589,7 @@ class _Declaration(Declaration[Routes]):
         self,
         request: Any,
         bound: BoundCalendar,
-        body: _Posted,
+        body: Posted,
         save: Callable[..., Any],
     ) -> Any:
         """
@@ -620,7 +620,7 @@ class _Declaration(Declaration[Routes]):
         errors: dict[str, str] = {}
         # Timed or whole days as it is, whatever the body says.
         posted = replace(body, all_day="" if was.timed else "1")
-        starts, ends = _when(posted, errors, _zone(formats))
+        starts, ends = when_posted(posted, errors, zone_of(formats))
         if errors or starts is None or ends is None:
             why = next(iter(errors.values()), "Enter a time.")
             return await self._failed(
@@ -629,13 +629,13 @@ class _Declaration(Declaration[Routes]):
         landed = replace(was, starts=starts, ends=ends)
         # An Undo posts the series where it began, saved as posted.
         if not body.undo:
-            series = _series(was, starts, ends, formats)
+            series = series_moved(was, starts, ends, formats)
             if series is None:
                 return await self._failed(
                     request,
                     bound,
                     "Move",
-                    _SERIES_SKIPPED,
+                    SERIES_SKIPPED,
                     HTTPStatus.UNPROCESSABLE_ENTITY,
                 )
             starts, ends = series
@@ -649,11 +649,11 @@ class _Declaration(Declaration[Routes]):
             moved,
             verb,
             body=body,
-            undo=lambda _: _undo_move(bound, was, landed),
+            undo=lambda _: undo_move(bound, was, landed),
             lands=landed,
         )
 
-    async def _checked(self, request: Any, bound: BoundCalendar, body: _Posted) -> Any:
+    async def _checked(self, request: Any, bound: BoundCalendar, body: Posted) -> Any:
         """
         The overlap warning for the fields as they stand, or nothing, in
         the dialog's own region.
@@ -667,8 +667,8 @@ class _Declaration(Declaration[Routes]):
             else []
         )
         return HueResponse(
-            component=_overlap_warning(found, bound.formats),
-            target=_overlap(self.key),
+            component=overlap_warning(found, bound.formats),
+            target=overlap_id(self.key),
         )
 
     async def _changed(
@@ -679,8 +679,8 @@ class _Declaration(Declaration[Routes]):
         given: Event | str,
         verb: str,
         *,
-        body: _Posted,
-        undo: Callable[[Any], _Undo | None],
+        body: Posted,
+        undo: Callable[[Any], Undo | None],
         lands: Event | None = None,
         description: str = "The calendar is shown as it is now.",
         refused: Callable[[HTTPStatus], Any] | None = None,
@@ -716,13 +716,13 @@ class _Declaration(Declaration[Routes]):
             if back is not None and back.action not in bound.urls.act:
                 back = None
             toast.success(
-                _said(verb, named, series, undone=bool(body.undo)),
-                action=render_if(back, lambda it: _undo_button(bound, it)),
+                said(verb, named, series, undone=bool(body.undo)),
+                action=render_if(back, lambda it: undo_button(bound, it)),
             )
             if body.undo and verb == "Delete":
                 focus = "new"
             elif lands is not None:
-                focus = lands if lands.id else replace(lands, id=_id_of(made))
+                focus = lands if lands.id else replace(lands, id=id_of(made))
         return await self._redrawn(request, bound, status, focus)
 
     async def _failed(

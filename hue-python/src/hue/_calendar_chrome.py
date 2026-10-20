@@ -13,22 +13,22 @@ from typing import TYPE_CHECKING, ClassVar
 from htmy import Context, html
 
 from hue._calendar_state import (
-    _DATE,
-    _DIALOG,
-    _HIDE,
-    _MOVE,
-    _QUERY,
-    _START,
-    _WEEKDAYS,
+    DATE,
+    DIALOG,
+    HIDE,
+    MOVE,
+    QUERY,
+    START,
+    WEEKDAYS_ONLY,
     BoundCalendar,
     Layer,
-    _help,
-    _new,
-    _side,
-    _slot,
-    _state,
-    _timezone,
-    _view_options,
+    help_id,
+    new_id,
+    side_id,
+    slot_id,
+    state_id,
+    timezone_name,
+    view_options_id,
 )
 from hue._declared import bound_from, carried, search_form, search_id
 from hue.js import Expression, call, close, unsafe
@@ -71,7 +71,7 @@ def _open(element_id: str) -> Expression:
     )
 
 
-def _keys_in(
+def keys_in(
     registry: type[ShortcutRegistry] | None,
 ) -> type[ShortcutRegistry] | None:
     """
@@ -125,7 +125,7 @@ _SNAPPED = "a quarter hour" if _SNAP == 15 else f"{_SNAP} minutes"
 # What the calendar hears to drag and move its events, under the internal
 # keys like the slot's click, so the page's own handlers are kept beside
 # them.
-_DRAGS = {
+DRAGS = {
     "x-on:pointerdown": "calendarPress($event)",
     "x-on:pointermove": "calendarStretch($event)",
     "x-on:pointerup": "calendarRelease()",
@@ -137,7 +137,7 @@ _DRAGS = {
 }
 
 
-def _switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) -> None:
+def switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) -> None:
     """
     The calendar's keys, on for this response when the app's registry has
     them. Each one presses the control that does the same thing, so a key
@@ -156,15 +156,15 @@ def _switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) 
         },
     }
     if declared.save is not None:
-        pressed[CalendarShortcuts.calendar_new] = _new(key)
+        pressed[CalendarShortcuts.calendar_new] = new_id(key)
     for shortcut, target in pressed.items():
         shortcuts.use(shortcut, action=_on(target, "click"))
     if declared.search is not None:
         shortcuts.use(
             CalendarShortcuts.calendar_search,
-            action=_on(declared.param(_QUERY), "focus"),
+            action=_on(declared.param(QUERY), "focus"),
         )
-    shortcuts.use(CalendarShortcuts.calendar_help, action=_open(_help(key)))
+    shortcuts.use(CalendarShortcuts.calendar_help, action=_open(help_id(key)))
 
 
 def _marked(bound: BoundCalendar) -> list[date]:
@@ -207,7 +207,7 @@ def _matches(bound: BoundCalendar) -> str:
 # ----------------------------------------------------------------------
 
 
-class _Frame(ChainableComponent):
+class Frame(ChainableComponent):
     """
     Offers one binding to every part of a calendar rendered inside it, and
     holds the slot the dialog lands in and the help for the keys.
@@ -233,23 +233,23 @@ class _Frame(ChainableComponent):
         bound = self._bound
         key = bound.key
         config = {
-            "url": bound.urls.act.get(_DIALOG),
-            "move": bound.urls.act.get(_MOVE),
+            "url": bound.urls.act.get(DIALOG),
+            "move": bound.urls.act.get(MOVE),
             "key": bound.key,
-            "target": _slot(bound.key),
+            "target": slot_id(bound.key),
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
-            "state": _state(bound.key),
+            "state": state_id(bound.key),
             # The tabs a week on a phone is fitted with.
             "weekTab": views.switch_id(key, "week"),
             "dayTab": views.switch_id(key, "day"),
             "hour": views._HOUR,
             "snap": _SNAP,
         }
-        refocus = _new(bound.key) if bound.declaration.save is not None else None
+        refocus = new_id(bound.key) if bound.declaration.save is not None else None
         return html.div(
             *self._children,
-            html.div(id=_slot(bound.key), **{"data-hue-refocus": refocus}),
+            html.div(id=slot_id(bound.key), **{"data-hue-refocus": refocus}),
             # Synced, so the help comes with whichever calendar's answer
             # takes the keys, also on a page where another one drew them.
             html.div(
@@ -302,7 +302,7 @@ class _Help(ChainableComponent):
         rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
         return (
             Dialog()
-            .id(_help(bound.key))
+            .id(help_id(bound.key))
             .title("Keyboard shortcuts")
             .size("sm")
             .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
@@ -337,7 +337,7 @@ def _help_row(label: str, *keys: ComponentType) -> ComponentType:
     )
 
 
-class _Side(ChainableComponent):
+class Side(ChainableComponent):
     """
     The sidebar: New event, a picker to jump by, the calendars to show and
     hide, and which timezone the times are in.
@@ -362,14 +362,14 @@ class _Side(ChainableComponent):
                 declared.save is not None,
                 Button()
                 .variant("primary")
-                .id(_new(key))
+                .id(new_id(key))
                 .x_autofocus(bound.focus == "new")
                 .content(HueIcon("plus"), "New event")
                 .x_on("click", unsafe("calendarCreate()")),
             ),
             html.form(
                 DatePicker()
-                .name(declared.param(_DATE))
+                .name(declared.param(DATE))
                 .id(f"{key}-picker")
                 .label("Go to a day")
                 .hidden_label()
@@ -380,7 +380,7 @@ class _Side(ChainableComponent):
                 # Named so nothing in the picker's own scope, which has a
                 # day() of its own, can stand in for it.
                 .x_model(unsafe("pickedDay")),
-                *carried(bound.query(picked, without={_DATE})),
+                *carried(bound.query(picked, without={DATE})),
                 method="get",
                 action=bound.urls.read,
                 **swap(view),
@@ -412,13 +412,13 @@ class _Side(ChainableComponent):
                     html.form(
                         html.input_(
                             type="hidden",
-                            name=declared.param(_HIDE),
+                            name=declared.param(HIDE),
                             **{
                                 ":value": "hiddenLayers.join(',')",
                                 ":disabled": "!hiddenLayers.length",
                             },
                         ),
-                        *carried(bound.query(bound.state, without={_HIDE})),
+                        *carried(bound.query(bound.state, without={HIDE})),
                         method="get",
                         action=bound.urls.read,
                         hidden=True,
@@ -434,7 +434,7 @@ class _Side(ChainableComponent):
                 ),
             ),
             render_if(
-                _timezone(formats),
+                timezone_name(formats),
                 lambda name: html.p(
                     HueIcon("clock").class_("size-3.5 flex-none"),
                     f"Times in {name.replace('_', ' ')}",
@@ -445,15 +445,15 @@ class _Side(ChainableComponent):
             # each by id, and the whole state for the script that opens the
             # dialog from a click.
             html.div(
-                *carried(bound.query(state, without={_QUERY}), form=search_id(key)),
+                *carried(bound.query(state, without={QUERY}), form=search_id(key)),
                 *carried(
-                    bound.query(state, without={_START, _WEEKDAYS}),
-                    form=_view_options(key),
+                    bound.query(state, without={START, WEEKDAYS_ONLY}),
+                    form=view_options_id(key),
                 ),
-                html.div(*carried(bound.query(state)), id=_state(key)),
+                html.div(*carried(bound.query(state)), id=state_id(key)),
                 hidden=True,
             ),
-            id=_side(key),
+            id=side_id(key),
             aria_label="Calendar tools",
             class_="w-full flex-none flex-col gap-5 lg:flex lg:w-60",
             **{":class": "calendarSide ? 'flex' : 'hidden lg:flex'", **SYNC},
@@ -492,7 +492,7 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
     )
 
 
-class _Band(ChainableComponent):
+class Band(ChainableComponent):
     """
     The row above the calendar: the button that opens the sidebar on a
     narrow screen, the search, how many it found, and the view options.
@@ -512,7 +512,7 @@ class _Band(ChainableComponent):
             .size("sm")
             .icon_only("Calendar tools")
             .class_("lg:hidden")
-            .aria_controls(_side(key))
+            .aria_controls(side_id(key))
             .content(HueIcon("panel-left"))
             .x_on("click", unsafe("calendarSide = !calendarSide"))
             .x_bind("aria-expanded", unsafe("calendarSide")),
@@ -520,7 +520,7 @@ class _Band(ChainableComponent):
                 declared.search is not None,
                 search_form(
                     bound,
-                    param=_QUERY,
+                    param=QUERY,
                     label=declared.search or "",
                     value=bound.state.query,
                     target=views.region_id(key),
@@ -565,8 +565,8 @@ def _options(bound: BoundCalendar) -> ComponentType:
         .content(
             html.form(
                 RadioGroup()
-                .name(declared.param(_START))
-                .id(f"{key}-{_START}")
+                .name(declared.param(START))
+                .id(f"{key}-{START}")
                 .legend("Week starts on")
                 .value(state.week_start)
                 .content(
@@ -576,12 +576,12 @@ def _options(bound: BoundCalendar) -> ComponentType:
                     )
                 ),
                 Checkbox()
-                .name(declared.param(_WEEKDAYS))
-                .id(f"{key}-{_WEEKDAYS}")
+                .name(declared.param(WEEKDAYS_ONLY))
+                .id(f"{key}-{WEEKDAYS_ONLY}")
                 .value("1")
                 .label("Weekdays only")
                 .checked(state.weekdays),
-                id=_view_options(key),
+                id=view_options_id(key),
                 method="get",
                 action=bound.urls.read,
                 class_="flex w-52 flex-col gap-4",
@@ -597,7 +597,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 .size("sm")
                 .class_("mt-3 w-full justify-between")
                 .content("Keyboard shortcuts", Kbd("?"))
-                .x_on("click", unsafe(f"{close()}; {_open(_help(key))}")),
+                .x_on("click", unsafe(f"{close()}; {_open(help_id(key))}")),
             ),
         )
     )

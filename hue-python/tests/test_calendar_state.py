@@ -76,7 +76,7 @@ def _declared(router: _Router | None = None, **given: Any) -> Any:
 
 @pytest.fixture(autouse=True)
 def _october(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(declared, "_today", lambda formats: _TODAY)
+    monkeypatch.setattr(declared, "today_in", lambda formats: _TODAY)
 
 
 async def _drawn(declaration: Any, context_args: Any, **query: str) -> str:
