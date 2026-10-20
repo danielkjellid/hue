@@ -175,9 +175,9 @@ def resolve_value(
 
 class _Value:
     """
-    A resolved value as text. Dates and decimals are written in the formats
-    the context holds, and anything else that is not a scalar needs a
-    render() on its column, so this raises instead of guessing.
+    A resolved value as text. Dates, times and decimals are written in the
+    formats the context holds, and anything else that is not a scalar needs
+    a render() on its column, so this raises instead of guessing.
     """
 
     def __init__(self, value: Any) -> None:

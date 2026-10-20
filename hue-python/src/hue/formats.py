@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
 from htmy import Context
@@ -78,6 +78,8 @@ class Formats:
             return self.moment(value).strftime(self.datetime)
         if isinstance(value, date):
             return value.strftime(self.date)
+        if isinstance(value, time):
+            return value.strftime(self.time)
         return None
 
     def moment(self, value: _Moment) -> _Moment:

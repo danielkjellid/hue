@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 from django.test import RequestFactory, override_settings
 from django.utils import translation
@@ -32,7 +32,7 @@ def test_without_timezones_a_moment_is_written_as_it_is():
 
 @override_settings(HUE_TIME_FORMAT="%I:%M %p")
 def test_the_time_format_is_a_setting_too():
-    assert _formats().time == "%I:%M %p"
+    assert _formats().text(time(14, 5)) == "02:05 PM"
 
 
 def test_the_names_are_django_s_translations():
@@ -43,3 +43,4 @@ def test_the_names_are_django_s_translations():
     assert formats.day_abbreviations[0] == "man"
     assert formats.month_names[9] == "oktober"
     assert _formats().day_names[0] == "Monday"
+

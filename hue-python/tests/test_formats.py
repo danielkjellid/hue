@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
 
 import pytest
 
@@ -15,6 +15,10 @@ def test_an_aware_moment_is_localized_when_told_how():
 
 def test_an_aware_moment_keeps_its_own_zone_otherwise():
     assert Formats().text(datetime(2026, 3, 1, 12, 0, tzinfo=UTC)) == "2026-03-01 12:00"
+
+
+def test_a_time_is_written_in_the_time_format():
+    assert Formats(time="%I:%M %p").text(time(14, 5)) == "02:05 PM"
 
 
 def test_anything_else_has_no_spelling_here():
@@ -44,6 +48,7 @@ def test_a_name_list_of_the_wrong_length_is_refused(wrong):
 def test_a_month_and_a_day_are_named_in_words():
     assert Formats().month(date(2026, 10, 14)) == "October 2026"
     assert Formats().day(date(2026, 10, 14)) == "Wednesday 14 October 2026"
+
 
 
 def test_a_moment_is_moved_into_the_readers_time_only_when_it_can_be():
