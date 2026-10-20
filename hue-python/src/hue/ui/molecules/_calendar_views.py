@@ -1,43 +1,110 @@
 """
 The views of a Calendar: the time grid of a day or a week, the month, the
-year and the agenda. Each is a function over the one _Draw a rendering
-holds, which owns the words, the links and the events they share.
+year and the agenda, each a function over the one Draw a rendering holds,
+which owns the words, the links and the events they share. VIEWS at the
+foot is the one place a view is defined.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
+from typing import Literal
 
-from htmy import html
+from htmy import Context, html
 
-from hue.types.core import ComponentType
-from hue.ui._styles import FOCUS_RING_INSET
+from hue.formats import Formats
+from hue.types.core import Component, ComponentType
+from hue.ui._styles import (
+    DASH,
+    FOCUS_RING,
+    FOCUS_RING_INSET,
+    STEP,
+    STEP_IDLE,
+)
 from hue.ui.atoms.button import Button
+from hue.ui.atoms.icon import HueIcon
+from hue.ui.base import ChainableComponent
 from hue.ui.molecules._days import (
     Event,
+    EventColor,
     Placed,
     Slot,
+    WeekStart,
+    add_months,
     minutes,
     month_grid,
     pack,
     place,
-)
-from hue.ui.molecules.calendar import (
-    _AGENDA_DAYS,
-    _DOT,
-    _EVENT,
-    _NUMBER,
-    _NUMBER_LINK,
-    _NUMBER_TODAY,
-    _SOLID,
-    _TINT,
-    _Draw,
-    _EventButton,
+    week_of,
 )
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.popover import Popover
+from hue.ui.molecules.tabs import Tab, Tabs
+from hue.ui.navigation import swap
 from hue.utils import classnames, render_if, render_when
+
+type CalendarView = Literal["day", "week", "month", "year", "agenda"]
+type Href = Callable[[date, CalendarView], str]
+type Actions = Callable[[Event], Iterable[ComponentType]]
+
+_AGENDA_DAYS = 30
+
+# The days a calendar can be around. A grid reaches into the weeks either
+# side of its range, so the years at the ends of what a date can hold
+# would overflow; a date outside is moved in, and no step leads out.
+FIRST = date(2, 1, 1)
+LAST = date(9998, 12, 31)
+
+
+# Keyed by the Literal so mypy keeps them exhaustive. An event is a tint of
+# its colour with a bar of it down the start edge; the text stays the
+# foreground, so a tint never has to clear contrast on its own.
+_TINT: dict[EventColor, str] = {
+    1: "border-chart-1 bg-chart-1/15 hover:bg-chart-1/25",
+    2: "border-chart-2 bg-chart-2/15 hover:bg-chart-2/25",
+    3: "border-chart-3 bg-chart-3/15 hover:bg-chart-3/25",
+    4: "border-chart-4 bg-chart-4/15 hover:bg-chart-4/25",
+    5: "border-chart-5 bg-chart-5/15 hover:bg-chart-5/25",
+    6: "border-chart-6 bg-chart-6/15 hover:bg-chart-6/25",
+}
+_SOLID: dict[EventColor, str] = {
+    1: "bg-chart-1",
+    2: "bg-chart-2",
+    3: "bg-chart-3",
+    4: "bg-chart-4",
+    5: "bg-chart-5",
+    6: "bg-chart-6",
+}
+
+_TOOLBAR = (
+    "flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2"
+)
+_TITLE = "min-w-0 flex-1 truncate font-ui text-md font-semibold tabular-nums"
+# The number of a day, a disc so today can be filled. It is marked on the
+# link itself in a grid cell and on the header around it in the time grid.
+_NUMBER = (
+    "relative inline-flex size-7 items-center justify-center rounded-full font-ui "
+    "text-sm font-semibold tabular-nums no-underline"
+)
+_NUMBER_TODAY = "aria-[current=date]:bg-accent aria-[current=date]:text-accent-fg"
+_NUMBER_LINK = "hover:bg-surface-hover aria-[current=date]:hover:bg-accent-hover"
+
+_EVENT = (
+    "w-full min-w-0 cursor-pointer rounded-sm border-s-[3px] px-1.5 text-start "
+    "text-xs font-medium text-fg"
+)
+_CHIP = "block h-5 truncate leading-5"
+# A timed event in a list is a dot, its time and its title, with no fill.
+_DOTTED = (
+    "flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-1 text-start "
+    "text-xs font-medium leading-5 text-fg hover:bg-surface-hover"
+)
+_DOT = "size-2 flex-none rounded-full"
+_TIME = "flex-none text-2xs tabular-nums text-fg-muted"
+_REPEAT = "ms-1 inline size-3 align-[-2px] text-fg-muted"
+
 
 # One hour of the time grid, in pixels, and where the grid opens: 07:30,
 # just before most days start.
@@ -64,6 +131,408 @@ _HOUR_LINES = (
 )
 
 
+class EventButton(ChainableComponent):
+    """
+    The control that opens an event's popover, in whichever shape a view
+    draws it. A component rather than an element because Popover wires its
+    state onto the trigger's attributes.
+    """
+
+    category = None
+
+    def __init__(self, event: Event, name: str) -> None:
+        super().__init__()
+        self._attrs["aria_label"] = name
+        # What a script that moves or resizes events reads it by.
+        if event.id is not None:
+            self._attrs["data-event-id"] = event.id
+        self._attrs["data-starts"] = event.starts.isoformat()
+        self._attrs["data-ends"] = (event.ends or event.starts).isoformat()
+        if not event.timed:
+            self._attrs["data-all-day"] = ""
+
+    def _render(self, context: Context) -> Component:
+        return html.button(
+            *self._children,
+            type="button",
+            class_=self._get_prop("class_"),
+            **self._get_base_html_attrs(),
+        )
+
+
+@dataclass(frozen=True)
+class Draw:
+    """
+    One rendering of a calendar: what every view, every link and every
+    event reads, and the parts the views share. The views themselves are
+    functions over it, below.
+    """
+
+    formats: Formats
+    cursor: date
+    view: CalendarView
+    today: date | None
+    start: WeekStart
+    weekdays: bool
+    events: list[Event]
+    href: Href | None
+    actions: Actions | None
+    own_id: str | None
+
+    @property
+    def region(self) -> str | None:
+        """
+        The id of what the links swap: the toolbar and the view, under the
+        frame, so the status outside them stays to be refreshed.
+        """
+        return None if self.own_id is None else f"{self.own_id}-view"
+
+    # ------------------------------------------------------------------
+    # Words
+    # ------------------------------------------------------------------
+
+    def between(self, first: date, last: date) -> str:
+        """
+        12 to 18 October 2026, 28 September to 4 October 2026, or 28
+        December 2026 to 3 January 2027, with a dash between: as little of
+        the start as tells it apart from the end.
+        """
+        names = self.formats.month_names
+        end = f"{last.day} {names[last.month - 1]} {last.year}"
+        if (first.year, first.month) == (last.year, last.month):
+            return f"{first.day} {DASH} {end}"
+        if first.year == last.year:
+            return f"{first.day} {names[first.month - 1]} {DASH} {end}"
+        return f"{first.day} {names[first.month - 1]} {first.year} {DASH} {end}"
+
+    def clock(self, moment: datetime | time) -> str:
+        return self.formats.write(self.formats.time, moment)
+
+    def name(self, event: Event) -> str:
+        """
+        The whole of an event in words, for the control that opens it: a
+        chip's place in a grid says nothing to a screen reader, so the
+        name says the time and the day as well as the title.
+        """
+        formats = self.formats
+        if event.timed:
+            starts = event.moments(formats)[0]
+            text = f"{event.title}, {formats.day(starts.date())}, "
+            text += self.times(event, "to")
+        else:
+            first, last = event.span(formats)
+            text = f"{event.title}, all day, {formats.day(first)}"
+            if last != first:
+                text += f" to {formats.day(last)}"
+        return f"{text}, repeats" if event.recurring else text
+
+    def times(self, event: Event, to: str = DASH, *, end_day: bool = True) -> str:
+        """
+        A timed event by the clock: 13:00 to 14:30, with the end's day after
+        its time when the event ends on another day and end_day asks for it,
+        or 09:30 alone when it has no end.
+        """
+        starts, ends = event.moments(self.formats)
+        if event.ends is None:
+            return self.clock(starts)
+        text = f"{self.clock(starts)} {to} {self.clock(ends)}"
+        if end_day and ends.date() != starts.date():
+            text += f" {self.formats.day(ends.date())}"
+        return text
+
+    def when(self, event: Event) -> str:
+        formats = self.formats
+        if event.timed:
+            starts = event.moments(formats)[0]
+            return f"{formats.day(starts.date())} · {self.times(event)}"
+        first, last = event.span(formats)
+        days = formats.day(first)
+        if last != first:
+            days += f" {DASH} {formats.day(last)}"
+        return f"{days} · All day"
+
+    def day_name(self, day: date) -> str:
+        name = self.formats.day(day)
+        return f"{name}, today" if day == self.today else name
+
+    # ------------------------------------------------------------------
+    # Links
+    # ------------------------------------------------------------------
+
+    def link(
+        self,
+        day: date,
+        view: CalendarView,
+        *content: ComponentType,
+        label: str | None = None,
+        classes: str = "",
+        link_classes: str = "",
+        current: bool = False,
+        stable_id: str | None = None,
+    ) -> ComponentType:
+        """
+        A link to a view on a day, or the content alone where there is
+        nothing to link to.
+        """
+        current_date = "date" if current else None
+        if self.href is None:
+            return html.span(*content, aria_current=current_date, class_=classes)
+        return html.a(
+            *content,
+            href=self.href(day, view),
+            id=stable_id,
+            aria_label=label,
+            aria_current=current_date,
+            class_=classnames(classes, link_classes, FOCUS_RING),
+            **swap(self.region),
+        )
+
+    def toolbar(self, title: str) -> ComponentType:
+        return html.div(
+            render_when(self.href is not None, self._steps()),
+            html.h2(title, class_=_TITLE),
+            render_if(self.href, self._switcher),
+            class_=_TOOLBAR,
+        )
+
+    def _steps(self) -> ComponentType:
+        return html.nav(
+            self._step("previous", -1, "Previous", "chevron-left"),
+            render_if(
+                self.today,
+                lambda day: self.link(
+                    day,
+                    self.view,
+                    "Today",
+                    classes=classnames(STEP, STEP_IDLE),
+                    stable_id=self._stable("today"),
+                ),
+            ),
+            self._step("next", 1, "Next", "chevron-right"),
+            aria_label="Calendar",
+            class_="flex items-center gap-1",
+        )
+
+    def _step(self, name: str, count: int, label: str, icon: str) -> ComponentType:
+        day = VIEWS[self.view].step(self.cursor, count)
+        if not FIRST <= day <= LAST:
+            return ""
+        return self.link(
+            day,
+            self.view,
+            HueIcon(icon).class_("size-3.5"),
+            label=label,
+            classes=classnames(STEP, STEP_IDLE),
+            stable_id=self._stable(name),
+        )
+
+    def _stable(self, name: str) -> str | None:
+        """
+        An id a step keeps across swaps, so focus finds it again after the
+        swap replaced it.
+        """
+        return None if self.own_id is None else f"{self.own_id}-{name}"
+
+    def _switcher(self, href: Href) -> ComponentType:
+        tabs = Tabs().segmented().label("View")
+        if self.region is not None:
+            tabs.id(f"{self.own_id}-views").target(self.region)
+        return tabs.content(
+            *(
+                Tab()
+                .href(href(self.cursor, view))
+                .current(view == self.view)
+                .content(each.label)
+                for view, each in VIEWS.items()
+            )
+        )
+
+    def number(self, day: date, events: int = 0) -> ComponentType:
+        """
+        A day's number, a link to its day view, filled when it is today. The
+        year view counts its events, with a dot under it when there are any.
+        """
+        label = self.day_name(day)
+        if events:
+            label += f", {events} event" if events == 1 else f", {events} events"
+        return self.link(
+            day,
+            "day",
+            html.time(str(day.day), datetime=day.isoformat()),
+            render_when(
+                events > 0,
+                html.span(
+                    aria_hidden="true",
+                    class_="absolute bottom-0.5 size-1 rounded-full bg-current",
+                ),
+            ),
+            label=label,
+            classes=classnames(_NUMBER, _NUMBER_TODAY),
+            link_classes=_NUMBER_LINK,
+            current=day == self.today,
+        )
+
+    # ------------------------------------------------------------------
+    # Events
+    # ------------------------------------------------------------------
+
+    def event(self, event: Event, button: EventButton) -> ComponentType:
+        """
+        The button and the popover it opens: colour, title, when, whether
+        it repeats, where, notes, then the app's actions and a link to the
+        event itself when it has one.
+        """
+        actions = list(self.actions(event)) if self.actions is not None else []
+        rows = (
+            self._row("When", "clock", self.when(event)),
+            render_when(event.recurring, self._row("Repeats", "repeat", "Repeats")),
+            render_if(
+                event.location, lambda text: self._row("Location", "map-pin", text)
+            ),
+            render_if(
+                event.notes,
+                lambda text: self._row(
+                    "Notes", "text", html.span(text, class_="whitespace-pre-line")
+                ),
+            ),
+        )
+        foot = (
+            *actions,
+            render_if(
+                event.href,
+                lambda href: html.a(
+                    "Open",
+                    href=href,
+                    class_=classnames(
+                        "ms-auto rounded-sm font-ui text-sm font-semibold "
+                        "text-accent-text underline-offset-[3px] hover:underline",
+                        FOCUS_RING,
+                    ),
+                ),
+            ),
+        )
+        return (
+            Popover()
+            .label(event.title)
+            # Fixed: in the time grid the popover opens inside a scroll
+            # container, which would clip one positioned on the page.
+            .placement("bottom-start", fixed=True)
+            .trigger(button)
+            .class_("h-full w-full")
+            .content(
+                html.div(
+                    html.span(
+                        aria_hidden="true",
+                        class_=classnames(
+                            "mt-1 size-3 flex-none rounded-xs", _SOLID[event.color]
+                        ),
+                    ),
+                    html.div(
+                        html.p(
+                            event.title,
+                            class_="font-ui text-base font-bold leading-[1.35]",
+                        ),
+                        html.p(
+                            self.when(event),
+                            class_="mt-0.5 text-sm tabular-nums text-fg-muted",
+                        ),
+                        class_="min-w-0",
+                    ),
+                    class_="flex items-start gap-2.5",
+                ),
+                html.dl(*rows, class_="flex flex-col gap-2 text-sm"),
+                render_when(
+                    bool(actions) or event.href is not None,
+                    html.div(
+                        *foot,
+                        class_="flex flex-wrap items-center gap-2 border-t "
+                        "border-border pt-3",
+                    ),
+                ),
+            )
+        )
+
+    def _row(self, term: str, icon: str, detail: ComponentType) -> ComponentType:
+        return html.div(
+            html.dt(term, class_="sr-only"),
+            HueIcon(icon).class_("mt-0.5 size-4 flex-none text-fg-muted"),
+            html.dd(detail, class_="min-w-0"),
+            class_="flex items-start gap-2.5",
+        )
+
+    def _title_of(self, event: Event) -> tuple[ComponentType, ...]:
+        """
+        A title with the repeat mark after it when the event repeats.
+        """
+        return (
+            event.title,
+            render_when(event.recurring, HueIcon("repeat").class_(_REPEAT)),
+        )
+
+    def chip(self, event: Event, before: bool, after: bool) -> ComponentType:
+        """
+        An all-day event in a list: a filled bar, squared off at an end it
+        continues past.
+        """
+        button = (
+            EventButton(event, self.name(event))
+            .class_(
+                classnames(
+                    _EVENT,
+                    _CHIP,
+                    _TINT[event.color],
+                    FOCUS_RING_INSET,
+                    {"rounded-s-none": before, "rounded-e-none": after},
+                )
+            )
+            .content(
+                *self._title_of(event),
+                # The squared corner is what a sighted reader sees of a bar
+                # that goes on; this is what a screen reader hears of it.
+                render_when(
+                    before or after, html.span(" (continues)", class_="sr-only")
+                ),
+            )
+        )
+        return self.event(event, button)
+
+    def dotted(self, placed: Placed) -> ComponentType:
+        """
+        A timed event in a list: a dot in its colour, its start time and
+        its title.
+        """
+        event = placed.event
+        starts = event.moments(self.formats)[0]
+        button = (
+            EventButton(event, self.name(event))
+            .class_(classnames(_DOTTED, FOCUS_RING_INSET))
+            .content(
+                html.span(
+                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])
+                ),
+                html.span(self.clock(starts), class_=_TIME),
+                html.span(*self._title_of(event), class_="min-w-0 truncate"),
+            )
+        )
+        return self.event(event, button)
+
+    def item(self, placed: Placed) -> ComponentType:
+        return html.li(
+            self.dotted(placed)
+            if placed.event.timed
+            else self.chip(
+                placed.event, placed.continues_before, placed.continues_after
+            ),
+            # A flex item rather than a line box, so the chip inside sits
+            # flush with no descender gap under it.
+            class_="flex",
+        )
+
+    def week(self) -> list[date]:
+        days = week_of(self.cursor, self.start)
+        return [day for day in days if not self.weekdays or day.weekday() < 5]
+
+
 @dataclass(frozen=True)
 class _Bar:
     """
@@ -81,7 +550,7 @@ class _Bar:
 # Day and week
 
 
-def time_grid(draw: _Draw, days: list[date]) -> ComponentType:
+def time_grid(draw: Draw, days: list[date]) -> ComponentType:
     """
     A column per day over twenty-four hours, with the all-day events in
     a row above and the hours down the side.
@@ -131,7 +600,7 @@ def time_grid(draw: _Draw, days: list[date]) -> ComponentType:
     )
 
 
-def _day_head(draw: _Draw, day: date) -> ComponentType:
+def _day_head(draw: Draw, day: date) -> ComponentType:
     return draw.link(
         day,
         "day",
@@ -166,7 +635,7 @@ def _bars(days: list[date], placed: dict[date, list[Placed]]) -> list[_Bar]:
     return list(found.values())
 
 
-def _bar(draw: _Draw, bar: _Bar) -> ComponentType:
+def _bar(draw: Draw, bar: _Bar) -> ComponentType:
     return html.li(
         draw.chip(bar.event, bar.before, bar.after),
         class_=classnames("flex", {"ms-0.5": not bar.before, "me-0.5": not bar.after}),
@@ -174,7 +643,7 @@ def _bar(draw: _Draw, bar: _Bar) -> ComponentType:
     )
 
 
-def _hours(draw: _Draw) -> ComponentType:
+def _hours(draw: Draw) -> ComponentType:
     """
     The gutter. Decoration: every event says its own time.
     """
@@ -193,7 +662,7 @@ def _hours(draw: _Draw) -> ComponentType:
     )
 
 
-def _column(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
+def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     timed = [each for each in items if each.event.timed]
     spans = [minutes(each, draw.formats) for each in timed]
     slots = pack(spans)
@@ -218,7 +687,7 @@ def _column(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
 
 
 def _timed(
-    draw: _Draw, placed: Placed, span: tuple[int, int], slot: Slot
+    draw: Draw, placed: Placed, span: tuple[int, int], slot: Slot
 ) -> ComponentType:
     event = placed.event
     start, end = span
@@ -231,31 +700,33 @@ def _timed(
         title_classes, time_classes = "line-clamp-3", "block truncate"
     else:
         title_classes, time_classes = "block truncate", "block truncate"
-    button = _EventButton(
-        event,
-        draw.name(event),
-        classnames(
-            _EVENT,
-            _TINT[event.color],
-            FOCUS_RING_INSET,
-            "h-full overflow-hidden py-0.5 leading-4",
-            "flex items-baseline gap-1.5" if short else "block",
-            # Squared where it runs on from the day before or into the
-            # next, as an all-day bar is where the week cuts it.
-            {
-                "rounded-t-none": placed.continues_before,
-                "rounded-b-none": placed.continues_after,
-            },
-        ),
-    ).content(
-        html.span(
-            *draw._title_of(event),
-            class_=classnames("font-semibold", title_classes),
-        ),
-        html.span(
-            draw.clock(starts) if short else draw.times(event, end_day=False),
-            class_=classnames("tabular-nums text-fg-muted", time_classes),
-        ),
+    button = (
+        EventButton(event, draw.name(event))
+        .class_(
+            classnames(
+                _EVENT,
+                _TINT[event.color],
+                FOCUS_RING_INSET,
+                "h-full overflow-hidden py-0.5 leading-4",
+                "flex items-baseline gap-1.5" if short else "block",
+                # Squared where it runs on from the day before or into the
+                # next, as an all-day bar is where the week cuts it.
+                {
+                    "rounded-t-none": placed.continues_before,
+                    "rounded-b-none": placed.continues_after,
+                },
+            )
+        )
+        .content(
+            html.span(
+                *draw._title_of(event),
+                class_=classnames("font-semibold", title_classes),
+            ),
+            html.span(
+                draw.clock(starts) if short else draw.times(event, end_day=False),
+                class_=classnames("tabular-nums text-fg-muted", time_classes),
+            ),
+        )
     )
     return html.li(
         draw.event(event, button),
@@ -297,7 +768,7 @@ def _now() -> ComponentType:
 # Month
 
 
-def month(draw: _Draw) -> ComponentType:
+def month(draw: Draw) -> ComponentType:
     """
     A table with a column per weekday and six rows of weeks. A table
     rather than a grid widget: every event is a control to read and
@@ -326,16 +797,18 @@ def month(draw: _Draw) -> ComponentType:
         ),
         html.tbody(
             *(
-                html.tr(*(_cell(draw, day, placed.get(day, [])) for day in row))
+                html.tr(
+                    *(_cell(draw, day, placed.get(day, [])) for day in row),
+                    class_="border-b border-border last:border-b-0",
+                )
                 for row in rows
             ),
-            class_="[&_tr:last-child_td]:border-b-0",
         ),
         class_="w-full table-fixed border-collapse",
     )
 
 
-def _cell(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
+def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     outside = (day.year, day.month) != (draw.cursor.year, draw.cursor.month)
     shown = items if len(items) <= _PER_CELL else items[: _PER_CELL - 1]
     more = len(items) - len(shown)
@@ -351,8 +824,7 @@ def _cell(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
         render_when(more > 0, _more(draw, day, items, more)),
         data_date=day.isoformat(),
         class_=classnames(
-            "h-28 overflow-hidden border-e border-b border-border p-1 align-top "
-            "last:border-e-0",
+            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0",
             {
                 _WEEKEND: outside or day.weekday() >= 5,
                 "text-fg-subtle": outside,
@@ -361,7 +833,7 @@ def _cell(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
     )
 
 
-def _more(draw: _Draw, day: date, items: list[Placed], count: int) -> ComponentType:
+def _more(draw: Draw, day: date, items: list[Placed], count: int) -> ComponentType:
     """
     The rest of a day's events, in a popover headed by the day.
     """
@@ -390,7 +862,7 @@ def _more(draw: _Draw, day: date, items: list[Placed], count: int) -> ComponentT
 # Year
 
 
-def year(draw: _Draw) -> ComponentType:
+def year(draw: Draw) -> ComponentType:
     year = draw.cursor.year
     placed = place(draw.events, date(year, 1, 1), date(year, 12, 31), draw.formats)
     return html.div(
@@ -400,7 +872,7 @@ def year(draw: _Draw) -> ComponentType:
     )
 
 
-def _mini(draw: _Draw, month: date, placed: dict[date, list[Placed]]) -> ComponentType:
+def _mini(draw: Draw, month: date, placed: dict[date, list[Placed]]) -> ComponentType:
     """
     One small month: its days as links to their day view, each with a
     dot when something is on.
@@ -436,7 +908,7 @@ def _mini(draw: _Draw, month: date, placed: dict[date, list[Placed]]) -> Compone
                         html.td(
                             render_when(
                                 day.month == month.month,
-                                _year_day(draw, day, len(placed.get(day, []))),
+                                draw.number(day, len(placed.get(day, []))),
                             ),
                             class_="p-0 text-center",
                         )
@@ -450,39 +922,17 @@ def _mini(draw: _Draw, month: date, placed: dict[date, list[Placed]]) -> Compone
     )
 
 
-def _year_day(draw: _Draw, day: date, count: int) -> ComponentType:
-    label = draw.day_name(day)
-    if count:
-        label += f", {count} event" if count == 1 else f", {count} events"
-    return draw.link(
-        day,
-        "day",
-        html.time(str(day.day), datetime=day.isoformat()),
-        render_when(
-            count > 0,
-            html.span(
-                aria_hidden="true",
-                class_="absolute bottom-0.5 size-1 rounded-full bg-current",
-            ),
-        ),
-        label=label,
-        classes=classnames(_NUMBER, _NUMBER_TODAY, "relative"),
-        link_classes=_NUMBER_LINK,
-        current=day == draw.today,
-    )
-
-
 # Agenda
 
 
-def agenda(draw: _Draw) -> ComponentType:
+def agenda(draw: Draw) -> ComponentType:
     """
     The next thirty days with something on, each day a heading over
     its list; an Empty when none of them has.
     """
     formats = draw.formats
     first = draw.cursor
-    last = first + timedelta(days=_AGENDA_DAYS - 1)
+    last = _agenda_last(draw)
     placed = place(draw.events, first, last, formats)
     days = sorted(placed)
     if not days:
@@ -497,7 +947,7 @@ def agenda(draw: _Draw) -> ComponentType:
     )
 
 
-def _agenda_day(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
+def _agenda_day(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     formats = draw.formats
     return html.section(
         html.div(
@@ -519,7 +969,7 @@ def _agenda_day(draw: _Draw, day: date, items: list[Placed]) -> ComponentType:
     )
 
 
-def _agenda_row(draw: _Draw, placed: Placed) -> ComponentType:
+def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
     event = placed.event
     formats = draw.formats
     if event.timed:
@@ -529,25 +979,74 @@ def _agenda_row(draw: _Draw, placed: Placed) -> ComponentType:
         total = (last - first).days + 1
         nth = (placed.day - first).days + 1
         when = "All day" if total == 1 else f"Day {nth} of {total}"
-    button = _EventButton(
-        event,
-        draw.name(event),
-        classnames(
-            "grid w-full cursor-pointer grid-cols-[6.5rem_auto_minmax(0,1fr)] "
-            "items-center gap-3 rounded-md px-2.5 py-2 text-start text-sm "
-            "text-fg hover:bg-surface-hover",
-            FOCUS_RING_INSET,
-        ),
-    ).content(
-        html.span(when, class_="text-xs tabular-nums text-fg-muted"),
-        html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])),
-        html.span(
-            html.span(*draw._title_of(event), class_="font-semibold"),
-            render_if(
-                event.location,
-                lambda text: html.span(text, class_="ms-2 text-fg-muted"),
+    button = (
+        EventButton(event, draw.name(event))
+        .class_(
+            classnames(
+                "grid w-full cursor-pointer grid-cols-[6.5rem_auto_minmax(0,1fr)] "
+                "items-center gap-3 rounded-md px-2.5 py-2 text-start text-sm "
+                "text-fg hover:bg-surface-hover",
+                FOCUS_RING_INSET,
+            )
+        )
+        .content(
+            html.span(when, class_="text-xs tabular-nums text-fg-muted"),
+            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])),
+            html.span(
+                html.span(*draw._title_of(event), class_="font-semibold"),
+                render_if(
+                    event.location,
+                    lambda text: html.span(text, class_="ms-2 text-fg-muted"),
+                ),
+                class_="min-w-0 truncate",
             ),
-            class_="min-w-0 truncate",
-        ),
+        )
     )
     return draw.event(event, button)
+
+
+@dataclass(frozen=True)
+class _View:
+    label: str
+    # The day the previous or the next page of this view is around.
+    step: Callable[[date, int], date]
+    title: Callable[[Draw], str]
+    render: Callable[[Draw], ComponentType]
+
+
+def _agenda_last(draw: Draw) -> date:
+    return draw.cursor + timedelta(days=_AGENDA_DAYS - 1)
+
+
+VIEWS: dict[CalendarView, _View] = {
+    "day": _View(
+        "Day",
+        lambda day, count: day + timedelta(days=count),
+        lambda draw: draw.formats.day(draw.cursor),
+        lambda draw: time_grid(draw, [draw.cursor]),
+    ),
+    "week": _View(
+        "Week",
+        lambda day, count: day + timedelta(weeks=count),
+        lambda draw: draw.between(draw.week()[0], draw.week()[-1]),
+        lambda draw: time_grid(draw, draw.week()),
+    ),
+    "month": _View(
+        "Month",
+        add_months,
+        lambda draw: draw.formats.month(draw.cursor),
+        month,
+    ),
+    "year": _View(
+        "Year",
+        lambda day, count: add_months(day, 12 * count),
+        lambda draw: str(draw.cursor.year),
+        year,
+    ),
+    "agenda": _View(
+        "Agenda",
+        lambda day, count: day + timedelta(days=_AGENDA_DAYS * count),
+        lambda draw: draw.between(draw.cursor, _agenda_last(draw)),
+        agenda,
+    ),
+}
