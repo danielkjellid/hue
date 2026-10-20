@@ -464,7 +464,7 @@ class TestKeys:
         help_ = select(html, "#events-help")[0]
         assert_attr(html, "#events-help", "@hue:open", "open = true")
         text = help_.get_text(" ", strip=True)
-        assert "Go to today" in text and "Move it by a day" in text
+        assert "Go to today" in text and "Move it a day" in text
         assert (
             "Keyboard shortcuts" in select(html, "#events-options")[0].parent.get_text()
         )
@@ -476,7 +476,7 @@ class TestKeys:
         names = {item.shortcut.name for item in shortcuts.used()}
         assert "calendar_today" in names
         assert not {"calendar_new", "calendar_search"} & names
-        assert "Move it by a day" not in select(html, "#events-help")[0].get_text()
+        assert "Move it a day" not in select(html, "#events-help")[0].get_text()
 
     @pytest.mark.asyncio
     async def test_a_registry_without_the_keys_gets_none_and_no_help(self, _request):

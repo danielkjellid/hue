@@ -1720,20 +1720,17 @@ class _Help(ChainableComponent):
         if bound.declaration.save is not None:
             rows += [
                 _help_row(
-                    "Move the focused event by a quarter hour",
-                    Kbd("alt", "up"),
-                    Kbd("alt", "down"),
+                    "Move the focused event a quarter hour",
+                    *_either(("alt",), "up", "down"),
                 ),
-                _help_row("Move it by a day", Kbd("alt", "left"), Kbd("alt", "right")),
+                _help_row("Move it a day", *_either(("alt",), "left", "right")),
                 _help_row(
-                    "End it a quarter hour earlier or later",
-                    Kbd("alt", "shift", "up"),
-                    Kbd("alt", "shift", "down"),
+                    "Change its end by a quarter hour",
+                    *_either(("alt", "shift"), "up", "down"),
                 ),
                 _help_row(
-                    "End an all-day event a day earlier or later",
-                    Kbd("alt", "shift", "left"),
-                    Kbd("alt", "shift", "right"),
+                    "Change an all-day end by a day",
+                    *_either(("alt", "shift"), "left", "right"),
                 ),
             ]
         rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
@@ -1747,11 +1744,31 @@ class _Help(ChainableComponent):
         )
 
 
+def _either(
+    held: tuple[str, ...], first: str, second: str
+) -> tuple[ComponentType, ...]:
+    """
+    Keys held with one of two others, written once: alt + up / down.
+    """
+    return (
+        Kbd(*held),
+        html.span("+", class_="text-fg-subtle"),
+        Kbd(first),
+        html.span(
+            html.span("/", aria_hidden="true"),
+            html.span("or", class_="sr-only"),
+            class_="text-fg-subtle",
+        ),
+        Kbd(second),
+    )
+
+
 def _help_row(label: str, *keys: ComponentType) -> ComponentType:
+    # The keys wrap under a label they would crowd, rather than squeeze it.
     return html.li(
-        html.span(label, class_="min-w-0 flex-1"),
-        html.span(*keys, class_="flex flex-none flex-wrap items-center gap-1.5"),
-        class_="flex items-center gap-4 py-2 text-sm",
+        html.span(label, class_="min-w-0 flex-auto"),
+        html.span(*keys, class_="ms-auto flex flex-none items-center gap-1.5"),
+        class_="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2 text-sm",
     )
 
 
