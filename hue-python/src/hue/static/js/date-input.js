@@ -304,9 +304,15 @@ export function dateInput(config) {
 		// Now, rounded up to the next step of the list.
 		now() {
 			const at = new Date();
-			const minutes = Math.ceil((at.getHours() * 60 + at.getMinutes()) / step) * step;
-			const day = add(today(), Math.floor(minutes / 1440));
-			const time = `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+			let minutes = Math.ceil((at.getHours() * 60 + at.getMinutes()) / step) * step;
+			let day = today();
+			// The list starts again at midnight, which a step that does
+			// not divide the day would otherwise skip past.
+			if (minutes >= 1440) {
+				minutes = 0;
+				day = add(day, 1);
+			}
+			const time = `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 			const refused = this.check([day]);
 			if (refused) {
 				this.error = refused;
