@@ -150,6 +150,12 @@ def test_the_page_draws_the_state_the_url_asks_for(mounted):
     assert re.search(r'<p id="events-status"[^>]*x-sync[^>]*>March 2026</p>', html)
 
 
+def test_the_sidebar_month_keeps_its_name_for_screen_readers_only(mounted):
+    # Plain from where it sits, and the design shows no heading over it.
+    html = _render(Calendar.from_state(mounted().events), _request())
+    assert re.search(r'<legend[^>]*class="[^"]*sr-only[^"]*"[^>]*>\s*Go to a day', html)
+
+
 def test_the_links_keep_the_rest_of_the_query_and_todays_drops_the_date(mounted):
     html = _render(
         Calendar.from_state(mounted().events),

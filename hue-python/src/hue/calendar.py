@@ -1302,6 +1302,7 @@ class _Side(ChainableComponent):
                 .name(declared.param(_DATE))
                 .id(f"{key}-picker")
                 .label("Go to a day")
+                .hidden_label()
                 .size("sm")
                 .value(state.date)
                 .week_start(state.week_start)
