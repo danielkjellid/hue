@@ -827,6 +827,27 @@ def test_a_move_hands_focus_to_the_event_where_it_now_is(mounted):
     assert 'data-starts="2026-10-15T14:00"' in marked[0]
 
 
+def test_an_event_drawn_on_two_days_takes_focus_where_it_starts(mounted):
+    late = replace(_REVIEW, starts=datetime(2026, 10, 14, 22), ends=None)
+    stored = [replace(late, ends=datetime(2026, 10, 15, 1))]
+    mounted(
+        events=lambda r, s: list(stored), save=lambda r, e: stored.__setitem__(0, e)
+    )
+    posted = _moved(
+        occurrence="2026-10-14T22:00",
+        starts="2026-10-14",
+        starts_time="22:30",
+        ends="2026-10-15",
+        ends_time="01:30",
+    )
+    html = _act("move", **posted).content.decode()
+    assert html.count('data-starts="2026-10-14T22:30"') == 2
+    marked = _autofocused(html)
+    assert len(marked) == 1
+    # The copy on the day it starts, which is not squared off at its top.
+    assert "rounded-t-none" not in marked[0]
+
+
 def test_an_undone_delete_hands_focus_to_the_event_it_made_again(mounted):
     again = replace(_REVIEW, id="9")
     mounted(events=lambda r, s: [_REVIEW, again], save=lambda r, e: 9)
@@ -876,6 +897,44 @@ def test_the_calendars_keys_are_on_for_the_page_and_every_answer(mounted):
     # The dialog's answer brings its own copy, so Cancel leaves them on.
     assert "events-today" in _host(_act("dialog").content.decode())
     assert 'id="events-help"' in page
+
+
+@override_settings(HUE_SHORTCUTS=_Keys)
+def test_the_help_reaches_the_page_with_the_calendar_that_takes_the_keys(
+    urlpatterns_,
+):
+    class TwoView(HueView):
+        router = Router[HttpRequest]()
+        rooms = build_calendar_state(
+            router, key="rooms", events=_events, save=lambda r, e: None
+        )
+        desks = build_calendar_state(
+            router, key="desks", events=_events, save=lambda r, e: None
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:
+            return Page(
+                title="Two",
+                body=html.div(
+                    Calendar.from_state(self.rooms), Calendar.from_state(self.desks)
+                ),
+            )
+
+    urlpatterns_.append(path(MOUNT, include(TwoView.urls)))
+    clear_url_caches()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    assert 'id="rooms-help"' in page and 'id="desks-help"' not in page
+    # A change to the second answers with its keys, and its help arrives in
+    # a synced region the page already holds.
+    saved = {
+        name.replace("events-", "desks-"): value for name, value in _fields().items()
+    }
+    answer = Client().post(f"/{MOUNT}desks/save/", saved, **_AJAX).content.decode()
+    assert "desks-today" in _host(answer)
+    synced = re.findall(r'<div id="([^"]+)" x-sync', page)
+    assert "desks-shortcuts" in synced
+    region = re.search(r'<div id="desks-shortcuts" x-sync.*', answer, re.S)
+    assert region and 'id="desks-help"' in region[0]
 
 
 def test_without_the_keys_in_the_registry_nothing_is_bound(mounted):
