@@ -6,6 +6,7 @@ import { clearStaleBusyMarks } from "./ajax-busy.js";
 import { registerChartData } from "./chart-loader.js";
 import { registerComboboxData } from "./combobox.js";
 import { registerCommandData } from "./command.js";
+import { registerDatePickerData } from "./date-picker.js";
 import { registerDismissibleData } from "./dismiss.js";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerSelectData } from "./select.js";
@@ -51,6 +52,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 	registerChartData(Alpine);
 	registerComboboxData(Alpine);
 	registerCommandData(Alpine);
+	registerDatePickerData(Alpine);
 	registerDismissibleData(Alpine);
 	registerScrollAreaData(Alpine);
 	registerSelectData(Alpine);
