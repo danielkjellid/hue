@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
 from django.db import models
 from django.utils import timezone
@@ -77,4 +77,15 @@ def _aware(moment: date | datetime) -> datetime:
     """
     if not isinstance(moment, datetime):
         moment = datetime.combine(moment, time.min)
-    return timezone.make_aware(moment) if timezone.is_naive(moment) else moment
+    if timezone.is_aware(moment):
+        return moment
+    aware = timezone.make_aware(moment)
+    # A time the clocks skip going forward is not one. zoneinfo answers for
+    # it with the hour after and says nothing, which is said here instead;
+    # the calendar refuses it before it gets this far.
+    if timezone.localtime(aware.astimezone(UTC)).replace(tzinfo=None) != moment:
+        raise ValueError(
+            f"{moment:%H:%M} is skipped on {moment:%Y-%m-%d} in "
+            f"{timezone.get_current_timezone_name()}, when the clocks go forward."
+        )
+    return aware

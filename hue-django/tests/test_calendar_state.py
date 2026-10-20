@@ -17,7 +17,7 @@ from urllib.parse import urlencode
 import pytest
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, QueryDict
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
@@ -272,6 +272,21 @@ def test_a_field_that_cannot_be_read_comes_back_on_the_dialog(mounted, changed, 
     assert wrong in html
     assert 'aria-invalid="true"' in html
     assert _SAVED == []
+
+
+def test_a_time_the_clocks_skip_is_refused_under_a_timezone(mounted):
+    mounted()
+    # Oslo goes forward at 02:00 on 29 March 2026, so 02:30 is no time.
+    # Made aware it would be 03:30, the same instant the event ends at.
+    with override_settings(TIME_ZONE="Europe/Oslo"):
+        day = {"starts": "2026-03-29", "ends": "2026-03-29"}
+        refused = _act("save", **_fields(**day, starts_time="02:30", ends_time="03:30"))
+        allowed = _act("save", **_fields(**day, starts_time="03:30", ends_time="04:30"))
+    assert refused.status_code == 422
+    html = refused.content.decode()
+    assert "That time is skipped when the clocks go forward." in html
+    assert allowed.status_code == 200
+    assert [event.starts for event in _SAVED] == [datetime(2026, 3, 29, 3, 30)]
 
 
 def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounted):

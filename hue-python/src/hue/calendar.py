@@ -79,7 +79,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field, fields, replace
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from http import HTTPStatus
 from typing import Any, ClassVar, Protocol, get_args
 from urllib.parse import urlencode
@@ -322,16 +322,32 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _timezone(formats: Formats) -> str | None:
+def _zone(formats: Formats) -> tzinfo | None:
     """
-    The name of the timezone events are drawn in, when the framework moves
-    them into one. Without that, a naive time is shown as given and there
-    is nothing honest to say.
+    The timezone events are drawn in, when the framework moves them into
+    one. Without that, a naive time is shown as given and there is nothing
+    honest to say about it.
     """
     if formats.localize is None:
         return None
-    moment = formats.moment(_now())
-    return getattr(moment.tzinfo, "key", None) or moment.tzname()
+    return formats.moment(_now()).tzinfo
+
+
+def _timezone(formats: Formats) -> str | None:
+    zone = _zone(formats)
+    if zone is None:
+        return None
+    return getattr(zone, "key", None) or zone.tzname(_now())
+
+
+def _exists(moment: datetime, zone: tzinfo) -> bool:
+    """
+    Whether a naive time is one the clocks in zone show that day. The hour
+    they skip going forward is not, and zoneinfo would answer for it with
+    the hour after and say nothing.
+    """
+    aware = moment.replace(tzinfo=zone)
+    return aware.astimezone(UTC).astimezone(zone).replace(tzinfo=None) == moment
 
 
 def _bound_from(context: Context, component: object) -> BoundCalendar:
@@ -630,7 +646,9 @@ class _Declaration:
             html.div(_Band(), calendar, class_="flex min-w-0 flex-1 flex-col gap-3"),
         )
 
-    def _draft(self, posted: _Posted) -> tuple[Event | None, dict[str, str]]:
+    def _draft(
+        self, posted: _Posted, formats: Formats
+    ) -> tuple[Event | None, dict[str, str]]:
         """
         The posted fields as an Event, or what is wrong with them by field.
         """
@@ -638,7 +656,7 @@ class _Declaration:
         title = posted.title.strip()
         if not title:
             errors["title"] = "Give the event a title."
-        starts, ends = _when(posted, errors)
+        starts, ends = _when(posted, errors, _zone(formats))
         layer = posted.layer or None
         if self.layers and layer not in {each.key for each in self.layers}:
             errors["layer"] = "Choose a calendar."
@@ -881,7 +899,7 @@ class _Declaration:
             if action == _OVERLAPS:
                 return await self._checked(request, bound, body)
             if action == _SAVE:
-                draft, errors = self._draft(body)
+                draft, errors = self._draft(body, formats)
                 if draft is None:
                     return HueResponse(
                         component=self._dialog(
@@ -903,7 +921,7 @@ class _Declaration:
         The overlap warning for the fields as they stand, or nothing, in
         the dialog's own region.
         """
-        draft, _ = self._draft(body)
+        draft, _ = self._draft(body, bound.formats)
         found = (
             await self._router._run_sync(
                 self._overlapping, request, bound.state, draft, bound.formats
@@ -972,7 +990,7 @@ build_calendar_state = _Declaration
 
 
 def _when(
-    posted: _Posted, errors: dict[str, str]
+    posted: _Posted, errors: dict[str, str], zone: tzinfo | None
 ) -> tuple[date | datetime | None, date | datetime | None]:
     """
     When the posted fields say the event is, adding what is wrong with
@@ -989,13 +1007,7 @@ def _when(
     starts: date | datetime | None = first
     ends: date | datetime | None = last
     if not all_day:
-        opens, closes = _clock(posted.starts_time), _clock(posted.ends_time)
-        if opens is None:
-            errors["starts_time"] = "Enter a time."
-        if closes is None:
-            errors["ends_time"] = "Enter a time."
-        starts = datetime.combine(first, opens) if first and opens else None
-        ends = datetime.combine(last, closes) if last and closes else None
+        starts, ends = _clocked(first, last, posted, errors, zone)
     if starts is None or ends is None:
         return starts, ends
     if ends < starts:
@@ -1004,6 +1016,40 @@ def _when(
         errors["ends_time"] = "Starts and ends at the same time."
     elif first is not None and last is not None and (last - first).days > _LONGEST:
         errors["ends"] = "Ends more than a year after it starts."
+    return starts, ends
+
+
+def _clocked(
+    first: date | None,
+    last: date | None,
+    posted: _Posted,
+    errors: dict[str, str],
+    zone: tzinfo | None,
+) -> tuple[datetime | None, datetime | None]:
+    """
+    The moments a timed event's fields say, adding what is wrong with the
+    times to errors.
+
+    With a zone, a time the clocks skip that day is refused rather than
+    moved: made aware, 02:30 the night they go forward would come out as
+    03:30, and an event typed to run until 03:30 would be no time at all.
+    """
+    opens, closes = _clock(posted.starts_time), _clock(posted.ends_time)
+    if opens is None:
+        errors["starts_time"] = "Enter a time."
+    if closes is None:
+        errors["ends_time"] = "Enter a time."
+    starts = datetime.combine(first, opens) if first and opens else None
+    ends = datetime.combine(last, closes) if last and closes else None
+    if zone is None:
+        return starts, ends
+    skipped = "That time is skipped when the clocks go forward."
+    if starts is not None and not _exists(starts, zone):
+        errors["starts_time"] = skipped
+        starts = None
+    if ends is not None and not _exists(ends, zone):
+        errors["ends_time"] = skipped
+        ends = None
     return starts, ends
 
 

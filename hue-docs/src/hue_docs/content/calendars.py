@@ -331,10 +331,11 @@ def _build() -> ComponentType:
             "starts and ends, which calendar it is in, where it is and any notes, "
             "and how it repeats when the declaration offers repeats, a mapping of "
             "your keys to their labels. A field that cannot be read, a missing "
-            "title or an end before the start comes back as an error on the field, "
-            "and nothing reaches save. While the fields are being filled in, the "
-            "dialog asks the server whether the times overlap another timed event "
-            "and says which, as a warning rather than a refusal."
+            "title, an end before the start, an event longer than a year or, under "
+            "USE_TZ, a time the clocks skip going forward comes back as an error on "
+            "the field, and nothing reaches save. While the fields are being filled "
+            "in, the dialog asks the server whether the times overlap another timed "
+            "event and says which, as a warning rather than a refusal."
         ),
         pr.p(
             "All of it goes through one route, POST events/<action>/, named after "

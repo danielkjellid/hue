@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.test import Client
 
-from example.events.models import Entry
+from example.events.models import Entry, _aware
 from example.events.repeats import occurrences
 
 _AJAX = {"HTTP_X_ALPINE_REQUEST": "true"}
@@ -152,3 +152,10 @@ def test_a_series_that_began_years_ago_still_lands_on_the_days_asked_for(entries
     freeze.repeat = "weekly"
     found = list(occurrences(freeze, date(2026, 10, 17), date(2026, 10, 17)))
     assert [event.starts for event in found] == [date(2026, 10, 16)]
+
+
+def test_a_time_the_clocks_skip_is_refused_rather_than_moved(db):
+    # Oslo goes forward at 02:00 on 29 March 2026.
+    assert _aware(datetime(2026, 3, 29, 3, 30)) == _at(2026, 3, 29, 3, 30)
+    with pytest.raises(ValueError, match="02:30 is skipped"):
+        _aware(datetime(2026, 3, 29, 2, 30))
