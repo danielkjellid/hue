@@ -307,11 +307,8 @@ export function registerCalendarData(Alpine) {
 				// Left where it was dropped until the response redraws it, so
 				// it does not jump back and forth.
 				drag.column.parentElement.classList.remove("select-none");
-				this.post(drag.button, {
-					days: drag.days,
-					minutes: drag.minutes,
-					resize: drag.mode === "resize",
-				});
+				const change = { days: drag.days, minutes: drag.minutes, resize: drag.mode === "resize" };
+				this.post(drag.button, change).then((redrawn) => redrawn || this.settle(drag));
 			},
 
 			// keep holds on to a drag Escape cancelled until the pointer is
@@ -403,9 +400,12 @@ export function registerCalendarData(Alpine) {
 				return column ? [row, column.dataset.date] : [null];
 			},
 
+			// Whether the calendar came back: a change that is not one, or an
+			// answer with no calendar in it, such as a proxy's error page,
+			// leaves the page as it was.
 			async post(button, change) {
 				const fields = shifted(button, change);
-				if (!fields) return;
+				if (!fields) return false;
 				const body = new FormData();
 				body.set(`${key}-id`, button.dataset.eventId);
 				body.set(`${key}-occurrence`, button.dataset.starts);
@@ -415,11 +415,14 @@ export function registerCalendarData(Alpine) {
 				this.moving = true;
 				try {
 					await this.send(move, body);
+				} catch {
+					return false;
 				} finally {
 					this.moving = false;
 				}
 				const starts = fields.all_day ? fields.starts : `${fields.starts}T${fields.starts_time}`;
 				this.land({ id: button.dataset.eventId, starts });
+				return true;
 			},
 
 			// Focus to an event after a change: the one with this id, or this
