@@ -28,7 +28,7 @@ dev = [
 [tool.ruff]
 extend = "../../ruff.toml"
 # Written by makemigrations, and rewritten by it next time.
-extend-exclude = ["example/invoices/migrations"]
+extend-exclude = ["example/invoices/migrations", "example/events/migrations"]
 
 ########
 # Mypy #

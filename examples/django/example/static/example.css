@@ -4,3 +4,8 @@
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
 }
+
+/* A calendar with a sidebar wants the room a table does not. */
+.example-page-wide {
+  max-width: 90rem;
+}
