@@ -253,20 +253,54 @@ class TestTimeGrid:
         assert f"13:00 {_DASH} 14:30" in _event(html, "Design review").get_text()
 
     @pytest.mark.asyncio
-    async def test_an_event_past_midnight_is_drawn_once_and_cut_there(
+    async def test_an_event_past_midnight_is_drawn_on_each_day_it_covers(
         self, context_args
     ):
         late = Event("Late", datetime(2026, 10, 14, 23), datetime(2026, 10, 15, 1))
         html = await _html(_calendar(late), context_args)
         boxes = select(html, "li.absolute")
-        assert len(boxes) == 1
+        days = [box.find_parent(attrs={"data-date": True})["data-date"] for box in boxes]
+        assert days == ["2026-10-14", "2026-10-15"]
         assert "top: 1104px; height: 46px" in boxes[0]["style"]
-        assert _event(html, "Late")["aria-label"] == (
-            "Late, 23:00 Wednesday 14 October 2026 to 01:00 Thursday 15 October 2026"
+        assert "top: 0px; height: 46px" in boxes[1]["style"]
+        first, second = (box.select_one("button") for box in boxes)
+        assert "rounded-b-none" in first["class"]
+        assert "rounded-t-none" not in first["class"]
+        assert "rounded-t-none" in second["class"]
+        assert "rounded-b-none" not in second["class"]
+        name = "Late, 23:00 Wednesday 14 October 2026 to 01:00 Thursday 15 October 2026"
+        assert first["aria-label"] == second["aria-label"] == name
+
+    @pytest.mark.asyncio
+    async def test_an_event_ending_at_midnight_fills_its_day_and_stops(
+        self, context_args
+    ):
+        late = Event("Late", datetime(2026, 10, 14, 22), datetime(2026, 10, 15))
+        html = await _html(_calendar(late), context_args)
+        boxes = select(html, "li.absolute")
+        assert len(boxes) == 1
+        assert "top: 1056px; height: 94px" in boxes[0]["style"]
+        assert "rounded-b-none" not in boxes[0].select_one("button")["class"]
+
+    @pytest.mark.asyncio
+    async def test_a_day_view_shows_what_began_the_day_before(self, context_args):
+        late = Event("Late", datetime(2026, 10, 13, 22), datetime(2026, 10, 14, 2))
+        html = await _html(_calendar(late).view("day"), context_args)
+        boxes = select(html, "li.absolute")
+        assert len(boxes) == 1
+        assert "top: 0px; height: 94px" in boxes[0]["style"]
+
+    @pytest.mark.asyncio
+    async def test_a_multi_day_timed_event_fills_the_days_between(self, context_args):
+        conference = Event(
+            "Conference", datetime(2026, 10, 11, 9), datetime(2026, 10, 14, 17)
         )
-        assert boxes[0].find_parent(attrs={"data-date": True})["data-date"] == (
-            "2026-10-14"
-        )
+        html = await _html(_calendar(conference), context_args)
+        boxes = select(html, "li.absolute")
+        days = [box.find_parent(attrs={"data-date": True})["data-date"] for box in boxes]
+        assert days == ["2026-10-12", "2026-10-13", "2026-10-14"]
+        assert "top: 0px; height: 1150px" in boxes[0]["style"]
+        assert "top: 0px; height: 814px" in boxes[2]["style"]
 
     @pytest.mark.asyncio
     async def test_an_all_day_event_spans_its_columns(self, context_args):
