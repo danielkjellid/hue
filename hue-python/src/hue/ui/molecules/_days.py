@@ -10,6 +10,7 @@ overlap share a column.
 
 from __future__ import annotations
 
+from calendar import monthrange
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -150,9 +151,7 @@ def add_months(day: date, count: int) -> date:
     """
     index = day.year * 12 + day.month - 1 + count
     year, month = divmod(index, 12)
-    first = date(year, month + 1, 1)
-    last = (first + timedelta(days=31)).replace(day=1) - timedelta(days=1)
-    return first.replace(day=min(day.day, last.day))
+    return date(year, month + 1, min(day.day, monthrange(year, month + 1)[1]))
 
 
 @dataclass(frozen=True, slots=True)

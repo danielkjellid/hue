@@ -46,6 +46,7 @@ def test_a_month_grid_is_always_six_weeks_from_the_week_of_the_first():
 def test_a_month_on_clamps_the_day_to_the_shorter_month():
     assert add_months(date(2026, 1, 31), 1) == date(2026, 2, 28)
     assert add_months(date(2026, 10, 14), -12) == date(2025, 10, 14)
+    assert add_months(date(9999, 11, 30), 1) == date(9999, 12, 30)
     assert add_months(date(2026, 12, 5), 1) == date(2027, 1, 5)
 
 
