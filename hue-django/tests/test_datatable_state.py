@@ -356,6 +356,9 @@ def test_an_action_posts_the_state_it_was_done_in(mounted):
         "invoices-sort": "-amount",
         "invoices-q": "n",
         "invoices-page": "2",
+        # Without the script the form posts on its own, and Django answers
+        # a post with no token with its 403 page.
+        "csrfmiddlewaretoken": "t",
     }
 
 
@@ -1043,6 +1046,10 @@ def test_an_action_that_fails_says_so_and_keeps_the_table(urlpatterns_, caplog):
     assert 'id="invoices"' in html
     assert "the billing service is down" in caplog.text
     assert "Traceback" in caplog.text
+    # Under the table's own module, where a log config already points.
+    assert {r.name for r in caplog.records if r.name.startswith("hue")} == {
+        "hue.datatable"
+    }
 
 
 def test_an_action_that_works_raises_no_alarm(mounted):

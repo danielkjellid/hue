@@ -23,9 +23,8 @@ from hue import toast
 from hue.router import PAGE_ROUTE, HueResponse
 from hue.types.core import ComponentType
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import SEARCH_DELAY, SearchInput
-
-_log = logging.getLogger(__name__)
+from hue.ui.atoms.input import TextInput
+from hue.utils import render_if
 
 type Pairs = tuple[tuple[str, str], ...]
 
@@ -119,7 +118,7 @@ class Bound:
         """
         raise NotImplementedError
 
-    def _query(
+    def query(
         self, state: Any, *, without: AbstractSet[str] = frozenset()
     ) -> list[tuple[str, str]]:
         """
@@ -134,8 +133,28 @@ class Bound:
         return [*self.others, *own]
 
     def _link(self, state: Any) -> str:
-        asked = self._query(state)
+        asked = self.query(state)
         return self.urls.read + (f"?{urlencode(asked)}" if asked else "")
+
+
+def search_id(key: str) -> str:
+    """
+    The id of the search box's form, which the fields it carries name.
+    """
+    return f"{key}-search"
+
+
+def csrf(
+    declared: Declaration[Any], token: str, *, form: str | None = None
+) -> ComponentType:
+    """
+    The framework's CSRF token as a hidden field, for a form that has to
+    post without the script, or nothing for a framework without one.
+    """
+    return render_if(
+        declared._router._csrf_field(),
+        lambda name: html.input_(type="hidden", name=name, value=token, form=form),
+    )
 
 
 def carried(
@@ -251,16 +270,36 @@ class Declaration[R: Routes]:
         and the form would be submitted again as a plain request, landing
         the reader on that page. Anything else is logged with its
         traceback, since nothing is raised for an error tracker to catch.
+        It is logged under the module that declares the table or calendar,
+        where an app's log config already points.
         """
         try:
             await self._router._run_sync(handler, request, given)
         except Exception as error:
             refused = self._router._refusal(error)
             if refused is None:
-                _log.exception("%s: %s failed", self.key, label)
+                logging.getLogger(type(self).__module__).exception(
+                    "%s: the %r action failed", self.key, label
+                )
             toast.danger(f"{label} failed", description=description)
             return refused or HTTPStatus.INTERNAL_SERVER_ERROR
         return HTTPStatus.OK
+
+
+class SearchInput(TextInput):
+    """
+    A text input with the search type, which gives it the search role and a
+    search key on a phone's keyboard. Not exported: a search box is a GET
+    form around one of these, which search_form builds.
+    """
+
+    _input_type = "search"
+
+
+# How long a search box waits after the last keystroke before it submits.
+# Long enough that a word typed at speed is one request rather than five,
+# short enough that the rows have moved by the time you look at them.
+SEARCH_DELAY = "300ms"
 
 
 def search_form(
@@ -273,7 +312,7 @@ def search_form(
     target: str,
 ) -> ComponentType:
     """
-    The search box's own GET form, {key}-search. A form because Enter
+    The search box's own GET form, under search_id. A form because Enter
     already submits one and x-target only turns that into a swap, so search
     works with Alpine off; typing submits it after a pause, and Escape
     empties it.
@@ -298,7 +337,7 @@ def search_form(
     )
     return html.form(
         field,
-        id=f"{key}-search",
+        id=search_id(key),
         method="get",
         action=read,
         # The free space in the band up to a readable cap: a field as wide

@@ -368,7 +368,8 @@ def _build() -> ComponentType:
             "page, in the same order, with the same filters. If the handler raises, "
             "the reader gets a danger toast naming the action, the table redraws as "
             "it now is, and the ticked rows stay ticked for another try. The error "
-            "is logged with its traceback, which is how an error tracker hears about "
+            "is logged with its traceback under hue.datatable, which is how an "
+            "error tracker hears about "
             "it, since nothing is raised past the route. A permission denied, a not "
             "found or a bad request keeps Django's status and is answered the same "
             "way, without the log line, since Django's own page has nowhere on it "
@@ -567,8 +568,8 @@ def _build() -> ComponentType:
                     pr.p(
                         "Actions need JavaScript. Alpine draws the bar they sit in, "
                         "so with it off there is nothing to press. The action form "
-                        "carries no CSRF token of its own either, since the bundle "
-                        "sends the header Django reads."
+                        "does carry Django's CSRF token, so a post that falls back "
+                        "to a plain submit is not refused."
                     ),
                     pr.p(
                         "An action redraws the table from its declaration alone, so "

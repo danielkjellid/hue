@@ -87,13 +87,16 @@ from hue import toast
 from hue._declared import (
     Bound,
     Declaration,
+    Pairs,
     Routes,
     Urls,
     bound_from,
     carried,
+    csrf,
     many,
     one,
     search_form,
+    search_id,
 )
 from hue.context import HueContext
 from hue.formats import Formats
@@ -350,6 +353,20 @@ def _new(key: str) -> str:
     return f"{key}-new"
 
 
+def _side(key: str) -> str:
+    """
+    The id of the sidebar, which the toolbar's button opens.
+    """
+    return f"{key}-side"
+
+
+def _view_options(key: str) -> str:
+    """
+    The id of the view options' form, which the fields it carries name.
+    """
+    return f"{key}-options"
+
+
 @dataclass(frozen=True, slots=True)
 class BoundCalendar(Bound):
     """
@@ -363,7 +380,7 @@ class BoundCalendar(Bound):
     events: list[Event]
     today: date
     urls: Urls
-    others: tuple[tuple[str, str], ...]
+    others: Pairs
     formats: Formats
 
     def href(self, **changes: Any) -> str:
@@ -483,7 +500,7 @@ class _Declaration(Declaration[Routes]):
 
     def _read(
         self, values: Mapping[str, list[str]], today: date
-    ) -> tuple[CalendarState, _Posted, tuple[tuple[str, str], ...]]:
+    ) -> tuple[CalendarState, _Posted, Pairs]:
         """
         A query or a posted form, split into this calendar's state, the
         dialog's fields, and everything else, which goes back out as it
@@ -518,7 +535,7 @@ class _Declaration(Declaration[Routes]):
         self,
         request: Any,
         asked: CalendarState,
-        others: tuple[tuple[str, str], ...],
+        others: Pairs,
         today: date,
         formats: Formats,
         urls: Urls | None = None,
@@ -656,7 +673,6 @@ class _Declaration(Declaration[Routes]):
         failed and the browser submits it on its own.
         """
         key = bound.key
-        csrf_field = self._router._csrf_field()
         editing = bool(posted.id)
         all_day = bool(posted.all_day)
         form_id = f"{key}-form"
@@ -689,13 +705,8 @@ class _Declaration(Declaration[Routes]):
             .errors({param(name): message for name, message in errors.items()})
             .class_("gap-4")
             .content(
-                *carried(bound._query(bound.state)),
-                render_if(
-                    csrf_field,
-                    lambda name: html.input_(
-                        type="hidden", name=name, value=csrf_token
-                    ),
-                ),
+                *carried(bound.query(bound.state)),
+                csrf(self, csrf_token),
                 render_when(
                     editing,
                     html.input_(type="hidden", name=param("id"), value=posted.id),
@@ -1074,7 +1085,7 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
     """
     declared = bound.declaration
     slot = _slot(bound.key)
-    carried: dict[str, Any] = dict(bound._query(bound.state))
+    carried: dict[str, Any] = dict(bound.query(bound.state))
     fields = {**carried, **_fields(bound, event)}
 
     def then_close(expression: Expression) -> Expression:
@@ -1273,7 +1284,7 @@ class _Side(ChainableComponent):
                 # Named so nothing in the picker's own scope, which has a
                 # day() of its own, can stand in for it.
                 .x_model(unsafe("pickedDay")),
-                *carried(bound._query(picked, without={_DATE})),
+                *carried(bound.query(picked, without={_DATE})),
                 method="get",
                 action=bound.urls.read,
                 **swap(view),
@@ -1311,7 +1322,7 @@ class _Side(ChainableComponent):
                                 ":disabled": "!hiddenLayers.length",
                             },
                         ),
-                        *carried(bound._query(bound.state, without={_HIDE})),
+                        *carried(bound.query(bound.state, without={_HIDE})),
                         method="get",
                         action=bound.urls.read,
                         hidden=True,
@@ -1338,15 +1349,15 @@ class _Side(ChainableComponent):
             # each by id, and the whole state for the script that opens the
             # dialog from a click.
             html.div(
-                *carried(bound._query(state, without={_QUERY}), form=f"{key}-search"),
+                *carried(bound.query(state, without={_QUERY}), form=search_id(key)),
                 *carried(
-                    bound._query(state, without={_START, _WEEKDAYS}),
-                    form=f"{key}-options",
+                    bound.query(state, without={_START, _WEEKDAYS}),
+                    form=_view_options(key),
                 ),
-                html.div(*carried(bound._query(state)), id=_state(key)),
+                html.div(*carried(bound.query(state)), id=_state(key)),
                 hidden=True,
             ),
-            id=f"{key}-side",
+            id=_side(key),
             aria_label="Calendar tools",
             class_="w-full flex-none flex-col gap-5 lg:flex lg:w-60",
             **{":class": "calendarSide ? 'flex' : 'hidden lg:flex'", **SYNC},
@@ -1405,7 +1416,7 @@ class _Band(ChainableComponent):
             .size("sm")
             .icon_only("Calendar tools")
             .class_("lg:hidden")
-            .aria_controls(f"{key}-side")
+            .aria_controls(_side(key))
             .content(HueIcon("panel-left"))
             .x_on("click", unsafe("calendarSide = !calendarSide"))
             .x_bind("aria-expanded", unsafe("calendarSide")),
@@ -1475,7 +1486,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 .value("1")
                 .label("Weekdays only")
                 .checked(state.weekdays),
-                id=f"{key}-options",
+                id=_view_options(key),
                 method="get",
                 action=bound.urls.read,
                 class_="flex w-52 flex-col gap-4",
