@@ -60,6 +60,12 @@ class TestDateInput:
         assert config(html)["formats"]["date"] == "%d.%m.%Y"
 
     @pytest.mark.asyncio
+    async def test_a_format_it_cannot_read_back_is_refused(self, context_args):
+        context_args["formats"] = Formats(date="%d/%m/%y")
+        with pytest.raises(ValueError, match="DateInput cannot read %y back"):
+            await render_tree(_field(), context_args=context_args)
+
+    @pytest.mark.asyncio
     async def test_names_are_written_from_formats_and_handed_to_the_script(
         self, context_args
     ):

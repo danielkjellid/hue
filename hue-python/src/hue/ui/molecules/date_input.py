@@ -8,7 +8,7 @@ from typing import Any, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.formats import Formats
+from hue.formats import DAY_DIRECTIVES, TIME_DIRECTIVES, Formats
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -116,6 +116,17 @@ def _unfilled(format: str) -> str:
     return re.sub(r"%-?.", lambda m: _UNFILLED.get(m.group(), ""), format).strip(" ,")
 
 
+# What each kind of field reads back from its format.
+_READS = {
+    "time": TIME_DIRECTIVES.keys(),
+    "datetime": DAY_DIRECTIVES.keys() | TIME_DIRECTIVES.keys(),
+}
+
+
+def _pattern(formats: Formats, kind: _Kind) -> str:
+    return {"time": formats.time, "datetime": formats.datetime}.get(kind, formats.date)
+
+
 class _PickerInput(FieldControl):
     """
     What the date and time fields share: a text field, the button that
@@ -199,6 +210,15 @@ class _PickerInput(FieldControl):
         name = self._require_name()
         formats = Formats.from_context(context)
         kind = self._kind()
+        pattern = _pattern(formats, kind)
+        readable = _READS.get(kind, DAY_DIRECTIVES.keys())
+        for directive in re.findall(r"%(-?.)", pattern):
+            if directive != "%" and directive not in readable:
+                raise ValueError(
+                    f"A {type(self).__name__} cannot read %{directive} back, "
+                    f"which its format {pattern!r} writes. It reads "
+                    f"{' '.join(sorted(f'%{d}' for d in readable))} and %%."
+                )
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
         readonly: bool = self._get_prop("readonly", False)
@@ -216,7 +236,7 @@ class _PickerInput(FieldControl):
 
         placeholder: str | None = self._get_prop("placeholder")
         if placeholder is None:
-            placeholder = _placeholder(formats, kind)
+            placeholder = _placeholder(pattern, kind)
         written = _written(kind, committed, formats)
         caller = self._attrs.get("aria_describedby")
         hinted = classnames(hint_id(control_id) if hint else None, caller) or None
@@ -391,13 +411,9 @@ class _PickerInput(FieldControl):
         )
 
 
-def _placeholder(formats: Formats, kind: _Kind) -> str:
-    if kind == "time":
-        return _unfilled(formats.time)
-    if kind == "datetime":
-        return _unfilled(formats.datetime)
-    day = _unfilled(formats.date)
-    return f"{day}{_TO}{day}" if kind == "range" else day
+def _placeholder(pattern: str, kind: _Kind) -> str:
+    unfilled = _unfilled(pattern)
+    return f"{unfilled}{_TO}{unfilled}" if kind == "range" else unfilled
 
 
 def _written(kind: _Kind, committed: list[str], formats: Formats) -> str | None:
@@ -620,7 +636,8 @@ class DateTimeInput(_CalendarInput):
         moment: datetime | None = self._get_prop("value")
         if moment is None:
             return []
-        return [formats.moment(moment).strftime("%Y-%m-%dT%H:%M")]
+        local = formats.moment(moment).replace(tzinfo=None)
+        return [local.isoformat(timespec="minutes")]
 
     def _body(
         self, formats: Formats, picker: DatePicker, kind: _Kind, label: str
@@ -667,7 +684,9 @@ class TimeInput(_PickerInput):
 
     def _committed(self, formats: Formats) -> list[str]:
         moment: time | None = self._get_prop("value")
-        return [] if moment is None else [moment.strftime("%H:%M")]
+        if moment is None:
+            return []
+        return [moment.replace(tzinfo=None).isoformat(timespec="minutes")]
 
     def _body(
         self, formats: Formats, picker: DatePicker, kind: _Kind, label: str

@@ -179,14 +179,15 @@ class TestDataTable:
         html = await render_tree(
             DataTable()
             .columns([Column("on", "On"), Column("at", "At")])
-            .rows([{"on": date(2026, 3, 1), "at": datetime(2026, 3, 1, 14, 5)}]),
+            .rows([{"on": date(2026, 3, 1), "at": datetime(2026, 3, 1, 14, 5, 9)}]),
             context_args={
                 **context_args,
-                "formats": Formats(date="%d.%m.%Y", datetime="%d.%m.%Y %H:%M"),
+                # Seconds, which no date field reads back, are a table's to show.
+                "formats": Formats(date="%d.%m.%Y", datetime="%d.%m.%Y %H:%M:%S"),
             },
         )
         cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
-        assert cells == ["01.03.2026", "01.03.2026 14:05"]
+        assert cells == ["01.03.2026", "01.03.2026 14:05:09"]
 
     @pytest.mark.asyncio
     async def test_anything_else_asks_for_a_render(self, context_args):

@@ -81,15 +81,9 @@ def test_every_directive_is_written_the_same_on_every_platform():
     assert Formats().write("%Y %B %A", date(26, 10, 1)) == "0026 October Thursday"
 
 
-@pytest.mark.parametrize(
-    ("field", "pattern", "directive"),
-    [
-        ("date", "%d/%m/%y", "%y"),
-        ("date", "%Y-%m-%d %H:%M", "%H"),
-        ("time", "%Y %H:%M", "%Y"),
-        ("datetime", "%j %H:%M", "%j"),
-    ],
-)
-def test_a_pattern_a_field_cannot_read_back_is_refused(field, pattern, directive):
-    with pytest.raises(ValueError, match=f"Formats.{field} uses {directive}"):
-        Formats(**{field: pattern})
+def test_a_directive_no_field_reads_is_written_by_strftime():
+    # A framework's setting reaches every page, a DataTable among them, so a
+    # pattern is only refused by the date field that would have to read it.
+    formats = Formats(datetime="%Y-%m-%d %H:%M:%S", date="%j")
+    assert formats.text(datetime(26, 3, 5, 1, 2, 3)) == "0026-03-05 01:02:03"
+    assert formats.text(date(2026, 2, 1)) == "032"

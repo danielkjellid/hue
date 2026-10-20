@@ -10,7 +10,7 @@ and every component that writes a value reads the same answer.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
@@ -23,11 +23,12 @@ type _Moment = datetime
 type _Day = date
 type _Time = time
 
-# The directives a pattern may use: the ones date-text.js writes the same
-# way and reads back. Everything is spelled out here rather than handed to
-# strftime, which writes names in the process locale and pads differently
-# per platform. %y is left out because 26 cannot say which century it was.
-_DAY_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+# The directives a date field reads back, which date-text.js writes the
+# same way. They are spelled out here rather than handed to strftime, which
+# writes names in the process locale and pads differently per platform. %y
+# is left out because 26 cannot say which century it was. Any other
+# directive is strftime's to write, for whatever only shows a value.
+DAY_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
     "d": lambda f, v: f"{v.day:02}",
     "-d": lambda f, v: str(v.day),
     "e": lambda f, v: f"{v.day:2}",
@@ -39,7 +40,7 @@ _DAY_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
     "A": lambda f, v: f.day_names[v.weekday()],
     "a": lambda f, v: f.day_abbreviations[v.weekday()],
 }
-_TIME_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+TIME_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
     "H": lambda f, v: f"{v.hour:02}",
     "M": lambda f, v: f"{v.minute:02}",
     "I": lambda f, v: f"{v.hour % 12 or 12:02}",
@@ -56,9 +57,9 @@ class Formats:
     is the one spelling no reader gets wrong, and the names of the months and
     the days, English by default.
 
-    A pattern may only use the directives a date field reads back: %d %-d
-    %e %m %-m %Y %B %b %A %a for a day, %H %M %I %-I %p for a time, and
-    %%. Anything else is refused when the Formats is made.
+    A pattern may use any strftime directive. The date fields read back only
+    %d %-d %e %m %-m %Y %B %b %A %a for a day, %H %M %I %-I %p for a time,
+    and %%, and refuse to render with anything else.
 
     localize turns an aware datetime into the reader's time before it is
     written, as a framework's templates would. Without one, an aware
@@ -107,18 +108,6 @@ class Formats:
                 raise ValueError(
                     f"Formats.{name} needs {wanted} names, January or Monday first."
                 )
-        for name, known in (
-            ("date", _DAY_DIRECTIVES.keys()),
-            ("time", _TIME_DIRECTIVES.keys()),
-            ("datetime", _DAY_DIRECTIVES.keys() | _TIME_DIRECTIVES.keys()),
-        ):
-            pattern: str = getattr(self, name)
-            for directive in _DIRECTIVE.findall(pattern):
-                if directive != "%" and directive not in known:
-                    raise ValueError(
-                        f"Formats.{name} uses %{directive}, which a field "
-                        f"cannot read back. It may use {_listed(known)}."
-                    )
 
     def text(self, value: Any) -> str | None:
         """
@@ -144,10 +133,12 @@ class Formats:
             directive = match.group(1)
             if directive == "%":
                 return "%"
-            if directive in _TIME_DIRECTIVES:
+            if directive in TIME_DIRECTIVES and isinstance(value, (datetime, time)):
                 clock = value.time() if isinstance(value, datetime) else value
-                return _TIME_DIRECTIVES[directive](self, clock)
-            return _DAY_DIRECTIVES[directive](self, value)
+                return TIME_DIRECTIVES[directive](self, clock)
+            if directive in DAY_DIRECTIVES and isinstance(value, date):
+                return DAY_DIRECTIVES[directive](self, value)
+            return value.strftime(match.group())
 
         return _DIRECTIVE.sub(one, pattern)
 
@@ -181,7 +172,3 @@ class Formats:
     def from_context(cls, context: Context) -> Formats:
         found = context.get(cls)
         return found if isinstance(found, cls) else cls()
-
-
-def _listed(directives: Iterable[str]) -> str:
-    return " ".join(sorted(f"%{d}" for d in directives))
