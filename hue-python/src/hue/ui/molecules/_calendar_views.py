@@ -705,7 +705,8 @@ def _timed(
 ) -> ComponentType:
     event = placed.event
     start, end = span
-    starts = event.moments(draw.formats)[0]
+    # One that began the day before starts this day at midnight.
+    starts = time.min if placed.continues_before else event.moments(draw.formats)[0]
     height = (end - start) * _HOUR // 60 - _GAP
     short = end - start < _SHORT
     if short:
