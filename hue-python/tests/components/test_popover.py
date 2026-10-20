@@ -55,6 +55,17 @@ class TestPopover:
         )
 
     @pytest.mark.asyncio
+    async def test_it_can_hang_off_the_viewport_instead(self, context_args):
+        # For a popover inside a scroll container or a Dialog, which would
+        # clip a panel positioned on the page.
+        html = await render_tree(
+            _popover().placement("top-end", fixed=True), context_args=context_args
+        )
+        assert_attr(
+            html, '[role="dialog"]', "x-anchor.fixed.top-end.offset.6", _overlay.TRIGGER
+        )
+
+    @pytest.mark.asyncio
     async def test_without_a_trigger_it_finds_none_in_its_content(self, context_args):
         # The first trigger inside it would be the nested menu's, and focus
         # would go back to a button that never opened this popover.
