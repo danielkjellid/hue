@@ -158,3 +158,19 @@ def test_a_name_with_marks_and_joiners_reads_back():
     }
     days = [f"2026-{month:02}-15" for month in range(1, 13)]
     assert _browser(names, [("%a %d %B %Y", day) for day in days])["read"] == days
+
+
+def test_a_byte_order_mark_after_a_name_is_read_as_a_space():
+    # JavaScript counts U+FEFF as whitespace, and a name must not swallow it.
+    imported = json.dumps((_JS / "date-text.js").as_uri())
+    typed = json.dumps("20 oct\N{ZERO WIDTH NO-BREAK SPACE} 2026")
+    options = json.dumps({**_NAMES, "monthFirst": False, "today": "2026-10-21"})
+    script = f"import {{ parseDay }} from {imported};"
+    script += f"console.log(JSON.stringify(parseDay({typed}, {options})));"
+    done = subprocess.run(
+        [str(_NODE), "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(done.stdout) == "2026-10-20"
