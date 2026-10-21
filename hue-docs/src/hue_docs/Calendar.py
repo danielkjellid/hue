@@ -1,5 +1,5 @@
 """
-Every view over one richer set of events, a weekdays-only month, and an empty agenda.
+Every view over one set of events, a weekdays-only month, and an empty agenda.
 """
 
 from __future__ import annotations
