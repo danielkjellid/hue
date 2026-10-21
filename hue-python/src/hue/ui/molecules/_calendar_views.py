@@ -932,6 +932,22 @@ def month(draw: Draw) -> ComponentType:
 def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
     outside = (day.year, day.month) != (draw.cursor.year, draw.cursor.month)
     shown = items if len(items) <= _PER_CELL else items[: _PER_CELL - 1]
+    hidden = items[len(shown) :]
+    # The copy that takes focus after a change stays in sight: focus on an
+    # element inside a closed popover falls to the page.
+    held = next(
+        (
+            each
+            for each in hidden
+            if each.event is draw.focus and not each.continues_before
+        ),
+        None,
+    )
+    if held:
+        shown, hidden = (
+            [*shown[:-1], held],
+            [shown[-1], *(each for each in hidden if each is not held)],
+        )
     return html.td(
         draw.number(day),
         render_when(
@@ -941,7 +957,7 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
                 class_="mt-1 flex flex-col gap-0.5",
             ),
         ),
-        render_when(len(shown) < len(items), _more(draw, day, items[len(shown) :])),
+        render_when(bool(hidden), _more(draw, day, hidden)),
         data_date=day.isoformat(),
         # A day a drag drops an event on by whole days, which an agenda's
         # day is not.

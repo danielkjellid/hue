@@ -543,6 +543,21 @@ class TestMonth:
         assert hidden == ["Talk 0", "Talk 1", "Talk 2"]
 
     @pytest.mark.asyncio
+    async def test_a_full_day_keeps_the_focused_event_out_of_more(self, context_args):
+        extra = [Event(f"Talk {n}", datetime(2026, 10, 15, 14 + n)) for n in range(3)]
+        calendar = _calendar(_AUDIT, _PAIRING, *extra).view("month")
+        calendar._props["focus"] = extra[1]
+        html = await _html(calendar, context_args)
+        cell = select(html, "td[data-date='2026-10-15']")[0]
+        focused = cell.select_one("[x-autofocus]")
+        assert focused["aria-label"].startswith("Talk 1")
+        assert focused.find_parent(attrs={"role": "dialog"}) is None
+        more = cell.select_one("button[aria-label^='+3 more']")
+        panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
+        hidden = [b["aria-label"].split(",")[0] for b in panel.select("[data-starts]")]
+        assert hidden == ["Pairing", "Talk 0", "Talk 2"]
+
+    @pytest.mark.asyncio
     async def test_an_events_actions_run_once_however_many_days_it_covers(
         self, context_args
     ):
