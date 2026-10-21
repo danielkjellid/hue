@@ -268,17 +268,20 @@ class DatePicker(FieldControl):
             # Keyed by position: a range picked on one day holds it twice.
             **{"x-for": "(iso, i) in days()", ":key": "i"},
         )
-        # Hidden fields are never validated, so required is held by one the
-        # browser does check: empty until a day is picked. Focus it lands on
-        # goes on to the grid.
+        # Hidden fields are never validated, so required is held by an empty
+        # one the browser does check, required until the pick is complete. A
+        # value would be emptied by a form reset while the days stay picked.
+        # Focus it lands on goes on to the grid.
         enforced = html.input_(
             type="text",
             form=form,
-            required=True,
             tabindex="-1",
             aria_hidden="true",
             class_="sr-only",
-            **{":value": "days().join()", "x-on:focus": "focusedCell()?.focus()"},
+            **{
+                "x-bind:required": f"days().length < {2 if mode == 'range' else 1}",
+                "x-on:focus": "focusedCell()?.focus()",
+            },
         )
         return html.fieldset(
             legend_component(label, required, hidden=hidden_label),

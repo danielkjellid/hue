@@ -247,16 +247,24 @@ class TestDatePicker:
     # required() and error()
 
     @pytest.mark.asyncio
-    async def test_required_is_enforced_by_an_input_empty_until_a_pick(
+    async def test_required_is_enforced_by_an_empty_input_until_a_pick(
         self, context_args
     ):
         html = await render_tree(_picker().required(), context_args=context_args)
-        assert_attr(html, "input[required]", ":value", "days().join()")
-        assert "sr-only" in select(html, "input[required]")[0]["class"]
+        # Always empty, so a form reset cannot empty it while days are held.
+        enforced = select(html, "input.sr-only")[0]
+        assert ":value" not in enforced.attrs
+        assert enforced["x-bind:required"] == "days().length < 1"
         # Not a submitted field: the hidden ones carry the days.
-        assert_no_selector(html, "input[required][name]")
+        assert "name" not in enforced.attrs
         # aria-required is not allowed on a grid.
         assert_no_selector(html, "[aria-required]")
+
+    @pytest.mark.asyncio
+    async def test_a_required_range_needs_both_ends(self, context_args):
+        picker = _picker().mode("range").required()
+        html = await render_tree(picker, context_args=context_args)
+        assert_attr(html, "input.sr-only", "x-bind:required", "days().length < 2")
 
     @pytest.mark.asyncio
     async def test_required_marks_the_legend(self, context_args):
