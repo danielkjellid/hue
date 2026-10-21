@@ -144,6 +144,9 @@ def id_of(made: Any) -> str | None:
 
 
 def undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> Undo | None:
+    """
+    Offered only when the save handler named the id it made, which a delete needs.
+    """
     if made is None:
         return None
     param = bound.declaration.param
@@ -151,6 +154,9 @@ def undo_create(bound: BoundCalendar, draft: Event, made: str | None) -> Undo | 
 
 
 def undo_delete(bound: BoundCalendar, was: Event | None) -> Undo | None:
+    """
+    Saved with no id, so the app makes the event anew from what events() had.
+    """
     if was is None:
         return None
     param = bound.declaration.param

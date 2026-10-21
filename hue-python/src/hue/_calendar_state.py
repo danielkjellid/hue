@@ -127,6 +127,9 @@ def read_day(text: str) -> date | None:
 
 
 def read_clock(text: str) -> time | None:
+    """
+    Strict HH:MM, since fromisoformat would also read seconds and an offset.
+    """
     if not _CLOCK_PATTERN.fullmatch(text):
         return None
     try:
