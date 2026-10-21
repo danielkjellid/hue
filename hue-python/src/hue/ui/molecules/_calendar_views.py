@@ -37,6 +37,7 @@ from hue.ui.molecules._days import (
     month_grid,
     pack,
     place,
+    starts_on,
     week_of,
     weekend,
 )
@@ -197,7 +198,7 @@ class Draw:
         The id of what the links swap: the toolbar and the view, under the
         frame, so the status outside them stays to be refreshed.
         """
-        return None if self.own_id is None else f"{self.own_id}-view"
+        return self._stable("view")
 
     # ------------------------------------------------------------------
     # Words
@@ -314,7 +315,7 @@ class Draw:
 
     def _steps(self) -> ComponentType:
         return html.nav(
-            self._step("previous", -1, "Previous", "chevron-left"),
+            self._step(-1, "Previous", "chevron-left"),
             render_if(
                 self.today,
                 lambda day: self.link(
@@ -325,12 +326,12 @@ class Draw:
                     stable_id=self._stable("today"),
                 ),
             ),
-            self._step("next", 1, "Next", "chevron-right"),
+            self._step(1, "Next", "chevron-right"),
             aria_label="Calendar",
             class_="flex items-center gap-1",
         )
 
-    def _step(self, name: str, count: int, label: str, icon: str) -> ComponentType:
+    def _step(self, count: int, label: str, icon: str) -> ComponentType:
         glyph = HueIcon(icon).class_("size-3.5")
         day = VIEWS[self.view].step(self.cursor, count)
         if not FIRST <= day <= LAST:
@@ -346,7 +347,7 @@ class Draw:
             glyph,
             label=label,
             classes=classnames(STEP, STEP_IDLE),
-            stable_id=self._stable(name),
+            stable_id=self._stable(label.lower()),
         )
 
     def _stable(self, name: str) -> str | None:
@@ -358,8 +359,8 @@ class Draw:
 
     def _switcher(self, href: Href) -> ComponentType:
         tabs = Tabs().segmented().label("View")
-        if self.region is not None:
-            tabs.id(f"{self.own_id}-views").target(self.region, sync=False)
+        if self.region is not None and (views := self._stable("views")):
+            tabs.id(views).target(self.region, sync=False)
         return tabs.content(
             *(
                 Tab()
@@ -517,8 +518,7 @@ class Draw:
         its title.
         """
         event = placed.event
-        # One that began the day before starts this day at midnight.
-        starts = time.min if placed.continues_before else event.moments(self.formats)[0]
+        starts = starts_on(placed, self.formats)
         button = (
             EventButton(event, self.name(event))
             .class_(classnames(_DOTTED, FOCUS_RING_INSET))
@@ -545,7 +545,9 @@ class Draw:
         )
 
     def week(self) -> list[date]:
-        days = week_of(self.cursor, self.start)
+        return self.shown(week_of(self.cursor, self.start))
+
+    def shown(self, days: Iterable[date]) -> list[date]:
         return [day for day in days if not (self.weekdays and weekend(day))]
 
 
@@ -705,8 +707,7 @@ def _timed(
 ) -> ComponentType:
     event = placed.event
     start, end = span
-    # One that began the day before starts this day at midnight.
-    starts = time.min if placed.continues_before else event.moments(draw.formats)[0]
+    starts = starts_on(placed, draw.formats)
     height = (end - start) * _HOUR // 60 - _GAP
     short = end - start < _SHORT
     if short:
@@ -790,9 +791,7 @@ def month(draw: Draw) -> ComponentType:
     weekday with each cell.
     """
     formats = draw.formats
-    rows = month_grid(draw.cursor, draw.start)
-    if draw.weekdays:
-        rows = tuple(tuple(day for day in row if not weekend(day)) for row in rows)
+    rows = [draw.shown(row) for row in month_grid(draw.cursor, draw.start)]
     placed = place(draw.events, rows[0][0], rows[-1][-1], formats)
     return html.table(
         html.caption(formats.month(draw.cursor), class_="sr-only"),

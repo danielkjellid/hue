@@ -182,12 +182,8 @@ def place(
         a, b = event.span(formats)
         day = max(a, first)
         while day <= min(b, last):
-            found.setdefault(day, []).append(
-                (
-                    _order(event, a, b, day, formats),
-                    Placed(event, day, day > a, day < b),
-                )
-            )
+            placed = Placed(event, day, day > a, day < b)
+            found.setdefault(day, []).append((_order(placed, a, b, formats), placed))
             day += timedelta(days=1)
     return {
         day: [placed for _, placed in sorted(items, key=lambda pair: pair[0])]
@@ -195,15 +191,24 @@ def place(
     }
 
 
+def starts_on(placed: Placed, formats: Formats) -> time:
+    """
+    When a timed event starts on the day it is placed on: midnight when it
+    began the day before.
+    """
+    if placed.continues_before:
+        return time.min
+    return placed.event.moments(formats)[0].time()
+
+
 def _order(
-    event: Event, first: date, last: date, day: date, formats: Formats
+    placed: Placed, first: date, last: date, formats: Formats
 ) -> tuple[Any, ...]:
-    # Timed events after the all-day ones, by when they start on the day,
-    # which is midnight for one that began the day before; among the all-day
-    # ones the longest first, so a bar sits above the single days under it.
-    if event.timed:
-        starts = event.moments(formats)[0].time() if day == first else time.min
-        return (1, 0, starts)
+    # Timed events after the all-day ones, by when they start on the day;
+    # among the all-day ones the longest first, so a bar sits above the
+    # single days under it.
+    if placed.event.timed:
+        return (1, 0, starts_on(placed, formats))
     return (0, (first - last).days, time.min)
 
 
@@ -215,8 +220,9 @@ def minutes(placed: Placed, formats: Formats, least: int) -> tuple[int, int]:
     its box is drawn over, and moved up when that would take it past
     midnight.
     """
-    starts, ends = placed.event.moments(formats)
-    start = starts.hour * 60 + starts.minute if starts.date() == placed.day else 0
+    starts = starts_on(placed, formats)
+    ends = placed.event.moments(formats)[1]
+    start = starts.hour * 60 + starts.minute
     end = ends.hour * 60 + ends.minute if ends.date() == placed.day else MIDNIGHT
     end = min(max(end, start + least), MIDNIGHT)
     return min(start, end - least), end
