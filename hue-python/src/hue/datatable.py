@@ -447,7 +447,7 @@ class _Declaration(Declaration[_Routes]):
             if wanted
         )
         self._check()
-        self._register()
+        self._register_route(self.actions, self._act)
 
     def _check(self) -> None:
         """
@@ -694,9 +694,6 @@ class _Declaration(Declaration[_Routes]):
                 f"it is what a checkbox submits and what an action is handed."
             ) from None
 
-    def _register(self) -> None:
-        self._register_route(self.actions, self._act)
-
     async def _act(self, request: Any, context: Any, action: str) -> Any:
         """
         One action on the ticked rows, answered with the table as it now
@@ -913,11 +910,10 @@ class _TableSearch(_ToolbarForm):
         bound = bound_from(context, BoundTable, self, "DataTable")
         return html.div(
             search_form(
-                bound.declaration,
+                bound,
                 param=_QUERY,
                 label=bound.declaration.search or "",
                 value=bound.state.query,
-                read=bound.urls.read,
                 # The rows and not the frame, so the box this was typed
                 # into is not swapped out from under the caret.
                 target=rows_id(bound.key) or bound.key,
@@ -989,7 +985,7 @@ class _TableCarried(ChainableComponent):
             # form posts on its own.
             *(
                 (
-                    *carried(bound.query(bound.state), form=form_id(bound.key) or ""),
+                    *carried(bound.query(bound.state), form=form_id(bound.key)),
                     csrf(
                         bound.declaration,
                         HueContext.from_context(context).csrf_token,

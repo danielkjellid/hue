@@ -263,15 +263,10 @@ class Declaration[R: Routes]:
         """
         A handler, run off the event loop, and the status to answer with.
 
-        Whatever it raises is answered on the page with a toast, and the
-        caller draws the state as it now is. A refusal, a not found or a
-        permission denied, keeps the framework's status, because the
-        framework's own page has no element in it for the browser to swap,
-        and the form would be submitted again as a plain request, landing
-        the reader on that page. Anything else is logged with its
-        traceback, since nothing is raised for an error tracker to catch.
-        It is logged under the module that declares the table or calendar,
-        where an app's log config already points.
+        A failure is answered on the page with a toast. A refusal keeps the
+        framework's status, whose own page has nothing to swap. Anything
+        else is logged with its traceback under hue.datatable or
+        hue.calendar, since nothing is raised for an error tracker to catch.
         """
         try:
             await self._router._run_sync(handler, request, given)
@@ -303,13 +298,7 @@ SEARCH_DELAY = "300ms"
 
 
 def search_form(
-    declared: Declaration[Any],
-    *,
-    param: str,
-    label: str,
-    value: str,
-    read: str,
-    target: str,
+    bound: Bound, *, param: str, label: str, value: str, target: str
 ) -> ComponentType:
     """
     The search box's own GET form, under search_id. A form because Enter
@@ -317,7 +306,7 @@ def search_form(
     works with Alpine off; typing submits it after a pause, and Escape
     empties it.
     """
-    key = declared.key
+    declared, key = bound.declaration, bound.key
     field = (
         SearchInput()
         .name(declared.param(param))
@@ -339,7 +328,7 @@ def search_form(
         field,
         id=search_id(key),
         method="get",
-        action=read,
+        action=bound.urls.read,
         # The free space in the band up to a readable cap: a field as wide
         # as the band reads as a search of the page.
         class_="min-w-0 flex-1 basis-64 sm:max-w-80",
