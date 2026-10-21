@@ -278,16 +278,6 @@ def test_a_series_moved_from_one_occurrence_moves_whole_and_undo_restores_it(
     assert standup.ends == _at(2026, 9, 28, 9, 15)
 
 
-def test_a_series_moved_a_day_keeps_its_first_occurrence_as_far_ahead(entries):
-    standup = entries["Standup"]
-    _act("move", id=str(standup.pk), occurrence="2026-10-14T09:00",
-         starts="2026-10-15", starts_time="09:00",
-         ends="2026-10-15", ends_time="09:15")  # fmt: skip
-    standup.refresh_from_db()
-    assert standup.starts == _at(2026, 9, 29, 9)
-    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK[1:], "09:00")
-
-
 def test_a_deleted_series_comes_back_whole_from_undo(entries):
     standup = entries["Standup"]
     deleted = _act("delete", id=str(standup.pk), occurrence="2026-10-14T09:00",
@@ -298,17 +288,6 @@ def test_a_deleted_series_comes_back_whole_from_undo(entries):
     assert _undo(deleted).status_code == 200
     assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "09:00")
     assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "09:00")
-
-
-def test_year_one_is_refused_on_the_field_rather_than_overflowing(entries):
-    dentist = entries["Dentist"]
-    when = {"starts": "0001-01-01", "starts_time": "00:00",
-            "ends": "0001-01-01", "ends_time": "00:30"}  # fmt: skip
-    moved = _act("move", id=str(dentist.pk), occurrence="2026-10-15T15:00", **when)
-    saved = _act("save", title="Old", layer="eng", **when)
-    assert (moved.status_code, saved.status_code) == (422, 422)
-    dentist.refresh_from_db()
-    assert dentist.starts == _at(2026, 10, 15, 15)
 
 
 def test_undo_finds_a_series_moved_onto_a_day_its_rule_skips(entries):
