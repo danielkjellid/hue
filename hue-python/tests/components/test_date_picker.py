@@ -274,7 +274,7 @@ class TestDatePicker:
     @pytest.mark.asyncio
     async def test_not_required_says_nothing(self, context_args):
         html = await render_tree(_picker(), context_args=context_args)
-        assert_no_selector(html, "[required]")
+        assert_no_selector(html, "input.sr-only")
         assert_no_selector(html, "legend [aria-hidden]")
 
     @pytest.mark.asyncio
