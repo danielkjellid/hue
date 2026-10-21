@@ -82,6 +82,11 @@ function century(year, today) {
 	return near > now + 50 ? near - 100 : near < now - 50 ? near + 100 : near;
 }
 
+// A month or weekday name: letters, their marks, the zero-width non-joiner
+// and joiner that Persian, Hindi, Kannada and Malayalam write inside a word,
+// and the direction marks Sorani writes before one.
+const NAME = String.raw`[\p{L}\p{M}\u200C-\u200F]+`;
+
 function readDay(text, options) {
 	// 2026. 10. 20. and 20.10.2026. end in a dot.
 	const s = text.replace(/\.$/, "");
@@ -95,11 +100,9 @@ function readDay(text, options) {
 		const year = m[3].length === 2 ? century(+m[3], options.today) : +m[3];
 		return options.monthFirst ? real(year, +m[1], +m[2]) : real(year, +m[2], +m[1]);
 	}
-	// A name is letters, their marks and the invisible joiners some scripts
-	// write inside a word.
-	m = /^(\d{1,2})\.?\s+([\p{L}\p{M}\p{Cf}]+)\.?,?\s+(\d{4})$/u.exec(s);
+	m = new RegExp(String.raw`^(\d{1,2})\.?\s+(${NAME})\.?,?\s+(\d{4})$`, "u").exec(s);
 	if (m && monthOf(m[2], options)) return real(+m[3], monthOf(m[2], options), +m[1]);
-	m = /^([\p{L}\p{M}\p{Cf}]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/u.exec(s);
+	m = new RegExp(String.raw`^(${NAME})\.?\s+(\d{1,2}),?\s+(\d{4})$`, "u").exec(s);
 	if (m && monthOf(m[1], options)) return real(+m[3], monthOf(m[1], options), +m[2]);
 	return null;
 }
@@ -117,7 +120,7 @@ function readDay(text, options) {
  */
 export function parseDay(text, options) {
 	const s = text.trim().toLowerCase();
-	const lead = /^([\p{L}\p{M}\p{Cf}]+)\.?,?\s+/u.exec(s);
+	const lead = new RegExp(String.raw`^(${NAME})\.?,?\s+`, "u").exec(s);
 	return (
 		readDay(s, options) ??
 		(lead && isWeekday(lead[1], options) ? readDay(s.slice(lead[0].length), options) : null)

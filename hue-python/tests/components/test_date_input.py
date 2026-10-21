@@ -94,6 +94,7 @@ class TestDateInput:
             _field().value(date(2026, 7, 5)), context_args=context_args
         )
         assert_attr(html, "input#starts", "placeholder", "D Mon YYYY")
+        assert_attr(html, "input#starts", "value", " 5 m7. 2026")
         assert config(html)["monthAbbreviations"] == list(abbreviations)
 
     @pytest.mark.asyncio
