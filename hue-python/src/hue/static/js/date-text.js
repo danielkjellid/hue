@@ -95,9 +95,11 @@ function readDay(text, options) {
 		const year = m[3].length === 2 ? century(+m[3], options.today) : +m[3];
 		return options.monthFirst ? real(year, +m[1], +m[2]) : real(year, +m[2], +m[1]);
 	}
-	m = /^(\d{1,2})\.?\s+(\p{L}+)\.?,?\s+(\d{4})$/u.exec(s);
+	// A name is letters, their marks and the invisible joiners some scripts
+	// write inside a word.
+	m = /^(\d{1,2})\.?\s+([\p{L}\p{M}\p{Cf}]+)\.?,?\s+(\d{4})$/u.exec(s);
 	if (m && monthOf(m[2], options)) return real(+m[3], monthOf(m[2], options), +m[1]);
-	m = /^(\p{L}+)\.?\s+(\d{1,2}),?\s+(\d{4})$/u.exec(s);
+	m = /^([\p{L}\p{M}\p{Cf}]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/u.exec(s);
 	if (m && monthOf(m[1], options)) return real(+m[3], monthOf(m[1], options), +m[2]);
 	return null;
 }
@@ -115,7 +117,7 @@ function readDay(text, options) {
  */
 export function parseDay(text, options) {
 	const s = text.trim().toLowerCase();
-	const lead = /^(\p{L}+)\.?,?\s+/u.exec(s);
+	const lead = /^([\p{L}\p{M}\p{Cf}]+)\.?,?\s+/u.exec(s);
 	return (
 		readDay(s, options) ??
 		(lead && isWeekday(lead[1], options) ? readDay(s.slice(lead[0].length), options) : null)
