@@ -40,6 +40,7 @@ export function dateInput(config) {
 	const picker = datePicker(config);
 	const write = (value, format) => strftime(format, value, config);
 	const writeDay = (day) => write(day, formats.date);
+	const writeRange = (start, end) => `${writeDay(start)}${to}${writeDay(end)}`;
 	const reading = () => ({
 		...config,
 		// The field's own format: a DateTimeInput's day is written by
@@ -50,7 +51,7 @@ export function dateInput(config) {
 	const example = () => {
 		const t = today();
 		return {
-			range: `${writeDay(t)}${to}${writeDay(add(t, 7))}`,
+			range: writeRange(t, add(t, 7)),
 			datetime: write(`${t}T14:30`, formats.datetime),
 			time: write("14:30", formats.time),
 		}[kind] ?? writeDay(t);
@@ -93,15 +94,13 @@ export function dateInput(config) {
 		display() {
 			const [first, last] = this.committed;
 			if (!first || kind === "multiple") return "";
-			if (kind === "range") return last ? `${writeDay(first)}${to}${writeDay(last)}` : "";
+			if (kind === "range") return last ? writeRange(first, last) : "";
 			if (kind === "datetime") return write(first, formats.datetime);
 			if (kind === "time") return write(first, formats.time);
 			return writeDay(first);
 		},
 
-		dayText(day) {
-			return writeDay(day);
-		},
+		dayText: writeDay,
 
 		removeLabel(day) {
 			return `Remove ${dayName(day, config.dayNames, config.monthNamesInDate)}`;
@@ -134,6 +133,14 @@ export function dateInput(config) {
 				if (this.isUnavailable(day)) return `${writeDay(day)} is not available.`;
 			}
 			return "";
+		},
+
+		// Returns whether the values were committed.
+		commitChecked(values) {
+			const refused = this.check(values);
+			if (refused) this.error = refused;
+			else this.commit(values);
+			return !refused;
 		},
 
 		commit(values) {
@@ -233,13 +240,7 @@ export function dateInput(config) {
 		},
 
 		apply() {
-			const refused = this.check(this.days());
-			if (refused) {
-				this.error = refused;
-				return;
-			}
-			this.commit([...this.days()]);
-			this.close();
+			if (this.commitChecked([...this.days()])) this.close();
 		},
 
 		summary() {
@@ -247,7 +248,7 @@ export function dateInput(config) {
 			if (!start) return "Pick a start date";
 			if (!end) return "Pick an end date";
 			const count = Math.round((parse(end) - parse(start)) / DAY) + 1;
-			return `${writeDay(start)}${to}${writeDay(end)}, ${count} ${count === 1 ? "day" : "days"}`;
+			return `${writeRange(start, end)}, ${count} ${count === 1 ? "day" : "days"}`;
 		},
 
 		preset(id) {
@@ -293,9 +294,7 @@ export function dateInput(config) {
 				return;
 			}
 			const day = this.committedDays()[0] ?? today();
-			const refused = this.check([day]);
-			if (refused) this.error = refused;
-			else this.commit([`${day}T${time}`]);
+			this.commitChecked([`${day}T${time}`]);
 		},
 
 		// Now, rounded up to the next step of the list.
@@ -310,12 +309,7 @@ export function dateInput(config) {
 				day = add(day, 1);
 			}
 			const time = `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
-			const refused = this.check([day]);
-			if (refused) {
-				this.error = refused;
-				return;
-			}
-			this.commit([`${day}T${time}`]);
+			if (!this.commitChecked([`${day}T${time}`])) return;
 			this.show(day);
 			this.slot = this.slots().find((o) => o.dataset.time >= time)?.dataset.time ?? this.slot;
 			this.$nextTick(() => this.centreSlot());
