@@ -235,26 +235,27 @@ class Frame(ChainableComponent):
         config = {
             "url": bound.urls.act.get(DIALOG),
             "move": bound.urls.act.get(MOVE),
-            "key": bound.key,
-            "target": slot_id(bound.key),
+            "key": key,
+            "target": slot_id(key),
             # Where the state is read from at the click, since this root
             # is drawn once and the state moves under it.
-            "state": state_id(bound.key),
+            "state": state_id(key),
+            "region": views.region_id(key),
             # The tabs a week on a phone is fitted with.
             "weekTab": views.switch_id(key, "week"),
             "dayTab": views.switch_id(key, "day"),
             "hour": views._HOUR,
             "snap": _SNAP,
         }
-        refocus = new_id(bound.key) if bound.declaration.save is not None else None
+        refocus = new_id(key) if bound.declaration.save is not None else None
         return html.div(
             *self._children,
-            html.div(id=slot_id(bound.key), **{"data-hue-refocus": refocus}),
+            html.div(id=slot_id(key), **{"data-hue-refocus": refocus}),
             # Synced, so the help comes with whichever calendar's answer
             # takes the keys, also on a page where another one drew them.
             html.div(
-                render_when(bound.shortcuts is not None, _Help(bound)),
-                id=f"{bound.key}-shortcuts",
+                render_if(bound.shortcuts, lambda keys: _help(bound, keys)),
+                id=f"{key}-shortcuts",
                 **SYNC,
             ),
             class_="flex flex-col gap-4 lg:flex-row lg:items-start",
@@ -262,51 +263,41 @@ class Frame(ChainableComponent):
         )
 
 
-class _Help(ChainableComponent):
+def _help(bound: BoundCalendar, keys: type[ShortcutRegistry]) -> ComponentType:
     """
     The keyboard shortcuts, in a dialog the ? key and the view options
     open: every shortcut on for this request, which is the app's own as
     well as the calendar's, and the keys that move the focused event,
     which are the event's rather than the page's and so are not shortcuts.
     """
-
-    category: ClassVar[str | None] = None
-
-    def __init__(self, bound: BoundCalendar) -> None:
-        super().__init__()
-        self._bound = bound
-
-    def _render(self, context: Context) -> Component:
-        bound = self._bound
-        assert bound.shortcuts is not None
-        rows = [
-            _help_row(item.shortcut.label, _shortcut.keys(item.shortcut.steps))
-            for item in bound.shortcuts.active()
+    rows = [
+        _help_row(item.shortcut.label, _shortcut.keys(item.shortcut.steps))
+        for item in keys.active()
+    ]
+    if bound.declaration.save is not None:
+        rows += [
+            _help_row(
+                f"Move the focused event {_SNAPPED}",
+                *_either(("alt",), "up", "down"),
+            ),
+            _help_row("Move it a day", *_either(("alt",), "left", "right")),
+            _help_row(
+                f"Change its end by {_SNAPPED}",
+                *_either(("alt", "shift"), "up", "down"),
+            ),
+            _help_row(
+                "Change an all-day end by a day",
+                *_either(("alt", "shift"), "left", "right"),
+            ),
         ]
-        if bound.declaration.save is not None:
-            rows += [
-                _help_row(
-                    f"Move the focused event {_SNAPPED}",
-                    *_either(("alt",), "up", "down"),
-                ),
-                _help_row("Move it a day", *_either(("alt",), "left", "right")),
-                _help_row(
-                    f"Change its end by {_SNAPPED}",
-                    *_either(("alt", "shift"), "up", "down"),
-                ),
-                _help_row(
-                    "Change an all-day end by a day",
-                    *_either(("alt", "shift"), "left", "right"),
-                ),
-            ]
-        rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
-        return (
-            Dialog()
-            .id(help_id(bound.key))
-            .title("Keyboard shortcuts")
-            .size("sm")
-            .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
-        )
+    rows.append(_help_row("Close a popover or a dialog", Kbd("esc")))
+    return (
+        Dialog()
+        .id(help_id(bound.key))
+        .title("Keyboard shortcuts")
+        .size("sm")
+        .content(html.ul(*rows, class_="flex flex-col divide-y divide-border"))
+    )
 
 
 def _either(

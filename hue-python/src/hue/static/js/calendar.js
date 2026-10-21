@@ -58,7 +58,7 @@ export function registerCalendarData(Alpine) {
 		"hueCalendar",
 		// hour is the pixels an hour is tall, and snap the minutes a drag
 		// snaps to and an arrow key moves an event by.
-		({ url = null, move = null, key = "", target = "", state = "", weekTab, dayTab, hour, snap } = {}) => {
+		({ url, move, key, target, state, region, weekTab, dayTab, hour, snap }) => {
 			// A field of the dialog's, as the dialog posts it, under the key.
 			const param = (name) => `${key}-${name}`;
 			return {
@@ -105,11 +105,11 @@ export function registerCalendarData(Alpine) {
 					const week = document.getElementById(weekTab);
 					const day = document.getElementById(dayTab);
 					if (!narrow || !day || week?.getAttribute("aria-current") !== "page") return;
-					this.$ajax(day.href, { target: `${key}-view`, sync: true });
+					this.$ajax(day.href, { target: region, sync: true });
 				},
 
 				calendarCreate() {
-					this.calendarOpen(new FormData());
+					this.send(url, new FormData());
 				},
 
 				calendarSlot(event) {
@@ -125,11 +125,7 @@ export function registerCalendarData(Alpine) {
 						const from = Math.min(Math.max(half * 30, 0), 23 * 60 + 30);
 						body.set(param("starts_time"), clock(from));
 					}
-					this.calendarOpen(body);
-				},
-
-				calendarOpen(body) {
-					if (url) return this.send(url, body);
+					this.send(url, body);
 				},
 
 				send(action, body) {
@@ -301,7 +297,7 @@ export function registerCalendarData(Alpine) {
 					if (drag.mode === "create") {
 						this.settle(drag);
 						const [a, b] = span(drag.from, drag.to, snap);
-						this.calendarOpen(slotBody(param, drag.column.dataset.date, a, b));
+						this.send(url, slotBody(param, drag.column.dataset.date, a, b));
 						return;
 					}
 					if (!drag.days && !drag.minutes) {

@@ -138,14 +138,11 @@ def read_clock(text: str) -> time | None:
 def today_in(formats: Formats) -> date:
     """
     The reader's today: now in their timezone when the framework says how
-    to get there, the server's otherwise. Read through _now so a test can
-    hold the clock still.
+    to get there, the server's otherwise.
     """
-    return formats.moment(_now()).date() if formats.localize else date.today()
-
-
-def _now() -> datetime:
-    return datetime.now(UTC)
+    return (
+        formats.moment(datetime.now(UTC)).date() if formats.localize else date.today()
+    )
 
 
 def zone_of(formats: Formats) -> tzinfo | None:
@@ -156,14 +153,14 @@ def zone_of(formats: Formats) -> tzinfo | None:
     """
     if formats.localize is None:
         return None
-    return formats.moment(_now()).tzinfo
+    return formats.moment(datetime.now(UTC)).tzinfo
 
 
 def timezone_name(formats: Formats) -> str | None:
     zone = zone_of(formats)
     if zone is None:
         return None
-    return getattr(zone, "key", None) or zone.tzname(_now())
+    return getattr(zone, "key", None) or zone.tzname(datetime.now(UTC))
 
 
 def slot_id(key: str) -> str:

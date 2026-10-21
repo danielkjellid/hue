@@ -974,7 +974,7 @@ def _more(draw: Draw, day: date, hidden: list[Placed]) -> ComponentType:
             .aria_label(f"+{count} more, {name}")
             .class_("mt-0.5")
             # The count alone where the cell is too narrow for the word.
-            .content(f"+{count}", html.span(" more", class_="max-md:hidden"))
+            .content(f"+{count}", html.span(" more", class_=_HIDDEN))
         )
         .content(
             html.ul(

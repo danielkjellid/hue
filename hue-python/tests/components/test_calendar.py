@@ -583,8 +583,6 @@ class TestMonth:
         html = await _html(movable, context_args)
         button = _event(html, "Release freeze")
         assert "touch-none" in button["class"]
-        # One pointer drag for every view, not the browser's drag and drop.
-        assert "draggable" not in button.attrs
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):

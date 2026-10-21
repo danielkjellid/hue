@@ -226,9 +226,9 @@ def series_moved(
     first = was.series_starts
     if first is None:
         return starts, ends
-    shift = _date_of(starts) - was.span(formats)[0]
-    day = _date_of(formats.moment(first) if isinstance(first, datetime) else first)
-    day += shift
+    moved = starts.date() if isinstance(starts, datetime) else starts
+    day = formats.moment(first).date() if isinstance(first, datetime) else first
+    day += moved - was.span(formats)[0]
     begins: Any = (
         datetime.combine(day, starts.time()) if isinstance(starts, datetime) else day
     )
@@ -244,10 +244,6 @@ def series_moved(
 SERIES_SKIPPED = (
     "The series would start in an hour that is skipped when the clocks go forward."
 )
-
-
-def _date_of(value: date) -> date:
-    return value.date() if isinstance(value, datetime) else value
 
 
 def undo_button(
@@ -464,17 +460,10 @@ def dialog(
         .content(
             *carried(bound.query(bound.state)),
             csrf(declared, csrf_token),
-            render_when(
-                editing,
-                html.input_(type="hidden", name=param("id"), value=posted.id),
-            ),
-            render_when(
-                editing,
-                html.input_(
-                    type="hidden",
-                    name=param("occurrence"),
-                    value=posted.occurrence,
-                ),
+            *carried(
+                [(param("id"), posted.id), (param("occurrence"), posted.occurrence)]
+                if editing
+                else []
             ),
             _title_field(param("title"), posted.title),
             Switch()

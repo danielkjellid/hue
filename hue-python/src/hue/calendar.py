@@ -77,7 +77,7 @@ from hue._calendar_state import (
     today_in,
     zone_of,
 )
-from hue._declared import Declaration, Pairs, Routes, Urls, many, one
+from hue._declared import Declaration, Pairs, Routes, many, one
 from hue.context import HueContext
 from hue.formats import Formats
 from hue.router import HueResponse
@@ -196,7 +196,10 @@ class _Declaration(Declaration[Routes]):
         asked, _, others = self._read(
             self._router._get_query_values(hue.request), today
         )
-        keys = self._keys(context)
+        # The app's registry when it has the calendar's keys and this
+        # calendar holds them on the page, claimed only when there is one.
+        registry = keys_in(hue.shortcuts)
+        keys = registry if registry and shortcuts.claim(_KEYS_CLAIM, self.key) else None
         # On for the page, which the shortcut host reads once the whole
         # body has rendered.
         switch_on(self, keys)
@@ -211,16 +214,6 @@ class _Declaration(Declaration[Routes]):
         which is in no order a reader would guess.
         """
         shortcuts.claim(_KEYS_CLAIM, self.key)
-
-    def _keys(self, context: Context) -> type[ShortcutRegistry] | None:
-        """
-        The app's registry when it has the calendar's keys and this
-        calendar holds them on the page, else None.
-        """
-        registry = keys_in(HueContext.from_context(context).shortcuts)
-        if registry is None or not shortcuts.claim(_KEYS_CLAIM, self.key):
-            return None
-        return registry
 
     def _read(
         self, values: Mapping[str, list[str]], today: date
@@ -262,20 +255,11 @@ class _Declaration(Declaration[Routes]):
         others: Pairs,
         today: date,
         formats: Formats,
-        urls: Urls | None = None,
         keys: type[ShortcutRegistry] | None = None,
     ) -> BoundCalendar:
         events = await self._router._run_sync(self._fetch, request, asked)
-        return BoundCalendar(
-            self,
-            asked,
-            events,
-            today,
-            urls or self._urls_for(request, self._served()),
-            others,
-            formats,
-            keys,
-        )
+        urls = self._urls_for(request, self._served())
+        return BoundCalendar(self, asked, events, today, urls, others, formats, keys)
 
     def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
         """
@@ -371,9 +355,7 @@ class _Declaration(Declaration[Routes]):
     ) -> list[Event]:
         """
         The timed events that share a moment with the draft, apart from
-        the draft itself: events() asked for the draft's own days, in every
-        layer and with no search, since an event the reader has hidden or
-        searched away is still in the way.
+        the draft itself, among the draft's own days.
         """
         first, last = draft.span(formats)
         starts, ends = draft.moments(formats)
@@ -551,7 +533,6 @@ class _Declaration(Declaration[Routes]):
                 draft,
                 "Save",
                 body=body,
-                undo=lambda _: None,
                 lands=draft,
             )
         was = await self._router._run_sync(
@@ -675,7 +656,7 @@ class _Declaration(Declaration[Routes]):
         verb: str,
         *,
         body: Posted,
-        undo: Callable[[Any], Undo | None],
+        undo: Callable[[Any], Undo | None] | None = None,
         lands: Event | None = None,
         description: str = "The calendar is shown as it is now.",
         refused: Callable[[HTTPStatus], Any] | None = None,
@@ -685,13 +666,13 @@ class _Declaration(Declaration[Routes]):
         happened and offering to undo it, or saying what failed.
 
         undo is given what the handler returned and says which action puts
-        things back and with what fields, or None when nothing can. One
-        level: the request an Undo makes carries the undo flag, and the
-        toast it earns offers none. lands is the event focus goes to once
-        the calendar is back, named by the id save returns when it has
-        none; an undone create sends it to New event. refused answers a
-        failure instead of the calendar, as the dialog does over what was
-        typed.
+        things back and with what fields, or None when nothing can; left
+        out, nothing is offered. One level: the request an Undo makes
+        carries the undo flag, and the toast it earns offers none. lands is
+        the event focus goes to once the calendar is back, named by the id
+        save returns when it has none; an undone create sends it to New
+        event. refused answers a failure instead of the calendar, as the
+        dialog does over what was typed.
         """
         focus: Event | Literal["new"] | None = None
         status, made = await self._run(
@@ -705,7 +686,7 @@ class _Declaration(Declaration[Routes]):
                 given.title if isinstance(given, Event) else body.title.strip()
             ) or "the event"
             series = bool(given.repeat if isinstance(given, Event) else body.repeat)
-            back = None if body.undo else undo(made)
+            back = None if body.undo or undo is None else undo(made)
             # Only through a route that is served: a create is undone by a
             # delete, and a delete by a save, which the other may lack.
             if back is not None and back.action not in bound.urls.act:
@@ -743,15 +724,8 @@ class _Declaration(Declaration[Routes]):
         it. The whole thing, with an empty slot: the response targets the
         slot, which closes the dialog, and the synced parts refresh.
         """
-        redrawn = await self._bind(
-            request,
-            bound.state,
-            bound.others,
-            bound.today,
-            bound.formats,
-            bound.urls,
-            bound.shortcuts,
-        )
+        events = await self._router._run_sync(self._fetch, request, bound.state)
+        redrawn = replace(bound, events=events)
         if isinstance(focus, Event):
             focus = landing(redrawn, focus)
         return HueResponse(

@@ -582,11 +582,6 @@ def _undo_of(html: str) -> tuple[str, dict[str, Any]] | None:
     The action the toast's Undo posts to and the fields it posts, or None
     when the toast offers none.
     """
-    found = _undo_call(html)
-    return None if found is None else (found[1], json.loads(found[2])["body"])
-
-
-def _undo_call(html: str) -> re.Match[str] | None:
     button = re.search(
         r"<button[^>]*@click=(['\"])(\$ajax.*?dismiss\(\))\1[^>]*>\s*Undo\s*</button>",
         html,
@@ -597,7 +592,7 @@ def _undo_call(html: str) -> re.Match[str] | None:
         r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\); dismiss\(\)', unescape(button[2])
     )
     assert call, button[2]
-    return call
+    return call[1], json.loads(call[2])["body"]
 
 
 def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
@@ -628,7 +623,7 @@ def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
     )
 
 
-def test_a_move_of_the_end_alone_is_a_resize_and_a_series_moves_as_one(mounted):
+def test_a_move_of_the_end_alone_is_a_resize(mounted):
     mounted(events=lambda r, s: [_REVIEW])
     html = unescape(
         _act(
