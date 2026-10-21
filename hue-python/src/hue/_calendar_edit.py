@@ -117,7 +117,7 @@ class Undo(NamedTuple):
     fields: Mapping[str, str | None]
 
 
-def said(verb: str, named: str, series: bool, *, undone: bool) -> str:
+def toast_title(verb: str, named: str, series: bool, *, undone: bool) -> str:
     """
     The toast's title. A series is said to move or go as a whole, since
     the app's save and delete are handed the one event the series is.
@@ -212,7 +212,7 @@ def _first(event: Event) -> Event:
     return replace(event, starts=first, ends=ends)
 
 
-def series_moved(
+def series_times(
     was: Event, starts: Any, ends: Any, formats: Formats
 ) -> tuple[date | datetime, date | datetime] | None:
     """
@@ -412,7 +412,7 @@ def _when_fields(bound: BoundCalendar, event: Event) -> dict[str, str | None]:
     return {bound.declaration.param(name): value for name, value in when.items()}
 
 
-def dialog(
+def event_dialog(
     bound: BoundCalendar,
     posted: Posted,
     errors: Mapping[str, str],
