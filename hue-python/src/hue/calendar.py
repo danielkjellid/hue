@@ -257,6 +257,8 @@ class _Posted:
     location: str = ""
     notes: str = ""
     repeat: str = ""
+    # Set by Duplicate, which saves with no dialog open to keep a failure in.
+    copy: str = ""
 
 
 _FIELDS = tuple(each.name for each in fields(_Posted))
@@ -857,7 +859,8 @@ class _Declaration(Declaration[Routes]):
         """
         The calendar once the dialog's fields are saved, or the dialog again
         over them when they could not be: a field error, or a handler that
-        failed or refused, so nothing typed is lost.
+        failed or refused, so nothing typed is lost. A failed duplicate is
+        the calendar again, since nothing was typed.
         """
         assert self.save is not None  # served only with one
         draft, errors = self._draft(body, bound.formats)
@@ -871,9 +874,13 @@ class _Declaration(Declaration[Routes]):
             self.save,
             draft,
             label=verb,
-            description="What you entered is still in the dialog.",
+            description=(
+                "The calendar is shown as it is now."
+                if body.copy
+                else "What you entered is still in the dialog."
+            ),
         )
-        if status != HTTPStatus.OK:
+        if status != HTTPStatus.OK and not body.copy:
             return self._shown(bound, body, {}, status, csrf_token)
         return await self._changed(
             request, bound, status, f'{_DONE[verb]} "{draft.title}"'
@@ -1153,6 +1160,7 @@ def _event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
                             declared.param("id"): None,
                             declared.param("repeat"): None,
                             declared.param("title"): f"{event.title} (copy)",
+                            declared.param("copy"): "1",
                         },
                     )
                 ),
