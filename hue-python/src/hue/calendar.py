@@ -1457,11 +1457,10 @@ class _Band(ChainableComponent):
             render_when(
                 declared.search is not None,
                 search_form(
-                    declared,
+                    bound,
                     param=_QUERY,
                     label=declared.search or "",
                     value=bound.state.query,
-                    read=bound.urls.read,
                     target=views.region_id(key),
                 ),
             ),

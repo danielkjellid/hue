@@ -453,7 +453,7 @@ class _Declaration(Declaration[_Routes]):
             if wanted
         )
         self._check()
-        self._register()
+        self._register_route(self.actions, self._act)
 
     def _check(self) -> None:
         """
@@ -719,9 +719,6 @@ class _Declaration(Declaration[_Routes]):
                 f"property it is known by, whether or not a column shows it: "
                 f"it is what a checkbox submits and what an action is handed."
             ) from None
-
-    def _register(self) -> None:
-        self._register_route(self.actions, self._act)
 
     async def _act(self, request: Any, context: Any, action: str) -> Any:
         """
@@ -1043,7 +1040,7 @@ class _TableCarried(ChainableComponent):
             # form posts on its own.
             *(
                 (
-                    *carried(bound.query(bound.state), form=form_id(bound.key) or ""),
+                    *carried(bound.query(bound.state), form=form_id(bound.key)),
                     csrf(
                         bound.declaration,
                         HueContext.from_context(context).csrf_token,
