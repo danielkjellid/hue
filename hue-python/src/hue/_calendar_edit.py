@@ -573,8 +573,11 @@ def _overlaps_check(bound: BoundCalendar) -> str:
     stands, answered with the warning or with nothing.
     """
     url, target = bound.urls.act[OVERLAPS], overlap_id(bound.key)
+    # A field left by clicking Save settles after the save took the
+    # dialog away, and the check would answer into nothing.
     return (
-        f"$ajax({json.dumps(url)}, {{ method: 'post', target: {json.dumps(target)}, "
+        f"$el.isConnected && $ajax({json.dumps(url)}, "
+        f"{{ method: 'post', target: {json.dumps(target)}, "
         f"body: new FormData($el) }})"
     )
 
