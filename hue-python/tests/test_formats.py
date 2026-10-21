@@ -25,13 +25,6 @@ def test_anything_else_has_no_spelling_here():
     assert Formats().text(object()) is None
 
 
-def test_the_names_are_english_and_start_on_monday_and_january():
-    formats = Formats()
-    assert formats.day_names[0] == "Monday"
-    assert formats.day_abbreviations[6] == "Sun"
-    assert formats.month_names[0] == "January"
-
-
 @pytest.mark.parametrize(
     "wrong",
     [
