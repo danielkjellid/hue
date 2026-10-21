@@ -76,7 +76,7 @@ def bound_from[B](context: Context, kind: type[B], component: object, by: str) -
     if isinstance(found, kind):
         return found
     raise ValueError(
-        f"{type(component).__name__} draws part of a {by.lower()} bound to a "
+        f"{type(component).__name__} draws part of a {by} bound to a "
         f"request, and there is none here. It is drawn by {by}.from_state()."
     )
 

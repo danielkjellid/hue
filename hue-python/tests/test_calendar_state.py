@@ -237,6 +237,14 @@ async def test_something_that_is_not_an_event_is_refused_by_name(context_args):
         )
 
 
+@pytest.mark.asyncio
+async def test_a_part_drawn_outside_its_calendar_says_what_it_belongs_to(
+    context_args,
+):
+    with pytest.raises(ValueError, match=r"part of a Calendar bound to a request"):
+        await render_tree(declared._Side(), context_args=context_args)
+
+
 # The declaration
 
 
