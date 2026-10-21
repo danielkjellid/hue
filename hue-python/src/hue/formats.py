@@ -64,7 +64,9 @@ class Formats:
     day first or month first (%d.%m.%Y), or around the month's name (%d %B
     %Y, or %B %d, %Y). A weekday may come first and a dot last. A time is %H
     and %M, or %I and %M with %p, and in a date with a time it follows the
-    day. %y, seconds and other words are refused.
+    day. %y, seconds and other words are refused. A format with names reads
+    back only where each name is one word that no other name shares, which
+    is not so in every language, and the fields do not check it.
 
     localize turns an aware datetime into the reader's time before it is
     written, as a framework's templates would. Without one, an aware

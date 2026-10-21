@@ -144,3 +144,17 @@ def test_a_format_is_refused_exactly_when_its_text_does_not_read_back():
     wrong = {case: a for case, a in answers.items() if a != (case in readable,) * 2}
     assert wrong == {}
 
+
+def test_a_name_with_marks_and_joiners_reads_back():
+    # Hindi spells its vowels as marks on a letter, not as letters, and
+    # Kannada and Malayalam join letters with an invisible joiner, as in
+    # August here.
+    names = {
+        **_NAMES,
+        "monthNames": (
+            "जनवरी फ़रवरी मार्च अप्रैल मई जून जुलाई अगस्त\u200d सितंबर अक्टूबर नवंबर दिसंबर"
+        ).split(),
+        "dayAbbreviations": "सोम मंगल बुध गुरु शुक्र शनि रवि".split(),
+    }
+    days = [f"2026-{month:02}-15" for month in range(1, 13)]
+    assert _browser(names, [("%a %d %B %Y", day) for day in days])["read"] == days
