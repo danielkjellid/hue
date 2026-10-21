@@ -1,6 +1,7 @@
 import re
 from collections import Counter
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -618,6 +619,28 @@ class TestAgenda:
 
 
 class TestEventPopover:
+    @pytest.mark.asyncio
+    async def test_a_chip_and_a_short_box_write_the_time_the_popover_does(
+        self, context_args
+    ):
+        oslo = ZoneInfo("Europe/Oslo")
+        context_args["formats"] = Formats(
+            time="%H:%M %Z", localize=lambda moment: moment.astimezone(oslo)
+        )
+        standup = Event(
+            "Standup",
+            datetime(2026, 10, 14, 7, tzinfo=UTC),
+            datetime(2026, 10, 14, 7, 15, tzinfo=UTC),
+        )
+        for view in ("month", "week"):
+            html = await _html(_calendar(standup).view(view), context_args)
+            root = _event(html, "Standup").find_parent(attrs={"x-data": True})
+            assert (
+                f"09:00 CEST {_DASH} 09:15 CEST"
+                in root.select_one("[role=dialog]").get_text()
+            )
+            assert "09:00 CEST" in _event(html, "Standup").get_text()
+
     @pytest.mark.asyncio
     async def test_the_event_opens_a_dialog_named_by_it_anchored_fixed(
         self, context_args
