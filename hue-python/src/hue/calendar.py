@@ -39,14 +39,14 @@ from hue._calendar_edit import (
     SERIES_SKIPPED,
     Posted,
     Undo,
-    dialog,
     event_actions,
+    event_dialog,
     id_of,
     landing,
     overlap_warning,
     prefilled,
-    said,
-    series_moved,
+    series_times,
+    toast_title,
     undo_button,
     undo_create,
     undo_delete,
@@ -478,7 +478,7 @@ class _Declaration(Declaration[Routes]):
         The dialog over the posted fields, in the slot.
         """
         return HueResponse(
-            component=dialog(bound, posted, errors, csrf_token=csrf_token),
+            component=event_dialog(bound, posted, errors, csrf_token=csrf_token),
             target=slot_id(self.key),
             status_code=status,
         )
@@ -543,7 +543,7 @@ class _Declaration(Declaration[Routes]):
             return refused(HTTPStatus.NOT_FOUND)
         edited = draft
         if draft.repeat:
-            series = series_moved(was, draft.starts, draft.ends, formats)
+            series = series_times(was, draft.starts, draft.ends, formats)
             if series is None:
                 errors = {"starts_time": SERIES_SKIPPED}
                 status = HTTPStatus.UNPROCESSABLE_ENTITY
@@ -605,7 +605,7 @@ class _Declaration(Declaration[Routes]):
         landed = replace(was, starts=starts, ends=ends)
         # An Undo posts the series where it began, saved as posted.
         if not body.undo:
-            series = series_moved(was, starts, ends, formats)
+            series = series_times(was, starts, ends, formats)
             if series is None:
                 return await self._failed(
                     request,
@@ -692,7 +692,7 @@ class _Declaration(Declaration[Routes]):
             if back is not None and back.action not in bound.urls.act:
                 back = None
             toast.success(
-                said(verb, named, series, undone=bool(body.undo)),
+                toast_title(verb, named, series, undone=bool(body.undo)),
                 action=render_if(back, lambda it: undo_button(bound, it)),
             )
             if body.undo and verb == "Delete":
