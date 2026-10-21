@@ -28,7 +28,7 @@ type Weekday = Literal[
 WEEKDAYS: tuple[Weekday, ...] = get_args(Weekday.__value__)
 
 # Six weeks, always, so the grid keeps its height from month to month.
-_CELLS = 42
+_WEEKS = 6
 
 # The cell carries the state, as attributes date-picker.js binds; the disc
 # inside draws it. The cell's ::before is the band a range runs along, behind
@@ -152,14 +152,14 @@ class DatePicker(FieldControl):
         """
         The first day that can be picked.
         """
-        (self._props["min"],) = _days(value)
+        self._props["min"] = _days(value)[0]
         return self
 
     def max(self, value: date) -> Self:
         """
         The last day that can be picked.
         """
-        (self._props["max"],) = _days(value)
+        self._props["max"] = _days(value)[0]
         return self
 
     def unavailable(self, *days: date | Weekday) -> Self:
@@ -440,7 +440,7 @@ class DatePicker(FieldControl):
                                 for col in range(7)
                             )
                         )
-                        for row in range(_CELLS // 7)
+                        for row in range(_WEEKS)
                     )
                 ),
                 role="grid",
@@ -470,15 +470,15 @@ def _caption(*parts: ComponentType) -> ComponentType:
 
 
 def _step(label: str, icon: str, months: int, disabled: bool) -> ComponentType:
-    button = (
+    return (
         Button()
         .variant("ghost")
         .size("xs")
         .icon_only(label)
         .x_on("click", unsafe(f"page({months})"))
+        .disabled(disabled)
         .content(HueIcon(icon))
     )
-    return button.disabled() if disabled else button
 
 
 def _title(text: str, ref: str, action: str, disabled: bool) -> ComponentType:

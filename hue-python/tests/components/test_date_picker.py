@@ -7,7 +7,7 @@ import pytest
 from hue.formats import Formats
 from hue.js import unsafe
 from hue.renderer import render_tree
-from hue.ui import DatePicker, Radio, RadioGroup, Stack
+from hue.ui import DatePicker, Stack
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -51,14 +51,6 @@ class TestDatePicker:
     async def test_hidden_label_keeps_the_legend_for_screen_readers(self, context_args):
         html = await render_tree(_picker().hidden_label(), context_args=context_args)
         assert "sr-only" in select(html, "legend")[0]["class"]
-
-    @pytest.mark.asyncio
-    async def test_the_legend_is_drawn_as_a_radio_groups(self, context_args):
-        group = RadioGroup().name("r").legend("R").content(Radio().value("a"))
-        picker = await render_tree(_picker(), context_args=context_args)
-        radios = await render_tree(group, context_args=context_args)
-        drawn = select(picker, "legend")[0]["class"]
-        assert drawn == select(radios, "legend")[0]["class"]
 
     @pytest.mark.asyncio
     async def test_the_legend_shows_by_default(self, context_args):

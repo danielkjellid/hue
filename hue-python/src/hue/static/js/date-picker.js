@@ -17,7 +17,7 @@
  */
 
 const DAY = 24 * 60 * 60 * 1000;
-// The months date.fromisoformat() accepts on the server.
+// The months and days date.fromisoformat() accepts on the server.
 const FIRST_MONTH = 1 * 12;
 const LAST_MONTH = 9999 * 12 + 11;
 const FIRST_DAY = "0001-01-01";
@@ -124,13 +124,13 @@ export function datePicker(config) {
 			});
 		},
 
-		// Focus day, paging only when it falls outside the shown months.
 		// The selection as a list, whatever x-model handed over: the
 		// bindings read it before the watch above can put a list back.
 		days() {
 			return Array.isArray(this.value) ? this.value : [];
 		},
 
+		// Focus day, paging only when it falls outside the shown months.
 		show(day) {
 			const month = monthOf(day);
 			if (month < this.shown) this.shown = Math.min(month, LAST_MONTH - months + 1);
@@ -148,8 +148,7 @@ export function datePicker(config) {
 		},
 
 		decade() {
-			const first = this.year() - (this.year() % 12);
-			return `${first} – ${first + 11}`;
+			return `${this.yearAt(0)} – ${this.yearAt(11)}`;
 		},
 
 		dayAt(m, i) {
