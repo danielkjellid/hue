@@ -943,6 +943,9 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         ),
         render_when(len(shown) < len(items), _more(draw, day, items[len(shown) :])),
         data_date=day.isoformat(),
+        # A day a drag drops an event on by whole days, which an agenda's
+        # day is not.
+        data_drop="",
         class_=classnames(
             "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0 "
             "max-md:h-16",

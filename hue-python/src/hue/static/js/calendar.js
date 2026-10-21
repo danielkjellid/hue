@@ -167,7 +167,7 @@ export function registerCalendarData(Alpine) {
 					// the pointer, is the day an event is taken hold of by: for a
 					// bar over several days, not the day it starts. Those move by
 					// whole days.
-					const cell = event.target.closest("[data-date]:not([data-timed])");
+					const cell = event.target.closest("[data-drop]");
 					const row = event.target.closest("[data-all-day-row]");
 					const column = cell ?? (row ? this.columnAt(event.clientX) : event.target.closest("[data-timed]"));
 					if (!column) return;
@@ -269,7 +269,7 @@ export function registerCalendarData(Alpine) {
 				shiftDays(drag, event) {
 					const month = !("timed" in drag.column.dataset);
 					const found = month
-						? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-date]:not([data-timed])")
+						? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-drop]")
 						: this.columnAt(event.clientX);
 					// The calendar's own days: the sidebar's picker has cells too.
 					const day = found && document.getElementById(key)?.contains(found) ? found : null;
