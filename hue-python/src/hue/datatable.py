@@ -100,7 +100,13 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.atoms.radio import Radio
 from hue.ui.base import ChainableComponent
-from hue.ui.molecules.datatable import SELECTED, Column, DataTable, resolve_value
+from hue.ui.molecules.datatable import (
+    SELECTED,
+    Column,
+    DataTable,
+    RowKey,
+    resolve_value,
+)
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.pagination import Pagination, record_range
@@ -478,11 +484,16 @@ class _Declaration:
     button and a chip in the band under it, and its answers arrive in the
     same state rows() reads the search from.
 
+    group_by splits the rows into sections, as DataTable.group_by() does, so
+    rows() has to order by it before the sort that was asked for. The page
+    is sliced before it is grouped, so a section that runs onto the next
+    page opens it under its title again.
+
     hideable names the columns a reader may hide. The others are locked,
     and the panel marks them as locked instead of ignoring the click.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - every argument is a part of the declaration
         self,
         router: _Routes,
         *,
@@ -493,6 +504,7 @@ class _Declaration:
         search: str | None = None,
         filters: Sequence[Filter] = (),
         hideable: Sequence[str] = (),
+        group_by: RowKey | None = None,
         actions: Mapping[str, BulkAction] | None = None,
         page_size: int = 25,
     ) -> None:
@@ -503,6 +515,7 @@ class _Declaration:
         self.search = search
         self.filters = list(filters)
         self.hideable = list(hideable)
+        self.group_by = group_by
         self.actions = dict(actions or {})
         self.page_size = page_size
         self._router = router
@@ -654,6 +667,8 @@ class _Declaration:
         ).rows(bound.page)._sorted(bound.state.sort)._sort_href(
             lambda order: bound.href(sort=order)
         )
+        if self.group_by is not None:
+            table.group_by(self.group_by)
         if self.actions and self.identifier is not None:
             table._bulk_actions(
                 self.identifier,

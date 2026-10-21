@@ -11,7 +11,7 @@ from typing_extensions import Self
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.ui.navigation import SYNC
-from hue.utils import classes_if_else, classnames
+from hue.utils import classes_if_else, classnames, render_if
 
 type CellAlign = Literal["start", "center", "end"]
 type HeadScope = Literal["col", "row", "colgroup", "rowgroup"]
@@ -134,6 +134,15 @@ class Table(ChainableComponent):
         self._props["footer"] = values
         return self
 
+    def _floating(self, *values: ComponentType) -> Self:
+        """
+        What lives in the frame's Alpine scope but takes no room in it, such
+        as a bar teleported over the page. Kept apart from the toolbar, which
+        would otherwise square off the corners above the rows.
+        """
+        self._props["floating"] = values
+        return self
+
     def under(self, *values: ComponentType) -> Self:
         """
         The band along the bottom of the frame, such as the pages or a total.
@@ -194,6 +203,7 @@ class Table(ChainableComponent):
                 # table's links and carried state keep up with this one's.
                 **(SYNC if frame_id else {}),
             ),
+            *self._get_prop("floating", ()),
         ]
         action: str | None = self._get_prop("form")
         if action is not None:
@@ -237,16 +247,48 @@ class TableHeader(ChainableComponent):
 class TableBody(ChainableComponent):
     """
     The tbody group of a Table.
+
+    title() makes it a section: a table can hold several bodies, and each
+    opens with a row naming the rows under it, such as the month they fall in.
     """
 
     category: ClassVar[str | None] = None
 
+    def title(self, value: ComponentType, *, colspan: int) -> Self:
+        """
+        Name the rows in this body. colspan is the number of columns, so the
+        title runs the width of the table. A blank title raises.
+        """
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("A section needs a title a screen reader can read.")
+        self._props["title"] = value
+        self._props["colspan"] = colspan
+        return self
+
     def _render(self, context: Context) -> Component:
         return html.tbody(
+            # A rowgroup header, so a screen reader announces the section
+            # along with each cell in it.
+            render_if(
+                self._get_prop("title"),
+                lambda title: html.tr(
+                    html.th(
+                        title,
+                        scope="rowgroup",
+                        colspan=self._get_prop("colspan"),
+                        class_=(
+                            "border-b border-border bg-surface-sunken "
+                            "text-start font-ui text-sm font-semibold text-fg"
+                        ),
+                    )
+                ),
+            ),
             *self._children,
-            # The frame already draws the line under the last row.
+            # The frame already draws the line under the last row. Only the
+            # last body's, since the line under any other closes a section.
             class_=classnames(
-                "[&_tr:last-child_td]:border-b-0", self._get_prop("class_")
+                "[&:last-child_tr:last-child_td]:border-b-0",
+                self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
         )

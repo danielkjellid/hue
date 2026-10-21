@@ -74,7 +74,7 @@ def _matching(request: Any, asked: Any) -> Any:
     return found
 
 
-def _view(page_size: int = 25) -> Any:
+def _view(page_size: int = 25, group_by: str | None = None) -> Any:
     _ARCHIVED.clear()
 
     class InvoicesView(HueView):
@@ -105,6 +105,7 @@ def _view(page_size: int = 25) -> Any:
                 )
             },
             page_size=page_size,
+            group_by=group_by,
         )
 
     return InvoicesView()
@@ -123,8 +124,8 @@ def mounted(urlpatterns_: list[Any]) -> Any:
     everything sits at the root.
     """
 
-    def build(page_size: int = 25, at: str = MOUNT) -> Any:
-        view = _view(page_size)
+    def build(page_size: int = 25, at: str = MOUNT, group_by: str | None = None) -> Any:
+        view = _view(page_size, group_by)
         urlpatterns_.append(path(at, include(type(view).urls)))
         clear_url_caches()
         return view
@@ -532,6 +533,16 @@ def test_the_pages_are_redrawn_with_the_rows_and_remembered(mounted):
     html = _table(mounted(page_size=2).invoices, _request())
     assert "invoices-rows" in _ids_around(html, "Pagination")
     assert 'x-target.push="invoices-rows"' in html
+
+
+def test_a_section_that_runs_onto_the_next_page_opens_it_under_its_title(
+    mounted,
+):
+    # Sliced, then grouped: the first row of page two is under a title
+    # even though its section started on page one.
+    invoices = mounted(page_size=1, group_by="status").invoices
+    html = _table(invoices, _request(status="draft", page="2"))
+    assert re.findall(r'<th scope="rowgroup"[^>]*>(\w+)<', html) == ["draft"]
 
 
 def test_a_filter_narrows_the_rows_it_names(mounted):

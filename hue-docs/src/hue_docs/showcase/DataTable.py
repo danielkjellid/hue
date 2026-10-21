@@ -75,7 +75,9 @@ SHOWCASES: list[Showcase] = [
             "worse than an uneven row. Sorting, searching, filtering and "
             "acting on picked rows all need the server, so they come with a "
             "table drawn from a declaration, DataTable.from_state(). The "
-            "Data tables guide shows them working."
+            "Data tables guide shows them working. group_by() splits the "
+            "rows into sections, one for each run of rows with the same "
+            "value, so the rows have to arrive in that order."
         ),
         variants=[
             variant(
@@ -97,6 +99,35 @@ SHOWCASES: list[Showcase] = [
                     [{_COLUMNS}                ]
                 ).rows(
                     [{_ROWS}                ]
+                )
+                """,
+            ),
+            variant(
+                "Grouped",
+                """
+                DataTable().group_by("month").columns(
+                    [
+                        Column("invoice", "Invoice"),
+                        Column("amount", "Amount", align="end"),
+                    ]
+                ).rows(
+                    [
+                        {
+                            "month": "September 2026",
+                            "invoice": "INV-2048",
+                            "amount": "$1,200.00",
+                        },
+                        {
+                            "month": "September 2026",
+                            "invoice": "INV-2049",
+                            "amount": "$840.00",
+                        },
+                        {
+                            "month": "October 2026",
+                            "invoice": "INV-2050",
+                            "amount": "$2,190.00",
+                        },
+                    ]
                 )
                 """,
             ),

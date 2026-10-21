@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from decimal import Decimal
+from itertools import groupby
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -122,6 +123,11 @@ class _Drawn:
         return await self._declaration.draw(self._table, context)
 
 
+# Where a value comes from in a row: a key, a dotted path, or a callable
+# given the row.
+type RowKey = str | Callable[[Any], Any]
+
+
 @dataclass(frozen=True)
 class Column:
     """
@@ -138,7 +144,7 @@ class Column:
     in that order.
     """
 
-    key: str | Callable[[Any], Any]
+    key: RowKey
     label: str
     align: CellAlign = "start"
     sort: str | None = None
@@ -151,7 +157,7 @@ _MISSING = object()
 
 def resolve_value(
     row: Any,
-    key: str | Callable[[Any], Any],
+    key: RowKey,
 ) -> Any:
     """
     A row's value for one column, by callable or by (dotted) key path.
@@ -206,7 +212,8 @@ class _Value:
         if text is not None:
             return text
         raise ValueError(
-            f"Column value {value!r} is not a scalar - give the column a render()."
+            f"{value!r} is not a scalar - return text from a callable key, or "
+            f"give its column a render()."
         )
 
 
@@ -221,10 +228,10 @@ class DataTable(ChainableComponent):
 
     columns() and rows() give it its shape, and everything else is a state
     it can be in. loading() shows placeholder rows under the header,
-    empty() and error() replace the rows with a message, and compact()
-    tightens the rows. Sorting, searching and acting on picked rows need
-    the server, so they come with a table drawn from a declaration:
-    DataTable.from_state().
+    empty() and error() replace the rows with a message, compact()
+    tightens the rows, and group_by() splits them into sections. Sorting,
+    searching and acting on picked rows need the server, so they come with
+    a table drawn from a declaration: DataTable.from_state().
     """
 
     category = "Data"
@@ -277,6 +284,17 @@ class DataTable(ChainableComponent):
         What the table is, read before it and shown above it.
         """
         self._props["caption"] = value
+        return self
+
+    def group_by(self, key: RowKey) -> Self:
+        """
+        Split the rows into sections, each titled with the value key reads
+        from its rows, as a column's key would. The rows have to arrive in
+        that order: a value that comes back later opens a section of its own.
+        A blank value raises, because a section needs a name; a callable can
+        give those rows one.
+        """
+        self._props["group_by"] = key
         return self
 
     def compact(self, value: bool = True) -> Self:
@@ -433,17 +451,13 @@ class DataTable(ChainableComponent):
         The bands around the rows: a toolbar above, the bar for picked rows
         that floats over the page, and a band along the bottom.
         """
-        toolbar: tuple[ComponentType, ...] = self._get_prop("toolbar", ())
-        bands: list[ComponentType] = (
-            [html.div(*toolbar, class_=_BAND)] if toolbar else []
-        )
+        if toolbar := self._get_prop("toolbar", ()):
+            table.toolbar(html.div(*toolbar, class_=_BAND))
         if self._get_prop("selectable") is not None:
             table.x_data("hueTableSelection")
             # The bar floats over the page instead of taking a band in the
             # frame, so picking rows never moves them.
-            bands.extend(self._bulk_bar())
-        if bands:
-            table.toolbar(*bands)
+            table._floating(*self._bulk_bar())
 
         if under := self._get_prop("under", ()):
             table.under(html.div(*under, class_=_BAND_BOTTOM))
@@ -621,7 +635,21 @@ class DataTable(ChainableComponent):
         if loading:
             return (self._placeholders(),)
         rows = [self._row(row, index) for index, row in enumerate(self._rows)]
-        return (TableBody().content(*rows),)
+        key: RowKey | None = self._get_prop("group_by")
+        if key is None:
+            return (TableBody().content(*rows),)
+        # The title spans the checkboxes too, so it reads as the start of a
+        # section rather than as a row of it.
+        width = len(self._columns) + (self._get_prop("selectable") is not None)
+        return tuple(
+            TableBody()
+            .title(_Value(name), colspan=width)
+            .content(*[line for _, line in section])
+            for name, section in groupby(
+                zip(self._rows, rows, strict=True),
+                key=lambda pair: _section(pair[0], key),
+            )
+        )
 
     def _row(self, row: Any, index: int) -> ComponentType:
         cells = [self._cell(column, row) for column in self._columns]
@@ -685,6 +713,20 @@ class DataTable(ChainableComponent):
             else _Value(resolve_value(row, column.key))
         )
         return TableCell().align(column.align).content(content)
+
+
+def _section(row: Any, key: RowKey) -> Any:
+    """
+    The name of the section a row falls in. A blank one raises, since a
+    screen reader would announce the section as nothing.
+    """
+    value = resolve_value(row, key)
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(
+            f"A row has no value to be grouped by ({value!r}), and a section "
+            f"needs a name. Group by a callable that gives these rows one."
+        )
+    return value
 
 
 def _direction(order: str | None, key: str) -> SortDirection | None:
