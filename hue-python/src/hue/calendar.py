@@ -145,7 +145,6 @@ _DIALOG = "dialog"
 _OVERLAPS = "overlaps"
 _SAVE = "save"
 _DELETE = "delete"
-_ACTIONS = (_DIALOG, _OVERLAPS, _SAVE, _DELETE)
 
 _VIEWS: tuple[CalendarView, ...] = get_args(CalendarView.__value__)
 
