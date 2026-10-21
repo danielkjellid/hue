@@ -191,14 +191,15 @@ def place(
     }
 
 
-def starts_on(placed: Placed, formats: Formats) -> time:
+def starts_on(placed: Placed, formats: Formats) -> datetime:
     """
-    When a timed event starts on the day it is placed on: midnight when it
-    began the day before.
+    When a timed event starts on the day it is placed on, in the reader's
+    time: midnight when it began the day before.
     """
+    moment = placed.event.moments(formats)[0]
     if placed.continues_before:
-        return time.min
-    return placed.event.moments(formats)[0].time()
+        return datetime.combine(placed.day, time.min, moment.tzinfo)
+    return moment
 
 
 def _order(
@@ -208,7 +209,8 @@ def _order(
     # among the all-day ones the longest first, so a bar sits above the
     # single days under it.
     if placed.event.timed:
-        return (1, 0, starts_on(placed, formats))
+        # Naive, so an aware event and a naive one never compare.
+        return (1, 0, starts_on(placed, formats).time())
     return (0, (first - last).days, time.min)
 
 
