@@ -1,9 +1,5 @@
 """
-Curated showcases for the Calendar molecule.
-
-The auto-grid shows each view of one week of events. What it cannot show
-is a month with a day too full for its cell, a year, and an agenda with
-nothing in it, so those are curated here with the same events.
+Every view over one richer set of events, a weekdays-only month, and an empty agenda.
 """
 
 from __future__ import annotations
@@ -13,7 +9,6 @@ from datetime import date, datetime
 from hue_docs.showcase import Showcase, variant
 
 _NS = {"date": date, "datetime": datetime}
-_WEEKDAYS = "\n        .weekdays()"
 
 _EVENTS = """
         [
@@ -119,8 +114,7 @@ SHOWCASES: list[Showcase] = [
             "and a view to a URL; everything that navigates is a link to it, "
             "so the calendar works without JavaScript, and with an id the "
             "links swap the calendar in place. An event opens a popover with "
-            "its details, and actions() puts the app's own buttons at the "
-            "foot of it. Times follow Formats.time from the context, so a "
+            "its details. Times follow Formats.time from the context, so a "
             "12-hour clock is a setting rather than an option here."
         ),
         variants=[
@@ -129,7 +123,9 @@ SHOWCASES: list[Showcase] = [
             variant("Month", _calendar("month", "month", "date(2026, 10, 1)"), _NS),
             variant(
                 "Weekdays only",
-                _calendar("weekdays", "month", "date(2026, 10, 1)", _WEEKDAYS),
+                _calendar(
+                    "weekdays", "month", "date(2026, 10, 1)", "\n        .weekdays()"
+                ),
                 _NS,
             ),
             variant("Year", _calendar("year", "year", "date(2026, 10, 1)"), _NS),
