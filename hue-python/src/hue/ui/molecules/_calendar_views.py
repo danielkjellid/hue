@@ -352,8 +352,8 @@ class Draw:
 
     def _stable(self, name: str) -> str | None:
         """
-        An id a step keeps across swaps, so focus finds it again after the
-        swap replaced it.
+        An id a part keeps across swaps (a step, the switcher, the region),
+        so focus and the swap find it again after the swap replaced it.
         """
         return None if self.own_id is None else f"{self.own_id}-{name}"
 
