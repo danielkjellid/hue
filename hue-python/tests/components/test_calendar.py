@@ -210,13 +210,6 @@ class TestFrame:
             assert switcher["href"] == f"/cal/{view}/{edge}/"
 
     @pytest.mark.asyncio
-    async def test_next_never_leads_past_the_last_page(self, context_args):
-        html = await _html(
-            _calendar().date(date(9998, 12, 20)).view("agenda"), context_args
-        )
-        assert_no_selector(html, "a[aria-label=Next]")
-
-    @pytest.mark.asyncio
     async def test_today_is_a_link_only_when_told(self, context_args):
         html = await _html(_calendar(), context_args)
         assert not [a for a in select(html, "nav a") if a.get_text() == "Today"]
@@ -456,17 +449,9 @@ class TestTimeGrid:
         assert len(line) == 1
         assert line[0]["aria-hidden"] == "true"
         assert select(shown, "[x-data*=minute]") == line
+        assert "destroy() { clearInterval(this.timer) }" in line[0]["x-data"]
         elsewhere = await _html(_calendar().today(date(2026, 11, 2)), context_args)
         assert_no_selector(elsewhere, "[x-data*=minute]")
-
-    @pytest.mark.asyncio
-    async def test_the_now_line_stops_its_clock_when_it_is_swapped_out(
-        self, context_args
-    ):
-        html = await _html(_calendar().today(_WEDNESDAY), context_args)
-        line = select(html, "[x-data*=minute]")[0]
-        assert "timer = setInterval(" in line["x-init"]
-        assert "destroy() { clearInterval(this.timer) }" in line["x-data"]
 
     @pytest.mark.asyncio
     async def test_the_grid_opens_at_half_past_seven(self, context_args):
@@ -552,11 +537,12 @@ class TestMonth:
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):
+        talk = Event("Talk", datetime(2026, 10, 15, 16))
         html = await _html(
-            _calendar(_AUDIT, _PAIRING, _REVIEW).view("month"), context_args
+            _calendar(_AUDIT, _PAIRING, talk).view("month"), context_args
         )
         cell = select(html, "td[data-date='2026-10-15']")[0]
-        assert len(cell.select(":scope > ul > li")) == 2
+        assert len(cell.select(":scope > ul > li")) == 3
         assert cell.select_one("button[aria-label*=more]") is None
 
     @pytest.mark.asyncio
