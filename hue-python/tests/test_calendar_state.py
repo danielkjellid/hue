@@ -374,6 +374,10 @@ class TestDrawn:
         # One event is in the week; the offsite is the week after.
         assert len(edits) == 1
         assert '"events-starts_time": "13:00"' in edits[0]["@click"]
+        # Marked, so a failed copy redraws the calendar rather than opening
+        # a dialog the reader never opened.
+        copies = [b for b in select(html, "button") if "Duplicate" in b.get_text()]
+        assert '"events-copy": "1"' in copies[0]["@click"]
         assert_selector(html, "[aria-label='Delete event']", count=1)
 
     @pytest.mark.asyncio

@@ -438,6 +438,21 @@ def test_a_handler_that_fails_says_so_on_the_page(mounted, caplog):
     }
 
 
+def test_a_failed_duplicate_redraws_the_calendar_without_a_dialog(mounted):
+    def fail(request: Any, event: Event) -> None:
+        raise RuntimeError("down")
+
+    mounted(save=fail)
+    # What the popover's Duplicate posts: no dialog is open to keep.
+    response = _act("save", **_fields(title="Pairing (copy)", copy="1"))
+    assert response.status_code == 500
+    html = response.content.decode()
+    assert "Create failed" in html
+    assert "The calendar is shown as it is now." in html
+    assert not re.search(r'<div id="events-dialog"[^>]*>\s*<div', html)
+    assert 'id="events-view"' in html
+
+
 @pytest.mark.parametrize(
     ("refusal", "status"), [(PermissionDenied, 403), (Http404, 404)]
 )
