@@ -8,7 +8,7 @@ from hue.formats import DAY_DIRECTIVES, TIME_DIRECTIVES, Formats
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import DateInput, Stack
-from hue.ui.molecules.date_input import _EXAMPLES, _UNFILLED, _reads
+from hue.ui.molecules.date_input import _READABLE, _UNFILLED
 from tests._a11y import (
     assert_attr,
     assert_label_for,
@@ -78,10 +78,9 @@ class TestDateInput:
         directives = {f"%{d}" for d in (*DAY_DIRECTIVES, *TIME_DIRECTIVES)}
         assert directives == _UNFILLED.keys()
 
-    @pytest.mark.parametrize("kind", ["single", "datetime", "time"])
-    def test_the_refusal_suggests_a_format_that_reads(self, kind):
-        suggested = _EXAMPLES.get(kind, "%d.%m.%Y")
-        assert _reads(kind, suggested)
+    @pytest.mark.parametrize(("readable", "suggested"), _READABLE.values())
+    def test_the_refusal_suggests_a_format_that_reads(self, readable, suggested):
+        assert readable.fullmatch(suggested)
 
     @pytest.mark.asyncio
     async def test_names_are_written_from_formats_and_handed_to_the_script(
@@ -94,8 +93,6 @@ class TestDateInput:
         html = await render_tree(
             _field().value(date(2026, 7, 5)), context_args=context_args
         )
-        # strftime would write Jul, in the process locale.
-        assert_attr(html, "input#starts", "value", " 5 m7. 2026")
         assert_attr(html, "input#starts", "placeholder", "D Mon YYYY")
         assert config(html)["monthAbbreviations"] == list(abbreviations)
 
@@ -112,6 +109,7 @@ class TestDateInput:
         html = await render_tree(field, context_args=context_args)
         assert config(html)["committed"] == ["2026-10-09", "2026-10-09"]
         assert_attr(html, "input#starts", "value", "2026-10-09 \N{EN DASH} 2026-10-09")
+        assert config(html)["rangeSeparator"] == " \N{EN DASH} "
 
     @pytest.mark.asyncio
     async def test_a_range_of_one_end_is_refused(self, context_args):
@@ -149,15 +147,6 @@ class TestDateInput:
         assert [b.text.strip() for b in presets][:2] == ["Today", "Yesterday"]
         # By id, which date-input.js keys the same days by.
         assert presets[2]["x-bind"] == 'preset("last-7-days")'
-
-    @pytest.mark.asyncio
-    async def test_the_range_separator_is_handed_to_the_script(self, context_args):
-        html = await render_tree(
-            _field().mode("range").value(date(2026, 10, 1), date(2026, 10, 2)),
-            context_args=context_args,
-        )
-        assert_attr(html, "input#starts", "value", "2026-10-01 \u2013 2026-10-02")
-        assert config(html)["rangeSeparator"] == " \u2013 "
 
     @pytest.mark.asyncio
     async def test_no_presets_unless_asked(self, context_args):

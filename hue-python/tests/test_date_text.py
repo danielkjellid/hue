@@ -15,7 +15,7 @@ import pytest
 
 import hue
 from hue.formats import DAY_DIRECTIVES, TIME_DIRECTIVES, Formats
-from hue.ui.molecules.date_input import _PRESETS, _reads
+from hue.ui.molecules import date_input
 
 _JS = Path(hue.__file__).parent / "static" / "js"
 _NODE = shutil.which("node")
@@ -93,7 +93,7 @@ def test_every_directive_is_written_as_the_browser_writes_it():
 
 
 def test_the_presets_are_the_ones_the_server_draws():
-    assert _browser({}, [])["presets"] == list(_PRESETS)
+    assert _browser({}, [])["presets"] == list(date_input._PRESETS)
 
 
 # A day past the twelfth, so a day and month read the wrong way round do
@@ -134,9 +134,13 @@ def test_a_format_is_refused_exactly_when_its_text_does_not_read_back():
     ]
     read = _browser(_NAMES, [(p, _VALUES[k]) for k, p in cases])["read"]
     answers = {
-        (kind, pattern): (_reads(kind, pattern), got == _VALUES[kind])
+        (kind, pattern): (
+            bool(date_input._READABLE[kind][0].fullmatch(pattern)),
+            got == _VALUES[kind],
+        )
         for (kind, pattern), got in zip(cases, read, strict=True)
     }
     readable = {(k, p) for k, ps in _READABLE.items() for p in ps}
     wrong = {case: a for case, a in answers.items() if a != (case in readable,) * 2}
     assert wrong == {}
+

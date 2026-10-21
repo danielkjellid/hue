@@ -62,7 +62,7 @@ class Formats:
     only with one whose text they can read back. A day there is %Y with a
     month and a day: in numbers split by a dot, slash or dash, year first,
     day first or month first (%d.%m.%Y), or around the month's name (%d %B
-    %Y, %B %d, %Y). A weekday may come first and a dot last. A time is %H
+    %Y, or %B %d, %Y). A weekday may come first and a dot last. A time is %H
     and %M, or %I and %M with %p, and in a date with a time it follows the
     day. %y, seconds and other words are refused.
 
@@ -136,11 +136,8 @@ class Formats:
 
         def one(match: re.Match[str]) -> str:
             directive = match.group(1)
-            if directive == "%":
-                return "%"
             if directive in TIME_DIRECTIVES and isinstance(value, (datetime, time)):
-                clock = value.time() if isinstance(value, datetime) else value
-                return TIME_DIRECTIVES[directive](self, clock)
+                return TIME_DIRECTIVES[directive](self, value)
             if directive in DAY_DIRECTIVES and isinstance(value, date):
                 return DAY_DIRECTIVES[directive](self, value)
             return value.strftime(match.group())

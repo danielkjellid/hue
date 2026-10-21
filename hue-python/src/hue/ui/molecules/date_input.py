@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, time
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -107,13 +107,6 @@ _UNFILLED = {
 }
 
 
-def _unfilled(format: str) -> str:
-    """
-    The format with nothing in it: %d.%m.%Y reads DD.MM.YYYY.
-    """
-    return DIRECTIVE.sub(lambda m: _UNFILLED[m.group()], format).lstrip(" ,.")
-
-
 # The formats whose text date-text.js reads back: its readDay, parseTime and
 # parseMoment patterns, written over the directives rather than the digits
 # and names they write. Change one with the other.
@@ -131,24 +124,15 @@ _DAY = (
 # Minutes, since the time list steps through them, and twelve hours only
 # with AM or PM, which is how 02:30 says it is 14:30.
 _TIME = r"(?:%H[:.]?%M|%-?I[:.]?%M\s*%p)"
+# Per format, with one that reads for the refusal to suggest instead.
 _READABLE = {
-    "time": re.compile(_TIME),
-    "datetime": re.compile(rf"{_DAY},?\s+{_TIME}|%Y-%-?m-%-?dT{_TIME}"),
+    "date": (re.compile(_DAY), "%d.%m.%Y"),
+    "time": (re.compile(_TIME), "%H:%M"),
+    "datetime": (
+        re.compile(rf"{_DAY},?\s+{_TIME}|%Y-%-?m-%-?dT{_TIME}"),
+        "%d.%m.%Y %H:%M",
+    ),
 }
-_DAYS = re.compile(_DAY)
-# What the refusal suggests instead, each of them readable.
-_EXAMPLES = {"time": "%H:%M", "datetime": "%d.%m.%Y %H:%M"}
-
-
-def _reads(kind: _Kind, pattern: str) -> bool:
-    """
-    Whether date-text.js reads back the text the pattern writes.
-    """
-    return _READABLE.get(kind, _DAYS).fullmatch(pattern) is not None
-
-
-def _pattern(formats: Formats, kind: _Kind) -> str:
-    return {"time": formats.time, "datetime": formats.datetime}.get(kind, formats.date)
 
 
 class _PickerInput(FieldControl):
@@ -160,6 +144,8 @@ class _PickerInput(FieldControl):
 
     _icon = "calendar"
     _opens = "Choose date"
+    # Which of Formats' patterns writes the text.
+    _format: ClassVar[Literal["date", "datetime", "time"]] = "date"
 
     def placeholder(self, value: str) -> Self:
         """
@@ -200,9 +186,7 @@ class _PickerInput(FieldControl):
         """
         raise NotImplementedError
 
-    def _body(
-        self, formats: Formats, picker: DatePicker, kind: _Kind, label: str
-    ) -> ComponentType:
+    def _body(self, picker: DatePicker, grid: _Grid, label: str) -> ComponentType:
         """
         What the popover holds.
         """
@@ -214,8 +198,9 @@ class _PickerInput(FieldControl):
         TimeInput has none to draw, but date-input.js builds on its data.
         """
         picker = DatePicker().mode(_MODES[kind])
-        keys = DayRules.KEYS
-        picker._props.update({k: self._props[k] for k in keys if k in self._props})
+        picker._props.update(
+            {k: self._props[k] for k in DayRules.KEYS if k in self._props}
+        )
         return picker
 
     def _field(self, context: Context, control: ComponentType) -> Field:
@@ -234,12 +219,13 @@ class _PickerInput(FieldControl):
         name = self._require_name()
         formats = Formats.from_context(context)
         kind = self._kind()
-        pattern = _pattern(formats, kind)
-        if not _reads(kind, pattern):
+        pattern: str = getattr(formats, self._format)
+        readable, suggested = _READABLE[self._format]
+        if not readable.fullmatch(pattern):
             raise ValueError(
                 f"A {type(self).__name__} cannot read back the text its format "
                 f"{pattern!r} writes. A format like "
-                f"{_EXAMPLES.get(kind, '%d.%m.%Y')!r} reads; Formats says which do."
+                f"{suggested!r} reads; Formats says which do."
             )
         size: ControlSize = self._get_prop("size", "md")
         disabled: bool = self._get_prop("disabled", False)
@@ -308,17 +294,16 @@ class _PickerInput(FieldControl):
             _overlay.wire_trigger(button, popup="dialog", on={"click": "toggle()"})
             button.aria_controls(popover_id)
 
+        grid = _Grid(
+            formats=formats,
+            mode=_MODES[kind],
+            months=2 if kind == "range" else 1,
+            size="md",
+            start=start,
+            disabled=disabled,
+        )
         config: dict[str, Any] = {
-            **picker._config(
-                _Grid(
-                    formats=formats,
-                    mode=_MODES[kind],
-                    months=_months(kind),
-                    size="md",
-                    start=start,
-                    disabled=disabled,
-                )
-            ),
+            **picker._config(grid),
             "kind": kind,
             "committed": committed,
             "inert": inert,
@@ -368,7 +353,7 @@ class _PickerInput(FieldControl):
             **{"x-ref": "shell"},
         )
         popover = html.div(
-            self._body(formats, picker, kind, label),
+            self._body(picker, grid, label),
             id=popover_id,
             role="dialog",
             aria_label=label,
@@ -437,7 +422,10 @@ class _PickerInput(FieldControl):
 
 
 def _placeholder(pattern: str, kind: _Kind) -> str:
-    unfilled = _unfilled(pattern)
+    """
+    The format with nothing in it: %d.%m.%Y reads DD.MM.YYYY.
+    """
+    unfilled = DIRECTIVE.sub(lambda m: _UNFILLED[m.group()], pattern).lstrip(" ,.")
     return f"{unfilled}{_TO}{unfilled}" if kind == "range" else unfilled
 
 
@@ -454,10 +442,6 @@ def _written(kind: _Kind, committed: list[str], formats: Formats) -> str | None:
     return _TO.join(
         formats.write(formats.date, date.fromisoformat(day)) for day in committed
     )
-
-
-def _months(kind: _Kind) -> int:
-    return 2 if kind == "range" else 1
 
 
 def _foot(*items: ComponentType) -> ComponentType:
@@ -513,26 +497,7 @@ def _step(minutes: int) -> int:
     return minutes
 
 
-class _CalendarInput(DayRules, _PickerInput):
-    """
-    A field whose popover holds a month grid, refusing the same days a
-    DatePicker does.
-    """
-
-    def _grid(self, formats: Formats, picker: DatePicker) -> ComponentType:
-        mode: DatePickerMode = picker._get_prop("mode")
-        grid = _Grid(
-            formats=formats,
-            mode=mode,
-            months=_months(mode),
-            size="md",
-            start=self._get_prop("week_start", "monday"),
-            disabled=self._get_prop("disabled", False),
-        )
-        return html.div(*picker._panels(grid))
-
-
-class DateInput(_CalendarInput):
+class DateInput(DayRules, _PickerInput):
     """
     A text field for a day, a range or several days, with a button that
     opens a month to pick them from.
@@ -584,20 +549,19 @@ class DateInput(_CalendarInput):
             days = tuple(set(days))
         return sorted(day.isoformat() for day in days)
 
-    def _body(
-        self, formats: Formats, picker: DatePicker, kind: _Kind, label: str
-    ) -> ComponentType:
-        grid = self._grid(formats, picker)
+    def _body(self, picker: DatePicker, grid: _Grid, label: str) -> ComponentType:
+        months = html.div(*picker._panels(grid))
+        kind = self._kind()
         if kind == "single":
-            return grid
+            return months
         if kind == "multiple":
             return html.div(
-                grid,
+                months,
                 _foot(_spacer(), _action("Done", "close()")),
                 class_="flex flex-col gap-3",
             )
         main = html.div(
-            grid,
+            months,
             _foot(
                 html.span(
                     aria_live="polite",
@@ -612,6 +576,8 @@ class DateInput(_CalendarInput):
             ),
             class_="flex flex-col gap-3",
         )
+        if not self._get_prop("presets", False):
+            return main
         presets = html.div(
             *(
                 html.button(
@@ -630,12 +596,10 @@ class DateInput(_CalendarInput):
                 "sm:border-b-0 sm:pe-3 sm:pb-0",
             ),
         )
-        if not self._get_prop("presets", False):
-            return main
         return html.div(presets, main, class_="flex flex-col gap-3 sm:flex-row")
 
 
-class DateTimeInput(_CalendarInput):
+class DateTimeInput(DayRules, _PickerInput):
     """
     A text field for a day and a time, with a button that opens a month
     beside a list of times.
@@ -648,6 +612,7 @@ class DateTimeInput(_CalendarInput):
 
     category = "Inputs"
     _opens = "Choose date and time"
+    _format = "datetime"
 
     @classmethod
     def example(cls) -> Self:
@@ -671,13 +636,11 @@ class DateTimeInput(_CalendarInput):
         local = formats.moment(moment).replace(tzinfo=None)
         return [local.isoformat(timespec="minutes")]
 
-    def _body(
-        self, formats: Formats, picker: DatePicker, kind: _Kind, label: str
-    ) -> ComponentType:
+    def _body(self, picker: DatePicker, grid: _Grid, label: str) -> ComponentType:
         return html.div(
             html.div(
-                self._grid(formats, picker),
-                _times(formats, self._get_prop("step", 15), "Time"),
+                html.div(*picker._panels(grid)),
+                _times(grid.formats, self._get_prop("step", 15), "Time"),
                 class_="flex gap-3",
             ),
             _foot(_action("Now", "now()"), _spacer(), _action("Done", "close()")),
@@ -698,6 +661,7 @@ class TimeInput(_PickerInput):
     category = "Inputs"
     _icon = "clock"
     _opens = "Choose time"
+    _format = "time"
 
     @classmethod
     def example(cls) -> Self:
@@ -720,7 +684,5 @@ class TimeInput(_PickerInput):
             return []
         return [moment.replace(tzinfo=None).isoformat(timespec="minutes")]
 
-    def _body(
-        self, formats: Formats, picker: DatePicker, kind: _Kind, label: str
-    ) -> ComponentType:
-        return _times(formats, self._get_prop("step", 15), label)
+    def _body(self, picker: DatePicker, grid: _Grid, label: str) -> ComponentType:
+        return _times(grid.formats, self._get_prop("step", 15), label)
