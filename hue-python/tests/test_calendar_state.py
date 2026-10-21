@@ -247,7 +247,7 @@ async def test_a_part_drawn_outside_its_calendar_says_what_it_belongs_to(
     context_args,
 ):
     with pytest.raises(ValueError, match=r"part of a Calendar bound to a request"):
-        await render_tree(declared._Side(), context_args=context_args)
+        await render_tree(declared.Side(), context_args=context_args)
 
 
 # The declaration

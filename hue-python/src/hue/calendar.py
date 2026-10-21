@@ -521,17 +521,9 @@ class _Declaration(Declaration[Routes]):
             return self._shown(
                 bound, body, errors, HTTPStatus.UNPROCESSABLE_ENTITY, csrf_token
             )
-        kept = (
-            "The calendar is shown as it is now."
-            if body.copy
-            else "What you entered is still in the dialog."
-        )
+        kept = "What you entered is still in the dialog."
         # A failed save answers with the dialog over what was posted.
-        refused = (
-            None
-            if body.copy
-            else partial(self._shown, bound, body, {}, csrf_token=csrf_token)
-        )
+        refused = partial(self._shown, bound, body, {}, csrf_token=csrf_token)
         if draft.id is None:
             # Undone by deleting what save made, which it has to name:
             # without an id back, a create has no undo.
@@ -544,8 +536,11 @@ class _Declaration(Declaration[Routes]):
                 body=body,
                 undo=lambda made: undo_create(bound, draft, id_of(made)),
                 lands=draft if body.undo else None,
-                description=kept,
-                refused=refused,
+                # A duplicate has no dialog to keep a failure in.
+                description="The calendar is shown as it is now."
+                if body.copy
+                else kept,
+                refused=None if body.copy else refused,
             )
         if body.undo:
             # Put back as it was: a series from its first occurrence.
