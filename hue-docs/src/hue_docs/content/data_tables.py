@@ -446,9 +446,10 @@ def _build() -> ComponentType:
             "is shown instead."
         ),
         pr.p(
-            "Dates and decimals need no render(). A date is written as 2026-03-01 "
-            "and a date with a time as 2026-03-01 14:05, unless the HUE_DATE_FORMAT "
-            "and HUE_DATETIME_FORMAT settings give other strftime formats. With "
+            "Dates, times and decimals need no render(). A date is written as "
+            "2026-03-01, a date with a time as 2026-03-01 14:05 and a time as 14:05, "
+            "unless the HUE_DATE_FORMAT, HUE_DATETIME_FORMAT and HUE_TIME_FORMAT "
+            "settings give other strftime formats. With "
             "USE_TZ on, an aware datetime is converted to the current timezone "
             "first, as a template would convert it. A decimal is written in full as "
             "stored, so 2190.00 keeps its places. Anything else that is not a string "
