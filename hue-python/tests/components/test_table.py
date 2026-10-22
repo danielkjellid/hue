@@ -219,3 +219,32 @@ class TestTable:
         )
         assert_selector(html, "td.text-start")
         assert_no_selector(html, ".tabular-nums")
+
+
+class TestTableSections:
+    """A body with a title is a section of the table."""
+
+    @pytest.mark.asyncio
+    async def test_a_title_names_the_rows_under_it(self, context_args):
+        html = await render_tree(
+            TableBody()
+            .title("October 2026", colspan=3)
+            .content(TableRow().content(TableCell().content("Sat 24 Oct"))),
+            context_args=context_args,
+        )
+        [title] = select(html, "tbody > tr:first-child > th")
+        assert title.get("scope") == "rowgroup"
+        assert title.get("colspan") == "3"
+        assert title.get_text() == "October 2026"
+
+    @pytest.mark.asyncio
+    async def test_no_title_row_by_default(self, context_args):
+        html = await render_tree(
+            TableBody().content(TableRow().content(TableCell().content("x"))),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "th")
+
+    def test_a_blank_title_is_refused(self):
+        with pytest.raises(ValueError, match="needs a title"):
+            TableBody().title(" ", colspan=3)

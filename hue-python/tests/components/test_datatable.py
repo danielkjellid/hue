@@ -190,7 +190,7 @@ class TestDataTable:
 
     @pytest.mark.asyncio
     async def test_anything_else_asks_for_a_render(self, context_args):
-        with pytest.raises(ValueError, match="give the column a render"):
+        with pytest.raises(ValueError, match="give its column a render"):
             await render_tree(
                 DataTable().columns([Column("who", "Who")]).rows([{"who": object()}]),
                 context_args=context_args,
@@ -443,6 +443,22 @@ class TestDataTable:
             )
 
     @pytest.mark.asyncio
+    async def test_the_bar_for_picked_rows_does_not_count_as_a_toolbar(
+        self, context_args
+    ):
+        # It floats over the page, so the corners above the header are still
+        # the band's to round.
+        html = await render_tree(
+            DataTable()
+            .id("invoices")
+            .columns(_COLUMNS)
+            .rows(_ROWS)
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert "rounded-t-[11px]" in select(html, "div.overflow-x-auto")[0]["class"]
+
+    @pytest.mark.asyncio
     async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
         html = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
@@ -619,3 +635,84 @@ class TestDataTable:
             context_args=context_args,
         )
         assert_no_selector(html, "[x-target]")
+
+
+_MONTHS = [
+    {"invoice": "INV-1", "amount": "1", "month": "October"},
+    {"invoice": "INV-2", "amount": "2", "month": "October"},
+    {"invoice": "INV-3", "amount": "3", "month": "November"},
+]
+
+
+class TestDataTableGroups:
+    """group_by() splits the rows into sections."""
+
+    @pytest.mark.asyncio
+    async def test_each_run_of_one_value_is_a_section_under_it(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_MONTHS).group_by("month"),
+            context_args=context_args,
+        )
+        bodies = select(html, "tbody")
+        assert [b.select_one("th").get_text() for b in bodies] == [
+            "October",
+            "November",
+        ]
+        assert [len(b.select("tr:has(td)")) for b in bodies] == [2, 1]
+        assert_attr(html, "tbody th", "scope", "rowgroup")
+        assert_attr(html, "tbody th", "colspan", "2")
+
+    @pytest.mark.asyncio
+    async def test_ungrouped_rows_are_one_body_with_no_titles(self, context_args):
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(_MONTHS), context_args=context_args
+        )
+        assert_selector(html, "tbody", count=1)
+        assert_no_selector(html, "tbody th")
+
+    @pytest.mark.asyncio
+    async def test_a_title_spans_the_checkboxes_too(self, context_args):
+        html = await render_tree(
+            DataTable()
+            .id("invoices")
+            .columns(_COLUMNS)
+            .rows(_MONTHS)
+            .group_by("month")
+            ._bulk_actions("invoice", Button().content("Delete")),
+            context_args=context_args,
+        )
+        assert_attr(html, "tbody th", "colspan", "3")
+
+    @pytest.mark.asyncio
+    async def test_a_value_that_comes_back_opens_a_section_of_its_own(
+        self, context_args
+    ):
+        rows = [*_MONTHS, {"invoice": "INV-4", "amount": "4", "month": "October"}]
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(rows).group_by("month"),
+            context_args=context_args,
+        )
+        assert [th.get_text() for th in select(html, "tbody th")] == [
+            "October",
+            "November",
+            "October",
+        ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("blank", [None, "", "  "])
+    async def test_a_section_with_no_name_is_refused(self, context_args, blank):
+        rows = [{"invoice": "INV-1", "amount": "1", "month": blank}]
+        with pytest.raises(ValueError, match="needs a name"):
+            await render_tree(
+                DataTable().columns(_COLUMNS).rows(rows).group_by("month"),
+                context_args=context_args,
+            )
+
+    @pytest.mark.asyncio
+    async def test_zero_is_a_name(self, context_args):
+        rows = [{"invoice": "INV-1", "amount": "1", "month": 0}]
+        html = await render_tree(
+            DataTable().columns(_COLUMNS).rows(rows).group_by("month"),
+            context_args=context_args,
+        )
+        assert [th.get_text() for th in select(html, "tbody th")] == ["0"]
