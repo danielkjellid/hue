@@ -29,7 +29,7 @@ _STANDUP = Event(
     "Standup",
     datetime(2026, 10, 12, 9),
     datetime(2026, 10, 12, 9, 15),
-    recurring=True,
+    repeat="weekly",
     href="/standup/",
 )
 
@@ -83,15 +83,16 @@ class TestFrame:
     async def test_a_swap_puts_focus_back_on_the_link_or_the_heading(
         self, context_args
     ):
-        # The swap replaces the link that had focus. The region remembers its
-        # id and finds it again in the new view, or falls back to the heading.
+        # ajax-focus.js finds a step again by its id; a day or a view tab is
+        # gone with the swap, and the region and the switcher name the
+        # heading as where focus goes instead.
         html = await _html(_calendar().id("cal"), context_args)
-        region = select(html, "#cal-view")[0]
-        assert "calendarFocus = $event.target.id" in region["x-on:ajax:before"]
-        assert "getElementById(calendarFocus)" in region["x-on:ajax:merged"]
-        assert_attr(html, "#cal-view h2", "tabindex", "-1")
+        assert_attr(html, "#cal-view", "data-hue-refocus", "cal-heading")
+        assert_attr(html, "#cal-views", "data-hue-refocus", "cal-heading")
+        assert_attr(html, "#cal-view h2#cal-heading", "tabindex", "-1")
+        assert_no_selector(html, "[x-on\\:ajax\\:merged]")
         plain = await _html(_calendar(), context_args)
-        assert_no_selector(plain, "[x-on\\:ajax\\:merged]")
+        assert_no_selector(plain, "[data-hue-refocus]")
         assert_no_selector(plain, "h2[tabindex]")
 
     @pytest.mark.asyncio

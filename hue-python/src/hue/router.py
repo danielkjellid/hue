@@ -335,20 +335,22 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
-    def _form_fields(self) -> AbstractSet[str]:
+    def _csrf_field(self) -> str | None:
         """
-        The fields a framework adds to a form that belong to no one's state,
-        such as its CSRF token, so they are not echoed back into links.
+        The name a framework's forms carry its CSRF token under, or None for
+        one without. The token itself is the context's. A declaration keeps
+        the name out of the links it builds and puts the field on a form that
+        has to work when it is posted without the script.
         """
-        return frozenset()
+        return None
 
-    def _passes_through(self, error: Exception) -> bool:
+    def _refusal(self, error: Exception) -> HTTPStatus | None:
         """
-        Whether an exception from a handler is an answer to send rather than a
-        failure to report, such as a framework's permission-denied or not-found.
-        The base router knows none.
+        The status an exception from a handler answers with, such as a
+        framework's permission-denied or not-found, or None for a failure to
+        report. The base router knows none.
         """
-        return False
+        return None
 
     def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
         """

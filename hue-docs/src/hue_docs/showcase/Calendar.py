@@ -17,7 +17,7 @@ _EVENTS = """
                 datetime(2026, 10, 12, 9),
                 datetime(2026, 10, 12, 9, 15),
                 id="1",
-                recurring=True,
+                repeat="weekly",
                 location="Huddle room",
                 color=6,
             ),

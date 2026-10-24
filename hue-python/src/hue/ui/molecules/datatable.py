@@ -23,7 +23,7 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
-from hue.ui.base import Awaited, ChainableComponent
+from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.table import (
     CellAlign,
@@ -381,12 +381,8 @@ class DataTable(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        declaration: _Declaration | None = self._get_prop("declaration")
-        if declaration is not None:
-            # A copy without the declaration goes in, or drawing it would
-            # hand it straight back to the declaration again.
-            undeclared = self._undeclared()
-            return Awaited(lambda context: declaration.draw(undeclared, context))
+        if (drawn := declared(self)) is not None:
+            return drawn
 
         if self._get_prop("selectable") is not None and "id" not in self._attrs:
             # Every row's ids are built from the table's, and a fallback
@@ -448,15 +444,6 @@ class DataTable(ChainableComponent):
         if under := self._get_prop("under", ()):
             table.under(html.div(*under, class_=_BAND_BOTTOM))
 
-    def _undeclared(self) -> DataTable:
-        table = DataTable()
-        table._props = {k: v for k, v in self._props.items() if k != "declaration"}
-        table._attrs = dict(self._attrs)
-        table._children = self._children
-        table._columns = list(self._columns)
-        table._rows = self._rows
-        return table
-
     def _head(self) -> ComponentType:
         return TableHeader().content(
             TableRow().content(
@@ -488,13 +475,17 @@ class DataTable(ChainableComponent):
         # swaps the rows in place; without one it follows the link. The
         # rows and not the frame, so the toolbar above them - and the
         # caret in the search box in it - is left where it was.
-        target = rows_id(self._attrs.get("id"))
+        frame_id: str | None = self._attrs.get("id")
+        target = rows_id(frame_id)
 
         return head.sorted(current).content(
             html.a(
                 column.label,
                 _sort_icon(current),
                 href=href(following),
+                # Named under the frame, so the link a reader pressed can
+                # be found again once the response has replaced it.
+                id=None if frame_id is None else f"{frame_id}-sort-{column.sort}",
                 class_=classnames(_SORT_TRIGGER, FOCUS_RING),
                 # The order is a place, as a page or a filter is.
                 **swap(target),

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 from hue.context import HueContext
@@ -9,6 +8,7 @@ from hue.types.core import ComponentType
 from hue.ui import Alert, Column, DataTable
 
 from hue_docs.content import _prose as pr
+from hue_docs.content._declared import Request, Router
 from hue_docs.models import ProsePage
 
 # The example, for real. The same declaration the page talks about, over a
@@ -61,52 +61,6 @@ _STATUS = [
 ]
 
 
-class _Request:
-    """
-    Just enough of a request to carry a query string.
-    """
-
-    def __init__(self, **params: str) -> None:
-        self.params = params
-
-
-class _Router:
-    """
-    A stand-in, because a docs page has no view to hang routes on. A real
-    declaration is handed the view's own Router and registers its action
-    route on it; here it is registered on nothing and never called.
-    """
-
-    def fragment_post(self, path: str) -> Any:
-        return lambda view_func: view_func
-
-    def _get_query_values(self, request: Any) -> dict[str, list[str]]:
-        return {name: [value] for name, value in request.params.items()}
-
-    def _get_form_values(self, request: Any) -> dict[str, list[str]]:
-        # Nothing is ever posted to a docs page.
-        return {}
-
-    def _passes_through(self, error: Exception) -> bool:
-        return False
-
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset()
-
-    def _narrow_to(self, rows: Any, key: str, values: list[str]) -> Any:
-        return [row for row in rows if str(row[key]) in values]
-
-    def _url_for(self, request: Any, name: str, **params: Any) -> str:
-        # Django reverses these against the URLconf. Here they are spelled
-        # out, since there is nothing to reverse against.
-        action = params.get("action")
-        return f"/invoices/{action}/" if action else "/invoices/"
-
-    async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
-        # A list of dictionaries has no event loop to keep off.
-        return func(*args)
-
-
 def _archive(request: Any, ids: list[str]) -> None:
     """A service function, which is all an action ever is."""
 
@@ -134,7 +88,7 @@ def _table(key: str) -> Any:
     keys, because the key is the id every part of a table is named from.
     """
     return build_datatable_state(
-        _Router(),
+        Router("invoices"),
         key=key,
         columns=[
             Column("invoice", "Invoice"),
@@ -164,7 +118,7 @@ def _specimen(key: str, **params: str) -> ComponentType:
         HueContext(
             DataTable.from_state(_table(key)),
             # Under the table's key, as a URL carries it.
-            request=_Request(
+            request=Request(
                 **{f"{key}-{name}": value for name, value in params.items()}
             ),
             csrf_token="",
@@ -414,9 +368,12 @@ def _build() -> ComponentType:
             "page, in the same order, with the same filters. If the handler raises, "
             "the reader gets a danger toast naming the action, the table redraws as "
             "it now is, and the ticked rows stay ticked for another try. The error "
-            "is logged with its traceback, which is how an error tracker hears about "
+            "is logged with its traceback under hue.datatable, which is how an "
+            "error tracker hears about "
             "it, since nothing is raised past the route. A permission denied, a not "
-            "found or a bad request is Django's own answer, and Django gives it."
+            "found or a bad request keeps Django's status and is answered the same "
+            "way, without the log line, since Django's own page has nowhere on it "
+            "for the browser to put the answer."
         ),
         pr.p(
             "Ticking a row brings up a bar that floats at the bottom of the window "
@@ -611,8 +568,8 @@ def _build() -> ComponentType:
                     pr.p(
                         "Actions need JavaScript. Alpine draws the bar they sit in, "
                         "so with it off there is nothing to press. The action form "
-                        "carries no CSRF token of its own either, since the bundle "
-                        "sends the header Django reads."
+                        "does carry Django's CSRF token, so a post that falls back "
+                        "to a plain submit is not refused."
                     ),
                     pr.p(
                         "An action redraws the table from its declaration alone, so "

@@ -625,6 +625,8 @@ class TestDataTable:
         )
         # The rows, not the frame: a toolbar above them keeps its caret.
         assert_attr(html, "th a", "x-target.push", "invoices-rows")
+        # Named under the frame, so focus can find it again after the swap.
+        assert_attr(html, "th a", "id", "invoices-sort-amount")
 
     @pytest.mark.asyncio
     async def test_without_an_id_the_header_is_just_a_link(self, context_args):

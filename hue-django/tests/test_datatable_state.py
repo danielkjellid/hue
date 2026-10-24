@@ -356,6 +356,9 @@ def test_an_action_posts_the_state_it_was_done_in(mounted):
         "invoices-sort": "-amount",
         "invoices-q": "n",
         "invoices-page": "2",
+        # Without the script the form posts on its own, and Django answers
+        # a post with no token with its 403 page.
+        "csrfmiddlewaretoken": "t",
     }
 
 
@@ -520,7 +523,7 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
     html = _table(mounted().invoices, _request())
     assert 'x-data="hueTableSearch"' in html
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
-    assert '@keydown.escape="clearField($event)"' in html
+    assert 'x-on:keydown.escape="if ($el.value) { $event.stopPropagation();' in html
     # What the shortcut counts to decide whether it means anything: a
     # page-wide key with two candidates belongs to neither.
     assert "data-hue-table-search" in html
@@ -1043,6 +1046,10 @@ def test_an_action_that_fails_says_so_and_keeps_the_table(urlpatterns_, caplog):
     assert 'id="invoices"' in html
     assert "the billing service is down" in caplog.text
     assert "Traceback" in caplog.text
+    # Under the table's own module, where a log config already points.
+    assert {r.name for r in caplog.records if r.name.startswith("hue")} == {
+        "hue.datatable"
+    }
 
 
 def test_an_action_that_works_raises_no_alarm(mounted):
@@ -1213,15 +1220,22 @@ def test_two_tables_on_a_page_keep_their_own_state(urlpatterns_):
     assert first.href(sort="amount") == "/billing/?second-page=2&first-sort=amount"
 
 
-def test_a_refused_permission_is_the_frameworks_answer(urlpatterns_):
-    # A 403 is an answer, not a failure: no toast, no error in the log.
+def test_a_refusal_keeps_its_status_and_answers_on_the_page(urlpatterns_, caplog):
+    # Django's own 403 page has no table in it for the browser to swap, so
+    # the table answers: the status Django would give, a toast, the rows as
+    # they are. A refusal is an answer, not a failure, so nothing is logged.
     def forbidden(request: Any, ids: list[str]) -> None:
         raise PermissionDenied
 
     _plain(
         urlpatterns_, identifier="pk", actions={"send": BulkAction("Send", forbidden)}
     )
-    assert _act("send", selected=["41"]).status_code == 403
+    response = _act("send", selected=["41"])
+    assert response.status_code == 403
+    html = response.content.decode()
+    assert "Send failed" in html
+    assert 'id="invoices"' in html
+    assert "Traceback" not in caplog.text
 
 
 def test_a_table_with_no_page_fails_before_anything_is_written(urlpatterns_):

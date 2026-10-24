@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
+from copy import copy
 from typing import Any, ClassVar, Literal
 
 from htmy import Context
@@ -555,3 +556,22 @@ class Awaited:
 
     async def htmy(self, context: Context) -> Component:
         return await self._draw(context)
+
+
+def declared(component: ChainableComponent) -> Awaited | None:
+    """
+    A component handed a declaration by from_state(), drawn by that
+    declaration once it has the request, or None for one that was not.
+
+    The declaration is handed a copy without itself, or drawing the copy
+    would hand it straight back.
+    """
+    declaration = component._get_prop("declaration")
+    if declaration is None:
+        return None
+    undeclared = copy(component)
+    undeclared._props = {
+        k: v for k, v in component._props.items() if k != "declaration"
+    }
+    undeclared._attrs = dict(component._attrs)
+    return Awaited(lambda context: declaration.draw(undeclared, context))

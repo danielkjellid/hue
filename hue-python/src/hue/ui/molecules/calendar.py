@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -9,7 +10,7 @@ from typing_extensions import Self
 from hue.formats import Formats
 from hue.types.core import Component
 from hue.ui._styles import LOADING
-from hue.ui.base import ChainableComponent
+from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules._calendar_views import (
     FIRST,
     LAST,
@@ -24,25 +25,14 @@ from hue.ui.molecules.date_picker import Weekday
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
 
+if TYPE_CHECKING:
+    from hue.calendar import _Declaration
+
 __all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
 
 # date() is a modifier below, which hides the type by that name inside the
 # class, as Formats' fields do.
 type _Day = date
-
-# The swap replaces the link that had focus, which would leave it on the
-# body. The region keeps the link's id and finds it again in the new view,
-# as Previous, Today and Next come back; otherwise the view's heading takes it.
-_REFOCUS = {
-    **SYNC,
-    "x-data": "{ calendarFocus: null }",
-    "x-on:ajax:before": "calendarFocus = $event.target.id",
-    "x-on:ajax:merged": (
-        "if (calendarFocus !== null) { (calendarFocus && "
-        "document.getElementById(calendarFocus) || $el.querySelector('h2'))"
-        ".focus(); calendarFocus = null }"
-    ),
-}
 
 _FRAME = (
     "flex w-full flex-col rounded-lg border border-border bg-surface text-base text-fg"
@@ -62,6 +52,17 @@ class Calendar(ChainableComponent):
     """
 
     category = "Data"
+
+    @classmethod
+    def from_state(cls, declaration: _Declaration) -> Self:
+        """
+        The calendar a declaration describes, bound to the request of the
+        page it is rendered on, with the sidebar, the search and the event
+        dialog around it.
+        """
+        calendar = cls()
+        calendar._props["declaration"] = declaration
+        return calendar
 
     @classmethod
     def example(cls) -> Self:
@@ -106,7 +107,7 @@ class Calendar(ChainableComponent):
                         datetime(2026, 10, 12, 9),
                         datetime(2026, 10, 12, 9, 15),
                         id="5",
-                        recurring=True,
+                        repeat="weekly",
                         color=6,
                         href="#standup",
                     ),
@@ -168,6 +169,9 @@ class Calendar(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        if (drawn := declared(self)) is not None:
+            return drawn
+
         cursor: date | None = self._get_prop("date")
         if cursor is None:
             raise ValueError("Calendar needs a date(): the day its view is around.")
@@ -208,7 +212,9 @@ class Calendar(ChainableComponent):
                 VIEWS[view].render(draw),
                 id=draw.region,
                 class_=LOADING,
-                **(_REFOCUS if own_id else {}),
+                # A swap that took the control focus was on, a day or a
+                # view tab, hands focus to the new view's heading.
+                **({**SYNC, "data-hue-refocus": draw.heading} if own_id else {}),
             ),
             id=own_id,
             class_=classnames(_FRAME, self._get_prop("class_")),

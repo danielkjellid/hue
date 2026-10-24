@@ -20,6 +20,7 @@ from hue.ui._styles import (
     DASH,
     FOCUS_RING,
     FOCUS_RING_INSET,
+    PANEL_LABEL,
     STEP,
     STEP_IDLE,
     STEP_SPENT,
@@ -126,7 +127,6 @@ _SHORT = 45
 _TALL = 70
 # A month cell shows this many events, or one fewer and how many more.
 _PER_CELL = 3
-_HEAD = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
 _NUMBER_IN_TODAY = (
     "group-aria-[current=date]:bg-accent group-aria-[current=date]:text-accent-fg"
 )
@@ -170,6 +170,14 @@ class EventButton(ChainableComponent):
         )
 
 
+def region_id(own_id: str) -> str:
+    """
+    The id of what a calendar's links swap: the toolbar and the view, under
+    the frame, so the status outside them stays to be refreshed.
+    """
+    return f"{own_id}-view"
+
+
 @dataclass(frozen=True)
 class Draw:
     """
@@ -194,11 +202,15 @@ class Draw:
 
     @property
     def region(self) -> str | None:
+        return None if self.own_id is None else region_id(self.own_id)
+
+    @property
+    def heading(self) -> str | None:
         """
-        The id of what the links swap: the toolbar and the view, under the
-        frame, so the status outside them stays to be refreshed.
+        The id of the view's heading, where focus lands after a swap that
+        took the control it was on.
         """
-        return self._stable("view")
+        return self._stable("heading")
 
     # ------------------------------------------------------------------
     # Words
@@ -237,7 +249,7 @@ class Draw:
             text = f"{event.title}, all day, {formats.day(first)}"
             if last != first:
                 text += f" to {formats.day(last)}"
-        return f"{text}, repeats" if event.recurring else text
+        return f"{text}, repeats" if event.repeat else text
 
     def times(self, event: Event, to: str = DASH, *, end_day: bool = True) -> str:
         """
@@ -303,9 +315,9 @@ class Draw:
     def toolbar(self, title: str) -> ComponentType:
         return html.div(
             render_when(self.href is not None, self._steps()),
-            # Where focus lands after a swap that took the link it was on.
             html.h2(
                 title,
+                id=self.heading,
                 tabindex=None if self.region is None else "-1",
                 class_=classnames(_TITLE, "outline-none"),
             ),
@@ -361,6 +373,9 @@ class Draw:
         tabs = Tabs().segmented().label("View")
         if self.region is not None and (views := self._stable("views")):
             tabs.id(views).target(self.region, sync=False)
+            # The new view's heading rather than its current tab, which is
+            # where ajax-focus.js would otherwise land.
+            tabs.data("hue-refocus", self.heading or "")
         return tabs.content(
             *(
                 Tab()
@@ -426,7 +441,7 @@ class Draw:
         rows = (
             self._row("When", "clock", self.when(event)),
             render_when(
-                event.recurring, self._row("Repeats", "repeat", "Part of a series")
+                bool(event.repeat), self._row("Repeats", "repeat", "Part of a series")
             ),
             render_if(
                 event.location, lambda text: self._row("Location", "map-pin", text)
@@ -482,7 +497,7 @@ class Draw:
         """
         return (
             event.title,
-            render_when(event.recurring, HueIcon("repeat").class_(_REPEAT)),
+            render_when(bool(event.repeat), HueIcon("repeat").class_(_REPEAT)),
         )
 
     def chip(self, event: Event, before: bool, after: bool) -> ComponentType:
@@ -496,7 +511,7 @@ class Draw:
                 classnames(
                     _EVENT,
                     _CHIP,
-                    _TINT[event.color],
+                    _TINT[event.tone],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
                 )
@@ -524,7 +539,7 @@ class Draw:
             .class_(classnames(_DOTTED, FOCUS_RING_INSET))
             .content(
                 html.span(
-                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])
+                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])
                 ),
                 html.span(self.clock(starts), class_=_TIME),
                 html.span(*self.title_of(event), class_="min-w-0 truncate"),
@@ -586,7 +601,7 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
         html.div(
             html.div(
                 "All day",
-                class_=classnames(_HEAD, "flex items-center justify-end pe-2"),
+                class_=classnames(PANEL_LABEL, "flex items-center justify-end pe-2"),
             ),
             render_when(
                 bool(bars),
@@ -622,7 +637,7 @@ def _day_head(draw: Draw, day: date) -> ComponentType:
     return draw.link(
         day,
         "day",
-        html.span(draw.formats.day_abbreviations[day.weekday()], class_=_HEAD),
+        html.span(draw.formats.day_abbreviations[day.weekday()], class_=PANEL_LABEL),
         html.span(str(day.day), class_=classnames(_NUMBER, _NUMBER_IN_TODAY)),
         label=draw.day_name(day),
         classes="group flex h-13 items-center justify-center gap-2 border-s "
@@ -697,6 +712,8 @@ def _column(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         ),
         render_when(day == draw.today, _now()),
         data_date=day.isoformat(),
+        # A column the hours run down, which a click reads a time off.
+        data_timed="",
         class_=classnames("relative border-s border-border", {_WEEKEND: weekend(day)}),
         style=_HOUR_LINES,
     )
@@ -721,7 +738,7 @@ def _timed(
         .class_(
             classnames(
                 _EVENT,
-                _TINT[event.color],
+                _TINT[event.tone],
                 FOCUS_RING_INSET,
                 "h-full overflow-hidden py-0.5 leading-4",
                 "flex items-baseline gap-1.5" if short else "block",
@@ -802,7 +819,7 @@ def month(draw: Draw) -> ComponentType:
                         formats.day_abbreviations[day.weekday()],
                         scope="col",
                         abbr=formats.day_names[day.weekday()],
-                        class_=classnames(_HEAD, "border-b border-border py-2"),
+                        class_=classnames(PANEL_LABEL, "border-b border-border py-2"),
                     )
                     for day in rows[0]
                 )
@@ -908,7 +925,7 @@ def _mini(draw: Draw, month: date, placed: dict[date, list[Placed]]) -> Componen
                         formats.day_abbreviations[day.weekday()][0],
                         scope="col",
                         abbr=formats.day_names[day.weekday()],
-                        class_=classnames(_HEAD, "pb-1 text-center"),
+                        class_=classnames(PANEL_LABEL, "pb-1 text-center"),
                     )
                     for day in rows[0]
                 )
@@ -1004,7 +1021,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         )
         .content(
             html.span(when, class_="text-xs tabular-nums text-fg-muted"),
-            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])),
+            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])),
             html.span(
                 html.span(*draw.title_of(event), class_="font-semibold"),
                 render_if(
