@@ -82,6 +82,7 @@ SHOWCASES: list[Showcase] = [
                 """
                 (
                     Dialog()
+                    .size("sm")
                     .title("Reschedule")
                     .trigger(Button().variant("secondary").content("Reschedule"))
                     .content(

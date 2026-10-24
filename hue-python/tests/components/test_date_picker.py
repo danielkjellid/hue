@@ -189,6 +189,23 @@ class TestDatePicker:
         assert_selector(html, 'button[aria-label="Next month"]', count=1)
 
     @pytest.mark.asyncio
+    async def test_the_panels_share_one_cell_so_the_picker_keeps_its_size(
+        self, context_args
+    ):
+        html = await render_tree(_picker(), context_args=context_args)
+        panels = select(html, "[x-bind\\:class*='level !==']")
+        assert len(panels) == 3
+        for panel in panels:
+            assert "[grid-area:1/1]" in panel["class"]
+            assert not panel.has_attr("x-show")
+        # The jump panels start out of sight, the days in it.
+        assert ["invisible" in panel["class"] for panel in panels] == [
+            False,
+            True,
+            True,
+        ]
+
+    @pytest.mark.asyncio
     async def test_two_months_split_the_steps(self, context_args):
         html = await render_tree(_picker().months(2), context_args=context_args)
         grids = select(html, 'table[role="grid"]')

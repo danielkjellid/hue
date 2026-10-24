@@ -45,7 +45,8 @@ _CELL = classnames(
 # Each state's selector excludes the ones that outrank it, since Tailwind
 # orders these variants by their own rules rather than by the class list.
 _DISC = classnames(
-    "relative grid place-items-center rounded-md font-medium tabular-nums text-fg",
+    "relative grid place-items-center rounded-md",
+    "font-medium tabular-nums text-fg",
     "in-[fieldset:disabled]:text-fg-disabled",
     # FOCUS_RING, drawn by the disc for the focused cell so it takes its shape.
     "in-[td:focus-visible]:ring-2 in-[td:focus-visible]:ring-accent",
@@ -89,9 +90,10 @@ _HEAD_SIZES: dict[DatePickerSize, str] = {
     "md": "h-7 text-xs",
 }
 # The jump panels are as wide as seven discs.
+# The least the panels take, so a jump panel is never narrower than a month.
 _PANEL_WIDTHS: dict[DatePickerSize, str] = {
-    "sm": "w-52.5",
-    "md": "w-63",
+    "sm": "min-w-52.5",
+    "md": "min-w-63",
 }
 
 
@@ -330,57 +332,66 @@ class DatePicker(FieldControl):
     def _panels(self, grid: _Grid) -> list[ComponentType]:
         """
         The days, and the month and year panels the caption's title jumps
-        to, one shown at a time.
+        to, one shown at a time. All three share one grid cell and the
+        hidden ones are only invisible, so the picker keeps the size of the
+        largest rather than jumping as they swap.
         """
         disabled = grid.disabled
         width = _PANEL_WIDTHS[grid.size]
+
+        def shown(level: str) -> dict[str, str]:
+            return {"x-bind:class": f"{{ invisible: level !== '{level}' }}"}
+
         return [
             html.div(
-                *(self._month(grid, m) for m in range(grid.months)),
-                class_="flex flex-col gap-6 sm:flex-row",
-                **{"x-show": "level === 'days'"},
-            ),
-            html.div(
-                _caption(
-                    _step("Previous year", "chevron-left", -12, disabled),
-                    _title("year()", "monthsTitle", "choose year", disabled),
-                    _step("Next year", "chevron-right", 12, disabled),
+                html.div(
+                    *(self._month(grid, m) for m in range(grid.months)),
+                    class_="flex flex-col gap-6 [grid-area:1/1] sm:flex-row",
+                    **shown("days"),
                 ),
                 html.div(
-                    *(
-                        html.button(
-                            grid.formats.month_names[i],
-                            type="button",
-                            class_=_ITEM,
-                            **{"data-item": "", "x-bind": f"monthItem({i})"},
-                        )
-                        for i in range(12)
+                    _caption(
+                        _step("Previous year", "chevron-left", -12, disabled),
+                        _title("year()", "monthsTitle", "choose year", disabled),
+                        _step("Next year", "chevron-right", 12, disabled),
                     ),
-                    class_=f"grid grid-cols-3 gap-1 {width}",
-                ),
-                class_="flex flex-col gap-1.5",
-                **{"x-ref": "months", "x-show": "level === 'months'", "x-cloak": True},
-            ),
-            html.div(
-                _caption(
-                    _step("Previous years", "chevron-left", -144, disabled),
-                    _title("decade()", "yearsTitle", "back to days", disabled),
-                    _step("Next years", "chevron-right", 144, disabled),
+                    html.div(
+                        *(
+                            html.button(
+                                grid.formats.month_names[i],
+                                type="button",
+                                class_=_ITEM,
+                                **{"data-item": "", "x-bind": f"monthItem({i})"},
+                            )
+                            for i in range(12)
+                        ),
+                        class_="grid grid-cols-3 gap-1",
+                    ),
+                    class_="invisible flex flex-col gap-1.5 [grid-area:1/1]",
+                    **{"x-ref": "months", **shown("months")},
                 ),
                 html.div(
-                    *(
-                        html.button(
-                            type="button",
-                            class_=_ITEM,
-                            **{"data-item": "", "x-bind": f"yearItem({i})"},
-                        )
-                        for i in range(12)
+                    _caption(
+                        _step("Previous years", "chevron-left", -144, disabled),
+                        _title("decade()", "yearsTitle", "back to days", disabled),
+                        _step("Next years", "chevron-right", 144, disabled),
                     ),
-                    class_=f"grid grid-cols-3 gap-1 {width}",
+                    html.div(
+                        *(
+                            html.button(
+                                type="button",
+                                class_=_ITEM,
+                                **{"data-item": "", "x-bind": f"yearItem({i})"},
+                            )
+                            for i in range(12)
+                        ),
+                        class_="grid grid-cols-3 gap-1",
+                    ),
+                    class_="invisible flex flex-col gap-1.5 [grid-area:1/1]",
+                    **shown("years"),
                 ),
-                class_="flex flex-col gap-1.5",
-                **{"x-show": "level === 'years'", "x-cloak": True},
-            ),
+                class_=f"grid {width}",
+            )
         ]
 
     def _month(self, grid: _Grid, m: int) -> ComponentType:
