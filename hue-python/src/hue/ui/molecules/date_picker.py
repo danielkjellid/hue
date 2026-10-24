@@ -35,7 +35,7 @@ _WEEKS = 6
 # the disc, which is why the cell isolates: without a stacking context of its
 # own the band would sink under the background of whatever holds the picker.
 _CELL = classnames(
-    "relative isolate p-0 px-px text-center outline-none focus-visible:z-10",
+    "relative isolate p-px text-center outline-none focus-visible:z-10",
     "before:absolute before:inset-y-0 before:-z-10 before:bg-accent-subtle",
     "data-[band=inside]:before:inset-x-0",
     "data-[band=start]:before:start-1/2 data-[band=start]:before:end-0",
