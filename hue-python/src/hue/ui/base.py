@@ -480,6 +480,16 @@ class AlpineModelMixin:
         return self
 
 
+def modelable(model: object, inner: str) -> dict[str, object]:
+    """
+    A caller's x-model, moved onto the root of a component whose own x-data
+    holds the value under inner. The parent modifier has Alpine read the
+    caller's expression in the scope around that root. Read on the root
+    itself, a caller's value or open would be the component's own.
+    """
+    return {"x-modelable": inner, "x-model.parent": model}
+
+
 class FormElementMixin:
     """
     The form attribute, for components that render an element a form can

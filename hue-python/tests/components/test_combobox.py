@@ -121,7 +121,7 @@ class TestCombobox:
             _combobox().x_model(unsafe("country")), context_args=context_args
         )
         assert_attr(html, "[x-modelable]", "x-modelable", "value")
-        assert_attr(html, "[x-modelable]", "x-model", "country")
+        assert_attr(html, "[x-modelable]", "x-model.parent", "country")
         assert_attr(html, "input#country", "x-model", "query")
 
     @pytest.mark.asyncio

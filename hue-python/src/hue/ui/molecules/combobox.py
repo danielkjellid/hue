@@ -7,6 +7,7 @@ from hue.js import call
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING, ControlSize
 from hue.ui.atoms.icon import HueIcon
+from hue.ui.base import modelable
 from hue.ui.form import FieldControl
 from hue.ui.molecules.select import (
     _OFFSET,
@@ -312,8 +313,9 @@ class Combobox(FieldControl):
             "x-on:focusout": "leave($event)",
         }
         if caller_model:
-            root_attrs["x-modelable"] = "values" if multiple else "value"
-            root_attrs["x-model"] = caller_model
+            root_attrs.update(
+                modelable(caller_model, "values" if multiple else "value")
+            )
         return self._field(
             context,
             html.div(

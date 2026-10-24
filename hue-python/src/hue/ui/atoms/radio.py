@@ -13,11 +13,14 @@ from hue.ui.atoms._choice import (
     description_id,
     label_id,
 )
-from hue.ui.atoms.text import required_marker
 from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
-from hue.ui.molecules.field import error_component, hint_component
-from hue.utils import classnames, render_if, render_when
+from hue.ui.molecules.field import (
+    error_component,
+    hint_component,
+    legend_component,
+)
+from hue.utils import classnames, render_if
 
 # The dot is drawn by the box itself, because a native input takes no children.
 _DOT = (
@@ -233,23 +236,7 @@ class RadioGroup(FieldControl):
             options.append(child)
 
         return html.fieldset(
-            render_if(
-                legend,
-                lambda text: html.legend(
-                    text,
-                    # A legend is the group's label, so it carries the same
-                    # mark a field's label does when the answer is required.
-                    render_when(required, required_marker()),
-                    # The margin is the fieldset's own gap, written out: a
-                    # legend is not a flex item of its fieldset, so the gap
-                    # that spaces every other child never reaches it and the
-                    # first option sits flush against the question.
-                    class_=(
-                        "mb-1.5 inline-flex items-center gap-[5px] "
-                        "font-ui text-sm font-medium leading-[1.4] text-fg"
-                    ),
-                ),
-            ),
+            render_if(legend, lambda text: legend_component(text, required)),
             html.div(
                 *options,
                 class_=classnames(

@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.text import Label
+from hue.ui.atoms.text import Label, required_marker
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
 
@@ -61,6 +61,24 @@ def error_component(text: str, control_id: str | None = None) -> ComponentType:
         id=None if control_id is None else error_id(control_id),
         role="alert",
         class_=f"flex items-start gap-[5px] {_SUPPORTING_TEXT} text-danger-text",
+    )
+
+
+def legend_component(
+    text: str, required: bool, *, hidden: bool = False
+) -> ComponentType:
+    """
+    A fieldset's legend, drawn as a field's label is. A legend is no flex
+    item of its fieldset, so the gap under it is written out as a margin.
+    """
+    return html.legend(
+        text,
+        render_when(required, required_marker()),
+        class_=classnames(
+            "mb-1.5 inline-flex items-center gap-[5px] font-ui text-sm font-medium",
+            "leading-[1.4] text-fg in-[fieldset:disabled]:text-fg-disabled",
+            {"sr-only": hidden},
+        ),
     )
 
 
