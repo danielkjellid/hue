@@ -9,6 +9,7 @@ and every component that writes a value reads the same answer.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time
@@ -20,6 +21,34 @@ from htmy import Context
 # those names inside the class.
 type _Moment = datetime
 type _Day = date
+type _Time = time
+
+# The directives a date field reads back, which date-text.js writes the
+# same way. They are spelled out here rather than handed to strftime, which
+# writes names in the process locale and pads differently per platform. %y
+# is left out because 26 cannot say which century it was. Any other
+# directive is strftime's to write, for whatever only shows a value.
+DAY_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+    "d": lambda f, v: f"{v.day:02}",
+    "-d": lambda f, v: str(v.day),
+    "e": lambda f, v: f"{v.day:2}",
+    "m": lambda f, v: f"{v.month:02}",
+    "-m": lambda f, v: str(v.month),
+    "Y": lambda f, v: f"{v.year:04}",
+    "B": lambda f, v: f.month_names[v.month - 1],
+    "b": lambda f, v: f.month_abbreviations[v.month - 1],
+    "A": lambda f, v: f.day_names[v.weekday()],
+    "a": lambda f, v: f.day_abbreviations[v.weekday()],
+}
+TIME_DIRECTIVES: dict[str, Callable[[Formats, Any], str]] = {
+    "H": lambda f, v: f"{v.hour:02}",
+    "M": lambda f, v: f"{v.minute:02}",
+    "I": lambda f, v: f"{v.hour % 12 or 12:02}",
+    "-I": lambda f, v: str(v.hour % 12 or 12),
+    "p": lambda f, v: "AM" if v.hour < 12 else "PM",
+}
+# A strftime directive, with the platform flag a few of the above take.
+DIRECTIVE = re.compile(r"%(-?.)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,12 +58,22 @@ class Formats:
     is the one spelling no reader gets wrong, and the names of the months and
     the days, English by default.
 
+    A pattern may use any strftime directive, but the date fields render
+    only with one whose text they can read back. A day there is %Y with a
+    month and a day: in numbers split by a dot, slash or dash, year first,
+    day first or month first (%d.%m.%Y), or around the month's name (%d %B
+    %Y, or %B %d, %Y). A weekday may come first and a dot last. A time is %H
+    and %M, or %I and %M with %p, and in a date with a time it follows the
+    day. %y, seconds and other words are refused. A format with names reads
+    back only where each name is one word that no other name shares, which
+    is not so in every language, and the fields do not check it.
+
     localize turns an aware datetime into the reader's time before it is
     written, as a framework's templates would. Without one, an aware
     datetime is written in its own timezone.
 
-    The names are plain sequences rather than strftime's %A and %B, which
-    read the process locale: a framework fills them per request from its
+    The names are plain sequences rather than strftime's %A, %a, %B and %b,
+    which read the process locale: a framework fills them per request from its
     own translations, the way it fills the patterns from its settings. Days
     are Monday first, as date.weekday() counts them. month_names_in_date is
     the month as written inside a date, which some languages decline: Polish
@@ -57,6 +96,10 @@ class Formats:
     day_abbreviations: tuple[str, ...] = (
         "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
     )  # fmt: skip
+    month_abbreviations: tuple[str, ...] = (
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+        "Nov", "Dec",
+    )  # fmt: skip
 
     def __post_init__(self) -> None:
         # A framework's config is the one boundary. Everything after indexes
@@ -66,6 +109,7 @@ class Formats:
             ("month_names_in_date", 12),
             ("day_names", 7),
             ("day_abbreviations", 7),
+            ("month_abbreviations", 12),
         ):
             if len(getattr(self, name)) != wanted:
                 raise ValueError(
@@ -79,12 +123,28 @@ class Formats:
         """
         # datetime before date: every datetime is a date too.
         if isinstance(value, datetime):
-            return self.moment(value).strftime(self.datetime)
+            return self.write(self.datetime, self.moment(value))
         if isinstance(value, date):
-            return value.strftime(self.date)
+            return self.write(self.date, value)
         if isinstance(value, time):
-            return value.strftime(self.time)
+            return self.write(self.time, value)
         return None
+
+    def write(self, pattern: str, value: _Day | _Time) -> str:
+        """
+        The value written with one of this Formats' own patterns, the way
+        date-text.js writes it in the browser.
+        """
+
+        def one(match: re.Match[str]) -> str:
+            directive = match.group(1)
+            if directive in TIME_DIRECTIVES and isinstance(value, (datetime, time)):
+                return TIME_DIRECTIVES[directive](self, value)
+            if directive in DAY_DIRECTIVES and isinstance(value, date):
+                return DAY_DIRECTIVES[directive](self, value)
+            return value.strftime(match.group())
+
+        return DIRECTIVE.sub(one, pattern)
 
     def moment(self, value: _Moment) -> _Moment:
         """

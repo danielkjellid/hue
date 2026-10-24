@@ -56,6 +56,7 @@ from hue.ui.molecules.command import (
     CommandShortcuts,
 )
 from hue.ui.molecules.datatable import Column, DataTable
+from hue.ui.molecules.date_input import DateInput, DateTimeInput, TimeInput
 from hue.ui.molecules.date_picker import DatePicker
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.disclosure import Disclosure
@@ -132,7 +133,9 @@ __all__ = [
     "CommandShortcuts",
     "CurrentPage",
     "DataTable",
+    "DateInput",
     "DatePicker",
+    "DateTimeInput",
     "Dialog",
     "Disclosure",
     "DoughnutChart",
@@ -200,6 +203,7 @@ __all__ = [
     "TextInput",
     "Textarea",
     "ThemeSwitcher",
+    "TimeInput",
     "Toast",
     "ToastRegion",
     "Tooltip",

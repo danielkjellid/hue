@@ -46,7 +46,9 @@ def hint_component(text: str, control_id: str | None = None) -> ComponentType:
     )
 
 
-def error_component(text: str, control_id: str | None = None) -> ComponentType:
+def error_component(
+    text: ComponentType, control_id: str | None = None
+) -> ComponentType:
     """
     A field's error, as the controls and Field both render it.
 

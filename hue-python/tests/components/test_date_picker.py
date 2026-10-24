@@ -143,7 +143,7 @@ class TestDatePicker:
     )
     @pytest.mark.parametrize("day", [datetime(2026, 10, 9, 12, 0), None])
     def test_only_dates_are_taken(self, modifier, day):
-        with pytest.raises(ValueError, match="takes dates"):
+        with pytest.raises(ValueError, match="Pass a date"):
             getattr(_picker(), modifier)(day)
 
     def test_no_months_is_refused(self):

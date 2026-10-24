@@ -111,7 +111,49 @@ class _Grid:
     disabled: bool
 
 
-class DatePicker(FieldControl):
+class DayRules:
+    """
+    Which days refuse a pick, and which day a week starts on. Mixed into
+    DatePicker and the fields that open one, so they take the same rules.
+    """
+
+    _props: dict[str, Any]  # provided by ChainableComponent
+
+    # The props the modifiers below set, which a field hands on to its grid.
+    KEYS = ("min", "max", "unavailable", "week_start")
+
+    def min(self, value: date) -> Self:
+        """
+        The first day that can be picked or typed.
+        """
+        self._props["min"] = _days(value)[0]
+        return self
+
+    def max(self, value: date) -> Self:
+        """
+        The last day that can be picked or typed.
+        """
+        self._props["max"] = _days(value)[0]
+        return self
+
+    def unavailable(self, *days: date | Weekday) -> Self:
+        """
+        Days that refuse a pick: dates, or weekdays by name for every one of
+        them, as in unavailable("saturday", "sunday").
+        """
+        _days(*(day for day in days if not isinstance(day, str)))
+        for day in days:
+            if isinstance(day, str) and day not in WEEKDAYS:
+                raise ValueError(f"{day!r} is not a weekday: one of {WEEKDAYS}.")
+        self._props["unavailable"] = days
+        return self
+
+    def week_start(self, value: Weekday) -> Self:
+        self._props["week_start"] = value
+        return self
+
+
+class DatePicker(DayRules, FieldControl):
     """
     A month to pick a day, a range or several days from, inline on the page.
 
@@ -150,32 +192,6 @@ class DatePicker(FieldControl):
         self._props["months"] = count
         return self
 
-    def min(self, value: date) -> Self:
-        """
-        The first day that can be picked.
-        """
-        self._props["min"] = _days(value)[0]
-        return self
-
-    def max(self, value: date) -> Self:
-        """
-        The last day that can be picked.
-        """
-        self._props["max"] = _days(value)[0]
-        return self
-
-    def unavailable(self, *days: date | Weekday) -> Self:
-        """
-        Days that refuse a pick: dates, or weekdays by name for every one of
-        them, as in unavailable("saturday", "sunday").
-        """
-        _days(*(day for day in days if not isinstance(day, str)))
-        for day in days:
-            if isinstance(day, str) and day not in WEEKDAYS:
-                raise ValueError(f"{day!r} is not a weekday: one of {WEEKDAYS}.")
-        self._props["unavailable"] = days
-        return self
-
     def hidden_label(self, value: bool = True) -> Self:
         """
         Keep the legend for screen readers but take it off the screen, for a
@@ -192,10 +208,6 @@ class DatePicker(FieldControl):
         """
         self._props["markers"] = _days(*days)
         self._props["marker_label"] = label
-        return self
-
-    def week_start(self, value: Weekday) -> Self:
-        self._props["week_start"] = value
         return self
 
     def size(self, value: DatePickerSize) -> Self:
@@ -475,7 +487,7 @@ def _days(*days: date) -> tuple[date, ...]:
     """
     for day in days:
         if not isinstance(day, date) or isinstance(day, datetime):
-            raise ValueError(f"A DatePicker takes dates, not {day!r}.")
+            raise ValueError(f"Pass a date, not {day!r}.")
     return days
 
 

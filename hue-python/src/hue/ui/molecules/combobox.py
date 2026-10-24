@@ -5,7 +5,7 @@ from typing_extensions import Self
 
 from hue.js import call
 from hue.types.core import Component
-from hue.ui._styles import FOCUS_RING, ControlSize
+from hue.ui._styles import TOKEN, TOKEN_REMOVE, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import modelable
 from hue.ui.form import FieldControl
@@ -55,17 +55,6 @@ _SIZER = "invisible h-0 overflow-hidden whitespace-nowrap px-0.5 [grid-area:1/1]
 _POPUP = (
     "z-70 max-w-[calc(100vw-2rem)] rounded-lg border border-border "
     "bg-surface-raised p-1 shadow-raised"
-)
-
-_TOKEN = (
-    "inline-flex h-6 items-center gap-0.5 rounded-sm bg-surface-active ps-[9px] "
-    "pe-[3px] text-xs font-medium text-fg"
-)
-
-_TOKEN_REMOVE = classnames(
-    FOCUS_RING,
-    "inline-flex size-[18px] flex-none cursor-pointer items-center justify-center "
-    "rounded-xs text-fg-muted hover:bg-border-hover hover:text-fg",
 )
 
 
@@ -212,13 +201,13 @@ class Combobox(FieldControl):
                     HueIcon("x").class_("size-3"),
                     type="button",
                     disabled=disabled or None,
-                    class_=_TOKEN_REMOVE,
+                    class_=TOKEN_REMOVE,
                     **{
                         ":aria-label": "`Remove ${item.label}`",
                         "x-on:click.stop": "remove(item.value)",
                     },
                 ),
-                class_=_TOKEN,
+                class_=TOKEN,
             ),
             **{"x-for": "item in selected", ":key": "item.value"},
         )
