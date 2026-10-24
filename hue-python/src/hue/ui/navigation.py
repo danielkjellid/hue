@@ -36,12 +36,16 @@ class SwapsTarget(ChainableComponent):
     an id, so a target() without one is refused.
     """
 
-    def target(self, value: str) -> Self:
+    def target(self, value: str, *, sync: bool = True) -> Self:
         """
         The id of the element a link's page lands in. Without one, every link
         is a plain navigation.
+
+        sync=False is for one that sits inside the element it swaps, which
+        every response already replaces along with the rest.
         """
         self._props["target"] = value
+        self._props["sync"] = sync
         return self
 
     def _swap_attrs(self) -> dict[str, str]:
@@ -54,7 +58,7 @@ class SwapsTarget(ChainableComponent):
         """
         What its root carries.
         """
-        if self._get_prop("target") is None:
+        if self._get_prop("target") is None or not self._get_prop("sync", True):
             return {}
         self._own_id("a target()", "a response that carries it refreshes it by it")
         return SYNC

@@ -139,3 +139,34 @@ TOKEN_REMOVE = (
     f"{FOCUS_RING} inline-flex size-[18px] flex-none cursor-pointer items-center "
     "justify-center rounded-xs text-fg-muted hover:bg-border-hover hover:text-fg"
 )
+
+
+#: A region Alpine AJAX is about to replace, which it marks aria-busy for as
+#: long as the request runs. Dimmed, so a slow query reads as working rather
+#: than as a click that did nothing; the attribute itself tells a screen reader.
+LOADING = (
+    "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:cursor-progress"
+)
+
+#: A step through pages, in Pagination and a Calendar's toolbar, minus
+#: anything its state decides. Each state names a border colour, a text colour
+#: and a cursor, so no two classes compete for the same property.
+STEP = (
+    "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
+    "justify-center rounded-md border px-2 font-ui text-sm font-medium "
+    "tabular-nums no-underline"
+)
+
+STEP_IDLE = (
+    "border-transparent text-fg-muted cursor-pointer "
+    "hover:bg-surface-hover hover:text-fg"
+)
+
+#: A step with nowhere to go stays in the row and stays announced: a control
+#: that disappears at the ends teaches nobody where the ends are.
+STEP_SPENT = (
+    "border-transparent text-fg-disabled cursor-not-allowed pointer-events-none"
+)
+
+#: The range separator. An en dash, which is what a range takes.
+DASH = "\u2013"

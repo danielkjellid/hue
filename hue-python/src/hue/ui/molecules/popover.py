@@ -64,12 +64,17 @@ class Popover(ChainableComponent):
         self._props["fit"] = value
         return self
 
-    def placement(self, value: PopoverPlacement) -> Self:
+    def placement(self, value: PopoverPlacement, *, fixed: bool = False) -> Self:
         """
         Which corner of the trigger it hangs off. A preference rather than a
         promise: the panel flips and shifts to stay inside the viewport.
+
+        fixed positions the panel against the viewport rather than the page,
+        for a popover inside something that clips what overflows it, such as
+        a scroll container.
         """
         self._props["placement"] = value
+        self._props["fixed"] = fixed
         return self
 
     def trigger(self, value: ChainableComponent) -> Self:
@@ -84,6 +89,7 @@ class Popover(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         placement: PopoverPlacement = self._get_prop("placement", "bottom-start")
+        strategy = ".fixed" if self._get_prop("fixed", False) else ""
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
         trigger: ChainableComponent | None = self._get_prop("trigger")
@@ -139,7 +145,7 @@ class Popover(ChainableComponent):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                f"x-anchor.{placement}.offset.{_OFFSET}": find_trigger,
+                f"x-anchor{strategy}.{placement}.offset.{_OFFSET}": find_trigger,
                 **_overlay.HOLDS_FOCUS,
             },
         )
