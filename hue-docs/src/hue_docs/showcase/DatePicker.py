@@ -77,23 +77,6 @@ SHOWCASES: list[Showcase] = [
                 """,
                 _NAMES,
             ),
-            variant(
-                "Inside a dialog",
-                """
-                (
-                    Dialog()
-                    .size("sm")
-                    .title("Reschedule")
-                    .trigger(Button().variant("secondary").content("Reschedule"))
-                    .content(
-                        DatePicker().name("new_day")
-                        .label("New day")
-                        .value(date(2026, 10, 22))
-                    )
-                )
-                """,
-                _NAMES,
-            ),
         ],
     ),
     Showcase(
