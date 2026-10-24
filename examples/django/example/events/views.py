@@ -61,19 +61,20 @@ def _entry(id: str) -> Entry:
         raise Http404 from None
 
 
-def save_entry(request: HttpRequest, event: Event) -> None:
+def save_entry(request: HttpRequest, event: Event) -> int:
     """
     Keep what the dialog said: a new entry, or the whole of an existing
-    one, series and all, moved to where the dialog put it.
+    one, series and all, moved to where the dialog put it. The key comes
+    back, which is what Undo deletes after a create.
     """
     fields = Entry.fields_of(event)
     if event.id is None:
-        Entry.objects.create(**fields)
-        return
+        return Entry.objects.create(**fields).pk
     entry = _entry(event.id)
     for name, value in fields.items():
         setattr(entry, name, value)
     entry.save()
+    return entry.pk
 
 
 def delete_entry(request: HttpRequest, id: str) -> None:

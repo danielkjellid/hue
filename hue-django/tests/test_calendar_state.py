@@ -7,9 +7,12 @@ save and a delete with the calendar in the state it was in.
 """
 
 import asyncio
+import json
 import re
 from collections import Counter
+from dataclasses import replace
 from datetime import date, datetime
+from html import unescape
 from typing import Any
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
@@ -21,7 +24,7 @@ from django.test import Client, override_settings
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
 from hue.ui import Calendar, Event
@@ -84,7 +87,7 @@ def mounted(urlpatterns_: list[Any]) -> Any:
 @pytest.fixture(autouse=True)
 def _october(monkeypatch: pytest.MonkeyPatch) -> None:
     # The clock held still, so today and its week are known.
-    monkeypatch.setattr(declared, "_today", lambda formats: _TODAY)
+    monkeypatch.setattr(declared, "today_in", lambda formats: _TODAY)
 
 
 def _request(**params: str) -> Any:
@@ -331,13 +334,13 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
 
 def test_the_fields_become_the_event_the_handler_is_handed(mounted):
     mounted(repeats={"weekly": "Every week"})
-    _act("save", **_fields(id="7", repeat="weekly", location=" Room 3B ", notes=""))
+    _act("save", **_fields(id="1", repeat="weekly", location=" Room 3B ", notes=""))
     assert _SAVED == [
         Event(
             "Pairing",
             datetime(2026, 10, 15, 11),
             datetime(2026, 10, 15, 12, 30),
-            id="7",
+            id="1",
             location="Room 3B",
             repeat="weekly",
             layer="home",
@@ -538,3 +541,399 @@ def test_two_calendars_on_one_page_keep_their_own_routes_states_and_ids(urlpatte
     repeated = {name for name, n in _ids(rooms_html + dialogs).items() if n > 1}
     assert repeated == set()
     assert {"rooms-title", "desks-title"} <= set(_ids(dialogs))
+
+
+# Moving, and undoing
+
+
+class _Keys(CalendarShortcuts):
+    pass
+
+
+_REVIEW = Event(
+    "Review",
+    datetime(2026, 10, 14, 13),
+    datetime(2026, 10, 14, 14),
+    id="1",
+    layer="work",
+    notes="Bring the matrix.",
+)
+
+
+def _moved(**changed: str) -> dict[str, str]:
+    """
+    What the browser posts for a move of the review: which event and
+    occurrence, and where it goes, an hour later on Thursday unless changed.
+    """
+    whole = {
+        "id": "1",
+        "occurrence": "2026-10-14T13:00",
+        "starts": "2026-10-15",
+        "starts_time": "14:00",
+        "ends": "2026-10-15",
+        "ends_time": "15:00",
+        **changed,
+    }
+    return {f"events-{name}": value for name, value in whole.items()}
+
+
+def _undo_of(html: str) -> tuple[str, dict[str, Any]] | None:
+    """
+    The action the toast's Undo posts to and the fields it posts, or None
+    when the toast offers none.
+    """
+    button = re.search(
+        r"<button[^>]*@click=(['\"])(\$ajax.*?dismiss\(\))\1[^>]*>\s*Undo\s*</button>",
+        html,
+    )
+    if button is None:
+        return None
+    call = re.fullmatch(
+        r'\$ajax\("[^"]*/(\w+)/", (\{.*\})\); dismiss\(\)', unescape(button[2])
+    )
+    assert call, button[2]
+    return call[1], json.loads(call[2])["body"]
+
+
+def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    response = _act("move", **_moved())
+    assert response.status_code == 200
+    # The notes came from events(), not from the browser, and the colour
+    # the layer lends it is not written back as its own.
+    assert _SAVED == [
+        replace(
+            _REVIEW, starts=datetime(2026, 10, 15, 14), ends=datetime(2026, 10, 15, 15)
+        )
+    ]
+    html = unescape(response.content.decode())
+    assert 'Moved "Review"' in html
+    # The Undo moves it back, naming the occurrence it now is.
+    assert _undo_of(html) == (
+        "move",
+        {
+            "events-id": "1",
+            "events-occurrence": "2026-10-15T14:00",
+            "events-starts": "2026-10-14",
+            "events-starts_time": "13:00",
+            "events-ends": "2026-10-14",
+            "events-ends_time": "14:00",
+            "events-undo": "1",
+        },
+    )
+
+
+def test_a_move_of_the_end_alone_is_a_resize(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = unescape(
+        _act(
+            "move",
+            **_moved(
+                starts="2026-10-14",
+                starts_time="13:00",
+                ends="2026-10-14",
+                ends_time="15:00",
+            ),
+        ).content.decode()
+    )
+    assert 'Resized "Review"' in html
+    assert _SAVED[-1].ends == datetime(2026, 10, 14, 15)
+
+
+def test_a_series_moves_from_its_first_occurrence_and_undo_puts_that_back(mounted):
+    # The review every week since 30 September, as events() hands out the
+    # one on the 14th: moved a day later and an hour on, the whole series is.
+    weekly = replace(_REVIEW, repeat="weekly", series_starts=datetime(2026, 9, 30, 13))
+    mounted(events=lambda r, s: [weekly])
+    html = unescape(_act("move", **_moved()).content.decode())
+    assert 'Moved all occurrences of "Review"' in html
+    assert (_SAVED[-1].starts, _SAVED[-1].ends) == (
+        datetime(2026, 10, 1, 14),
+        datetime(2026, 10, 1, 15),
+    )
+    # The Undo names the occurrence where it now is, and posts the series
+    # back where it began, which is saved as it is posted.
+    action, back = _undo_of(html)
+    assert action == "move"
+    assert back["events-occurrence"] == "2026-10-15T14:00"
+    assert back["events-starts"] == "2026-09-30"
+    assert back["events-starts_time"] == "13:00"
+    moved = replace(
+        weekly,
+        starts=datetime(2026, 10, 15, 14),
+        ends=datetime(2026, 10, 15, 15),
+        series_starts=datetime(2026, 10, 1, 14),
+    )
+    mounted(events=lambda r, s: [moved])
+    _act("move", **back)
+    assert (_SAVED[-1].starts, _SAVED[-1].ends) == (
+        datetime(2026, 9, 30, 13),
+        datetime(2026, 9, 30, 14),
+    )
+
+
+def test_a_series_that_does_not_say_where_it_starts_is_refused_by_name(mounted):
+    mounted(events=lambda r, s: [replace(_REVIEW, repeat="weekly")])
+    with pytest.raises(TypeError, match="series_starts"):
+        Client().get(f"/{MOUNT}")
+
+
+def test_a_move_keeps_an_event_timed_or_whole_day_whatever_is_posted(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    _act("move", **_moved(all_day="1"))
+    assert _SAVED[-1].starts == datetime(2026, 10, 15, 14)
+
+
+@pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
+def test_a_date_past_what_a_calendar_draws_is_refused_on_move_and_save(mounted, day):
+    mounted(events=lambda r, s: [_REVIEW])
+    when = {"starts": day, "ends": day}
+    with override_settings(TIME_ZONE="Europe/Oslo"):
+        moved = _act("move", **_moved(**when))
+        saved = _act("save", **_fields(**when))
+    assert (moved.status_code, saved.status_code) == (422, 422)
+    assert "Enter a date in the years 2 to 9998." in unescape(saved.content.decode())
+    assert _SAVED == []
+
+
+def test_a_move_looks_the_event_up_on_its_own_day_in_every_layer_unsearched(mounted):
+    asked: list[Any] = []
+
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        asked.append((state.first, state.last, state.query, state.layers))
+        return [_REVIEW]
+
+    mounted(events=events)
+    _act("move", **_moved(), **{"events-q": "re", "events-hide": "work"})
+    assert asked[0] == (date(2026, 10, 14), date(2026, 10, 14), "", ("work", "home"))
+
+
+@pytest.mark.parametrize(
+    ("posted", "status", "said"),
+    [
+        ({"events-id": ""}, 404, "move needs the event's id"),
+        ({"events-id": "9"}, 404, "The event is no longer there."),
+        ({"events-ends_time": "13:00"}, 422, "Ends before it starts."),
+        ({"events-starts_time": "9am"}, 422, "Enter a time."),
+    ],
+)
+def test_a_move_that_cannot_be_made_is_refused_and_nothing_is_saved(
+    mounted, posted, status, said
+):
+    mounted(events=lambda r, s: [_REVIEW])
+    response = _act("move", **{**_moved(), **posted})
+    assert response.status_code == status
+    assert said in unescape(response.content.decode())
+    assert _SAVED == []
+
+
+def test_a_move_into_the_hour_the_clocks_skip_is_refused(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    with override_settings(TIME_ZONE="Europe/Oslo"):
+        response = _act(
+            "move",
+            **_moved(
+                starts="2026-03-29",
+                starts_time="02:30",
+                ends="2026-03-29",
+                ends_time="03:30",
+            ),
+        )
+    assert response.status_code == 422
+    assert (
+        "That time is skipped when the clocks go forward." in response.content.decode()
+    )
+
+
+def test_a_create_is_undone_by_deleting_what_save_named(mounted):
+    mounted(save=lambda request, event: 9)
+    html = _act("save", **_fields()).content.decode()
+    assert _undo_of(html) == (
+        "delete",
+        {"events-id": "9", "events-title": "Pairing", "events-undo": "1"},
+    )
+    # A save that returns nothing leaves nothing to delete.
+    mounted()
+    assert _undo_of(_act("save", **_fields()).content.decode()) is None
+
+
+def test_an_edit_is_undone_by_saving_the_fields_events_had(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = _act(
+        "save", **_fields(id="1", occurrence="2026-10-14T13:00")
+    ).content.decode()
+    action, back = _undo_of(html)
+    assert action == "save"
+    assert back["events-id"] == "1"
+    assert back["events-title"] == "Review"
+    assert back["events-notes"] == "Bring the matrix."
+    assert (back["events-starts"], back["events-starts_time"]) == (
+        "2026-10-14",
+        "13:00",
+    )
+    assert back["events-undo"] == "1"
+    assert "events-layer" in back and "events-location" not in back
+
+
+def test_a_delete_is_undone_by_saving_the_event_events_had_without_the_id(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = _act(
+        "delete", **_fields(id="1", occurrence="2026-10-14T13:00", notes="Posted")
+    ).content.decode()
+    action, back = _undo_of(html)
+    assert action == "save"
+    assert "events-id" not in back and "events-occurrence" not in back
+    # What events() has, not what the browser posted.
+    assert back["events-title"] == "Review"
+    assert back["events-notes"] == "Bring the matrix."
+    # An event events() does not have is deleted and offers no way back.
+    assert _undo_of(_act("delete", **{"events-id": "9"}).content.decode()) is None
+
+
+def test_a_create_offers_no_undo_without_a_delete_to_undo_it_with(mounted):
+    mounted(save=lambda request, event: 9, delete=None)
+    response = _act("save", **_fields())
+    assert response.status_code == 200
+    assert _undo_of(response.content.decode()) is None
+
+
+def test_a_delete_offers_no_undo_without_a_save_to_undo_it_with(mounted):
+    mounted(events=lambda r, s: [_REVIEW], save=None)
+    response = _act("delete", **_fields(id="1", occurrence="2026-10-14T13:00"))
+    assert response.status_code == 200
+    assert 'Deleted "Pairing"' in unescape(response.content.decode())
+    assert _undo_of(response.content.decode()) is None
+
+
+def _autofocused(html: str) -> list[str]:
+    """
+    The tags marked for Alpine AJAX to focus once the answer is in.
+    """
+    return re.findall(r"<(?:button|a)\b[^>]*\bx-autofocus\b[^>]*>", html)
+
+
+def test_a_move_hands_focus_to_the_event_where_it_now_is(mounted):
+    stored = [_REVIEW]
+    mounted(
+        events=lambda r, s: list(stored), save=lambda r, e: stored.__setitem__(0, e)
+    )
+    marked = _autofocused(_act("move", **_moved()).content.decode())
+    assert len(marked) == 1
+    assert 'data-starts="2026-10-15T14:00"' in marked[0]
+
+
+def test_an_event_drawn_on_two_days_takes_focus_where_it_starts(mounted):
+    late = replace(_REVIEW, starts=datetime(2026, 10, 14, 22), ends=None)
+    stored = [replace(late, ends=datetime(2026, 10, 15, 1))]
+    mounted(
+        events=lambda r, s: list(stored), save=lambda r, e: stored.__setitem__(0, e)
+    )
+    posted = _moved(
+        occurrence="2026-10-14T22:00",
+        starts="2026-10-14",
+        starts_time="22:30",
+        ends="2026-10-15",
+        ends_time="01:30",
+    )
+    html = _act("move", **posted).content.decode()
+    assert html.count('data-starts="2026-10-14T22:30"') == 2
+    marked = _autofocused(html)
+    assert len(marked) == 1
+    # The copy on the day it starts, which is not squared off at its top.
+    assert "rounded-t-none" not in marked[0]
+
+
+def test_an_undone_delete_hands_focus_to_the_event_it_made_again(mounted):
+    again = replace(_REVIEW, id="9")
+    mounted(events=lambda r, s: [_REVIEW, again], save=lambda r, e: 9)
+    posted = {**_fields(title="Review"), "events-undo": "1"}
+    marked = _autofocused(_act("save", **posted).content.decode())
+    assert len(marked) == 1
+    assert 'data-event-id="9"' in marked[0]
+
+
+def test_an_undone_create_hands_focus_to_new_event(mounted):
+    mounted()
+    posted = {"events-id": "9", "events-title": "Pairing", "events-undo": "1"}
+    marked = _autofocused(_act("delete", **posted).content.decode())
+    assert len(marked) == 1
+    assert 'id="events-new"' in marked[0]
+    # A change that is not an undo or a move leaves focus to the page.
+    assert _autofocused(_act("delete", **{"events-id": "9"}).content.decode()) == []
+
+
+def test_undo_goes_one_level(mounted):
+    mounted(events=lambda r, s: [_REVIEW])
+    html = unescape(_act("move", **_moved(), **{"events-undo": "1"}).content.decode())
+    assert 'Restored "Review"' in html
+    assert _undo_of(html) is None
+    html = unescape(
+        _act("delete", **_fields(id="1"), **{"events-undo": "1"}).content.decode()
+    )
+    assert 'Removed "Pairing"' in html
+
+
+# The keys
+
+
+def _host(html: str) -> str:
+    found = re.search(r'<div id="hue-shortcuts".*?</div>', html, re.S)
+    return found[0] if found else ""
+
+
+@override_settings(HUE_SHORTCUTS=_Keys)
+def test_the_calendars_keys_are_on_for_the_page_and_every_answer(mounted):
+    mounted()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    host = _host(page)
+    assert "x-shortcut='[\"t\"]'" in host
+    assert "events-today" in host and "events-switch-agenda" in host
+    assert "events-new" in host and "events-q" not in host
+    # The dialog's answer brings its own copy, so Cancel leaves them on.
+    assert "events-today" in _host(_act("dialog").content.decode())
+    assert 'id="events-help"' in page
+
+
+@override_settings(HUE_SHORTCUTS=_Keys)
+def test_the_help_reaches_the_page_with_the_calendar_that_takes_the_keys(
+    urlpatterns_,
+):
+    class TwoView(HueView):
+        router = Router[HttpRequest]()
+        rooms = build_calendar_state(
+            router, key="rooms", events=_events, save=lambda r, e: None
+        )
+        desks = build_calendar_state(
+            router, key="desks", events=_events, save=lambda r, e: None
+        )
+
+        async def index(self, request: Any, context: Any) -> Any:
+            return Page(
+                title="Two",
+                body=html.div(
+                    Calendar.from_state(self.rooms), Calendar.from_state(self.desks)
+                ),
+            )
+
+    urlpatterns_.append(path(MOUNT, include(TwoView.urls)))
+    clear_url_caches()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    assert 'id="rooms-help"' in page and 'id="desks-help"' not in page
+    # A change to the second answers with its keys, and its help arrives in
+    # a synced region the page already holds.
+    saved = {
+        name.replace("events-", "desks-"): value for name, value in _fields().items()
+    }
+    answer = Client().post(f"/{MOUNT}desks/save/", saved, **_AJAX).content.decode()
+    assert "desks-today" in _host(answer)
+    synced = re.findall(r'<div id="([^"]+)" x-sync', page)
+    assert "desks-shortcuts" in synced
+    region = re.search(r'<div id="desks-shortcuts" x-sync.*', answer, re.S)
+    assert region and 'id="desks-help"' in region[0]
+
+
+def test_without_the_keys_in_the_registry_nothing_is_bound(mounted):
+    mounted()
+    page = Client().get(f"/{MOUNT}").content.decode()
+    assert "hue-shortcuts" not in page
+    assert 'id="events-help"' not in page

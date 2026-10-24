@@ -60,6 +60,7 @@ class Calendar(ChainableComponent):
         page it is rendered on, with the sidebar, the search and the event
         dialog around it.
         """
+        declaration.claim_keys()
         calendar = cls()
         calendar._props["declaration"] = declaration
         return calendar
@@ -190,6 +191,8 @@ class Calendar(ChainableComponent):
             href=self._get_prop("href"),
             actions=self._get_prop("actions"),
             own_id=own_id,
+            movable=self._get_prop("movable", False),
+            focus=self._get_prop("focus"),
         )
         title = VIEWS[view].title(draw)
 

@@ -17,7 +17,9 @@
  *
  * An ancestor says where focus goes instead when what had it is gone with
  * data-hue-refocus="<id>". A dialog's slot names the button that opens the
- * dialog, since the control that closed the dialog went with it.
+ * dialog, since the control that closed the dialog went with it. A control
+ * with the attribute sends focus there even when it is drawn again, as a
+ * calendar's view tab sends it to the new view's heading.
  *
  * Each note belongs to one response, the object ajax:sent and ajax:after
  * both carry, so an overlap check answered while a save is in flight
@@ -54,7 +56,7 @@ function restore(event) {
 		for (const id of was.chain) {
 			const el = document.getElementById(id);
 			if (!el) continue;
-			const to = id === was.id ? el : landing(el);
+			const to = id === was.id && !el.dataset.hueRefocus ? el : landing(el);
 			if (to.tabIndex < 0 && !to.hasAttribute("tabindex")) {
 				to.setAttribute("tabindex", "-1");
 			}

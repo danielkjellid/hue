@@ -5,6 +5,7 @@ is handed, and the links are what comes back. The route itself is tested
 against a real Django view in hue-django.
 """
 
+import re
 from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -12,15 +13,19 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from hue import calendar as declared
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue import html, scope
+from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.js import unsafe
+from hue.pages import create_page_base
 from hue.renderer import render_tree
+from hue.shortcuts import ShortcutRegistry, shortcuts
 from hue.ui import Calendar, Event
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _TODAY = date(2026, 10, 14)
+_Page = create_page_base(css_url="/s.css", js_url="/a.js", html_title_factory=str)
 _LAYERS = [Layer("work", "Work"), Layer("home", "Home", color=3)]
 
 
@@ -71,7 +76,7 @@ def _declared(router: _Router | None = None, **given: Any) -> Any:
 
 @pytest.fixture(autouse=True)
 def _october(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(declared, "_today", lambda formats: _TODAY)
+    monkeypatch.setattr(declared, "today_in", lambda formats: _TODAY)
 
 
 async def _drawn(declaration: Any, context_args: Any, **query: str) -> str:
@@ -242,7 +247,7 @@ async def test_a_part_drawn_outside_its_calendar_says_what_it_belongs_to(
     context_args,
 ):
     with pytest.raises(ValueError, match=r"part of a Calendar bound to a request"):
-        await render_tree(declared._Side(), context_args=context_args)
+        await render_tree(declared.Side(), context_args=context_args)
 
 
 # The declaration
@@ -391,6 +396,28 @@ class TestDrawn:
         assert_attr(html, "#events", "x-on:click", "calendarSlot($event)")
 
     @pytest.mark.asyncio
+    async def test_the_script_is_told_where_to_post_a_move_only_with_a_save(
+        self, context_args
+    ):
+        html = await _drawn(_declared(save=lambda r, e: None), context_args)
+        frame = select(html, "[x-data^=hueCalendar]")[0]["x-data"]
+        assert '"move": "/events/move/"' in frame
+        # The help's "a quarter hour" and the drag's snap are the one number.
+        assert '"snap": 15' in frame
+        assert select(html, "#events [data-resize]")
+        assert_attr(html, "#events", "x-on:pointerdown", "calendarPress($event)")
+        # Delete alone has no save to hand a moved event to.
+        html = await _drawn(_declared(delete=lambda r, i: None), context_args)
+        assert '"move": null' in select(html, "[x-data^=hueCalendar]")[0]["x-data"]
+        assert_no_selector(html, "#events [data-resize]")
+        assert_no_selector(html, "#events[x-on\\:pointerdown]")
+
+    @pytest.mark.asyncio
+    async def test_the_view_switcher_is_named_under_the_key(self, context_args):
+        html = await _drawn(_declared(), context_args)
+        assert _href(html, "events-switch-month") == "/events/?events-view=month"
+
+    @pytest.mark.asyncio
     async def test_two_calendars_on_one_page_keep_their_own_ids(self, context_args):
         rooms = build_calendar_state(_Router(), key="rooms", events=_events)
         desks = build_calendar_state(_Router(), key="desks", events=_events)
@@ -403,3 +430,103 @@ class TestDrawn:
         assert_selector(html, "#desks-side")
         assert_selector(html, "#rooms-picker")
         assert_selector(html, "#desks-picker")
+
+
+# The keys
+
+
+class _Keys(CalendarShortcuts):
+    pass
+
+
+class _Other(ShortcutRegistry):
+    pass
+
+
+class TestKeys:
+    @pytest.fixture
+    def _request(self):
+        with scope.request_scope():
+            yield
+
+    @pytest.mark.asyncio
+    async def test_the_keys_are_on_and_listed_when_the_registry_inherits_them(
+        self, _request
+    ):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        html = await _drawn(_declared(save=lambda r, e: None, search="Search"), args)
+        used = {item.shortcut.name: item.action for item in shortcuts.used()}
+        assert used["calendar_today"] == (
+            'document.getElementById("events-today")?.click()'
+        )
+        assert used["calendar_month"] == (
+            'document.getElementById("events-switch-month")?.click()'
+        )
+        assert used["calendar_new"] == 'document.getElementById("events-new")?.click()'
+        assert used["calendar_search"] == 'document.getElementById("events-q")?.focus()'
+        assert "hue:open" in used["calendar_help"]
+        # The help names each of them and the keys that move an event.
+        help_ = select(html, "#events-help")[0]
+        # Every control a key presses, focuses or opens is on the page.
+        for action in used.values():
+            for target in re.findall(r'getElementById\("([^"]+)"\)', action):
+                assert select(html, f"#{target}"), target
+        text = help_.get_text(" ", strip=True)
+        assert "Go to today" in text and "Move it a day" in text
+        assert (
+            "Keyboard shortcuts" in select(html, "#events-options")[0].parent.get_text()
+        )
+
+    @pytest.mark.asyncio
+    async def test_without_a_save_or_a_search_those_keys_stay_off(self, _request):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        html = await _drawn(_declared(), args)
+        names = {item.shortcut.name for item in shortcuts.used()}
+        assert "calendar_today" in names
+        assert not {"calendar_new", "calendar_search"} & names
+        assert "Move it a day" not in select(html, "#events-help")[0].get_text()
+
+    @pytest.mark.asyncio
+    async def test_a_registry_without_the_keys_gets_none_and_no_help(self, _request):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Other)
+        html = await _drawn(_declared(save=lambda r, e: None), args)
+        assert shortcuts.used() == []
+        assert_no_selector(html, "#events-help")
+        assert "Keyboard shortcuts" not in html
+
+    @pytest.mark.asyncio
+    async def test_a_calendar_inside_an_async_component_still_binds_its_keys(
+        self, _request
+    ):
+        class Late:
+            def __init__(self, child: Any) -> None:
+                self.child = child
+
+            async def htmy(self, context: Any) -> Any:
+                return self.child
+
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        page = _Page(title="Events", body=Late(Late(Calendar.from_state(_declared()))))
+        rendered = await render_tree(page, context_args=args)
+        assert_selector(rendered, "#hue-shortcuts button[x-on\\:click*='events-today']")
+
+    @pytest.mark.asyncio
+    async def test_of_two_calendars_on_a_page_the_first_drawn_has_the_keys(
+        self, _request
+    ):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        rooms = build_calendar_state(_Router(), key="rooms", events=_events)
+        page = _Page(
+            title="Two",
+            body=html.div(Calendar.from_state(_declared()), Calendar.from_state(rooms)),
+        )
+        rendered = await render_tree(page, context_args=args)
+        today = [
+            item.action
+            for item in shortcuts.used()
+            if item.shortcut is CalendarShortcuts.calendar_today
+        ]
+        assert today == ['document.getElementById("events-today")?.click()']
+        # Only the one the keys drive offers their help.
+        assert_selector(rendered, "#events-help")
+        assert_no_selector(rendered, "#rooms-help")

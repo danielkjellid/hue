@@ -23,11 +23,12 @@ import json
 import re
 from collections.abc import Callable, Iterable
 from contextvars import ContextVar, Token
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, ClassVar, Final, NamedTuple
 
-from htmy import Component, Context, html
+from htmy import Component, Context, SafeStr, html
+from htmy.renderer import Renderer
 
 from hue.js import Expression, expect
 from hue.types.core import ComponentType
@@ -376,11 +377,13 @@ class ShortcutRegistry:
 class _Request:
     """
     What one request has done with its shortcuts: the scoped ones it switched
-    on, and whether anything rendered their bindings yet.
+    on, whether anything rendered their bindings yet, and who holds each
+    group of them that only one owner on a page can drive.
     """
 
     used: list[Active]
     bound: bool = False
+    claims: dict[str, str] = field(default_factory=dict)
 
 
 _REQUEST: ContextVar[_Request] = ContextVar("hue_shortcuts_request")
@@ -434,6 +437,17 @@ class _Shortcuts:
         request = _REQUEST.get(None)
         return list(request.used) if request is not None else []
 
+    def claim(self, group: str, owner: str) -> bool:
+        """
+        Whether owner holds this group of scoped shortcuts for the request:
+        the first to ask does, and keeps it. With no request open there is
+        nothing to share, and anyone may.
+        """
+        request = _REQUEST.get(None)
+        if request is None:
+            return True
+        return request.claims.setdefault(group, owner) == owner
+
     def bound(self) -> bool:
         """
         Whether this request has rendered its shortcut bindings, which a page
@@ -473,20 +487,26 @@ class ShortcutHost:
     it is synced, so that copy replaces the page's, and the scoped shortcuts
     on are the ones the latest handler switched on.
 
+    Given the page's body, it draws that first and its own elements after,
+    so a component that switches a scoped shortcut on while it is drawn, as
+    a declared calendar does, has done so however deep or late it renders.
+
     Hidden, and out of the accessibility tree, because the rows that show a
     shortcut are where it is announced.
     """
 
-    def __init__(self, registry: type[ShortcutRegistry]) -> None:
+    def __init__(self, registry: type[ShortcutRegistry], *after: ComponentType) -> None:
         self.registry = registry
+        self.after = after
 
-    def htmy(self, context: Context) -> Component:
+    async def htmy(self, context: Context) -> Component:
         # Imported here: hue.context imports this module for the registry type.
         from hue.context import HueContext  # noqa: PLC0415
 
+        drawn = await Renderer().render(self.after, context) if self.after else ""
         request = HueContext.from_context(context).request
         shortcuts._bind()
-        return html.div(
+        return SafeStr(drawn), html.div(
             *(self._element(item, request) for item in self.registry.active()),
             id="hue-shortcuts",
             hidden="",

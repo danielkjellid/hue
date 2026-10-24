@@ -4,8 +4,10 @@ gives the days shown, what the search and the layers narrow, and what
 the dialog's route writes.
 """
 
+import json
 import re
 from datetime import date, datetime, timedelta
+from html import unescape
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -107,6 +109,57 @@ def test_a_save_writes_an_aware_entry_and_the_dialog_edits_it(entries):
     assert review.starts == _at(2026, 10, 16, 9)
 
 
+def test_a_move_keeps_what_the_browser_never_had_and_undo_puts_it_back(entries):
+    review = entries["Design review"]
+    moved = _act(
+        "move",
+        id=str(review.pk),
+        occurrence="2026-10-14T13:00",
+        starts="2026-10-15",
+        starts_time="09:00",
+        ends="2026-10-15",
+        ends_time="10:30",
+    )
+    assert moved.status_code == 200
+    review.refresh_from_db()
+    assert (review.starts, review.ends) == (
+        _at(2026, 10, 15, 9),
+        _at(2026, 10, 15, 10, 30),
+    )
+    assert review.notes == "Walk the matrix."
+    # The toast's Undo posts a move back, which lands where it was.
+    html = moved.content.decode()
+    back = re.search(r'"events-starts_time": "(\d\d:\d\d)"[^}]*"events-undo"', html)
+    assert back and back[1] == "13:00"
+    _act(
+        "move",
+        id=str(review.pk),
+        occurrence="2026-10-15T09:00",
+        starts="2026-10-14",
+        starts_time="13:00",
+        ends="2026-10-14",
+        ends_time="14:30",
+        undo="1",
+    )
+    review.refresh_from_db()
+    assert review.starts == _at(2026, 10, 14, 13)
+
+
+def test_a_create_is_undone_by_the_key_save_returns(entries):
+    made = _act("save", title="Pairing", starts="2026-10-15", starts_time="11:00",
+                ends="2026-10-15", ends_time="12:30", layer="eng")  # fmt: skip
+    pk = Entry.objects.get(title="Pairing").pk
+    assert f'"events-id": "{pk}"' in made.content.decode()
+    assert _act("delete", id=str(pk), undo="1").status_code == 200
+    assert not Entry.objects.filter(title="Pairing").exists()
+
+
+def test_the_calendars_keys_are_bound_on_the_page(entries):
+    html = _read()
+    assert 'id="hue-shortcuts"' in html
+    assert "events-switch-month" in html and 'id="events-help"' in html
+
+
 def test_a_field_that_cannot_be_read_is_an_error_and_writes_nothing(entries):
     response = _act("save", title="", starts="2026-10-15", ends="2026-10-15")
     assert response.status_code == 422
@@ -167,3 +220,113 @@ def test_a_time_the_clocks_skip_is_refused_rather_than_moved(db):
     assert _aware(datetime(2026, 3, 29, 3, 30)) == _at(2026, 3, 29, 3, 30)
     with pytest.raises(ValueError, match="02:30 is skipped"):
         _aware(datetime(2026, 3, 29, 2, 30))
+
+
+def _standups(day: str) -> list[str]:
+    """
+    The standups the week around day shows, as the day and the time each
+    starts.
+    """
+    labels = re.findall(
+        r'aria-label="Standup, \w+ (\d+ \w+) \d{4}, (\d\d:\d\d) to',
+        _read(**{"events-date": day}),
+    )
+    return [f"{date} {clock}" for date, clock in labels]
+
+
+def _undo(response: Any) -> Any:
+    """
+    Press the Undo on the toast a response raised: its action and fields.
+    """
+    html = unescape(response.content.decode())
+    button = re.search(r"\$ajax\(\"[^\"]*/(\w+)/\", (\{.*?\})\); dismiss\(\)", html)
+    assert button, "the toast offers an Undo"
+    posted = json.loads(button[2])["body"]
+    return Client().post(f"/events/events/{button[1]}/", posted, **_AJAX)
+
+
+_FIRST_WEEK = ["28 September", "29 September", "30 September", "1 October", "2 October"]
+_THIS_WEEK = ["12 October", "13 October", "14 October", "15 October", "16 October"]
+
+
+def _at_each(days: list[str], clock: str) -> list[str]:
+    return [f"{day} {clock}" for day in days]
+
+
+@pytest.mark.parametrize("action", ["move", "save"])
+def test_a_series_moved_from_one_occurrence_moves_whole_and_undo_restores_it(
+    entries, action
+):
+    standup = entries["Standup"]
+    occurrence = {"id": str(standup.pk), "occurrence": "2026-10-14T09:00"}
+    when = {"starts": "2026-10-14", "starts_time": "10:00",
+            "ends": "2026-10-14", "ends_time": "10:15"}  # fmt: skip
+    edited = {"title": "Standup", "layer": "eng", "repeat": "weekdays"}
+    moved = _act(action, **occurrence, **when, **(edited if action == "save" else {}))
+    assert moved.status_code == 200
+    # Every standup an hour later, from the first week on, and one a day.
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "10:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "10:00")
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 10)
+
+    assert _undo(moved).status_code == 200
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "09:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "09:00")
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 9)
+    assert standup.ends == _at(2026, 9, 28, 9, 15)
+
+
+def test_a_deleted_series_comes_back_whole_from_undo(entries):
+    standup = entries["Standup"]
+    deleted = _act("delete", id=str(standup.pk), occurrence="2026-10-14T09:00",
+                   title="Standup", layer="eng", repeat="weekdays",
+                   location="Huddle room", starts="2026-10-14", starts_time="09:00",
+                   ends="2026-10-14", ends_time="09:15")  # fmt: skip
+    assert _standups("2026-10-14") == []
+    assert _undo(deleted).status_code == 200
+    assert _standups("2026-10-14") == _at_each(_THIS_WEEK, "09:00")
+    assert _standups("2026-09-30") == _at_each(_FIRST_WEEK, "09:00")
+
+
+def test_undo_finds_a_series_moved_onto_a_day_its_rule_skips(entries):
+    # Wednesday's standup dropped on Saturday moves the series three days
+    # on, and Saturday has no standup for the Undo to name.
+    standup = entries["Standup"]
+    moved = _act("move", id=str(standup.pk), occurrence="2026-10-14T09:00",
+                 starts="2026-10-17", starts_time="09:00",
+                 ends="2026-10-17", ends_time="09:15")  # fmt: skip
+    assert moved.status_code == 200
+    assert _undo(moved).status_code == 200
+    standup.refresh_from_db()
+    assert standup.starts == _at(2026, 9, 28, 9)
+
+
+def test_an_occurrence_past_the_years_a_calendar_draws_is_not_found(entries):
+    dentist = entries["Dentist"]
+    moved = _act("move", id=str(dentist.pk), occurrence="9999-12-31T23:00",
+                 starts="2026-10-15", starts_time="16:00",
+                 ends="2026-10-15", ends_time="16:45")  # fmt: skip
+    assert moved.status_code == 404
+    dentist.refresh_from_db()
+    assert dentist.starts == _at(2026, 10, 15, 15)
+
+
+@pytest.mark.parametrize("action", ["move", "save"])
+def test_a_series_whose_first_occurrence_would_be_skipped_is_refused(db, action):
+    # Every Sunday at 02:30 from 22 March: a week later is the night the
+    # clocks go forward, which has no 02:30.
+    night = Entry.objects.create(
+        title="Night shift", layer="eng", repeat="weekly",
+        starts=_at(2026, 3, 22, 2, 30), ends=_at(2026, 3, 22, 3, 30),
+    )  # fmt: skip
+    edited = {"title": "Night shift", "layer": "eng", "repeat": "weekly"}
+    response = _act(action, id=str(night.pk), occurrence="2026-04-05T02:30",
+                    starts="2026-04-12", starts_time="02:30",
+                    ends="2026-04-12", ends_time="03:30",
+                    **(edited if action == "save" else {}))  # fmt: skip
+    assert response.status_code == 422
+    assert "skipped when the clocks go forward" in unescape(response.content.decode())
+    night.refresh_from_db()
+    assert night.starts == _at(2026, 3, 22, 2, 30)

@@ -38,7 +38,8 @@ class Dialog(ChainableComponent):
     """
     A window over the page that has to be dealt with before anything else.
 
-    trigger() opens it and open() starts it open. Focus is trapped inside
+    trigger() opens it, open() starts it open, and a hue:open event on its
+    root opens it from anywhere else on the page. Focus is trapped inside
     while it is up and returns to the trigger when it closes; the page behind
     cannot be scrolled or tabbed into. destructive() makes it an alertdialog,
     for a question whose wrong answer cannot be undone. Below sm it docks to
@@ -203,6 +204,8 @@ class Dialog(ChainableComponent):
                     )
                 ),
                 "x-id": _overlay.OVERLAY_IDS,
+                # For a control outside its scope, such as a shortcut.
+                "x-on:hue:open": "open = true",
                 **self._get_base_html_attrs(),
             },
         )

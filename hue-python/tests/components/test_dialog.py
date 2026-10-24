@@ -28,6 +28,12 @@ class TestDialog:
         assert_attr(html, "button", "x-on:click", "open = true")
 
     @pytest.mark.asyncio
+    async def test_hue_open_on_its_root_opens_it_from_outside(self, context_args):
+        # A shortcut outside the dialog's scope has no open to set.
+        html = await render_tree(_dialog().id("invite"), context_args=context_args)
+        assert_attr(html, "#invite", "x-on:hue:open", "open = true")
+
+    @pytest.mark.asyncio
     async def test_the_triggers_own_binding_survives(self, context_args):
         # Both used to be written under :aria-expanded, so the dialog's
         # replaced the caller's.
