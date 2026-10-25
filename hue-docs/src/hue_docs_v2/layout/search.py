@@ -115,7 +115,7 @@ def search_dialog() -> ComponentType:
     )
     return (
         Dialog()
-        .label("Search the docs")
+        .title("Search the docs")
         .size("lg")
         .x_on("docs-search.window", unsafe("open = true"))
         .content(
@@ -126,12 +126,12 @@ def search_dialog() -> ComponentType:
                 html.p().class_("sr-only").aria_live("polite").x_text(unsafe("status")),
                 footer,
             )
-            .class_("-m-5 flex flex-col")
+            .class_("-mx-5 -mb-5 flex flex-col")
             .x_data(f"docsSearch({json.dumps(url('/'))})")
             # Reset when it opens, so the reader starts from an empty box, and
             # focused by hand: the dialog's trap would otherwise land on its
-            # close button, which comes first. -m-5 and open lean on Dialog's
-            # body padding and its state's name.
+            # close button, which comes first. -mx-5 -mb-5 and open lean on
+            # Dialog's body padding and its state's name.
             .x_effect(
                 unsafe("if (open) { reset(); $nextTick(() => $refs.input.focus()) }")
             )
