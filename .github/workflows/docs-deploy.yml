@@ -134,3 +134,84 @@ jobs:
             gh api --method POST "repos/$repo/issues/$PR/comments" \
               -f body="$body" >/dev/null
           fi
+
+  # Docs v2: the frozen site as static assets, with a Python Worker for the
+  # live demos under /demos/. Its own Worker, hue-docs-v2, so v1 keeps
+  # serving the real site until v2 replaces it.
+  deploy-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: danielkjellid/github-actions/.github/actions/setup-python-uv@main
+        with:
+          working-directory: hue-docs
+
+      # Shiki highlights the code blocks at build time.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the site and the Worker
+        working-directory: hue-docs
+        run: make build-v2 worker-v2
+
+      - name: Ship it
+        id: ship
+        working-directory: hue-docs/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ "$REF" = "refs/heads/main" ]; then
+            output=$(uv run pywrangler deploy 2>&1 | tee /dev/stderr)
+          else
+            alias=$(printf '%s' "$BRANCH" \
+              | tr '[:upper:]' '[:lower:]' \
+              | sed 's/[^a-z0-9-]/-/g' \
+              | cut -c1-40)
+            # A version can only be uploaded to a Worker that exists, so the
+            # first push anywhere deploys it once instead.
+            output=$(uv run pywrangler versions upload --preview-alias "$alias" 2>&1 \
+                     || uv run pywrangler deploy 2>&1)
+            printf '%s\n' "$output"
+          fi
+
+          url=$(printf '%s' "$output" | grep -oE 'https://[^[:space:]]+workers\.dev' \
+                | tail -1)
+          pr=$(gh pr list --head "$BRANCH" --state open \
+                 --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          {
+            echo "url=$url"
+            echo "pr=$pr"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Leave the preview link on the pull request
+        if: steps.ship.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.ship.outputs.pr }}
+          URL: ${{ steps.ship.outputs.url }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          marker='<!-- hue-docs-v2-preview -->'
+          body=$(printf '%s\n### Docs v2 preview\n\n%s\n\nBuilt from `%s` on `%s`.' \
+            "$marker" "$URL" "${GITHUB_SHA:0:7}" "$BRANCH")
+          repo='${{ github.repository }}'
+          existing=$(gh api "repos/$repo/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.body | contains(\"$marker\"))][0].id // empty")
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$repo/issues/comments/$existing" \
+              -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$repo/issues/$PR/comments" \
+              -f body="$body" >/dev/null
+          fi

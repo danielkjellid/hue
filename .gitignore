@@ -30,3 +30,16 @@ toc-demo.py
 
 # The example app's database, made and seeded by `make serve`.
 examples/django/db.sqlite3
+
+# docs v2: the frozen site, and the highlight cache Shiki fills at build time.
+# Both generated, for the same reason tailwind.css is not committed.
+hue-docs/dist-v2/
+hue-docs/.cache/
+# Copied into the docs Worker by `make worker-v2`; the sources live beside it.
+hue-docs/worker/src/hue/
+hue-docs/worker/src/hue_fastapi/
+hue-docs/worker/src/hue_docs_v2/
+hue-docs/worker/.venv/
+hue-docs/worker/python_modules/
+hue-docs/worker/.wrangler/
+hue-docs/worker/pylock.toml

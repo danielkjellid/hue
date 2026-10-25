@@ -64,6 +64,7 @@ jobs:
           - hue-django/src/hue_django
           - hue-fastapi/src/hue_fastapi
           - hue-docs/src/hue_docs
+          - hue-docs/src/hue_docs_v2
           - examples/django/example
     steps:
       - uses: actions/checkout@v3
