@@ -1,11 +1,11 @@
 from collections.abc import Callable
 
 from htmy import Context
+from hue.assets import CSS_URL, JS_URL, versioned_url
 from hue.context import HueContext
 from hue.pages import BasePage
 from hue.types.core import Component
 
-from hue_fastapi.assets import CSS_URL, JS_URL, versioned_url
 from hue_fastapi.config import HueConfig, get_config
 
 
@@ -23,11 +23,11 @@ class Page(BasePage):
 
     @property
     def css_url(self) -> str:  # type: ignore[override]
-        return self._config.css_url or versioned_url(CSS_URL, self._debug)
+        return self._config.css_url or versioned_url(CSS_URL, reload=self._debug)
 
     @property
     def js_url(self) -> str:  # type: ignore[override]
-        return self._config.js_url or versioned_url(JS_URL, self._debug)
+        return self._config.js_url or versioned_url(JS_URL, reload=self._debug)
 
     @property
     def extra_css_urls(self) -> list[str]:  # type: ignore[override]

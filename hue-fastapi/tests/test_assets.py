@@ -1,9 +1,9 @@
 import pytest
+from hue import assets as assets_module
 from hue import html
+from hue.assets import CHART_JS_URL, CSS_URL, JS_URL, versioned_url
 
 from hue_fastapi import HueView, Page
-from hue_fastapi import assets as assets_module
-from hue_fastapi.assets import CHART_JS_URL, CSS_URL, JS_URL, versioned_url
 from tests.conftest import STUB_CSS, make_app
 
 
@@ -161,9 +161,8 @@ async def test_reads_each_asset_once(client_for, monkeypatch):
         reads.append(1)
         return STUB_CSS
 
-    content_type = assets_module._ASSET_ROUTES[CSS_URL][1]
-    routes = {**assets_module._ASSET_ROUTES, CSS_URL: (reader, content_type)}
-    monkeypatch.setattr(assets_module, "_ASSET_ROUTES", routes)
+    content_type = assets_module.ASSET_ROUTES[CSS_URL][1]
+    monkeypatch.setitem(assets_module.ASSET_ROUTES, CSS_URL, (reader, content_type))
     async with client_for(make_app()) as client:
         await client.get(CSS_URL)
         await client.get(CSS_URL)

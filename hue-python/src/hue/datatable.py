@@ -70,6 +70,7 @@ the loop.
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Set as AbstractSet
 from copy import copy
@@ -316,10 +317,10 @@ class BulkAction:
 
     The handler receives the request and the ids of the picked rows. It is
     whatever you would have written anyway, such as the service function
-    that archives them. The ids are only ever ones rows() returns for the
-    table as the reader saw it, so a posted id for a row they could not see
-    never reaches the handler. The icon goes before the label in the bar
-    for picked rows.
+    that archives them, and may be an async def. The ids are only ever ones
+    rows() returns for the table as the reader saw it, so a posted id for a
+    row they could not see never reaches the handler. The icon goes before
+    the label in the bar for picked rows.
 
     confirm is a Dialog to answer first, for an action that cannot be taken
     back. Give it the question; the table adds the button that opens it and
@@ -471,7 +472,9 @@ class _Declaration:
     part that is a function. It receives the request and the state that
     was asked for, and returns everything that matches: the whole filtered,
     ordered set. The page is sliced afterwards, so a queryset stays lazy
-    and is counted instead of walked.
+    and is counted instead of walked. A plain function runs off the event
+    loop, through the router; an async def is awaited and returns the rows
+    themselves, already fetched.
 
     actions are what can be done with picked rows, and identifier names
     the property a row is known by, which is what an action receives. The
@@ -641,7 +644,13 @@ class _Declaration:
         others: tuple[tuple[str, str], ...],
         urls: _TableUrls | None = None,
     ) -> BoundTable:
-        page, total, number = await self._router._run_sync(self._fetch, request, asked)
+        if inspect.iscoroutinefunction(self.rows):
+            matching = await self.rows(request, asked)
+            page, total, number = self._page_of(matching, asked)
+        else:
+            page, total, number = await self._router._run_sync(
+                self._fetch, request, asked
+            )
         self._check_identifier(page)
         return BoundTable(
             self,
@@ -715,7 +724,9 @@ class _Declaration:
         A page past the last is the last page: after an action removes rows,
         or when a link is followed later, the reader still sees rows.
         """
-        matching = self.rows(request, asked)
+        return self._page_of(self.rows(request, asked), asked)
+
+    def _page_of(self, matching: Any, asked: TableState) -> tuple[Rows, int, int]:
         total = _total(matching)
         number = min(asked.page, max(1, ceil(total / self.page_size)))
         start = (number - 1) * self.page_size
@@ -730,10 +741,13 @@ class _Declaration:
         anything, and rows() is where a table says which rows are the
         reader's to see.
         """
+        return self._picked_from(self.rows(request, asked), posted)
+
+    def _picked_from(self, matching: Any, posted: list[str]) -> list[str]:
         key = self.identifier
         if key is None:  # refused by _check, since there are actions
             return []
-        kept = self._router._narrow_to(self.rows(request, asked), key, posted)
+        kept = self._router._narrow_to(matching, key, posted)
         allowed = {str(resolve_value(row, key)) for row in kept}
         return [value for value in dict.fromkeys(posted) if value in allowed]
 
@@ -852,11 +866,21 @@ class _Declaration:
             # the way the reader was looking at it.
             posted = self._router._get_form_values(request)
             asked, others = self._read(posted)
-            picked = await self._router._run_sync(
-                self._picked, request, asked, posted.get(SELECTED, [])
-            )
+            ticked = posted.get(SELECTED, [])
+            if inspect.iscoroutinefunction(self.rows):
+                matching = await self.rows(request, asked)
+                picked = self._picked_from(matching, ticked)
+            else:
+                picked = await self._router._run_sync(
+                    self._picked, request, asked, ticked
+                )
             try:
-                await self._router._run_sync(chosen.handler, request, picked)
+                # An async handler is awaited on the loop: handed to a thread
+                # it would return a coroutine nobody awaits, and do nothing.
+                if inspect.iscoroutinefunction(chosen.handler):
+                    await chosen.handler(request, picked)
+                else:
+                    await self._router._run_sync(chosen.handler, request, picked)
             except Exception as error:
                 # A permission denied or a not found is the framework's own
                 # answer, and it gives it.

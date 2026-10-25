@@ -11,13 +11,12 @@ from hue.context import HueContext
 from hue.formats import Formats
 from hue.router import PAGE_ROUTE
 from hue.shortcuts import Shortcut, ShortcutRegistry
-from hue.toast import toast
+from hue.toast import SESSION_KEY, toast
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from hue_fastapi import HueFragmentsView, HueRequestMiddleware, HueView, Page, Router
-from hue_fastapi.middleware import SESSION_KEY
 from tests._annotated_for_typing_only import TypingOnly
 from tests.conftest import AJAX_HEADERS, make_app
 

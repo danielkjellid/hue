@@ -4,7 +4,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from hue_fastapi import assets as assets_module
+from hue import assets
 from hue_fastapi.config import configure_hue
 from hue_fastapi.csrf import CsrfConfig
 
@@ -20,22 +20,14 @@ def stub_assets(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Serve fixed asset bodies, so tests do not need hue's CSS to be built.
     """
-    monkeypatch.setattr(
-        assets_module,
-        "_ASSET_ROUTES",
-        {
-            assets_module.CSS_URL: (lambda: STUB_CSS, "text/css; charset=utf-8"),
-            assets_module.JS_URL: (
-                lambda: STUB_JS,
-                "text/javascript; charset=utf-8",
-            ),
-            assets_module.CHART_JS_URL: (
-                lambda: STUB_JS,
-                "text/javascript; charset=utf-8",
-            ),
-        },
-    )
-    monkeypatch.setattr(assets_module, "_cache", {})
+    for url, body in (
+        (assets.CSS_URL, STUB_CSS),
+        (assets.JS_URL, STUB_JS),
+        (assets.CHART_JS_URL, STUB_JS),
+    ):
+        _, content_type = assets.ASSET_ROUTES[url]
+        monkeypatch.setitem(assets.ASSET_ROUTES, url, (lambda b=body: b, content_type))
+    monkeypatch.setattr(assets, "_served", {})
 
 
 def make_app(
@@ -56,9 +48,9 @@ def make_app(
 @pytest.fixture
 def client_for() -> Callable[..., httpx.AsyncClient]:
     def _client(app: FastAPI, **kwargs: object) -> httpx.AsyncClient:
+        kwargs.setdefault("base_url", "http://test")
         return httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
-            base_url="http://test",
             **kwargs,  # type: ignore[arg-type]
         )
 

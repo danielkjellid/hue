@@ -8,9 +8,16 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from hue_fastapi.config import get_config
-from hue_fastapi.router import FORM_CONTENT_TYPES
 
 SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+FORM_CONTENT_TYPES: Final = (
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+)
+# Fixed rather than settings: hue's Alpine bundle always sends this header,
+# and a table strips this field from the state it echoes into links.
+CSRF_HEADER: Final = "X-CSRFToken"
+CSRF_FORM_FIELD: Final = "csrf_token"
 
 _STATE_TOKEN: Final = "hue_csrf_token"
 
@@ -21,22 +28,25 @@ class CsrfConfig:
     Signed double submit cookie protection.
 
     Starlette ships none of this. The signature means the server accepts only
-    tokens it minted itself. It does not tie a token to one browser, so a
-    sibling subdomain that can set cookies can still plant a token it fetched
-    from the site: serve the app from a domain no untrusted subdomain shares.
+    tokens it minted itself. It does not tie a token to one browser, so with
+    cookie_secure the cookie takes the __Host- prefix, which a browser only
+    accepts over HTTPS from the host itself: a sibling subdomain cannot plant
+    one. Without it, serve the app from a domain no untrusted subdomain shares.
 
-    The header name matches what hue's Alpine bundle sends, so AJAX requests are
-    covered without any work in the page. Forms that post without AJAX carry the
-    token in a hidden field instead, via ui.CsrfTokenInput.
+    AJAX requests carry the token in the header hue's Alpine bundle sends.
+    Forms that post without AJAX carry it in a hidden field instead, via
+    ui.CsrfTokenInput.
     """
 
     secret_key: str
     cookie_name: str = "csrftoken"
-    header_name: str = "X-CSRFToken"
-    form_field: str = "csrf_token"
     cookie_secure: bool = False
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     max_age: int = 60 * 60 * 24 * 7 * 52
+
+    @property
+    def _cookie(self) -> str:
+        return f"__Host-{self.cookie_name}" if self.cookie_secure else self.cookie_name
 
     def _serializer(self) -> URLSafeSerializer:
         return URLSafeSerializer(self.secret_key, salt="hue.csrf")
@@ -60,7 +70,7 @@ class CsrfConfig:
         if existing is not None:
             return existing
 
-        cookie_token = request.cookies.get(self.cookie_name)
+        cookie_token = request.cookies.get(self._cookie)
         if cookie_token and self._is_valid(cookie_token):
             token = cookie_token
         else:
@@ -75,11 +85,11 @@ class CsrfConfig:
         token that is not the cookie it came with.
         """
         token: str | None = getattr(request.state, _STATE_TOKEN, None)
-        if token is None or token == request.cookies.get(self.cookie_name):
+        if token is None or token == request.cookies.get(self._cookie):
             return
 
         response.set_cookie(
-            key=self.cookie_name,
+            key=self._cookie,
             value=token,
             max_age=self.max_age,
             path="/",
@@ -90,11 +100,11 @@ class CsrfConfig:
         )
 
     async def verify(self, request: Request) -> bool:
-        cookie_token = request.cookies.get(self.cookie_name)
+        cookie_token = request.cookies.get(self._cookie)
         if not cookie_token or not self._is_valid(cookie_token):
             return False
 
-        submitted = request.headers.get(self.header_name)
+        submitted = request.headers.get(CSRF_HEADER)
 
         if not submitted:
             content_type = request.headers.get("content-type", "")
@@ -102,7 +112,7 @@ class CsrfConfig:
             # JSON request consumes the stream that hue is about to read.
             if content_type.startswith(FORM_CONTENT_TYPES):
                 form = await request.form()
-                value = form.get(self.form_field)
+                value = form.get(CSRF_FORM_FIELD)
                 submitted = value if isinstance(value, str) else None
 
         if not submitted:

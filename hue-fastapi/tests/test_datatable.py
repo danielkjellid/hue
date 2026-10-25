@@ -86,3 +86,46 @@ async def test_an_unknown_action_is_not_found(client_for):
         )
 
     assert response.status_code == 404
+
+
+async def _matching_async(request: Any, asked: Any) -> list[dict[str, Any]]:
+    return _matching(request, asked)
+
+
+async def _archive_async(request: Any, ids: list[str]) -> None:
+    _ARCHIVED.extend(ids)
+
+
+class AsyncInvoices(HueView):
+    router = Router[Request]()
+
+    async def index(self, request: Request, context: Any) -> Page:
+        return Page(title="Invoices", body=DataTable.from_state(self.invoices))
+
+    invoices = build_datatable_state(
+        router,
+        key="invoices",
+        columns=[Column("customer", "Customer")],
+        rows=_matching_async,
+        identifier="pk",
+        actions={"archive": BulkAction("Archive", _archive_async)},
+    )
+
+
+async def test_async_rows_and_an_async_action_both_run(client_for):
+    """
+    An async def is awaited on the loop. Handed to the thread pool like a
+    plain function, it would return a coroutine nobody awaits.
+    """
+    _ARCHIVED.clear()
+    async with client_for(make_app(("/billing", AsyncInvoices))) as client:
+        page = await client.get("/billing/")
+        response = await client.post(
+            "/billing/invoices/archive/",
+            data={"selected": ["41", "nonesuch"]},
+            headers=ALPINE_AJAX_HEADERS,
+        )
+
+    assert "Northwind" in page.text
+    assert response.status_code == 200
+    assert _ARCHIVED == ["41"]

@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from hue_fastapi.config import get_config
+from hue_fastapi.csrf import CSRF_FORM_FIELD, FORM_CONTENT_TYPES
 
 __all__ = ["HueResponse", "Router"]
 
@@ -26,11 +27,6 @@ FORM_STATE: Final = "hue_form_values"
 MOUNT_STATE: Final = "hue_mount"
 
 HANDLER_ATTR: Final = "__hue_handler__"
-
-FORM_CONTENT_TYPES: Final = (
-    "application/x-www-form-urlencoded",
-    "multipart/form-data",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +149,7 @@ class Router[T_Request: Request](HueRouter[T_Request]):
         return f"{mount.prefix}/{path}"
 
     def _form_fields(self) -> frozenset[str]:
-        return frozenset({"csrf_token"})
+        return frozenset({CSRF_FORM_FIELD})
 
     def _passes_through(self, error: Exception) -> bool:
         """

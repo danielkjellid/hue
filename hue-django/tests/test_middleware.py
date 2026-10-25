@@ -2,24 +2,21 @@ import pytest
 from asgiref.sync import async_to_sync
 from django.http import HttpResponse
 from django.test import AsyncRequestFactory, RequestFactory, override_settings
-from hue.assets import chart_bundle_path
+from hue import assets
+from hue.assets import ASSET_ROUTES, chart_bundle_path
 
 from hue_django.middleware import (
-    _ASSET_ROUTES,
     CHART_JS_URL,
     CSS_URL,
     JS_URL,
     HueAssetsMiddleware,
-    _cache,
     versioned_url,
 )
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache():
-    _cache.clear()
-    yield
-    _cache.clear()
+def _clear_cache(monkeypatch):
+    monkeypatch.setattr(assets, "_served", {})
 
 
 @pytest.fixture
@@ -127,7 +124,7 @@ class TestMiddlewareCaching:
     def test_reads_asset_once(self, middleware, rf, monkeypatch) -> None:
         reads: list[int] = []
         monkeypatch.setitem(
-            _ASSET_ROUTES,
+            ASSET_ROUTES,
             CSS_URL,
             (lambda: reads.append(1) or ".a{}", "text/css; charset=utf-8"),
         )
@@ -142,7 +139,7 @@ class TestMiddlewareCaching:
         # without a restart, which the autoreloader does not do for it.
         content = iter([".a{}", ".b{}"])
         monkeypatch.setitem(
-            _ASSET_ROUTES, CSS_URL, (lambda: next(content), "text/css; charset=utf-8")
+            ASSET_ROUTES, CSS_URL, (lambda: next(content), "text/css; charset=utf-8")
         )
         assert middleware(rf.get(CSS_URL)).content == b".a{}"
         assert middleware(rf.get(CSS_URL)).content == b".b{}"
@@ -167,7 +164,7 @@ class TestMiddlewareCaching:
         with override_settings(DEBUG=True):
             content = iter([".a{}", ".b{}"])
             monkeypatch.setitem(
-                _ASSET_ROUTES,
+                ASSET_ROUTES,
                 CSS_URL,
                 (lambda: next(content), "text/css; charset=utf-8"),
             )

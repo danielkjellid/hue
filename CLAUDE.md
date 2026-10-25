@@ -357,8 +357,17 @@ The same surface as hue-django. Where the two differ:
   actions read the posted ids through `_get_form_values`.
 - `_url_for` works out the mount prefix from the request path (`Mount.of`), not from route
   names, so a view mounted twice links into the mount the reader is in.
-- CSRF is a signed double-submit cookie (`csrf.py`). `HueRequestMiddleware` carries
-  toasts across a redirect and needs Starlette's `SessionMiddleware` outside it.
+- CSRF is a signed double-submit cookie (`csrf.py`), read from the `X-CSRFToken` header
+  the Alpine bundle sends or the `csrf_token` field. Both names are fixed, since hue
+  depends on them. With `cookie_secure` the cookie takes the `__Host-` prefix, so a
+  sibling subdomain cannot plant one.
+- `HueRequestMiddleware` carries toasts across a redirect and needs Starlette's
+  `SessionMiddleware` outside it. The session load and save live in `hue.toast`
+  (`restore_from_session`, `keep_in_session`), shared with hue-django.
+- The asset table, cache and Cache-Control rule live in `hue.assets` (`ASSET_ROUTES`,
+  `served_asset`, `versioned_url`, `cache_control`), shared with hue-django. Tests stub
+  an asset with `monkeypatch.setitem(assets.ASSET_ROUTES, ...)` and reset
+  `assets._served`.
 - A route hue registers for a view (a table's action) spells its parameter through
   `Router._path_param`, so core never writes one framework's path syntax.
 

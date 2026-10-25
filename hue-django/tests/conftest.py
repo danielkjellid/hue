@@ -2,6 +2,7 @@ import django
 import pytest
 from django.conf import settings
 from django.urls import URLPattern
+from hue import assets
 from hue_django import middleware
 
 urlpatterns = []
@@ -47,12 +48,12 @@ def _stub_assets(monkeypatch: pytest.MonkeyPatch) -> None:
     that the real assets exist and are readable.
     """
     monkeypatch.setitem(
-        middleware._ASSET_ROUTES,
-        middleware.CSS_URL,
+        assets.ASSET_ROUTES,
+        assets.CSS_URL,
         (lambda: ".stub{color:red}", "text/css; charset=utf-8"),
     )
     monkeypatch.setitem(
-        middleware._ASSET_ROUTES,
-        middleware.JS_URL,
+        assets.ASSET_ROUTES,
+        assets.JS_URL,
         (lambda: "export const stub = 1;", "text/javascript; charset=utf-8"),
     )

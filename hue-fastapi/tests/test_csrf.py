@@ -133,3 +133,25 @@ async def test_the_cookie_is_set_on_passthrough_responses(client_for):
     assert response.status_code == 302
     assert response.headers["location"] == "/after/"
     assert response.cookies["csrftoken"]
+
+
+async def test_a_secure_cookie_is_bound_to_the_host(client_for):
+    """
+    With cookie_secure the cookie is named with the __Host- prefix, which a
+    browser refuses from a sibling subdomain, and it is what verify reads.
+    """
+    secure = CsrfConfig(secret_key="test-key", cookie_secure=True)
+    app = make_app(("/f", FormView), csrf=secure)
+    async with client_for(app, base_url="https://test") as client:
+        page = await client.get("/f/")
+        token = page.cookies["__Host-csrftoken"]
+        response = await client.post(
+            "/f/save/", headers={**AJAX_HEADERS, "X-CSRFToken": token}
+        )
+
+    set_cookie = page.headers["set-cookie"]
+    assert set_cookie.startswith("__Host-csrftoken=")
+    assert "Secure" in set_cookie
+    assert "Path=/" in set_cookie
+    assert "Domain" not in set_cookie
+    assert response.status_code == 200

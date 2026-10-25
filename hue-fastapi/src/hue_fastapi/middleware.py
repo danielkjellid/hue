@@ -1,33 +1,6 @@
-from typing import Any, Final
-
 from hue.scope import request_scope
-from hue.toast import ToastMessage, toast
+from hue.toast import keep_in_session, restore_from_session
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
-
-# Where the toasts raised before a redirect wait for the page after it.
-SESSION_KEY: Final = "hue_toasts"
-
-
-def _load(session: dict[str, Any] | None) -> None:
-    """
-    Hand back whatever the last request left behind, oldest first.
-    """
-    stored = session.pop(SESSION_KEY, None) if session is not None else None
-    if stored:
-        toast.restore(ToastMessage.from_dict(data) for data in stored)
-
-
-def _save(session: dict[str, Any] | None) -> None:
-    """
-    Keep what nothing rendered, for the next request to show.
-
-    A page empties the queue through its region and a fragment through the
-    router, so what is left here was raised by something that returned no
-    markup at all, a redirect most often.
-    """
-    pending = toast.drain()
-    if pending and session is not None:
-        session[SESSION_KEY] = [message.as_dict() for message in pending]
 
 
 class HueRequestMiddleware:
@@ -55,13 +28,13 @@ class HueRequestMiddleware:
 
         session = scope.get("session")
         with request_scope():
-            _load(session)
+            restore_from_session(session)
 
             # Saved as the response starts rather than after it: the session
             # middleware outside writes its cookie at that same moment.
             async def send_and_save(message: Message) -> None:
                 if message["type"] == "http.response.start":
-                    _save(session)
+                    keep_in_session(session)
                 await send(message)
 
             await self.app(scope, receive, send_and_save)
