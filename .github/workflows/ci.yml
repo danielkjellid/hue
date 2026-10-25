@@ -13,7 +13,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-ruff-format
@@ -22,7 +22,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-ruff
@@ -31,7 +31,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: make lint-mypy
@@ -40,7 +40,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: uv lock --locked --offline
@@ -49,7 +49,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: uv run deptry .
@@ -62,6 +62,7 @@ jobs:
         path:
           - hue-python/src/hue
           - hue-django/src/hue_django
+          - hue-fastapi/src/hue_fastapi
           - hue-docs/src/hue_docs
           - examples/django/example
     steps:
@@ -76,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     steps:
       - uses: actions/checkout@v3
       - name: check for semver violations
@@ -100,7 +101,7 @@ jobs:
     uses: danielkjellid/github-actions/.github/workflows/python-uv.yaml@main
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     with:
       working-directory: ${{ matrix.path }}
       cmd: uv run pytest tests
@@ -110,7 +111,7 @@ jobs:
     name: CI done
     strategy:
       matrix:
-        path: [hue-python, hue-django, hue-docs, examples/django]
+        path: [hue-python, hue-django, hue-fastapi, hue-docs, examples/django]
     needs:
       - ruff-format
       - ruff-lint

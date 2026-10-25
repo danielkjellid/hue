@@ -80,6 +80,9 @@ class _Router:
     def fragment_post(self, path: str) -> Any:
         return lambda view_func: view_func
 
+    def _path_param(self, name: str) -> str:
+        return f"{{{name}}}"
+
     def _get_query_values(self, request: Any) -> dict[str, list[str]]:
         return {name: [value] for name, value in request.params.items()}
 

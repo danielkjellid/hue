@@ -6,8 +6,8 @@ styling is Tailwind; interactivity is Alpine.js + Alpine AJAX.
 
 ## Repo shape
 
-Three packages, each independently managed by `uv` with its **own `.venv`**. This is **not**
-a uv workspace — `hue-docs` and `hue-django` depend on `hue` via editable path installs
+Four packages, each independently managed by `uv` with its **own `.venv`**. This is **not**
+a uv workspace: `hue-docs`, `hue-django` and `hue-fastapi` depend on `hue` via editable path installs
 (`hue = { path = "../hue-python", editable = true }`). A shared `ruff.toml` and `base.mk`
 live at the repo root.
 
@@ -16,6 +16,7 @@ live at the repo root.
 | `hue` | `hue-python/` | The core library — components, renderer, router, utils |
 | `hue-docs` | `hue-docs/` | Static-site generator that auto-discovers and showcases components |
 | `hue-django` | `hue-django/` | Django integration (views, router, asset middleware) |
+| `hue-fastapi` | `hue-fastapi/` | FastAPI integration (views, router, CSRF, asset routes) |
 
 **Always run tooling from inside the relevant package directory** (the Makefiles `cd` into
 `$(BASE)` themselves, but `uv run …` does not).
@@ -46,7 +47,7 @@ make lint
 make fix
 
 # Tests
-uv run pytest tests          # hue-python and hue-django (no make target)
+uv run pytest tests          # hue-python, hue-django and hue-fastapi (no make target)
 make test                    # hue-docs only
 
 # Docs (from hue-docs/)
@@ -339,6 +340,36 @@ methods and its variants to `Literal` axes.
   conditional (ETag / 304) handling. The Alpine bundle sends the CSRF token as `X-CSRFToken`,
   the header Django reads.
 - Tests configure Django in `conftest.py` and use the `urlpatterns_` fixture for isolation.
+
+## FastAPI integration (`hue-fastapi/src/hue_fastapi/`)
+
+The same surface as hue-django. Where the two differ:
+
+- `configure_hue(app, csrf=...)` stores a `HueConfig` on `app.state` and adds the
+  `/__hue__/` asset routes. `csrf` is required; `None` turns hue's checks off.
+- `HueView` / `HueFragmentsView` expose `.api_router` for `app.include_router`. Each route
+  becomes a FastAPI endpoint whose signature is the handler's parameters after
+  (view, request, context), less `body`, so path params, query params and `Depends`
+  resolve as usual.
+- hue's request hooks are synchronous and Starlette's body is a coroutine, so the endpoint
+  reads the body of every unsafe request before dispatch and leaves it on `request.state`
+  (`preload_body`). Every unsafe request, not only ones with a `body` parameter: a table's
+  actions read the posted ids through `_get_form_values`.
+- `_url_for` works out the mount prefix from the request path (`Mount.of`), not from route
+  names, so a view mounted twice links into the mount the reader is in.
+- CSRF is a signed double-submit cookie (`csrf.py`), read from the `X-CSRFToken` header
+  the Alpine bundle sends or the `csrf_token` field. Both names are fixed, since hue
+  depends on them. With `cookie_secure` the cookie takes the `__Host-` prefix, so a
+  sibling subdomain cannot plant one.
+- `HueRequestMiddleware` carries toasts across a redirect and needs Starlette's
+  `SessionMiddleware` outside it. The session load and save live in `hue.toast`
+  (`restore_from_session`, `keep_in_session`), shared with hue-django.
+- The asset table, cache and Cache-Control rule live in `hue.assets` (`ASSET_ROUTES`,
+  `served_asset`, `versioned_url`, `cache_control`), shared with hue-django. Tests stub
+  an asset with `monkeypatch.setitem(assets.ASSET_ROUTES, ...)` and reset
+  `assets._served`.
+- A route hue registers for a view (a table's action) spells its parameter through
+  `Router._path_param`, so core never writes one framework's path syntax.
 
 ## House rules
 

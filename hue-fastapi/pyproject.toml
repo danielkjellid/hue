@@ -1,0 +1,48 @@
+[project]
+name = "hue-fastapi"
+version = "0.1.0"
+description = "FastAPI integration for the hue component library"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "hue>=0.1.0",
+    "fastapi>=0.115",
+    "htmy>=0.8.2",
+    "itsdangerous>=2.2",
+    "python-multipart>=0.0.20",
+    "starlette>=0.40",
+]
+
+[tool.uv.sources]
+
+hue = { path = "../hue-python", editable = true }
+
+[dependency-groups]
+dev = [
+    "deptry>=0.24.0",
+    "httpx>=0.28",
+    "mypy>=1.18.2",
+    "pytest>=9.0.1",
+    "pytest-asyncio>=1.0",
+    "ruff>=0.14.4",
+]
+
+[tool.ruff]
+extend = "../ruff.toml"
+
+##########
+# Deptry #
+##########
+
+[tool.deptry]
+known_first_party = ["hue_fastapi"]
+# Starlette imports it when it parses a form; nothing here names it.
+per_rule_ignores = { DEP002 = ["python-multipart"] }
+
+##########
+# Pytest #
+##########
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"

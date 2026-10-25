@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from hue_django import middleware
+from hue import assets
 
 from example.invoices.models import Customer, Invoice
 
@@ -37,12 +37,12 @@ def _stub_assets(monkeypatch: pytest.MonkeyPatch) -> None:
     the table's queries, so they do not build it.
     """
     monkeypatch.setitem(
-        middleware._ASSET_ROUTES,
-        middleware.CSS_URL,
+        assets.ASSET_ROUTES,
+        assets.CSS_URL,
         (lambda: ".stub{}", "text/css; charset=utf-8"),
     )
     monkeypatch.setitem(
-        middleware._ASSET_ROUTES,
-        middleware.JS_URL,
+        assets.ASSET_ROUTES,
+        assets.JS_URL,
         (lambda: "export {};", "text/javascript; charset=utf-8"),
     )

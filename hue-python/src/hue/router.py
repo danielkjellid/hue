@@ -230,6 +230,15 @@ class Router[T_Request]:
             "This method must be overridden by framework-specific routers"
         )
 
+    def _path_param(self, name: str) -> str:
+        """
+        A path parameter called name, spelled in this framework's path syntax,
+        for a route hue registers on a view's behalf, such as a table's action.
+        """
+        raise NotImplementedError(
+            "This method must be overridden by framework-specific routers"
+        )
+
     async def render(self, component: ComponentType, request: T_Request) -> str:
         """
         Render a component to an HTML string with this request's context.
@@ -492,7 +501,8 @@ class Router[T_Request]:
                             "response with no markup to carry it, such as a "
                             "redirect. Add a middleware that carries toasts "
                             "across a response like that (HueRequestMiddleware "
-                            "in hue_django), or return a fragment instead."
+                            "in hue_django and hue_fastapi), or return a "
+                            "fragment instead."
                         )
                     return RawResponse(response=result)
                 else:

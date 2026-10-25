@@ -5,9 +5,9 @@ import pytest
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
 from hue.context import HueContext
-from hue.toast import toast
+from hue.toast import SESSION_KEY, toast
 
-from hue_django.middleware import SESSION_KEY, HueRequestMiddleware
+from hue_django.middleware import HueRequestMiddleware
 from hue_django.router import Router
 from hue_django.views import HueFragmentsView
 

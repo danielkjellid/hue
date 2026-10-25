@@ -19,7 +19,7 @@ word rather than a syntax error in someone's page.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableMapping
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -345,3 +345,33 @@ class _Toast:
 
 
 toast: Final = _Toast()
+
+
+# Where the toasts raised before a redirect wait for the page after it.
+SESSION_KEY = "hue_toasts"
+
+
+def restore_from_session(session: MutableMapping[str, Any] | None) -> None:
+    """
+    Hand back what the last request left in the session, oldest first, and
+    take it out, so it is shown once.
+
+    For an integration's request middleware; a None session, where the app
+    has none, restores nothing.
+    """
+    stored = session.pop(SESSION_KEY, None) if session is not None else None
+    if stored:
+        toast.restore(ToastMessage.from_dict(data) for data in stored)
+
+
+def keep_in_session(session: MutableMapping[str, Any] | None) -> None:
+    """
+    Keep what nothing rendered for the next request to show.
+
+    A page empties the queue through its region and a fragment through the
+    router, so what is left was raised by something that returned no markup,
+    a redirect most often.
+    """
+    pending = toast.drain()
+    if pending and session is not None:
+        session[SESSION_KEY] = [message.as_dict() for message in pending]
