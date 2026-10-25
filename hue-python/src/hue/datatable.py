@@ -179,6 +179,7 @@ class _Routes(Protocol):
     """
 
     def fragment_post(self, path: str) -> Callable[[Any], Any]: ...
+    def _path_param(self, name: str) -> str: ...
     def _get_query_values(self, request: Any) -> dict[str, list[str]]: ...
     def _get_form_values(self, request: Any) -> dict[str, list[str]]: ...
     def _url_for(self, request: Any, name: str, **params: Any) -> str: ...
@@ -881,7 +882,8 @@ class _Declaration:
         # Named before it is registered, not after: the router takes a
         # route's name off __name__ as it decorates.
         act.__name__ = self._act_route
-        self._router.fragment_post(f"{self.key}/<str:action>/")(act)
+        action = self._router._path_param("action")
+        self._router.fragment_post(f"{self.key}/{action}/")(act)
 
 
 # What a view calls, at class scope, to declare a table.

@@ -87,6 +87,9 @@ class Router[T_Request: HttpRequest](HueRouter[T_Request]):
             shortcuts=settings.HUE_SHORTCUTS,
         )
 
+    def _path_param(self, name: str) -> str:
+        return f"<str:{name}>"
+
     def _get_request_body(self, request: T_Request) -> str:
         return request.body.decode("utf-8")
 

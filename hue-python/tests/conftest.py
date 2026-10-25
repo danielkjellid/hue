@@ -42,6 +42,9 @@ class MockRouter(Router[MockRequest]):
 
         return PathParseResult(path=final_path, param_names=param_names)
 
+    def _path_param(self, name: str) -> str:
+        return f"{{{name}}}"
+
     def _get_context_args(self, request: MockRequest) -> HueContextArgs[MockRequest]:
         """Return mock context args."""
         return HueContextArgs[MockRequest](
