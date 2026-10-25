@@ -33,7 +33,11 @@ FONTS = (
 )
 
 # Guides folded into a component's page, kept reachable at their old URLs.
-REDIRECTS = {"/toasts/": "/components/toast/"}
+REDIRECTS = {
+    "/toasts/": "/components/toast/",
+    "/icons/": "/components/icon/",
+    "/data-tables/": "/components/data-table/",
+}
 
 type Endpoint = Callable[[Request], Awaitable[HTMLResponse]]
 

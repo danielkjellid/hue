@@ -17,7 +17,7 @@ from typing import Literal
 
 from hue.types.core import ComponentType
 from hue.ui.base import ChainableComponent
-from hue_fastapi import HueFragmentsView
+from hue_fastapi import HueFragmentsView, HueView
 
 type Example = Callable[[], ComponentType]
 type Layout = Literal["grid", "stack", "center"]
@@ -112,8 +112,9 @@ class ComponentPage:
     parts: list[type[ChainableComponent]] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)
     related: list[type[ChainableComponent]] = field(default_factory=list)
-    # Views serving the page's live demos, mounted under /demos/<slug>/.
-    views: list[type[HueFragmentsView]] = field(default_factory=list)
+    # Views serving the page's live demos, mounted under /demos/<slug>/. A
+    # HueView's index is served at /demos/<slug>/ itself.
+    views: list[type[HueFragmentsView] | type[HueView]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         slugs = [p.slug for p in self.panels]

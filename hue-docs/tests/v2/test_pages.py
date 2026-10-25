@@ -5,6 +5,7 @@ Every page and every frame renders, every example in it, and no id repeats.
 from __future__ import annotations
 
 import collections
+import inspect
 import os
 import re
 import shutil
@@ -16,6 +17,8 @@ import hue
 import hue_fastapi
 import pytest
 from fastapi.testclient import TestClient
+from hue import ui
+from hue.ui.base import ChainableComponent
 
 import hue_docs_v2
 from hue_docs_v2.app import REDIRECTS, demo_app, frame_paths, page_paths
@@ -123,3 +126,17 @@ def test_the_worker_imports_from_only_what_it_bundles(tmp_path) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_every_documented_component_has_a_page() -> None:
+    documented = {
+        name
+        for name in ui.__all__
+        if isinstance(cls := getattr(ui, name), type)
+        and issubclass(cls, ChainableComponent)
+        and not inspect.isabstract(cls)
+        and cls is not ChainableComponent
+        and cls.category is not None
+    }
+    have = {page.component.__name__ for page in COMPONENTS}
+    assert documented <= have, f"no page for {sorted(documented - have)}"

@@ -260,3 +260,19 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 });
+
+// Inside a panel's frame, a specimen's link would load a made-up path into
+// the frame. Links to the demo routes, which the live examples use, and
+// links within the page still work.
+if (window.self !== window.top) {
+  document.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest?.("a[href]");
+      if (!link || link.getAttribute("href").startsWith("#")) return;
+      if (new URL(link.href).pathname.includes("/demos/")) return;
+      event.preventDefault();
+    },
+    true,
+  );
+}

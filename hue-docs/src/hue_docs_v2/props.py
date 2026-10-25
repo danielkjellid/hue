@@ -22,6 +22,8 @@ from hue.ui.base import (
     FormElementMixin,
 )
 
+# Public methods that are htmy's hooks rather than modifiers a reader calls.
+_HOOKS = frozenset({"htmy", "htmy_context"})
 _SKIPPED_CLASSES = (ChainableComponent, AlpineModelMixin, FormElementMixin, Clickable)
 _SHARED = frozenset(name for base in _SKIPPED_CLASSES for name in vars(base))
 _SHOWN_VALUES = 8
@@ -126,6 +128,7 @@ def props_of(cls: type[ChainableComponent]) -> list[Prop]:
                 name.startswith("_")
                 or name in seen
                 or name in _SHARED
+                or name in _HOOKS
                 or name == "example"
                 or not inspect.isfunction(member)
             ):

@@ -228,6 +228,8 @@ async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page
             html.div(*cells).class_(_LAYOUTS[panel.layout]),
             # A toast raised in the frame lands in the frame, beside what raised it.
             ToastRegion(),
+            # The frame's own guard: specimen links point at made-up paths.
+            h.script(src=url("/static/docs.js")),
         )
         .id(FRAME_CONTENT)
         .class_("p-6")
