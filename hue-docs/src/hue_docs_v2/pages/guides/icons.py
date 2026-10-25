@@ -11,15 +11,15 @@ def _build() -> ComponentType:
     return pr.page(
         pr.h1("Icons"),
         pr.lead(
-            "Hue does not ship an icon library — you bring your own. The Icon "
+            "Hue does not ship an icon library: you bring your own. The Icon "
             "component inlines an SVG into the page so you can size and colour "
             "it with the same utility classes you use everywhere else."
         ),
         pr.p(
             "Because the icon source is pluggable, you are never locked into a "
             "particular set. Point Hue at a folder of SVGs, ship icons inside "
-            "your Python package, or pull them from somewhere else entirely — "
-            "the component does not care where the markup comes from."
+            "your Python package, or pull them from somewhere else entirely. "
+            "The component does not care where the markup comes from."
         ),
         pr.h2("Bind an icon source"),
         pr.p(
@@ -43,22 +43,22 @@ def _build() -> ComponentType:
         pr.p(
             "The SVG is inlined, not referenced through an <img>, so utility "
             "classes apply directly. Size it with size-*, and colour it with "
-            "text-* — provided the icon paints with currentColor (most icon "
+            "text-*, provided the icon paints with currentColor (most icon "
             "sets do):"
         ),
         pr.code(
-            'Icon("calendar").class_("size-4 text-primary")\n'
+            'Icon("calendar").class_("size-4 text-accent-text")\n'
             'Icon("trash").class_("size-5 text-danger-text")'
         ),
         pr.p(
             "Any width or height baked into the SVG file is stripped on render "
-            "so it never fights your sizing classes — the viewBox alone drives "
+            "so it never fights your sizing classes. The viewBox alone drives "
             "the aspect ratio."
         ),
         pr.h2("What makes a good icon file"),
         pr.p(
-            "Hue inlines the SVG verbatim, so every element an icon set uses — "
-            "path, circle, rect, line, polyline, g, gradients — is preserved. "
+            "Hue inlines the SVG verbatim, so every element an icon set uses "
+            "(path, circle, rect, line, polyline, g, gradients) is preserved. "
             "Two things are required of each file:"
         ),
         pr.bullets(
@@ -83,20 +83,19 @@ def _build() -> ComponentType:
         pr.h2("Several sets at once"),
         pr.p(
             "Need outline and filled variants, or icons from two libraries? "
-            "Bind one Icon class per source — each is independent:"
+            "Bind one Icon class per source. Each is independent:"
         ),
         pr.code(
             "OutlineIcon = create_icon_base(icons_dir=ICONS / 'outline')\n"
             "FilledIcon = create_icon_base(icons_dir=ICONS / 'filled')\n\n"
             'OutlineIcon("bell").class_("size-5")\n'
-            'FilledIcon("bell").class_("size-5 text-primary")'
+            'FilledIcon("bell").class_("size-5 text-accent-text")'
         ),
         pr.h2("Load icons from anywhere"),
         pr.p(
-            "A directory is just the default. For full control — to ship icons "
-            "inside a package, read from a sprite, or fetch them from a service "
-            "— pass a resolver: any function that takes an icon name and returns "
-            "SVG markup. This is the seam that keeps you from being locked in."
+            "A directory is the default. To ship icons inside a package, read "
+            "from a sprite or fetch them from a service, pass a resolver: any "
+            "function that takes an icon name and returns SVG markup."
         ),
         pr.code(
             "from importlib.resources import files\n"
@@ -108,25 +107,24 @@ def _build() -> ComponentType:
         pr.p(
             "Shipping icons as package resources this way means they travel "
             "with your distribution and resolve correctly no matter where the "
-            "app runs — no absolute paths to get wrong. Add your own caching "
+            "app runs, with no absolute paths to get wrong. Add your own caching "
             "inside the resolver if the source is slow to reach."
         ),
         Alert()
         .variant("warning")
         .title("Reading from disk? Build on directory_resolver")
         .content(
-            "If your custom resolver just reads .svg files from a folder, wrap "
-            "directory_resolver rather than opening files yourself. A hand-rolled "
-            "reader re-reads and re-parses on every render and raises whatever "
-            "error open() happens to throw — directory_resolver gives you the "
-            "shared per-process cache and a consistent 'icon not found' message "
-            "for free."
+            "If your custom resolver reads .svg files from a folder, wrap "
+            "directory_resolver instead of opening files yourself. A hand-rolled "
+            "reader reads the file again on every render and raises whatever "
+            "error open() happens to throw. directory_resolver reads each file "
+            "once per process and raises one consistent 'icon not found' error."
         ),
         pr.h2("icons_dir vs. directory_resolver"),
         pr.p(
-            "These are not two different mechanisms — icons_dir is shorthand. "
+            "icons_dir is shorthand for directory_resolver. "
             "directory_resolver(path) builds the resolver that reads .svg files "
-            "from a folder, and passing icons_dir just calls it for you. The two "
+            "from a folder, and passing icons_dir calls it for you. The two "
             "lines below are exactly equivalent:"
         ),
         pr.code(
@@ -135,8 +133,8 @@ def _build() -> ComponentType:
             'create_icon_base(resolver=directory_resolver("assets/icons"))'
         ),
         pr.p(
-            "So reach for icons_dir whenever you just want to read SVGs from a "
-            "folder — that is the common case. Reach for directory_resolver only "
+            "Use icons_dir to read SVGs from a folder, which is the common "
+            "case. Reach for directory_resolver only "
             "when you need the resolver as a value you can wrap or compose, such "
             "as falling back from one set to another:"
         ),
@@ -153,7 +151,7 @@ def _build() -> ComponentType:
         ),
         pr.h2("Accessibility"),
         pr.p(
-            "Most icons are decorative — they sit beside a text label that "
+            "Most icons are decorative: they sit beside a text label that "
             'already says what they mean. Hue marks icons aria-hidden="true" '
             "by default so screen readers skip them."
         ),

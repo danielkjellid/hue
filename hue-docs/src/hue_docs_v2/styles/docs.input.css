@@ -9,30 +9,9 @@
 @source "../../../../hue-python/src/hue";
 @source "../";
 
-[x-cloak] {
-  display: none !important;
-}
-
 @layer components {
-  /* The page head's kicker, and a panel's label: the guide's uppercase. */
-  .docs-eyebrow {
-    @apply mb-2 font-ui text-2xs font-bold uppercase tracking-[0.08em] text-accent-text;
-  }
-
-  .docs-panel-label {
-    @apply font-ui text-2xs font-bold uppercase tracking-[0.06em] text-fg-muted;
-  }
-
-  .docs-caption {
-    @apply font-mono text-[10px] uppercase tracking-[0.04em] text-fg-subtle;
-  }
-
   .docs-inline-code {
     @apply rounded-xs border border-border bg-surface-sunken px-[5px] py-px font-mono text-[0.9em] text-fg;
-  }
-
-  .docs-signature {
-    @apply font-mono text-xs text-fg [overflow-wrap:anywhere];
   }
 
   .docs-excerpt mark {
@@ -50,5 +29,10 @@
 
   [data-theme="dark"] .docs-code .shiki span {
     color: var(--shiki-dark);
+  }
+
+  /* A block inside something that already has an edge and corners. */
+  .docs-code-flush .shiki {
+    @apply rounded-none border-0;
   }
 }

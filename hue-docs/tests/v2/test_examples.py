@@ -4,8 +4,6 @@ The code beside a preview is the code that rendered it.
 
 from __future__ import annotations
 
-import ast
-
 import pytest
 from hue.ui import Button
 
@@ -20,8 +18,11 @@ PANELS = [(page, panel) for page in COMPONENTS for panel in page.panels]
     "page,panel", PANELS, ids=[f"{page.slug}:{panel.slug}" for page, panel in PANELS]
 )
 def test_a_panel_shows_code_that_runs(page, panel) -> None:
-    # Every example is one return, and the block it adds up to parses.
-    ast.parse(panel_code(panel))
+    """
+    The code a reader copies runs as it stands: every name it uses comes from
+    the import lines above it.
+    """
+    exec(compile(panel_code(panel), f"{page.slug}:{panel.slug}", "exec"), {})
 
 
 def _one_line():

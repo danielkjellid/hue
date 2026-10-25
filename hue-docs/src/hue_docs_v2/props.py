@@ -2,9 +2,8 @@
 A component's own modifiers, read off the class rather than written down.
 
 Everything ChainableComponent and its mixins give every component (class_,
-the aria and Alpine helpers, x_model, on_click) is left out: those are listed
-once, on the Usage guide, so each table holds only what is particular to its
-component.
+the aria and Alpine helpers, x_model, on_click) is left out, so each table
+holds only what is particular to its component.
 """
 
 from __future__ import annotations
@@ -23,13 +22,9 @@ from hue.ui.base import (
     FormElementMixin,
 )
 
-_SHARED = frozenset(
-    name
-    for base in (ChainableComponent, AlpineModelMixin, FormElementMixin, Clickable)
-    for name in vars(base)
-)
-_SHOWN_VALUES = 8
 _SKIPPED_CLASSES = (ChainableComponent, AlpineModelMixin, FormElementMixin, Clickable)
+_SHARED = frozenset(name for base in _SKIPPED_CLASSES for name in vars(base))
+_SHOWN_VALUES = 8
 
 
 @dataclass(frozen=True)
@@ -40,18 +35,14 @@ class Prop:
     doc: str
 
 
-def _unwrap(annotation: Any) -> Any:
-    while isinstance(annotation, typing.TypeAliasType):
-        annotation = annotation.__value__
-    return annotation
-
-
 def _type(annotation: Any, raw: str) -> str:
     """
     A parameter's type as a reader wants it: the values of a Literal alias
     spelled out, anything else as the source wrote it.
     """
-    resolved = _unwrap(annotation)
+    resolved = annotation
+    while isinstance(resolved, typing.TypeAliasType):
+        resolved = resolved.__value__
     if typing.get_origin(resolved) is Literal:
         values = [repr(value) for value in typing.get_args(resolved)]
         if len(values) > _SHOWN_VALUES:
@@ -97,7 +88,7 @@ def _defaults(cls: type[ChainableComponent]) -> dict[str, Any]:
         source = textwrap.dedent(inspect.getsource(cls._render))
     except (OSError, TypeError):
         source = ""
-    for node in ast.walk(ast.parse(source)) if source else ():
+    for node in ast.walk(ast.parse(source)):
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)

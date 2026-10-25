@@ -1,9 +1,8 @@
 """
 The docs site's own keyboard shortcuts.
 
-Real ones, put in the render context by render.py and so bound on every
-page, which gives the Command and DropdownMenu showcases and the Keyboard
-shortcuts guide a registry to show, with keys that work.
+Real ones, bound on every page through configure_hue in app.py, which gives
+the search dialog its key and the Keyboard shortcuts guide a registry to show.
 """
 
 from __future__ import annotations
@@ -40,14 +39,6 @@ class Shortcuts(ShortcutRegistry):
         "g",
         "k",
         href=url("/keyboard-shortcuts/"),
-        group="Docs",
-        icon=Icon("file-text"),
-    )
-    command = Shortcut(
-        "Go to Command",
-        "g",
-        "c",
-        href=url("/components/command/"),
         group="Docs",
         icon=Icon("file-text"),
     )

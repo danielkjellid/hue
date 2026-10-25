@@ -10,6 +10,7 @@ from hue.ui import Alert, Column, DataTable
 
 from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.model import GuidePage
+from hue_docs_v2.site import url
 
 # The example, for real. The same declaration the page talks about, over a
 # list of dictionaries rather than a queryset - so the filtering, the
@@ -100,10 +101,10 @@ class _Router:
         return [row for row in rows if str(row[key]) in values]
 
     def _url_for(self, request: Any, name: str, **params: Any) -> str:
-        # Django reverses these against the URLconf. Here they are spelled
-        # out, since there is nothing to reverse against.
-        action = params.get("action")
-        return f"/invoices/{action}/" if action else "/invoices/"
+        # Django reverses these against the URLconf. Here there is nothing to
+        # reverse against, so every link stays on this page, which is static
+        # and shows the specimen as it was drawn.
+        return url("/data-tables/")
 
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
         # A list of dictionaries has no event loop to keep off.

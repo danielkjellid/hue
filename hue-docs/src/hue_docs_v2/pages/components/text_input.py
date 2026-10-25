@@ -228,9 +228,9 @@ PAGE = ComponentPage(
         ),
         Note(
             "note",
-            "leading_icon() is decorative. The label is still what names the "
-            "control, so a search field with an icon needs hidden_label() rather "
-            "than no label.",
+            "leading_icon() is decorative and names nothing. A TextInput without "
+            "label() shows its name as the label, so a search field that should "
+            "show only its icon uses hidden_label().",
         ),
         Note(
             "warn",

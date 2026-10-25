@@ -7,13 +7,14 @@ document.addEventListener("alpine:init", () => {
 
   // A panel's frame: how wide it is drawn, which theme it is drawn in, and a
   // height that follows what is inside it.
-  Alpine.data("docsPanel", ({ minHeight = 0 } = {}) => ({
+  Alpine.data("docsPanel", ({ minHeight = 0, contentId } = {}) => ({
     width: null, // null fills the panel
     theme: null, // null follows the site
     showCode: false,
     minWidth: 320,
     shownWidth: 0,
     sizes: null,
+    content: null,
 
     init() {
       this.sizes = new ResizeObserver(() => {
@@ -25,6 +26,7 @@ document.addEventListener("alpine:init", () => {
 
     destroy() {
       this.sizes?.disconnect();
+      this.content?.disconnect();
     },
 
     get effectiveTheme() {
@@ -49,13 +51,17 @@ document.addEventListener("alpine:init", () => {
       this.paint();
       // The content, not the body: the body is at least as tall as the
       // frame, so measuring it could only ever grow the frame.
-      const content = doc.getElementById("frame");
+      const content = doc.getElementById(contentId);
       // A lazy frame loads about:blank first, which has none.
       if (!content) return;
       const fit = () => {
-        frame.style.height = `${Math.max(minHeight, Math.ceil(content.getBoundingClientRect().height))}px`;
+        const height = Math.ceil(content.getBoundingClientRect().height);
+        frame.style.height = `${Math.max(minHeight, height)}px`;
       };
-      new ResizeObserver(fit).observe(content);
+      // One observer per frame: a reload replaces the document it watched.
+      this.content?.disconnect();
+      this.content = new ResizeObserver(fit);
+      this.content.observe(content);
       fit();
     },
 
@@ -69,6 +75,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     startDrag(event) {
+      if (event.button !== 0) return;
       const handle = event.currentTarget;
       const startX = event.clientX;
       const startWidth = this.$refs.holder.offsetWidth;
@@ -76,26 +83,34 @@ document.addEventListener("alpine:init", () => {
       // The frame swallows pointer events over it, which would drop the drag
       // whenever the pointer crossed into it.
       this.$refs.frame.style.pointerEvents = "none";
-      const move = (e) => {
-        const dir = document.dir === "rtl" ? -1 : 1;
-        this.width = this.clamp(startWidth + dir * (e.clientX - startX));
-      };
+      // One signal removes every listener the drag added.
+      const stop = new AbortController();
+      const listening = { signal: stop.signal };
       const end = () => {
         this.$refs.frame.style.pointerEvents = "";
-        handle.removeEventListener("pointermove", move);
-        handle.removeEventListener("pointerup", end);
-        handle.removeEventListener("pointercancel", end);
+        stop.abort();
       };
-      handle.addEventListener("pointermove", move);
-      handle.addEventListener("pointerup", end);
-      handle.addEventListener("pointercancel", end);
+      handle.addEventListener(
+        "pointermove",
+        (e) => {
+          const dir = document.dir === "rtl" ? -1 : 1;
+          this.width = this.clamp(startWidth + dir * (e.clientX - startX));
+        },
+        listening,
+      );
+      // Capture can be taken away without a pointerup, which would otherwise
+      // leave the frame deaf to the pointer.
+      for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+        handle.addEventListener(type, end, listening);
+      }
     },
 
     // The handle's keyboard: arrows step, shift steps further, Home and End
     // go to the narrowest and the full width.
     nudge(event) {
       const current = this.$refs.holder.offsetWidth;
-      const step = event.shiftKey ? 64 : 16;
+      // Toward the handle's own side widens, as dragging does.
+      const step = (event.shiftKey ? 64 : 16) * (document.dir === "rtl" ? -1 : 1);
       const moves = {
         ArrowLeft: () => this.clamp(current - step),
         ArrowRight: () => this.clamp(current + step),
@@ -128,7 +143,8 @@ document.addEventListener("alpine:init", () => {
     async load() {
       if (!this.pagefind) {
         this.pagefind = await import(`${base}pagefind/pagefind.js`);
-        await this.pagefind.options({ baseUrl: base });
+        // The index already holds each page's full path, base included.
+        await this.pagefind.options({ baseUrl: "/" });
       }
       return this.pagefind;
     },
@@ -139,11 +155,20 @@ document.addEventListener("alpine:init", () => {
         this.reset();
         return;
       }
-      const pagefind = await this.load();
+      let pagefind;
+      try {
+        pagefind = await this.load();
+      } catch {
+        this.status = "Search is not available. Build the site to index it.";
+        return;
+      }
       const found = await pagefind.debouncedSearch(query, {}, 120);
       // Superseded by a later keystroke.
       if (found === null) return;
       const pages = await Promise.all(found.results.slice(0, 8).map((r) => r.data()));
+      // The box changed while this search ran, cleared or closed, so its
+      // results answer a question nobody is asking any more.
+      if (this.query.trim() !== query) return;
       this.results = pages.flatMap((page) => {
         const sections = page.sub_results
           .filter((sub) => sub.url !== page.url)
@@ -152,10 +177,14 @@ document.addEventListener("alpine:init", () => {
             url: sub.url,
             title: sub.title,
             page: page.meta.title,
-            section: true,
             excerpt: sub.excerpt,
           }));
-        const own = { url: page.url, title: page.meta.title, page: "", section: false, excerpt: page.excerpt };
+        const own = {
+          url: page.url,
+          title: page.meta.title,
+          page: "",
+          excerpt: page.excerpt,
+        };
         return [own, ...sections];
       });
       this.searched = true;

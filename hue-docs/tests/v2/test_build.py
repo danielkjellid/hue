@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hue_docs_v2.app import frame_paths, page_paths
+import pytest
+
+from hue_docs_v2.app import REDIRECTS, frame_paths, page_paths
 
 
 def test_every_page_and_frame_is_written(frozen: Path) -> None:
@@ -22,8 +24,9 @@ def test_the_search_index_holds_every_page(frozen: Path) -> None:
     ) == len(page_paths())
 
 
-def test_redirects_are_written_for_the_host(frozen: Path) -> None:
-    assert "/toasts/ /components/toast/ 301" in (frozen / "_redirects").read_text()
+@pytest.mark.parametrize("old,new", REDIRECTS.items())
+def test_redirects_are_written_for_the_host(frozen: Path, old: str, new: str) -> None:
+    assert f"{old} {new} 301" in (frozen / "_redirects").read_text()
 
 
 def test_the_scripts_the_pages_load_are_there(frozen: Path) -> None:

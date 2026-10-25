@@ -51,8 +51,8 @@ def _build() -> ComponentType:
             '    return html.div(f"Comment {comment_id}")'
         ),
         pr.p(
-            "The standard Django converters are supported — int, str, slug, "
-            "uuid, and path — and a single route may capture several "
+            "The standard Django converters are supported (int, str, slug, "
+            "uuid and path), and a single route may capture several "
             "parameters."
         ),
         pr.h2("HueView"),
@@ -83,8 +83,8 @@ def _build() -> ComponentType:
         ),
         pr.h2("HueFragmentsView"),
         pr.p(
-            "HueFragmentsView is for fragment-only collections — API-like "
-            "endpoints that return HTML fragments with no full page. It "
+            "HueFragmentsView is for fragment-only collections: endpoints that "
+            "return HTML fragments with no full page. It "
             "requires an explicit router and has no index route; every route "
             "is AJAX-only."
         ),
@@ -113,7 +113,7 @@ def _build() -> ComponentType:
         ),
         pr.h2("URL configuration"),
         pr.p(
-            "Both classes expose a urls attribute — a (urlpatterns, app_name) "
+            "Both classes expose a urls attribute, a (urlpatterns, app_name) "
             "tuple ready for Django's include(). The app name defaults to the "
             "lowercased class name."
         ),
@@ -128,9 +128,9 @@ def _build() -> ComponentType:
         ),
         pr.h2("HTTP methods and AJAX"),
         pr.p(
-            "Fragment routes exist for every standard verb — fragment_get, "
-            "fragment_post, fragment_put, fragment_patch, and fragment_delete "
-            "— and several methods can share a path. Because fragments are "
+            "Fragment routes exist for every standard verb (fragment_get, "
+            "fragment_post, fragment_put, fragment_patch and fragment_delete), "
+            "and several methods can share a path. Because fragments are "
             "AJAX-only, the router checks for an X-Requested-With: "
             "XMLHttpRequest or X-Alpine-Request: true header and returns 400 "
             "without one, and 405 for an unsupported method."

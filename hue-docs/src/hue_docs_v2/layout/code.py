@@ -9,6 +9,7 @@ from hue import html
 from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui import Button
+from hue.utils import classnames
 
 from hue_docs_v2.highlight import highlight
 from hue_docs_v2.icons import Icon
@@ -19,12 +20,12 @@ _COPY = (
 )
 
 
-def copy_button(label: str = "Copy code") -> ComponentType:
+def copy_button() -> ComponentType:
     return (
         Button()
         .variant("ghost")
         .size("xs")
-        .icon_only(label)
+        .icon_only("Copy code")
         .content(
             html.span(Icon("copy")).x_show(unsafe("!copied")),
             html.span(Icon("check")).x_show(unsafe("copied")).x_cloak(),
@@ -33,10 +34,15 @@ def copy_button(label: str = "Copy code") -> ComponentType:
     )
 
 
-def code_block(source: str, *, language: str = "python") -> ComponentType:
+def code_block(
+    source: str, *, language: str = "python", flush: bool = False
+) -> ComponentType:
     """
     The copy button reads the highlighted element's own text, which is the
     source with the markup stripped back off, so the page carries it once.
+
+    flush drops the block's own border and corners, for one that sits inside
+    something that has them already.
     """
     return (
         html.div(
@@ -52,6 +58,6 @@ def code_block(source: str, *, language: str = "python") -> ComponentType:
             .aria_live("polite")
             .x_text(unsafe("copied ? 'Copied' : ''")),
         )
-        .class_("docs-code group relative")
+        .class_(classnames("docs-code group relative", {"docs-code-flush": flush}))
         .x_data("{ copied: false }")
     )

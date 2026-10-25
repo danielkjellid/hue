@@ -151,9 +151,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Put the region in your page base"),
         pr.p(
-            "ToastRegion collects toasts, announces them and times them. Put one "
-            "in your page base, so every page has exactly one and toasts always "
-            "arrive in the same corner."
+            "ToastRegion collects toasts, announces them and times them. It has "
+            "the fixed id hue-toasts, which the toasts behind a fragment are "
+            "merged into, so a page holds one: put it in your page base."
         ),
         pr.code(
             "from hue.ui import ToastRegion\n\n"
@@ -164,9 +164,10 @@ def _usage() -> ComponentType:
             "    )"
         ),
         pr.p(
-            "The region renders empty and stays empty until a toast arrives. A "
-            "live region created together with its content is never read out, "
-            "so it has to be on the page before the first toast."
+            "When the request that drew the page queued no toast, the region "
+            "renders empty. A live region created together with its content is "
+            "never read out, so it has to be on the page before a toast arrives "
+            "over AJAX."
         ),
         pr.h2("Raise one from a route"),
         pr.p(
@@ -281,14 +282,14 @@ def _usage() -> ComponentType:
             "requires that a message which leaves on its own can be paused by "
             "whoever is still reading it."
         ),
-        pr.h2("What each variant is for"),
+        pr.h2("Toast variants"),
         pr.p(
-            "success confirms something that finished. danger reports a "
-            "failure. warning flags something that went through with a caveat. "
-            "info tells the reader something they did not ask about. loading is "
-            "a pending state with a spinner in place of the icon, and usually "
-            "sets duration(None) and dismissible(False), since the work it "
-            "waits for is what ends it."
+            "A toast's variant sets its icon and colour: success, danger, "
+            "warning, info or loading. A danger toast is also copied into a "
+            "role=alert element and read at once. A loading toast shows a "
+            "spinner in place of the icon. duration(None) keeps any toast on "
+            "screen until it is dismissed, and dismissible(False) leaves out its "
+            "close button."
         ),
     )
 
@@ -357,9 +358,9 @@ PAGE = ComponentPage(
             "content that disappears on its own.",
         ),
         Note(
-            "warn",
-            "A toast leaves, so it must never hold the only way out of a "
-            "problem. Put that in an Alert, which stays.",
+            "note",
+            "A toast leaves the screen once its duration is up. An Alert stays "
+            "until it is dismissed.",
         ),
     ],
     parts=[ToastRegion],

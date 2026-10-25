@@ -203,8 +203,8 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            'A Button is type="button" by default. A form needs one with '
-            'type("submit") to submit on click or on Enter.',
+            'A Button is type="button" by default, so clicking it does not '
+            'submit its form. Set type("submit") on the one that should.',
         ),
     ],
     related=[ButtonGroup, SegmentedControl],

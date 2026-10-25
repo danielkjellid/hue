@@ -5,6 +5,7 @@ Helpers for writing a guide page out of hue's own html.
 from __future__ import annotations
 
 from hue import html
+from hue.html import Element
 from hue.types.core import ComponentType
 
 from hue_docs_v2.layout.code import code_block
@@ -41,7 +42,7 @@ def h3(text: str) -> ComponentType:
     )
 
 
-def lead(text: str) -> ComponentType:
+def lead(text: str) -> Element:
     return html.p(text).class_("max-w-[66ch] text-md leading-relaxed text-fg-muted")
 
 

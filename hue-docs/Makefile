@@ -64,7 +64,8 @@ build-v2: .venv build-css-v2 ; $(info $(M) freezing docs v2 into $(DIST_V2)/) @
 	$Q test -d $(BASE)/$(V2)/highlight/node_modules || $(MAKE) highlight-deps
 	$Q cd $(BASE) && PYTHONPATH=src $(UV) run python -m hue_docs_v2.freeze $(DIST_V2)
 
-# Live pages over the last build's stylesheet, scripts and search index.
+# Live pages over a fresh build's stylesheet, scripts and search index.
+# New Tailwind classes need another run, since nothing watches the CSS.
 .PHONY: serve-v2
 serve-v2: build-v2 ; $(info $(M) serving docs v2 on http://localhost:$(PORT_V2)) @
 	$Q cd $(BASE) && PYTHONPATH=src $(UV) run uvicorn --factory \

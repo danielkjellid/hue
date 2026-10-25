@@ -92,7 +92,7 @@ def caption(example: Example) -> str:
 @dataclass(frozen=True)
 class Note:
     """
-    One row under a component's Accessibility heading, tagged by what it is.
+    One row under a component's Notes heading, tagged by what it is.
     """
 
     kind: NoteKind
@@ -135,9 +135,6 @@ class ComponentPage:
     @property
     def category(self) -> str:
         return self.component.category or "Other"
-
-    def panel(self, slug: str) -> Panel | None:
-        return next((p for p in self.panels if p.slug == slug), None)
 
 
 @dataclass(frozen=True)

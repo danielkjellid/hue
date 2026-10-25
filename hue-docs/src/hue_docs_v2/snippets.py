@@ -62,8 +62,9 @@ def snippet(example: Example) -> str:
 _ELSEWHERE = {
     "html": "from hue import html",
     "toast": "from hue import toast",
-    "unsafe": "from hue.js import unsafe",
 }
+# hue.js's helpers, gathered into one import line.
+_JS = ("ajax", "call", "close", "unsafe")
 
 # The docs' own icon set stands in for the reader's, which they bind once.
 _ICON = 'Icon = create_icon_base(icons_dir="path/to/icons")'
@@ -79,6 +80,8 @@ def imports(*snippets: str) -> str:
             node.id for node in ast.walk(ast.parse(code)) if isinstance(node, ast.Name)
         }
     lines = [line for name, line in _ELSEWHERE.items() if name in names]
+    if js := [name for name in _JS if name in names]:
+        lines.append(f"from hue.js import {', '.join(js)}")
     from_ui = names & set(ui.__all__)
     if "Icon" in from_ui:
         from_ui = (from_ui - {"Icon"}) | {"create_icon_base"}

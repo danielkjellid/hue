@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from functools import cache
 from html import escape
 from pathlib import Path
 
@@ -27,16 +29,28 @@ class HighlightError(RuntimeError):
     pass
 
 
+@cache
+def _salt() -> str:
+    """
+    The pinned Shiki version and the themes, so changing either misses the
+    cache. Read on first use rather than at import: the demo Worker imports
+    this module and bundles only Python files.
+    """
+    return hashlib.sha256(
+        (_HERE / "package.json").read_bytes() + (_HERE / "highlight.mjs").read_bytes()
+    ).hexdigest()
+
+
 def _key(code: str, lang: str) -> str:
-    return hashlib.sha256(f"{lang}\0{code}".encode()).hexdigest()
+    return hashlib.sha256(f"{_salt()}\0{lang}\0{code}".encode()).hexdigest()
 
 
 class Highlighter:
-    def __init__(self, cache_path: Path = CACHE_PATH) -> None:
-        self.cache_path = cache_path
+    def __init__(self) -> None:
         try:
-            self.cache: dict[str, str] = json.loads(cache_path.read_text())
-        except FileNotFoundError:
+            self.cache: dict[str, str] = json.loads(CACHE_PATH.read_text())
+        except (FileNotFoundError, ValueError):
+            # A cache cut off mid-write is only lost work: it fills again.
             self.cache = {}
         self._recording: dict[str, tuple[str, str]] | None = None
 
@@ -49,7 +63,7 @@ class Highlighter:
         if self._recording is not None:
             self._recording[key] = (code, lang)
             return f'<pre class="shiki"><code>{escape(code)}</code></pre>'
-        self.fill([(code, lang)])
+        self._fill([(code, lang)])
         return self.cache[key]
 
     @contextmanager
@@ -61,11 +75,11 @@ class Highlighter:
         self._recording = {}
         try:
             yield
-            self.fill(self._recording.values())
+            self._fill(self._recording.values())
         finally:
             self._recording = None
 
-    def fill(self, items: Iterable[tuple[str, str]]) -> None:
+    def _fill(self, items: Iterable[tuple[str, str]]) -> None:
         batch = [{"code": code, "lang": lang} for code, lang in items]
         if not batch:
             return
@@ -84,8 +98,12 @@ class Highlighter:
             raise HighlightError(result.stderr)
         for item, html in zip(batch, json.loads(result.stdout), strict=True):
             self.cache[_key(item["code"], item["lang"])] = html
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cache_path.write_text(json.dumps(self.cache))
+        CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # Written aside and moved into place, so a reloading server or a
+        # parallel test run never reads half a file.
+        partial = CACHE_PATH.with_suffix(f".{os.getpid()}.tmp")
+        partial.write_text(json.dumps(self.cache))
+        os.replace(partial, CACHE_PATH)
 
 
 highlight = Highlighter()

@@ -59,8 +59,8 @@ def _build() -> ComponentType:
             "repository for the full API."
         ),
         pr.p(
-            "This very site is built with Hue — it renders every page on this "
-            "site using the same render_tree and page scaffolding shown above."
+            "This site is built with Hue: every page on it is rendered with the "
+            "same render_tree and page scaffolding shown above."
         ),
     )
 

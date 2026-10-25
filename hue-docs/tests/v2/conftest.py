@@ -32,14 +32,14 @@ def client() -> TestClient:
 
 @pytest.fixture(scope="session")
 def built_css(tmp_path_factory: pytest.TempPathFactory) -> str:
-    out = tmp_path_factory.mktemp("styles") / "tailwind.css"
+    dist = tmp_path_factory.mktemp("dist")
     subprocess.run(
-        ["make", "build-css-v2", f"DIST_V2={out.parent.parent}"],
+        ["make", "build-css-v2", f"DIST_V2={dist}"],
         cwd=DOCS,
         check=True,
         capture_output=True,
     )
-    return (out.parent.parent / "styles" / "tailwind.css").read_text()
+    return (dist / "styles" / "tailwind.css").read_text()
 
 
 @pytest.fixture(scope="session")

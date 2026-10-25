@@ -20,23 +20,15 @@ from hue.utils import render_if, render_when
 from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.layout.code import code_block
 from hue_docs_v2.layout.panel import panel_section
-from hue_docs_v2.model import ComponentPage, Note, kebab
+from hue_docs_v2.model import ComponentPage, Note
 from hue_docs_v2.props import props_of
 
-_NOTE_TAGS = {"a11y": "A11y", "note": "Note", "warn": "Watch"}
-_NOTE_COLOURS = {
-    "a11y": "text-success-text",
-    "note": "text-fg-subtle",
-    "warn": "text-warning-text",
+# Each kind of note: its tag and the tag's colour.
+_NOTES = {
+    "a11y": ("A11y", "text-success-text"),
+    "note": ("Note", "text-fg-subtle"),
+    "warn": ("Watch", "text-warning-text"),
 }
-
-
-def pagehead(eyebrow: str, title: str, lede: str) -> ComponentType:
-    return html.header(
-        html.p(eyebrow).class_("docs-eyebrow"),
-        html.h1(title).class_("font-ui text-3xl font-bold tracking-tight text-fg"),
-        html.p(lede).class_("mt-3 max-w-[66ch] text-md leading-relaxed text-fg-muted"),
-    ).class_("mb-10")
 
 
 def props_table(cls: type[ChainableComponent]) -> ComponentType:
@@ -47,14 +39,14 @@ def props_table(cls: type[ChainableComponent]) -> ComponentType:
         TableRow().content(
             TableCell()
             .class_("align-top")
-            .content(html.code(prop.signature).class_("docs-signature")),
+            .content(
+                html.code(prop.signature).class_(
+                    "font-mono text-xs text-fg [overflow-wrap:anywhere]"
+                )
+            ),
             TableCell()
             .class_("align-top")
-            .content(
-                html.code(prop.default).class_("docs-inline-code")
-                if prop.default
-                else "-"
-            ),
+            .content(pr.inline(prop.default) if prop.default else "-"),
             TableCell().class_("align-top text-fg-muted").content(prop.doc or "-"),
         )
         for prop in props
@@ -77,16 +69,20 @@ def props_table(cls: type[ChainableComponent]) -> ComponentType:
 
 
 def _note(note: Note) -> ComponentType:
+    tag, colour = _NOTES[note.kind]
     return html.div(
-        html.span(_NOTE_TAGS[note.kind]).class_(
+        html.span(tag).class_(
             f"w-[62px] flex-none pt-[3px] font-ui text-2xs font-bold uppercase "
-            f"tracking-[0.04em] {_NOTE_COLOURS[note.kind]}"
+            f"tracking-[0.04em] {colour}"
         ),
         html.p(note.text).class_("text-sm leading-relaxed text-fg-muted"),
     ).class_("flex gap-3")
 
 
-def component_main(page: ComponentPage) -> ComponentType:
+def component_main(page: ComponentPage, pages: list[ComponentPage]) -> ComponentType:
+    # Only the related components that have a page yet, so no link 404s.
+    by_class = {other.component: other for other in pages}
+    related = [by_class[cls] for cls in page.related if cls in by_class]
     api = [
         pr.h2("API"),
         props_table(page.component),
@@ -97,7 +93,14 @@ def component_main(page: ComponentPage) -> ComponentType:
     ]
     names = ", ".join([page.title, *[part.__name__ for part in page.parts]])
     return html.div(
-        pagehead(f"Hue · {page.category}", page.title, page.lede),
+        html.header(
+            html.p(f"Hue · {page.category}").class_(
+                "mb-2 font-ui text-2xs font-bold uppercase tracking-[0.08em] "
+                "text-accent-text"
+            ),
+            pr.h1(page.title),
+            pr.lead(page.lede).class_("mt-3"),
+        ).class_("mb-10"),
         code_block(f"from hue.ui import {names}"),
         html.div(*[panel_section(page, panel) for panel in page.panels]).class_(
             "mt-10 flex flex-col gap-6"
@@ -107,23 +110,18 @@ def component_main(page: ComponentPage) -> ComponentType:
         render_when(
             bool(page.notes),
             html.div(
-                pr.h2("Accessibility"),
+                pr.h2("Notes"),
                 html.div(*[_note(note) for note in page.notes]).class_(
                     "flex flex-col gap-2"
                 ),
             ).class_("mt-4 space-y-4"),
         ),
         render_when(
-            bool(page.related),
+            bool(related),
             html.div(
                 pr.h2("Related"),
                 html.ul(
-                    *[
-                        html.li(
-                            pr.link(cls.__name__, f"/components/{kebab(cls.__name__)}/")
-                        )
-                        for cls in page.related
-                    ]
+                    *[html.li(pr.link(other.title, other.href)) for other in related]
                 ).class_("flex flex-wrap gap-x-4 gap-y-1"),
             ).class_("mt-4 space-y-3"),
         ),

@@ -149,6 +149,13 @@ jobs:
         with:
           working-directory: hue-docs
 
+      # The same cache as the deploy job above, for the same reason.
+      - name: Restore the Tailwind CLI
+        uses: actions/cache@v4
+        with:
+          path: hue-docs/.venv/lib/python*/site-packages/pytailwindcss/bin
+          key: tailwind-cli-${{ runner.os }}-${{ hashFiles('base.mk') }}
+
       # Shiki highlights the code blocks at build time.
       - uses: actions/setup-node@v4
         with:
@@ -173,19 +180,23 @@ jobs:
           if [ "$REF" = "refs/heads/main" ]; then
             output=$(uv run pywrangler deploy 2>&1 | tee /dev/stderr)
           else
+            # An alias may not start or end with a hyphen, which a cut branch
+            # name can.
             alias=$(printf '%s' "$BRANCH" \
               | tr '[:upper:]' '[:lower:]' \
               | sed 's/[^a-z0-9-]/-/g' \
-              | cut -c1-40)
-            # A version can only be uploaded to a Worker that exists, so the
-            # first push anywhere deploys it once instead.
+              | cut -c1-40 \
+              | sed 's/^-*//; s/-*$//')
+            # A branch only ever uploads a preview version. Production moves
+            # on main alone, so a failed upload fails the step rather than
+            # falling back to a deploy.
             output=$(uv run pywrangler versions upload --preview-alias "$alias" 2>&1 \
-                     || uv run pywrangler deploy 2>&1)
-            printf '%s\n' "$output"
+                     | tee /dev/stderr)
           fi
 
+          # Empty rather than a failed step when no workers.dev URL is printed.
           url=$(printf '%s' "$output" | grep -oE 'https://[^[:space:]]+workers\.dev' \
-                | tail -1)
+                | tail -1 || true)
           pr=$(gh pr list --head "$BRANCH" --state open \
                  --json number --jq '.[0].number // empty' 2>/dev/null || true)
           {

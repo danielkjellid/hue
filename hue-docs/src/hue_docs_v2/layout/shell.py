@@ -21,7 +21,6 @@ from hue.ui import (
     ThemeSwitcher,
     ToastRegion,
 )
-from hue.utils import render_when
 from hue_fastapi import Page
 
 from hue_docs_v2.icons import Icon
@@ -68,20 +67,19 @@ def _sidebar(nav: list[NavGroup], current: str) -> ComponentType:
     ]
     return (
         html.aside(
+            # hue's Sidebar brings its own width, edge and background; the
+            # aside only places it.
             Sidebar()
             .current(url(current))
-            .label("Documentation")
-            .class_("h-full")
             .content(
-                SidebarHeader().class_("border-b-0 px-5 pt-5").content(_brand()),
+                SidebarHeader().content(_brand()),
                 SidebarBody().label("Documentation").class_("gap-5").content(*sections),
             )
         )
         .id("docs-nav")
         .class_(
-            "z-30 w-[252px] flex-none border-e border-border bg-canvas-subtle "
-            "lg:sticky lg:top-0 lg:h-screen max-lg:fixed max-lg:inset-y-0 "
-            "max-lg:start-0 max-lg:shadow-overlay"
+            "z-30 flex-none lg:sticky lg:top-0 lg:h-screen max-lg:fixed "
+            "max-lg:inset-y-0 max-lg:start-0 max-lg:shadow-overlay"
         )
         # Off-canvas below lg, shown by the menu button.
         .x_bind("class", unsafe("navOpen ? '' : 'max-lg:hidden'"))
@@ -114,7 +112,7 @@ def _topbar(title: str) -> ComponentType:
             .class_("lg:hidden")
             .aria_controls("docs-nav")
             .x_ref("menu")
-            .x_bind("aria-expanded", unsafe("navOpen"))
+            .x_bind("aria-expanded", unsafe("String(navOpen)"))
             .x_on("click", unsafe("navOpen = !navOpen"))
             .content(Icon("menu")),
             html.p(title).class_("truncate font-ui text-base font-semibold"),
@@ -122,7 +120,7 @@ def _topbar(title: str) -> ComponentType:
         html.div(_search_trigger(), ThemeSwitcher()).class_("flex items-center gap-3"),
     ).class_(
         "sticky top-0 z-20 flex h-14 items-center justify-between gap-4 "
-        "border-b border-border bg-canvas/[0.88] px-5 backdrop-blur-[10px] lg:px-8"
+        "border-b border-border bg-canvas/88 px-5 backdrop-blur-[10px] lg:px-8"
     )
 
 
@@ -132,7 +130,6 @@ def shell(
     nav: list[NavGroup],
     current: str,
     main: ComponentType,
-    contents: bool = True,
 ) -> Page:
     skip = (
         html.a("Skip to content")
@@ -142,12 +139,9 @@ def shell(
             "font-ui text-sm font-semibold text-canvas focus-visible:translate-y-0"
         )
     )
-    toc = render_when(
-        contents,
-        html.aside(TableOfContents().of("#content")).class_(
-            "sticky top-14 hidden max-h-[calc(100vh-3.5rem)] w-56 flex-none "
-            "self-start overflow-y-auto py-10 xl:block"
-        ),
+    toc = html.aside(TableOfContents().of("#content")).class_(
+        "sticky top-14 hidden max-h-[calc(100vh-3.5rem)] w-56 flex-none "
+        "self-start overflow-y-auto py-10 xl:block"
     )
     body = html.div(
         skip,

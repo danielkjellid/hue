@@ -11,8 +11,8 @@ def _build() -> ComponentType:
         pr.h1("Hue"),
         pr.lead(
             "Hue is a component library for Python. You build server-rendered "
-            "UI by composing chainable components — no template language, just "
-            "Python."
+            "UI by composing chainable components in Python, with no template "
+            "language."
         ),
         pr.p(
             "It is built on ",
@@ -24,7 +24,7 @@ def _build() -> ComponentType:
         pr.h2("Why Hue"),
         pr.bullets(
             [
-                "Chainable, fully typed components — your editor autocompletes "
+                "Chainable, fully typed components, so your editor autocompletes "
                 "every variant.",
                 "Server-rendered HTML with no build step for your markup.",
                 "Tailwind for styling and Alpine for interactivity, bundled and "

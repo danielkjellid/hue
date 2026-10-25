@@ -26,6 +26,10 @@ from hue_docs_v2.render import preview
 from hue_docs_v2.site import url
 from hue_docs_v2.snippets import imports, snippet
 
+# The element in a frame page that holds the examples, which the panel
+# measures to size the frame.
+FRAME_CONTENT = "frame"
+
 # Tailwind's breakpoints, which are what a width is chosen to cross.
 VIEWPORTS = {"sm": 640, "md": 768, "lg": 1024, "xl": 1280}
 
@@ -52,7 +56,6 @@ def _viewport_control() -> ComponentType:
         value = json.dumps(width)
         return (
             SegmentedOption()
-            .value(name)
             .content(name)
             .x_on("click", unsafe(f"width = {value}"))
             .x_bind("aria-pressed", unsafe(f"String(width === {value})"))
@@ -74,7 +77,6 @@ def _theme_control() -> ComponentType:
     def option(theme: str, icon: str) -> ComponentType:
         return (
             SegmentedOption()
-            .value(theme)
             .icon_only(f"{theme.title()} theme")
             .content(Icon(icon))
             .x_on("click", unsafe(f"theme = '{theme}'"))
@@ -105,7 +107,9 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
     code_id = f"{panel.slug}-code"
     bar = html.div(
         html.div(
-            html.h2(panel.label).class_("docs-panel-label"),
+            html.h2(panel.label).class_(
+                "font-ui text-2xs font-bold uppercase tracking-[0.06em] text-fg-muted"
+            ),
             render_when(
                 bool(panel.hint),
                 html.span(panel.hint).class_("truncate text-2xs text-fg-subtle"),
@@ -126,15 +130,17 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
     # Plain markup: the one control here that is not a button has to be put
     # in the tab order by hand, which no hue modifier does.
     handle = h.div(
-        h.span(class_="h-8 w-1 rounded-full bg-border-strong"),
+        html.span().class_(
+            "h-8 w-1 rounded-full bg-border-strong group-hover:bg-border-hover"
+        ),
         role="separator",
         tabindex="0",
         aria_label="Preview width",
         aria_orientation="vertical",
         class_=(
-            "absolute inset-y-0 -end-3 flex w-3 cursor-ew-resize touch-none "
+            "group absolute inset-y-0 -end-3 flex w-3 cursor-ew-resize touch-none "
             "items-center justify-center rounded-sm outline-none "
-            "focus-visible:shadow-ring hover:[&>span]:bg-border-hover"
+            "focus-visible:shadow-ring"
         ),
         **{
             ":aria-valuenow": "Math.round(shownWidth)",
@@ -168,12 +174,9 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
         .x_ref("canvas")
     )
     code = (
-        html.div(code_block(panel_code(panel)))
+        html.div(code_block(panel_code(panel), flush=True))
         .id(code_id)
-        .class_(
-            "border-t border-border "
-            "[&_.docs-code_pre]:rounded-none [&_.docs-code_pre]:border-0"
-        )
+        .class_("border-t border-border")
         .x_show(unsafe("showCode"))
         .x_cloak()
     )
@@ -183,7 +186,11 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
         .class_(
             "scroll-mt-20 overflow-hidden rounded-lg border border-border bg-surface"
         )
-        .x_data(f"docsPanel({json.dumps({'minHeight': panel.min_height})})")
+        .x_data(
+            "docsPanel("
+            + json.dumps({"minHeight": panel.min_height, "contentId": FRAME_CONTENT})
+            + ")"
+        )
     )
 
 
@@ -198,7 +205,12 @@ async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page
     captioned = panel.captions and len(panel.examples) > 1 and panel.layout != "center"
     cells = [
         html.div(
-            render_when(captioned, html.span(caption(example)).class_("docs-caption")),
+            render_when(
+                captioned,
+                html.span(caption(example)).class_(
+                    "font-mono text-[10px] uppercase tracking-[0.04em] text-fg-subtle"
+                ),
+            ),
             await preview(example, request),
         ).class_("flex min-w-0 flex-col items-start gap-[7px]")
         for example in panel.examples
@@ -209,7 +221,7 @@ async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page
             # A toast raised in the frame lands in the frame, beside what raised it.
             ToastRegion(),
         )
-        .id("frame")
+        .id(FRAME_CONTENT)
         .class_("p-6")
     )
     return Page(title=f"{page.title}: {panel.label}", body=body)

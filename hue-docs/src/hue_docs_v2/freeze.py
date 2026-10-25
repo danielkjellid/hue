@@ -19,6 +19,7 @@ from pagefind.index import IndexConfig, PagefindIndex
 
 from hue_docs_v2.app import REDIRECTS, STATIC, create_app, frame_paths, page_paths
 from hue_docs_v2.highlight import highlight
+from hue_docs_v2.render import COULD_NOT_RENDER
 from hue_docs_v2.site import url
 
 DIST = Path(__file__).resolve().parents[2] / "dist-v2"
@@ -28,7 +29,7 @@ def _fetch(client: TestClient, path: str) -> str:
     response = client.get(path)
     if response.status_code != 200:
         raise RuntimeError(f"{path} answered {response.status_code}")
-    if "Could not render:" in response.text:
+    if COULD_NOT_RENDER in response.text:
         raise RuntimeError(f"An example on {path} failed to render.")
     return response.text
 

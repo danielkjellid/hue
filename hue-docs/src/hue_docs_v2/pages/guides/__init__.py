@@ -1,4 +1,6 @@
-"""Hand-written prose pages, authored with hue's own components."""
+"""
+Hand-written guides, authored with hue's own components.
+"""
 
 from hue_docs_v2.model import GuidePage
 from hue_docs_v2.pages.guides import (

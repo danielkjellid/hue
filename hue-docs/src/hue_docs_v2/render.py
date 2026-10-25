@@ -13,6 +13,9 @@ from hue.types.core import ComponentType
 
 from hue_docs_v2.model import Example
 
+# What a broken example says in place of itself, which the freeze refuses.
+COULD_NOT_RENDER = "Could not render:"
+
 
 async def render_html(
     *components: ComponentType,
@@ -37,4 +40,4 @@ async def preview(example: Example, request: object) -> ComponentType:
     try:
         return SafeStr(await render_html(example(), request=request))
     except Exception as exc:
-        return html.p(f"Could not render: {exc}").class_("text-sm text-danger-text")
+        return html.p(f"{COULD_NOT_RENDER} {exc}").class_("text-sm text-danger-text")

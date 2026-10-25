@@ -11,8 +11,8 @@ def _build() -> ComponentType:
         pr.h1("CSS and assets"),
         pr.lead(
             "Hue serves its own pre-built CSS and JavaScript straight from the "
-            "Python package via a Django middleware — no collectstatic and no "
-            "static file configuration for Hue's own component styles."
+            "Python package via a Django middleware. Hue's own component styles "
+            "need no collectstatic and no static file configuration."
         ),
         pr.h2("Setup"),
         pr.p("Add the middleware to your MIDDLEWARE setting:"),
@@ -41,8 +41,8 @@ def _build() -> ComponentType:
         pr.h2("Overriding colors"),
         pr.p(
             "Hue's theme is driven by CSS variables, so a plain stylesheet "
-            "served through Django's staticfiles is enough to retheme it — no "
-            "build pipeline required:"
+            "served through Django's staticfiles is enough to retheme it, with "
+            "no build pipeline:"
         ),
         pr.code(
             "/* static/my-overrides.css */\n"
@@ -67,14 +67,14 @@ def _build() -> ComponentType:
         pr.code(
             "/* static/tailwind.input.css */\n"
             '@import "tailwindcss";\n\n'
-            "/* Your custom styles — Tailwind compiles utilities from your code */",
+            "/* Your custom styles: Tailwind compiles utilities from your code */",
             language="css",
         ),
         pr.h2("Accessing Hue's CSS source"),
         pr.p(
-            "For deeper customization — for example, importing Hue's theme "
-            "tokens into your own Tailwind build — the source stylesheet path "
-            "is available from hue.assets:"
+            "For deeper customization, such as importing Hue's theme tokens "
+            "into your own Tailwind build, the source stylesheet path is "
+            "available from hue.assets:"
         ),
         pr.code(
             "from hue.assets import css_source_path\n\n"
