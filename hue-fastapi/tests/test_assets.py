@@ -44,7 +44,7 @@ async def test_head_request(client_for):
 
 async def test_unknown_asset_paths_are_not_found(client_for):
     """
-    Only the two known asset paths are served; the prefix is not a directory.
+    Only the known asset paths are served; the prefix is not a directory.
     """
     async with client_for(make_app()) as client:
         for path in ("/__hue__/unknown.txt", "/some/other/path/"):
@@ -151,12 +151,21 @@ async def test_returns_200_on_non_matching_etag(client_for):
     assert response.text == STUB_CSS
 
 
-async def test_reads_each_asset_once(client_for):
+async def test_reads_each_asset_once(client_for, monkeypatch):
     """
     The file is read from disk once per process, not once per request.
     """
+    reads = []
+
+    def reader() -> str:
+        reads.append(1)
+        return STUB_CSS
+
+    content_type = assets_module._ASSET_ROUTES[CSS_URL][1]
+    routes = {**assets_module._ASSET_ROUTES, CSS_URL: (reader, content_type)}
+    monkeypatch.setattr(assets_module, "_ASSET_ROUTES", routes)
     async with client_for(make_app()) as client:
         await client.get(CSS_URL)
         await client.get(CSS_URL)
 
-    assert set(assets_module._cache) == {CSS_URL}
+    assert len(reads) == 1

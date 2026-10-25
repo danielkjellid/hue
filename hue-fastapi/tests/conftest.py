@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -63,8 +63,3 @@ def client_for() -> Callable[..., httpx.AsyncClient]:
         )
 
     return _client
-
-
-@pytest.fixture
-async def client(client_for: Callable[..., httpx.AsyncClient]) -> AsyncIterator[None]:
-    yield None

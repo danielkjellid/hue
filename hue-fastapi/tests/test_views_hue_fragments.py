@@ -42,7 +42,7 @@ async def test_there_is_no_index_route(client_for):
     assert response.status_code == 404
 
 
-async def test_a_view_without_a_router_is_rejected():
+def test_a_view_without_a_router_is_rejected():
     """
     A fragments view with no routes is a mistake worth catching at build time.
     """

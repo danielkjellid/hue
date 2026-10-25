@@ -8,7 +8,7 @@ from hue.formats import Formats
 from hue.shortcuts import ShortcutRegistry
 from starlette.applications import Starlette
 
-from hue_fastapi.assets import CSS_URL, JS_URL, add_asset_routes, versioned_url
+from hue_fastapi.assets import add_asset_routes
 
 if TYPE_CHECKING:
     from hue_fastapi.csrf import CsrfConfig
@@ -40,7 +40,7 @@ class HueConfig:
     css_url: str | None = None
     js_url: str | None = None
     extra_css_urls: tuple[str, ...] = ()
-    html_title_factory: Callable[[str], str] = field(default=_default_title)
+    html_title_factory: Callable[[str], str] = _default_title
     formats: Formats = field(default_factory=Formats)
     shortcuts: type[ShortcutRegistry] | None = None
 
@@ -89,11 +89,3 @@ def get_config(app: Starlette) -> HueConfig:
             "hue_fastapi.configure_hue(app, csrf=...) during startup."
         )
     return config
-
-
-def page_css_url(config: HueConfig, debug: bool) -> str:
-    return config.css_url or versioned_url(CSS_URL, debug)
-
-
-def page_js_url(config: HueConfig, debug: bool) -> str:
-    return config.js_url or versioned_url(JS_URL, debug)

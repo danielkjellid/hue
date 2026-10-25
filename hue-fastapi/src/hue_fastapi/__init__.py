@@ -2,10 +2,6 @@
 FastAPI integration for hue: class-based views that render hue pages and
 Alpine AJAX fragments, a router that understands Starlette's path syntax, CSRF
 protection, and routes that serve hue's CSS and JS straight from the package.
-
-hue's Router reads the request through synchronous hooks and Starlette's body
-is a coroutine, so the endpoint reads the body once before dispatch and hands
-it over through request state.
 """
 
 from hue_fastapi.config import (

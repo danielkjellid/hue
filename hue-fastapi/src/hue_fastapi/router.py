@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
+from urllib.parse import quote
 
 from hue.context import HueContextArgs
 from hue.router import HueResponse, PathParseResult, ViewFunc, WrappedViewFunc
@@ -17,17 +18,16 @@ from hue_fastapi.config import get_config
 __all__ = ["HueResponse", "Router"]
 
 # Starlette path parameters: {name} and {name:converter}.
-_PATH_PARAM_RE: Final = re.compile(r"\{(\w+)(?::\w+)?\}")
+_PATH_PARAM_RE: Final = re.compile(r"\{(\w+)(?::(\w+))?\}")
 
 # Where the endpoint leaves what hue's synchronous hooks read off the request.
 BODY_STATE: Final = "hue_raw_body"
 FORM_STATE: Final = "hue_form_values"
 MOUNT_STATE: Final = "hue_mount"
 
-# Attribute holding the unwrapped handler on a wrapped view function.
 HANDLER_ATTR: Final = "__hue_handler__"
 
-_FORM_CONTENT_TYPES: Final = (
+FORM_CONTENT_TYPES: Final = (
     "application/x-www-form-urlencoded",
     "multipart/form-data",
 )
@@ -40,7 +40,9 @@ class Mount:
     under, and the path of each of its routes by name.
     """
 
-    prefix: str
+    # None when the path did not end in the route's own template, which
+    # _url_for reports rather than linking to the wrong place.
+    prefix: str | None
     paths: Mapping[str, str]
 
     @classmethod
@@ -48,12 +50,22 @@ class Mount:
         """
         The prefix is the request's path less the part the matched route's
         own template covers at its end.
+
+        Worked out from the path because FastAPI cannot say which mount a
+        request came through: two mounts of one view register the same names.
         """
-        literals = _PATH_PARAM_RE.split("/" + template)[::2]
-        own = "[^/]+".join(re.escape(literal) for literal in literals)
+        own = "/" + _PATH_PARAM_RE.sub(
+            lambda m: str(request.path_params[m[1]]), template
+        )
         path = request.url.path
-        match = re.search(own + "$", path)
-        return cls(prefix=path[: match.start()] if match else "", paths=paths)
+        # Filled in from the values Starlette matched rather than matched as
+        # a pattern: a path converter's value can repeat the prefix's text,
+        # and only the values say where the prefix ends.
+        # shortcut: a converter that normalises ("007" read as 7) leaves the
+        # prefix unknown, so _url_for raises; spell such values back from the
+        # raw path if a non-canonical URL ever has to build links.
+        prefix = path[: len(path) - len(own)] if path.endswith(own) else None
+        return cls(prefix=prefix, paths=paths)
 
 
 class Router[T_Request: Request](HueRouter[T_Request]):
@@ -77,7 +89,9 @@ class Router[T_Request: Request](HueRouter[T_Request]):
     """
 
     def _parse_path_params(self, path: str) -> PathParseResult:
-        return PathParseResult(path=path, param_names=_PATH_PARAM_RE.findall(path))
+        return PathParseResult(
+            path=path, param_names=[m[1] for m in _PATH_PARAM_RE.finditer(path)]
+        )
 
     def _get_context_args(self, request: T_Request) -> HueContextArgs[T_Request]:
         config = get_config(request.app)
@@ -95,7 +109,8 @@ class Router[T_Request: Request](HueRouter[T_Request]):
         # Read by the endpoint before dispatch: hue's hooks are synchronous and
         # Starlette's body is a coroutine. Decoded here, inside the router's
         # try, so a body that is not UTF-8 is a 422 rather than a 500.
-        return bytes(getattr(request.state, BODY_STATE, b"")).decode("utf-8")
+        body: bytes = getattr(request.state, BODY_STATE, b"")
+        return body.decode("utf-8")
 
     def _get_request_content_type(self, request: T_Request) -> str:
         return request.headers.get("content-type") or "application/json"
@@ -125,7 +140,16 @@ class Router[T_Request: Request](HueRouter[T_Request]):
                 f"drawn on, so it has to be declared on a HueView, whose index "
                 f"is that page."
             )
-        path = _PATH_PARAM_RE.sub(lambda m: str(params[m[1]]), mount.paths[name])
+        if mount.prefix is None:
+            raise LookupError(
+                f"Could not tell where this view is mounted from {request.url.path!r}."
+            )
+        # Percent-encoded so a value cannot add a segment or a query; a path
+        # converter keeps its slashes, since spanning them is what it is for.
+        path = _PATH_PARAM_RE.sub(
+            lambda m: quote(str(params[m[1]]), safe="/" if m[2] == "path" else ""),
+            mount.paths[name],
+        )
         return f"{mount.prefix}/{path}"
 
     def _form_fields(self) -> frozenset[str]:
@@ -158,7 +182,7 @@ async def preload_body(request: Request) -> None:
     """
     Read the request body once, before hue's synchronous hooks need it.
     """
-    if request.headers.get("content-type", "").startswith(_FORM_CONTENT_TYPES):
+    if request.headers.get("content-type", "").startswith(FORM_CONTENT_TYPES):
         form = await request.form()
         # Every value kept: a column of checkboxes is several under one name.
         # Uploads are left out, as hue reads text fields only.

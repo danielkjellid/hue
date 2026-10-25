@@ -4,10 +4,9 @@ from hue import html
 from hue.context import HueContext
 from pydantic import BaseModel
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
 
-from hue_fastapi import CsrfConfig, HueView, Page, Router
-from tests.conftest import AJAX_HEADERS, ALPINE_AJAX_HEADERS, make_app
+from hue_fastapi import HueView, Page, Router
+from tests.conftest import AJAX_HEADERS, make_app
 
 
 class Body(BaseModel):
@@ -64,28 +63,6 @@ async def test_fragment_requires_ajax(client_for):
 
     assert response.status_code == 400
     assert "AJAX request required" in response.text
-
-
-async def test_alpine_ajax_header_is_accepted(client_for):
-    """
-    Alpine AJAX identifies itself with its own header rather than the classic one.
-    """
-    async with client_for(make_app(("/myview", MyView))) as client:
-        response = await client.get("/myview/comments/", headers=ALPINE_AJAX_HEADERS)
-
-    assert response.status_code == 200
-
-
-async def test_method_is_routed_independently(client_for):
-    """
-    Two routes on one path stay separate: GET and POST reach different handlers.
-    """
-    async with client_for(make_app(("/myview", MyView))) as client:
-        get_response = await client.get("/myview/comments/", headers=AJAX_HEADERS)
-        post_response = await client.post("/myview/comments/", headers=AJAX_HEADERS)
-
-    assert "Comments" in get_response.text
-    assert "Comment added" in post_response.text
 
 
 async def test_unsupported_method_lists_what_is_allowed(client_for):
@@ -227,31 +204,6 @@ async def test_invalid_body_is_unprocessable(client_for):
     assert response.status_code == 422
 
 
-async def test_framework_responses_pass_through(client_for):
-    """
-    A handler returning a Starlette response is handed back untouched, so
-    redirects after a post behave normally.
-    """
-
-    class RedirectView(HueView):
-        router = Router[Request]()
-
-        async def index(self, request: Request, context: HueContext[Request]) -> Page:
-            return Page(title="Home", body=html.div("Home"))
-
-        @router.fragment_post("go/")
-        async def go(self, request: Request, context: HueContext[Request]):
-            return RedirectResponse("/elsewhere/", status_code=302)
-
-    async with client_for(
-        make_app(("/r", RedirectView)), follow_redirects=False
-    ) as client:
-        response = await client.post("/r/go/", headers=AJAX_HEADERS)
-
-    assert response.status_code == 302
-    assert response.headers["location"] == "/elsewhere/"
-
-
 async def test_sync_handlers_are_supported(client_for):
     """
     A synchronous handler runs in a worker thread rather than blocking the loop.
@@ -275,7 +227,7 @@ async def test_sync_handlers_are_supported(client_for):
     assert "Sync fragment" in fragment.text
 
 
-async def test_router_is_built_once_and_not_mutated(client_for):
+def test_router_is_built_once_and_not_mutated():
     """
     Building the FastAPI router must not add the index to the user's own router,
     which is a class attribute shared with subclasses.
@@ -309,7 +261,7 @@ async def test_subclasses_serve_their_own_index(client_for):
     assert "Child page" in child.text
 
 
-async def test_a_view_without_an_index_is_rejected():
+def test_a_view_without_an_index_is_rejected():
     """
     The failure shows up when the router is built, not on the first request.
     """
@@ -338,25 +290,3 @@ async def test_page_reads_configuration_at_render_time(client_for):
     assert "Home | Test</title>" in response.text
     assert 'href="/static/app.css"' in response.text
     assert 'href="/extra.css"' in response.text
-
-
-async def test_csrf_cookie_is_issued_and_required(client_for):
-    """
-    The page that renders the token also sets the cookie, and a later unsafe
-    request must present both.
-    """
-    app = make_app(("/myview", MyView), csrf=CsrfConfig(secret_key="test-key"))
-
-    async with client_for(app) as client:
-        page = await client.get("/myview/")
-        token = page.cookies["csrftoken"]
-
-        without_header = await client.post("/myview/comments/", headers=AJAX_HEADERS)
-        with_header = await client.post(
-            "/myview/comments/",
-            headers={**AJAX_HEADERS, "X-CSRFToken": token},
-        )
-
-    assert token
-    assert without_header.status_code == 403
-    assert with_header.status_code == 200

@@ -8,15 +8,11 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from hue_fastapi.config import get_config
+from hue_fastapi.router import FORM_CONTENT_TYPES
 
 SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 _STATE_TOKEN: Final = "hue_csrf_token"
-_STATE_SET_COOKIE: Final = "hue_csrf_set_cookie"
-_FORM_CONTENT_TYPES: Final = (
-    "application/x-www-form-urlencoded",
-    "multipart/form-data",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,9 +20,10 @@ class CsrfConfig:
     """
     Signed double submit cookie protection.
 
-    Starlette ships none of this. The token is signed so that a page on a
-    sibling subdomain cannot plant a cookie the server would then accept, which
-    is the weakness of the unsigned double submit pattern.
+    Starlette ships none of this. The signature means the server accepts only
+    tokens it minted itself. It does not tie a token to one browser, so a
+    sibling subdomain that can set cookies can still plant a token it fetched
+    from the site: serve the app from a domain no untrusted subdomain shares.
 
     The header name matches what hue's Alpine bundle sends, so AJAX requests are
     covered without any work in the page. Forms that post without AJAX carry the
@@ -59,32 +56,31 @@ class CsrfConfig:
         visit, which arrives with no cookie, still embeds the same value the
         response is about to set. Reading it is what schedules the cookie.
         """
-        existing = getattr(request.state, _STATE_TOKEN, None)
+        existing: str | None = getattr(request.state, _STATE_TOKEN, None)
         if existing is not None:
-            return str(existing)
+            return existing
 
         cookie_token = request.cookies.get(self.cookie_name)
         if cookie_token and self._is_valid(cookie_token):
             token = cookie_token
-            should_set = False
         else:
             token = self._serializer().dumps(secrets.token_urlsafe(32))
-            should_set = True
 
         setattr(request.state, _STATE_TOKEN, token)
-        setattr(request.state, _STATE_SET_COOKIE, should_set)
         return token
 
     def apply(self, request: Request, response: Response) -> None:
         """
-        Set the cookie when this request minted a new token.
+        Set the cookie when this request minted a new token, which is any
+        token that is not the cookie it came with.
         """
-        if not getattr(request.state, _STATE_SET_COOKIE, False):
+        token: str | None = getattr(request.state, _STATE_TOKEN, None)
+        if token is None or token == request.cookies.get(self.cookie_name):
             return
 
         response.set_cookie(
             key=self.cookie_name,
-            value=str(getattr(request.state, _STATE_TOKEN)),
+            value=token,
             max_age=self.max_age,
             path="/",
             secure=self.cookie_secure,
@@ -92,7 +88,6 @@ class CsrfConfig:
             httponly=True,
             samesite=self.cookie_samesite,
         )
-        setattr(request.state, _STATE_SET_COOKIE, False)
 
     async def verify(self, request: Request) -> bool:
         cookie_token = request.cookies.get(self.cookie_name)
@@ -105,7 +100,7 @@ class CsrfConfig:
             content_type = request.headers.get("content-type", "")
             # Only touch the form for form-shaped bodies. Calling form() on a
             # JSON request consumes the stream that hue is about to read.
-            if content_type.startswith(_FORM_CONTENT_TYPES):
+            if content_type.startswith(FORM_CONTENT_TYPES):
                 form = await request.form()
                 value = form.get(self.form_field)
                 submitted = value if isinstance(value, str) else None
@@ -113,7 +108,9 @@ class CsrfConfig:
         if not submitted:
             return False
 
-        return secrets.compare_digest(submitted, cookie_token)
+        # Bytes, since compare_digest refuses a str with anything non-ASCII,
+        # which would make a junk header a 500 rather than a 403.
+        return secrets.compare_digest(submitted.encode(), cookie_token.encode())
 
 
 async def csrf_protect(request: Request) -> None:

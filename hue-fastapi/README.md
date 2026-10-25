@@ -49,7 +49,20 @@ Path parameters use Starlette's syntax (`"items/{item_id:int}/"`). Any parameter
 
 ## CSRF
 
-Every route that isn't GET, HEAD, OPTIONS or TRACE checks the token. The Alpine bundle sends it as `X-CSRFToken` on AJAX requests. A form that posts without AJAX needs `hue_fastapi.ui.CsrfTokenInput` inside it.
+Every unsafe hue route (anything but GET, HEAD, OPTIONS and TRACE) checks the token. The Alpine bundle sends it as `X-CSRFToken` on AJAX requests. A form that posts without AJAX needs `hue_fastapi.ui.CsrfTokenInput` inside it. To protect one of your own endpoints the same way, add `Depends(csrf_protect)` to it (`from hue_fastapi import csrf_protect`).
+
+The token is a signed value in a cookie, checked against the copy the request sends. The signature means the server only accepts tokens it minted. It does not tie a token to one browser, so serve the app from a domain that no untrusted subdomain shares.
+
+`CsrfConfig` takes these settings besides `secret_key`:
+
+| Setting | Default | What it sets |
+| --- | --- | --- |
+| `cookie_name` | `"csrftoken"` | The cookie's name. |
+| `cookie_secure` | `False` | Send the cookie over HTTPS only. Set it to `True` in production. |
+| `cookie_samesite` | `"lax"` | The cookie's SameSite attribute. |
+| `max_age` | 52 weeks | How long the cookie lives, in seconds. |
+| `header_name` | `"X-CSRFToken"` | The header read on AJAX requests. hue's Alpine bundle always sends `X-CSRFToken`. |
+| `form_field` | `"csrf_token"` | The form field read on plain posts. |
 
 ## Toasts across a redirect
 

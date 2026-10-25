@@ -501,7 +501,8 @@ class Router[T_Request]:
                             "response with no markup to carry it, such as a "
                             "redirect. Add a middleware that carries toasts "
                             "across a response like that (HueRequestMiddleware "
-                            "in hue_django), or return a fragment instead."
+                            "in hue_django and hue_fastapi), or return a "
+                            "fragment instead."
                         )
                     return RawResponse(response=result)
                 else:

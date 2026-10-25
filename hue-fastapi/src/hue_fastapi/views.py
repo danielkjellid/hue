@@ -2,10 +2,10 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from http import HTTPStatus
 from inspect import Parameter, Signature, signature
-from typing import Any, Final, get_type_hints
+from typing import Any, Final
 
 from fastapi import APIRouter, Depends
-from hue.exceptions import AJAXRequiredError, BodyValidationError
+from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
 from hue.router import PAGE_ROUTE, RawResponse, Route, check_unique_routes
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, PlainTextResponse, Response
@@ -35,6 +35,24 @@ class classproperty[T]:
 
     def __get__(self, instance: object, owner: type | None = None) -> T:
         return self.fget(owner)
+
+
+def _resolve(handler: Callable[..., Any], name: str, annotation: Any) -> Any:
+    """
+    Evaluate one parameter's annotation. Only the parameters FastAPI receives
+    are evaluated, since the request and context are often imported for the
+    type checker alone and would fail.
+    """
+    if not isinstance(annotation, str):
+        return annotation
+    try:
+        return eval(annotation, handler.__globals__)
+    except NameError as exc:
+        raise TypeError(
+            f"{handler.__qualname__}: the annotation of {name!r} names something "
+            f"not imported at runtime ({exc}). FastAPI needs it to read the "
+            f"parameter."
+        ) from exc
 
 
 def _method_not_allowed(allowed: list[str]) -> Callable[[Request], Awaitable[Response]]:
@@ -69,40 +87,40 @@ class _BaseView:
 
     @classmethod
     def _routes_to_api_router(cls, routes: list[Route]) -> APIRouter:
-        check_unique_routes(routes)
+        try:
+            check_unique_routes(routes)
+        except DuplicateRouteError as exc:
+            raise DuplicateRouteError(f"{cls.__name__}: {exc}") from exc
         paths = {route.name: route.path for route in routes}
         api_router = APIRouter()
 
-        by_path: dict[str, list[Route]] = defaultdict(list)
+        # In the order the routes were declared, which is the order Starlette
+        # tries them in: grouped by path, "items/{item}/" would answer a POST
+        # declared for "items/new/" after it.
+        allowed: dict[str, set[str]] = defaultdict(set)
         for route in routes:
-            by_path[route.path].append(route)
-
-        for path, path_routes in by_path.items():
             # Starlette paths are absolute; hue normalises the leading slash off.
-            starlette_path = "/" + path
-            supported: set[str] = set()
+            starlette_path = "/" + route.path
+            methods = (
+                [route.method, "HEAD"] if route.method == "GET" else [route.method]
+            )
+            allowed[starlette_path].update(methods)
+            api_router.add_api_route(
+                starlette_path,
+                cls._make_endpoint(route, paths),
+                methods=methods,
+                name=f"{cls.app_name}:{route.name}",
+                dependencies=(
+                    [] if route.method in SAFE_METHODS else [Depends(csrf_protect)]
+                ),
+                include_in_schema=False,
+            )
 
-            for route in path_routes:
-                methods = [route.method]
-                if route.method == "GET":
-                    methods.append("HEAD")
-                supported.update(methods)
-
-                api_router.add_api_route(
-                    starlette_path,
-                    cls._make_endpoint(route, paths),
-                    methods=methods,
-                    name=f"{cls.app_name}:{route.name}",
-                    dependencies=(
-                        [] if route.method in SAFE_METHODS else [Depends(csrf_protect)]
-                    ),
-                    include_in_schema=False,
-                    response_class=HTMLResponse,
-                )
-
-            # Starlette reports only the first partially matching route when it
-            # answers 405, which would advertise an incomplete Allow header. A
-            # catch-all for the remaining methods answers with the full set.
+        # Starlette reports only the first partially matching route when it
+        # answers 405, which would advertise an incomplete Allow header. A
+        # catch-all for the remaining methods answers with the full set. Added
+        # after every real route, for the same reason as the order above.
+        for starlette_path, supported in allowed.items():
             remaining = sorted(_ALL_METHODS - supported)
             if remaining:
                 api_router.add_api_route(
@@ -118,23 +136,20 @@ class _BaseView:
     def _make_endpoint(
         cls, route: Route, paths: dict[str, str]
     ) -> Callable[..., Awaitable[Response]]:
-        handler = getattr(route.view_func, HANDLER_ATTR, None)
+        handler = getattr(route.view_func, HANDLER_ATTR)
         parameters = [Parameter("request", Parameter.KEYWORD_ONLY, annotation=Request)]
-
-        if handler is not None:
-            hints = get_type_hints(handler)
-            handler_params = list(signature(handler).parameters.items())
-            for name, parameter in handler_params[_HUE_POSITIONAL:]:
-                if name == _HUE_BODY:
-                    continue
-                parameters.append(
-                    Parameter(
-                        name,
-                        Parameter.KEYWORD_ONLY,
-                        default=parameter.default,
-                        annotation=hints.get(name, parameter.annotation),
-                    )
+        handler_params = list(signature(handler).parameters.items())
+        for name, parameter in handler_params[_HUE_POSITIONAL:]:
+            if name == _HUE_BODY:
+                continue
+            parameters.append(
+                Parameter(
+                    name,
+                    Parameter.KEYWORD_ONLY,
+                    default=parameter.default,
+                    annotation=_resolve(handler, name, parameter.annotation),
                 )
+            )
 
         async def endpoint(**kwargs: Any) -> Response:
             request: Request = kwargs.pop("request")
@@ -145,8 +160,9 @@ class _BaseView:
             setattr(request.state, MOUNT_STATE, Mount.of(request, route.path, paths))
             return await cls()._handle_route(request, route, **kwargs)
 
+        # FastAPI reads parameters through inspect.signature, which honours
+        # __signature__, so this is the endpoint FastAPI sees.
         endpoint.__signature__ = Signature(parameters)  # type: ignore[attr-defined]
-        endpoint.__name__ = route.name
         return endpoint
 
     async def _handle_route(

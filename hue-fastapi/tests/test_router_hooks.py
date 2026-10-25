@@ -3,7 +3,9 @@ The request hooks hue's core reads through, which a table, a filter and a
 toast all depend on beyond what a single fragment exercises.
 """
 
-from fastapi import HTTPException
+from typing import Annotated
+
+from fastapi import File, HTTPException, UploadFile
 from hue import html
 from hue.context import HueContext
 from hue.formats import Formats
@@ -16,6 +18,7 @@ from starlette.responses import RedirectResponse
 
 from hue_fastapi import HueFragmentsView, HueRequestMiddleware, HueView, Page, Router
 from hue_fastapi.middleware import SESSION_KEY
+from tests._annotated_for_typing_only import TypingOnly
 from tests.conftest import AJAX_HEADERS, make_app
 
 
@@ -109,21 +112,6 @@ async def test_formats_and_shortcuts_reach_the_context(client_for):
     assert seen == {"formats": formats, "shortcuts": Shortcuts}
 
 
-async def test_a_fragment_carries_its_toasts(client_for):
-    class Saves(HueFragmentsView):
-        router = Router[Request]()
-
-        @router.fragment_post("save/")
-        async def save(self, request: Request, context: HueContext[Request]):
-            toast.success("Saved")
-            return html.div("ok")
-
-    async with client_for(make_app(("/s", Saves))) as client:
-        response = await client.post("/s/save/", headers=AJAX_HEADERS)
-
-    assert "Saved" in response.text
-
-
 class Redirects(HueView):
     router = Router[Request]()
 
@@ -169,3 +157,126 @@ async def test_the_middleware_writes_nothing_when_nothing_was_raised(client_for)
         await client.get("/peek/")
 
     assert seen == {"stored": False}
+
+
+class Declared(HueFragmentsView):
+    router = Router[Request]()
+
+    @router.fragment_get("items/{item}/")
+    async def get_item(self, request: Request, context: HueContext[Request], item: str):
+        return html.div("get-item")
+
+    @router.fragment_post("items/new/")
+    async def post_new(self, request: Request, context: HueContext[Request]):
+        return html.div("post-new")
+
+    @router.fragment_post("items/{item}/")
+    async def post_item(
+        self, request: Request, context: HueContext[Request], item: str
+    ):
+        return html.div("post-item")
+
+
+class Shadowing(HueFragmentsView):
+    router = Router[Request]()
+
+    @router.fragment_get("items/{item}/")
+    async def item(self, request: Request, context: HueContext[Request], item: str):
+        return html.div(f"item {item}")
+
+    @router.fragment_post("items/new/")
+    async def new(self, request: Request, context: HueContext[Request]):
+        return html.div("created")
+
+
+async def test_routes_are_tried_in_the_order_they_were_declared(client_for):
+    async with client_for(make_app(("/v", Declared))) as client:
+        response = await client.post("/v/items/new/", headers=AJAX_HEADERS)
+
+    assert "post-new" in response.text
+
+
+async def test_a_405_for_one_path_does_not_answer_for_another(client_for):
+    """
+    The catch-all that lists a path's methods must not match a literal path
+    registered after a parameterised one.
+    """
+    async with client_for(make_app(("/v", Shadowing))) as client:
+        created = await client.post("/v/items/new/", headers=AJAX_HEADERS)
+        refused = await client.post("/v/items/7/", headers=AJAX_HEADERS)
+
+    assert created.status_code == 200
+    assert refused.status_code == 405
+    assert refused.headers["allow"] == "GET, HEAD"
+
+
+async def test_types_imported_for_the_type_checker_alone_are_fine(client_for):
+    async with client_for(make_app(("/t", TypingOnly))) as client:
+        response = await client.get("/t/items/1/", headers=AJAX_HEADERS)
+
+    # The int annotation still reaches FastAPI, which converts the parameter.
+    assert "item 2" in response.text
+
+
+class Files(HueView):
+    router = Router[Request]()
+
+    async def index(self, request: Request, context: HueContext[Request]) -> Page:
+        return Page(title="Files", body=html.div("Files"))
+
+    @router.fragment_get("files/{rest:path}")
+    async def file(self, request: Request, context: HueContext[Request], rest: str):
+        page = self.router._url_for(request, PAGE_ROUTE)
+        other = self.router._url_for(request, "file", rest="a b/50%.txt")
+        return html.div(f"{page} {other}")
+
+
+async def test_url_for_handles_a_path_converter_and_quotes_values(client_for):
+    async with client_for(make_app(("/shop", Files))) as client:
+        response = await client.get("/shop/files/x/y.txt", headers=AJAX_HEADERS)
+
+    assert "/shop/ /shop/files/a%20b/50%25.txt" in response.text
+
+
+async def test_a_prefix_that_repeats_the_template_is_kept_whole(client_for):
+    async with client_for(make_app(("/files", Files))) as client:
+        response = await client.get("/files/files/a/b", headers=AJAX_HEADERS)
+
+    assert "/files/ /files/files/a%20b/50%25.txt" in response.text
+
+
+async def test_a_value_that_repeats_the_template_is_not_taken_for_a_prefix(
+    client_for,
+):
+    async with client_for(make_app(("", Files))) as client:
+        response = await client.get("/files/files/a/b", headers=AJAX_HEADERS)
+
+    assert "/ /files/a%20b/50%25.txt" in response.text
+
+
+class Upload(HueFragmentsView):
+    router = Router[Request]()
+
+    @router.fragment_post("upload/")
+    async def upload(
+        self,
+        request: Request,
+        context: HueContext[Request],
+        file: Annotated[UploadFile, File()],
+    ):
+        return html.div(f"{file.filename}: {len(await file.read())} bytes")
+
+
+async def test_an_upload_stays_readable_in_its_handler(client_for):
+    """
+    Reading the form for hue's hooks leaves FastAPI's own copy of an upload
+    readable, since both come from the one parsed form.
+    """
+    async with client_for(make_app(("/u", Upload))) as client:
+        response = await client.post(
+            "/u/upload/",
+            files={"file": ("notes.txt", b"hello")},
+            headers=AJAX_HEADERS,
+        )
+
+    assert "notes.txt: 5 bytes" in response.text

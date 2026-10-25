@@ -7,7 +7,7 @@ styling is Tailwind; interactivity is Alpine.js + Alpine AJAX.
 ## Repo shape
 
 Four packages, each independently managed by `uv` with its **own `.venv`**. This is **not**
-a uv workspace — `hue-docs`, `hue-django` and `hue-fastapi` depend on `hue` via editable path installs
+a uv workspace: `hue-docs`, `hue-django` and `hue-fastapi` depend on `hue` via editable path installs
 (`hue = { path = "../hue-python", editable = true }`). A shared `ruff.toml` and `base.mk`
 live at the repo root.
 

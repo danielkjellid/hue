@@ -5,7 +5,8 @@ from hue.context import HueContext
 from hue.pages import BasePage
 from hue.types.core import Component
 
-from hue_fastapi.config import HueConfig, get_config, page_css_url, page_js_url
+from hue_fastapi.assets import CSS_URL, JS_URL, versioned_url
+from hue_fastapi.config import HueConfig, get_config
 
 
 class Page(BasePage):
@@ -22,11 +23,11 @@ class Page(BasePage):
 
     @property
     def css_url(self) -> str:  # type: ignore[override]
-        return page_css_url(self._config, self._debug)
+        return self._config.css_url or versioned_url(CSS_URL, self._debug)
 
     @property
     def js_url(self) -> str:  # type: ignore[override]
-        return page_js_url(self._config, self._debug)
+        return self._config.js_url or versioned_url(JS_URL, self._debug)
 
     @property
     def extra_css_urls(self) -> list[str]:  # type: ignore[override]
