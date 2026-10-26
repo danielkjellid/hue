@@ -21,7 +21,6 @@ from hue.ui import (
     ThemeSwitcher,
     ToastRegion,
 )
-from hue.utils import classnames
 from hue_fastapi import Page
 
 from hue_docs_v2.icons import Icon
@@ -131,7 +130,6 @@ def shell(
     nav: list[NavGroup],
     current: str,
     main: ComponentType,
-    prose: bool = False,
 ) -> Page:
     skip = (
         html.a("Skip to content")
@@ -161,24 +159,11 @@ def shell(
                     html.main(main)
                     .id("content")
                     .data("pagefind-body", "")
-                    .class_(
-                        classnames(
-                            "mx-auto min-w-0 flex-1 pb-20 pt-10",
-                            {"max-w-[70ch]": prose, "max-w-[1120px]": not prose},
-                        )
-                    ),
+                    .class_("mx-auto min-w-0 max-w-3xl flex-1 pb-20 pt-10"),
                     toc,
-                    # Centred as one block with the contents, sized to the
-                    # page's measure plus the contents, gap and padding.
-                ).class_(
-                    classnames(
-                        "mx-auto flex gap-8 px-5 lg:px-8",
-                        {
-                            "max-w-[calc(70ch+20rem)]": prose,
-                            "max-w-[1376px]": not prose,
-                        },
-                    )
-                ),
+                    # Centred as one block with the contents: the column, the
+                    # contents' 14rem, the gap and the padding.
+                ).class_("mx-auto flex max-w-[68rem] gap-8 px-5 lg:px-8"),
             ).class_("min-w-0 flex-1"),
         ).class_("flex min-h-screen"),
         ToastRegion(),

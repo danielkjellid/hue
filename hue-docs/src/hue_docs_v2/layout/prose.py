@@ -67,9 +67,7 @@ def lead(text: str) -> Element:
 
 
 def p(*content: ComponentType) -> ComponentType:
-    return html.p(*_rich_all(content)).class_(
-        "max-w-[70ch] leading-relaxed text-fg-muted"
-    )
+    return html.p(*_rich_all(content)).class_("leading-relaxed text-fg-muted")
 
 
 def code(source: str, *, language: str = "python") -> ComponentType:
@@ -91,4 +89,4 @@ def link(text: str, href: str) -> ComponentType:
 def bullets(items: list[ComponentType]) -> ComponentType:
     return html.ul(
         *[html.li(*_rich_all((item,))).class_("leading-relaxed") for item in items]
-    ).class_("max-w-[70ch] list-disc space-y-1 ps-5 text-fg-muted")
+    ).class_("list-disc space-y-1 ps-5 text-fg-muted")

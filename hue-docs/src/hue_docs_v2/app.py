@@ -40,16 +40,12 @@ type Endpoint = Callable[[Request], Awaitable[HTMLResponse]]
 
 def _page_endpoint(page: GuidePage | ComponentPage, nav: list[NavGroup]) -> Endpoint:
     async def endpoint(request: Request) -> HTMLResponse:
-        # A guide is all prose, so it takes the prose's measure as a column.
-        prose = isinstance(page, GuidePage)
         main = (
             page.build()
             if isinstance(page, GuidePage)
             else component_main(page, COMPONENTS)
         )
-        document = shell(
-            title=page.title, nav=nav, current=page.href, main=main, prose=prose
-        )
+        document = shell(title=page.title, nav=nav, current=page.href, main=main)
         return HTMLResponse(
             await render_html(document, request=request, shortcuts=Shortcuts)
         )
