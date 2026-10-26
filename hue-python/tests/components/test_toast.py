@@ -38,6 +38,23 @@ class TestToast:
         html = await render_tree(Toast().title("Saved"), context_args=context_args)
         assert "if ($el.contains(document.activeElement)) $handOff($el" in str(html)
 
+    # Alignment: the row's has- selector keys on these markers, both branches.
+    @pytest.mark.asyncio
+    async def test_a_title_alone_is_centred(self, context_args):
+        html = await render_tree(Toast().title("Saved"), context_args=context_args)
+        row = select(html, "[x-data]")[0]["class"]
+        assert "items-center" in row
+        assert_no_selector(html, "[data-toast-description], [data-toast-action]")
+
+    @pytest.mark.asyncio
+    async def test_a_second_line_keeps_it_top_aligned(self, context_args):
+        html = await render_tree(
+            Toast().title("Saved").description("INV-2048"), context_args=context_args
+        )
+        row = select(html, "[x-data]")[0]["class"]
+        assert "has-[[data-toast-description],[data-toast-action]]:items-start" in row
+        assert_selector(html, "[data-toast-description]")
+
     # duration(): both branches
     @pytest.mark.asyncio
     async def test_a_toast_that_was_staying_does_not_leave_after_a_hover(
