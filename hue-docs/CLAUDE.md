@@ -99,6 +99,20 @@ These apply to every sentence in `lede`, `usage`, `notes` and the guides.
 7. No em dashes (organisation rule). Use a comma, a colon, parentheses or two
    sentences.
 8. Run the `humanizer:humanizer` skill on new or changed prose before you commit it.
+9. Put every code name in backticks: a class, a function, a modifier such as
+   `on_click()`, a parameter, an attribute, a header, a path or a value someone
+   would type. `pr.p`, `pr.lead`, `pr.bullets` and notes render a backticked run as
+   inline code. Inside an `Alert`, pass `pr.rich("...")` rather than `pr.p`, whose
+   muted colour would override the alert's own.
+10. Say the point instead of staging it behind a colon. A heading such as "Known on
+    the server, outside the address: the body" becomes "Parameters in the body", and
+    a sentence that sets up a reveal ("the reason is simple: ...") states the reason.
+11. Stay framework agnostic. Hue's core knows no framework, and `hue-django` and
+    `hue-fastapi` are two integrations of it. Where a detail differs (the CSRF field,
+    a setting, how a view is mounted), name what it is in each, or keep the sentence
+    general. Never write as if Django were the only one.
+12. An example that posts to a route builds the route's own body type,
+    `ajax(..., body=Archive(reason="duplicate"))`, rather than a dict shaped like it.
 
 Facts about the code belong in the docs: why `icon_only()` takes a label, what
 `loading()` does to the accessible name. Opinions about how readers should design their

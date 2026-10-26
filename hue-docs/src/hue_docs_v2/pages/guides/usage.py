@@ -12,8 +12,8 @@ def _build() -> ComponentType:
         pr.lead("Compose components, render them to HTML, and serve a page."),
         pr.h2("Render a component"),
         pr.p(
-            "Components are rendered to an HTML string with render_tree. It "
-            "needs a request and CSRF token, which it threads through the "
+            "`render_tree` renders components to an HTML string. It takes the "
+            "request and the CSRF token and passes them down through the "
             "render context:"
         ),
         pr.code(
@@ -27,9 +27,9 @@ def _build() -> ComponentType:
         ),
         pr.h2("Render a full page"),
         pr.p(
-            "create_page_base builds a Page class bound to your asset URLs and "
-            "title format. Instances render a complete HTML document, including "
-            "the Alpine setup:"
+            "`create_page_base` builds a `Page` class bound to your asset URLs "
+            "and title format. An instance renders a complete HTML document, "
+            "including the Alpine setup:"
         ),
         pr.code(
             "from hue.pages import create_page_base\n"
@@ -46,21 +46,38 @@ def _build() -> ComponentType:
             "# render_tree(page, context_args=...) -> full HTML document"
         ),
         pr.p(
-            "The chart library, chart-bundle.js, has to sit beside the bundle "
-            "js_url points at (see ",
+            "The chart library, `chart-bundle.js`, has to sit beside the bundle "
+            "`js_url` points at (see ",
             pr.link("Installation", "/installation/"),
             ").",
         ),
-        pr.h2("With Django"),
+        pr.h2("With a web framework"),
         pr.p(
-            "hue-django adds a HueView and a Django-aware Router so you can "
-            "return component fragments from AJAX endpoints and render full "
-            "pages from class-based views. See the hue-django docs in the "
-            "repository for the full API."
+            "The integrations do the wiring above for you. Each adds a "
+            "`HueView` that renders a full page, a `Router` whose routes "
+            "answer AJAX requests with fragments, CSRF handling, and routes "
+            "that serve Hue's stylesheet and scripts from the package."
+        ),
+        pr.bullets(
+            [
+                pr.p(
+                    "`hue-django` for Django: ",
+                    pr.link("Views and Router", "/django/views/"),
+                    " and ",
+                    pr.link("CSS and assets", "/django/css/"),
+                    ".",
+                ),
+                pr.p(
+                    "`hue-fastapi` for FastAPI: ",
+                    pr.link("Views and Router", "/fastapi/views/"),
+                    ".",
+                ),
+            ]
         ),
         pr.p(
-            "This site is built with Hue: every page on it is rendered with the "
-            "same render_tree and page scaffolding shown above."
+            "This site is built with Hue, on `hue-fastapi`: every page on it "
+            "is rendered with the same `render_tree` and page scaffolding "
+            "shown above."
         ),
     )
 

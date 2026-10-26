@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from hue import html
 from hue_fastapi import configure_hue
 
 from hue_docs_v2.layout.component import component_main
@@ -40,8 +41,9 @@ type Endpoint = Callable[[Request], Awaitable[HTMLResponse]]
 
 def _page_endpoint(page: GuidePage | ComponentPage, nav: list[NavGroup]) -> Endpoint:
     async def endpoint(request: Request) -> HTMLResponse:
+        # A guide is all prose, so it takes the prose's measure as a column.
         main = (
-            page.build()
+            html.div(page.build()).class_("mx-auto max-w-[70ch]")
             if isinstance(page, GuidePage)
             else component_main(page, COMPONENTS)
         )

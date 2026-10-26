@@ -29,8 +29,8 @@ def _build() -> ComponentType:
                 "Server-rendered HTML with no build step for your markup.",
                 "Tailwind for styling and Alpine for interactivity, bundled and "
                 "ready to use.",
-                "Framework-agnostic core with a first-class Django integration "
-                "(hue-django).",
+                "A framework-agnostic core, with integrations for Django "
+                "(`hue-django`) and FastAPI (`hue-fastapi`).",
             ]
         ),
         pr.h2("A quick taste"),

@@ -75,7 +75,7 @@ def _note(note: Note) -> ComponentType:
             f"w-[62px] flex-none pt-[3px] font-ui text-2xs font-bold uppercase "
             f"tracking-[0.04em] {colour}"
         ),
-        html.p(note.text).class_("text-sm leading-relaxed text-fg-muted"),
+        html.p(pr.rich(note.text)).class_("text-sm leading-relaxed text-fg-muted"),
     ).class_("flex gap-3")
 
 

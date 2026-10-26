@@ -4,6 +4,7 @@ Helpers for writing a guide page out of hue's own html.
 
 from __future__ import annotations
 
+from htmy import Fragment
 from hue import html
 from hue.html import Element
 from hue.types.core import ComponentType
@@ -42,12 +43,33 @@ def h3(text: str) -> ComponentType:
     )
 
 
+def rich(text: str) -> ComponentType:
+    """
+    Text with each `backticked` run set as inline code, which is how prose
+    names a class, a function, a parameter or anything else typed in code.
+    """
+    parts = text.split("`")
+    if len(parts) % 2 == 0:
+        raise ValueError(f"An unpaired backtick in {text!r}.")
+    return Fragment(
+        *[inline(part) if index % 2 else part for index, part in enumerate(parts)]
+    )
+
+
+def _rich_all(content: tuple[ComponentType, ...]) -> list[ComponentType]:
+    return [rich(each) if isinstance(each, str) else each for each in content]
+
+
 def lead(text: str) -> Element:
-    return html.p(text).class_("max-w-[66ch] text-md leading-relaxed text-fg-muted")
+    return html.p(rich(text)).class_(
+        "max-w-[66ch] text-md leading-relaxed text-fg-muted"
+    )
 
 
 def p(*content: ComponentType) -> ComponentType:
-    return html.p(*content).class_("max-w-[70ch] leading-relaxed text-fg-muted")
+    return html.p(*_rich_all(content)).class_(
+        "max-w-[70ch] leading-relaxed text-fg-muted"
+    )
 
 
 def code(source: str, *, language: str = "python") -> ComponentType:
@@ -67,6 +89,6 @@ def link(text: str, href: str) -> ComponentType:
 
 
 def bullets(items: list[ComponentType]) -> ComponentType:
-    return html.ul(*[html.li(item).class_("leading-relaxed") for item in items]).class_(
-        "max-w-[70ch] list-disc space-y-1 ps-5 text-fg-muted"
-    )
+    return html.ul(
+        *[html.li(*_rich_all((item,))).class_("leading-relaxed") for item in items]
+    ).class_("max-w-[70ch] list-disc space-y-1 ps-5 text-fg-muted")

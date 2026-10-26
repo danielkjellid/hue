@@ -12,10 +12,10 @@ def _build() -> ComponentType:
         pr.lead(
             "Hue serves its own pre-built CSS and JavaScript straight from the "
             "Python package via a Django middleware. Hue's own component styles "
-            "need no collectstatic and no static file configuration."
+            "need no `collectstatic` and no static file configuration."
         ),
         pr.h2("Setup"),
-        pr.p("Add the middleware to your MIDDLEWARE setting:"),
+        pr.p("Add the middleware to your `MIDDLEWARE` setting:"),
         pr.code(
             "# settings.py\n\n"
             "MIDDLEWARE = [\n"
@@ -24,16 +24,16 @@ def _build() -> ComponentType:
             "]"
         ),
         pr.p(
-            "That's all. Hue's CSS is now served at /__hue__/styles.css and "
-            "its JavaScript at /__hue__/js/alpine.js, directly from the "
+            "That's all. Hue's CSS is now served at `/__hue__/styles.css` and "
+            "its JavaScript at `/__hue__/js/alpine.js`, directly from the "
             "installed package. The chart library is served beside it at "
-            "/__hue__/js/chart-bundle.js, which the JavaScript fetches only on "
+            "`/__hue__/js/chart-bundle.js`, which the JavaScript fetches only on "
             "a page that shows a chart."
         ),
         pr.h2("Adding your own CSS"),
         pr.p(
             "Build and serve your own styles however you like, then point Hue "
-            "at them with HUE_EXTRA_CSS_URLS. Hue adds them as <link> tags "
+            "at them with `HUE_EXTRA_CSS_URLS`. Hue adds them as `<link>` tags "
             "after its own stylesheet, so your rules take precedence over the "
             "defaults."
         ),
@@ -52,7 +52,7 @@ def _build() -> ComponentType:
             "}",
             language="css",
         ),
-        pr.p("Add the file to STATICFILES_DIRS and list it in HUE_EXTRA_CSS_URLS:"),
+        pr.p("Add the file to `STATICFILES_DIRS` and list it in `HUE_EXTRA_CSS_URLS`:"),
         pr.code(
             "# settings.py\n\n"
             'STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]\n'
@@ -61,7 +61,7 @@ def _build() -> ComponentType:
         pr.h2("Using Tailwind for your own code"),
         pr.p(
             "If you want Tailwind utilities in your own markup, run your own "
-            "Tailwind build and serve the output through HUE_EXTRA_CSS_URLS. "
+            "Tailwind build and serve the output through `HUE_EXTRA_CSS_URLS`. "
             "Hue's CSS covers Hue components; your CSS covers your code."
         ),
         pr.code(
@@ -74,7 +74,7 @@ def _build() -> ComponentType:
         pr.p(
             "For deeper customization, such as importing Hue's theme tokens "
             "into your own Tailwind build, the source stylesheet path is "
-            "available from hue.assets:"
+            "available from `hue.assets`:"
         ),
         pr.code(
             "from hue.assets import css_source_path\n\n"

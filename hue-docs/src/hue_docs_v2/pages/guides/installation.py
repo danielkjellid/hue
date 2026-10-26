@@ -16,16 +16,16 @@ def _build() -> ComponentType:
         pr.p("Or with pip:"),
         pr.code("pip install hue", language="bash"),
         pr.p(
-            "Using Django? Install the integration package, which depends on "
-            "Hue and adds views and a router:"
+            "With Django or FastAPI, install the integration instead. It "
+            "depends on Hue and adds views, a router and the asset routes:"
         ),
-        pr.code("uv add hue-django", language="bash"),
+        pr.code("uv add hue-django  # or: uv add hue-fastapi", language="bash"),
         pr.h2("Serve the assets"),
         pr.p(
             "Hue ships a pre-built Tailwind stylesheet and an Alpine.js bundle "
-            "inside the package. Point your pages at them, or copy them into "
-            "your own static pipeline. The paths are available from "
-            "hue.assets:"
+            "inside the package. The integrations serve them for you. Without "
+            "one, point your pages at them or copy them into your own static "
+            "pipeline. `hue.assets` gives their paths:"
         ),
         pr.code(
             "from hue.assets import (\n"
@@ -42,15 +42,15 @@ def _build() -> ComponentType:
             "than the rest of Hue's JavaScript put together. The Alpine bundle "
             "fetches it the first time a page shows a chart, so a page without "
             "a chart never downloads it. It looks in its own directory for a "
-            "file named chart-bundle.js, so serve it there under that exact "
-            "name: a static pipeline that keeps only hashed copies, such as "
-            "WhiteNoise with WHITENOISE_KEEP_ONLY_HASHED_FILES, would leave "
+            "file named `chart-bundle.js`, so serve it there under that exact "
+            "name. A static pipeline that keeps only hashed copies, such as "
+            "WhiteNoise with `WHITENOISE_KEEP_ONLY_HASHED_FILES`, would leave "
             "charts nothing to load. The Alpine bundle itself can be served "
             "under any name."
         ),
         pr.p(
-            "The Alpine bundle is an ES module that exports a configureAlpine "
-            "helper; Hue's page scaffolding wires this up for you (see ",
+            "The Alpine bundle is an ES module that exports a `configureAlpine` "
+            "helper, which Hue's page scaffolding wires up for you (see ",
             pr.link("Usage", "/usage/"),
             ").",
         ),

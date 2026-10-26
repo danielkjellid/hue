@@ -159,7 +159,9 @@ def shell(
                     html.main(main)
                     .id("content")
                     .data("pagefind-body", "")
-                    .class_("min-w-0 max-w-[1120px] flex-1 px-5 pb-20 pt-10 lg:px-8"),
+                    .class_(
+                        "mx-auto min-w-0 max-w-[1120px] flex-1 px-5 pb-20 pt-10 lg:px-8"
+                    ),
                     toc,
                 ).class_("flex gap-8 xl:pe-6"),
             ).class_("min-w-0 flex-1"),

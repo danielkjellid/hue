@@ -11,15 +11,15 @@ def _build() -> ComponentType:
         pr.h1("Views and Router"),
         pr.lead(
             "hue-django wires Hue's AJAX-first router into Django. Two view "
-            "classes cover the common cases: HueView for full pages that also "
-            "serve fragments, and HueFragmentsView for fragment-only endpoints."
+            "classes cover the common cases: `HueView` for full pages that also "
+            "serve fragments, and `HueFragmentsView` for fragment-only endpoints."
         ),
         pr.h2("Router"),
         pr.p(
-            "The Django router (hue_django.router.Router) extends Hue's base "
+            "The Django router (`hue_django.router.Router`) extends Hue's base "
             "router with the Django-specific pieces: it speaks Django's "
-            "<type:name> URL syntax, extracts the CSRF token from the request, "
-            "and detects AJAX requests via request.META."
+            "`<type:name>` URL syntax, extracts the CSRF token from the request, "
+            "and detects AJAX requests via `request.META`."
         ),
         pr.code(
             "from hue_django.router import Router\n"
@@ -28,8 +28,8 @@ def _build() -> ComponentType:
             "    router = Router[HttpRequest]()"
         ),
         pr.p(
-            "HueView creates a router automatically if you don't declare one; "
-            "HueFragmentsView always requires an explicit router."
+            "`HueView` creates a router automatically if you don't declare one; "
+            "`HueFragmentsView` always requires an explicit router."
         ),
         pr.h2("Path parameters"),
         pr.p(
@@ -51,15 +51,15 @@ def _build() -> ComponentType:
             '    return html.div(f"Comment {comment_id}")'
         ),
         pr.p(
-            "The standard Django converters are supported (int, str, slug, "
-            "uuid and path), and a single route may capture several "
+            "The standard Django converters are supported (`int`, `str`, `slug`, "
+            "`uuid` and `path`), and a single route may capture several "
             "parameters."
         ),
         pr.h2("HueView"),
         pr.p(
-            "HueView is for full page views that can also handle AJAX fragment "
-            "updates. It must define an index method (sync or async) that "
-            "handles the initial GET and returns a Page; fragment routes are "
+            "`HueView` is for full page views that can also handle AJAX fragment "
+            "updates. It must define an `index` method (sync or async) that "
+            "handles the initial GET and returns a `Page`; fragment routes are "
             "added with the router and are AJAX-only."
         ),
         pr.code(
@@ -83,9 +83,9 @@ def _build() -> ComponentType:
         ),
         pr.h2("HueFragmentsView"),
         pr.p(
-            "HueFragmentsView is for fragment-only collections: endpoints that "
+            "`HueFragmentsView` is for fragment-only collections: endpoints that "
             "return HTML fragments with no full page. It "
-            "requires an explicit router and has no index route; every route "
+            "requires an explicit router and has no `index` route; every route "
             "is AJAX-only."
         ),
         pr.code(
@@ -108,13 +108,13 @@ def _build() -> ComponentType:
             '        return html.div("Comment created")'
         ),
         pr.p(
-            "Reach for HueView when the initial load needs a full page, and "
-            "HueFragmentsView when you only need fragment endpoints."
+            "Reach for `HueView` when the initial load needs a full page, and "
+            "`HueFragmentsView` when you only need fragment endpoints."
         ),
         pr.h2("URL configuration"),
         pr.p(
-            "Both classes expose a urls attribute, a (urlpatterns, app_name) "
-            "tuple ready for Django's include(). The app name defaults to the "
+            "Both classes expose a `urls` attribute, a `(urlpatterns, app_name)` "
+            "tuple ready for Django's `include()`. The app name defaults to the "
             "lowercased class name."
         ),
         pr.code(
@@ -128,8 +128,8 @@ def _build() -> ComponentType:
         ),
         pr.h2("HTTP methods and AJAX"),
         pr.p(
-            "Fragment routes exist for every standard verb (fragment_get, "
-            "fragment_post, fragment_put, fragment_patch and fragment_delete), "
+            "Fragment routes exist for every standard verb (`fragment_get`, "
+            "`fragment_post`, `fragment_put`, `fragment_patch` and `fragment_delete`), "
             "and several methods can share a path. Because fragments are "
             "AJAX-only, the router checks for an X-Requested-With: "
             "XMLHttpRequest or X-Alpine-Request: true header and returns 400 "

@@ -18,9 +18,13 @@ from hue.types.core import ComponentType
 from hue.ui import Dialog, Kbd
 
 from hue_docs_v2.icons import Icon
+from hue_docs_v2.shortcuts import Shortcuts
 from hue_docs_v2.site import url
 
 _LISTBOX = "docs-search-results"
+_SHORTCUTS = "docs-search-shortcuts"
+
+_ROW = "flex w-full items-center gap-3 rounded-md px-3 py-2 text-start"
 
 
 def _result_row() -> ComponentType:
@@ -58,6 +62,60 @@ def _result_row() -> ComponentType:
     return h.template(option, **{"x-for": "(row, index) in results", ":key": "row.url"})
 
 
+def _option(control: ComponentType, index: int) -> ComponentType:
+    # The same marker and pointer as a result row, which is what lets the
+    # arrow keys run through the shortcuts while the box is empty.
+    return (
+        html.li(control)
+        .role("option")
+        .id(f"docs-shortcut-{index}")
+        .class_("cursor-pointer rounded-md")
+        .x_bind("aria-selected", unsafe(f"String(active === {index})"))
+        .x_bind("class", unsafe(f"active === {index} ? 'bg-surface-active' : ''"))
+        .x_on("mousemove", unsafe(f"active = {index}"))
+    )
+
+
+def _shortcut_list() -> ComponentType:
+    """
+    The site's shortcuts, listed while the box is empty. A row runs its
+    shortcut the way the keys would: a link goes, an action closes the
+    dialog first and then runs.
+    """
+    rows = []
+    for index, shortcut in enumerate(Shortcuts.shortcuts):
+        inner = (
+            shortcut.icon or "",
+            html.span(shortcut.label).class_("min-w-0 flex-1 truncate text-sm text-fg"),
+            html.span(*[Kbd(*step) for step in shortcut.steps]).class_(
+                "inline-flex flex-none gap-1"
+            ),
+        )
+        href = shortcut.href
+        # The docs' hrefs are URLs; one built per request would need the request.
+        assert not callable(href)
+        control = (
+            h.a(*inner, href=href, tabindex="-1", class_=_ROW)
+            if href is not None
+            else h.button(
+                *inner,
+                type="button",
+                tabindex="-1",
+                class_=f"{_ROW} cursor-pointer",
+                **{"x-on:click": f"open = false; {shortcut.action}"},
+            )
+        )
+        rows.append(_option(control, index))
+    return (
+        html.ul(*rows)
+        .id(_SHORTCUTS)
+        .role("listbox")
+        .aria_label("Shortcuts")
+        .class_("p-2 [&_svg]:size-4 [&_svg]:flex-none [&_svg]:text-fg-subtle")
+        .x_show(unsafe("!query.trim()"))
+    )
+
+
 def search_dialog() -> ComponentType:
     # htmy for the attributes a combobox needs that hue's input has no
     # modifier for: aria-autocomplete, aria-activedescendant, spellcheck.
@@ -74,9 +132,9 @@ def search_dialog() -> ComponentType:
             "role": "combobox",
             "aria-label": "Search the docs",
             "aria-autocomplete": "list",
-            "aria-controls": _LISTBOX,
-            ":aria-expanded": "String(results.length > 0)",
-            ":aria-activedescendant": "active >= 0 ? `docs-search-${active}` : null",
+            ":aria-controls": f"query.trim() ? '{_LISTBOX}' : '{_SHORTCUTS}'",
+            ":aria-expanded": "String(!query.trim() || results.length > 0)",
+            ":aria-activedescendant": "active >= 0 ? optionId(active) : null",
             "x-model": "query",
             "x-ref": "input",
             "x-on:input": "search()",
@@ -121,6 +179,7 @@ def search_dialog() -> ComponentType:
         .content(
             html.div(
                 field,
+                _shortcut_list(),
                 listbox,
                 empty,
                 html.p().class_("sr-only").aria_live("polite").x_text(unsafe("status")),

@@ -193,15 +193,38 @@ document.addEventListener("alpine:init", () => {
       this.status = count ? `${count} result${count === 1 ? "" : "s"}` : "No results";
     },
 
+    // An empty box lists the site's shortcuts, drawn by the server, and a
+    // query lists the results. The keys move through whichever is shown.
+    listing() {
+      return this.query.trim() ? "results" : "shortcuts";
+    },
+
+    optionId(index) {
+      return this.listing() === "results" ? `docs-search-${index}` : `docs-shortcut-${index}`;
+    },
+
+    count() {
+      return this.listing() === "results"
+        ? this.results.length
+        : document.querySelectorAll("[id^='docs-shortcut-']").length;
+    },
+
     move(step) {
-      if (!this.results.length) return;
-      this.active = (this.active + step + this.results.length) % this.results.length;
+      const count = this.count();
+      if (!count) return;
+      this.active =
+        this.active < 0 ? (step > 0 ? 0 : count - 1) : (this.active + step + count) % count;
       this.$nextTick(() =>
-        document.getElementById(`docs-search-${this.active}`)?.scrollIntoView({ block: "nearest" }),
+        document.getElementById(this.optionId(this.active))?.scrollIntoView({ block: "nearest" }),
       );
     },
 
     go() {
+      if (this.active < 0) return;
+      if (this.listing() === "shortcuts") {
+        document.getElementById(this.optionId(this.active))?.firstElementChild?.click();
+        return;
+      }
       const row = this.results[this.active];
       if (row) window.location.href = row.url;
     },

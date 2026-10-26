@@ -58,6 +58,12 @@ def code_block(
             .aria_live("polite")
             .x_text(unsafe("copied ? 'Copied' : ''")),
         )
-        .class_(classnames("docs-code group relative", {"docs-code-flush": flush}))
+        # Prose's measure, so a block lines up with the paragraphs around it.
+        .class_(
+            classnames(
+                "docs-code group relative",
+                {"docs-code-flush": flush, "max-w-[70ch]": not flush},
+            )
+        )
         .x_data("{ copied: false }")
     )

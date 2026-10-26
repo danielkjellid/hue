@@ -38,9 +38,9 @@ def _build() -> ComponentType:
         _this_site(),
         pr.h2("Declaring them"),
         pr.p(
-            "A registry is a class whose attributes are Shortcut objects. It is "
+            "A registry is a class whose attributes are `Shortcut` objects. It is "
             "a class rather than a list so that everything else refers to "
-            "Shortcuts.create_invoice, which a type checker can follow and a "
+            "`Shortcuts.create_invoice`, which a type checker can follow and a "
             "rename updates."
         ),
         pr.code(
@@ -58,21 +58,28 @@ def _build() -> ComponentType:
         ),
         pr.p(
             "The registry goes in the render context, next to the date formats, "
-            "so every render has it: a page binds it, and a palette or a menu "
+            "so every render has it. A page binds it, and a palette or a menu "
             "returned in a fragment can still show its shortcuts. With "
-            "hue-django it is a setting, a dotted path or the class itself:"
+            "`hue-django` it is the `HUE_SHORTCUTS` setting, a dotted path or "
+            "the class itself. With `hue-fastapi` it is the `shortcuts` "
+            "argument to `configure_hue()`."
         ),
-        pr.code('HUE_SHORTCUTS = "billing.shortcuts.Shortcuts"'),
-        pr.p(
-            "Anywhere else, put it in the HueContextArgs your router's "
-            "_get_context_args returns, as shortcuts=Shortcuts."
+        pr.code(
+            "# hue-django, in settings.py\n"
+            'HUE_SHORTCUTS = "billing.shortcuts.Shortcuts"\n\n'
+            "# hue-fastapi\n"
+            "configure_hue(app, csrf=CsrfConfig(secret_key=...), shortcuts=Shortcuts)"
         ),
         pr.p(
-            "A Shortcut takes its label, its keys, and either an href or an "
+            "Without either, put it in the `HueContextArgs` your router's "
+            "`_get_context_args` returns, as `shortcuts=Shortcuts`."
+        ),
+        pr.p(
+            "A `Shortcut` takes its label, its keys, and either an href or an "
             "action. The href can be a function of the request, for a URL that "
             "has to be reversed per request. The action is an Alpine "
-            "expression, built with call() or unsafe(). group, icon, "
-            "description and keywords are for the palette that lists it, and "
+            "expression, built with `call()` or `unsafe()`. `group`, `icon`, "
+            "`description` and `keywords` are for the palette that lists it, and "
             "the icon is drawn by any row that shows the shortcut."
         ),
         pr.p(
@@ -91,7 +98,7 @@ def _build() -> ComponentType:
             "ctrl+k, which are the same press away from Apple platforms, and "
             "esc and escape, which are two names for one key. So does a "
             "shortcut found partway through another's sequence: if b runs on "
-            "its own, g then b then c could never be finished. A Command's "
+            "its own, g then b then c could never be finished. A `Command`'s "
             "hotkey is checked against the registry when the palette renders. "
             "The registry refuses a shortcut named after one of its own "
             "methods, such as active or check."
@@ -134,7 +141,7 @@ def _build() -> ComponentType:
                 ),
                 pr.p(
                     "A key is a single ASCII character, a function key from f1 to "
-                    "f12, or one of the names Kbd draws: esc, enter, tab, "
+                    "f12, or one of the names `Kbd` draws: esc, enter, tab, "
                     "space, backspace, delete, up, down, left, right, home, "
                     "end, pageup and pagedown. escape, return, del and the "
                     "arrowup family are read as the same keys. Letters can be "
@@ -172,15 +179,15 @@ def _build() -> ComponentType:
                     "Anything Hue could never match, such as a modifier on its "
                     "own, an unknown modifier like cmd, a misspelt key name or "
                     "the plus key, which is what joins the keys of a chord, "
-                    "raises an error when the Shortcut is made."
+                    "raises an error when the `Shortcut` is made."
                 ),
             ]
         ),
         pr.h2("Showing them"),
         pr.p(
-            "CommandShortcuts, placed in a Command, lists every shortcut that is "
+            "`CommandShortcuts`, placed in a `Command`, lists every shortcut that is "
             "on for the request, in groups by their group, with the keys at the "
-            "end of each row. CommandItem and MenuItem take a shortcut() of "
+            "end of each row. `CommandItem` and `MenuItem` take a `shortcut()` of "
             "their own: the row shows its keys, does what it does, and takes "
             "its label when it has none."
         ),
@@ -193,7 +200,7 @@ def _build() -> ComponentType:
         pr.p(
             "A row never binds the keys again, because the page has already "
             "bound them, so they work with the palette and the menu closed. It "
-            "announces them instead, through aria-keyshortcuts."
+            "announces them instead, through `aria-keyshortcuts`."
         ),
         pr.p(
             "A row that runs a shortcut does nothing else. The keys only ever "
@@ -211,10 +218,11 @@ def _build() -> ComponentType:
             "means something on an invoice and nothing on the dashboard. "
             "Declare these in the registry with scoped=True, so they are typed "
             "and checked against the rest like any other, and switch them on "
-            "from the handler that builds the page with shortcuts.use(). It "
-            "works the way toast.success() does. There is nothing to pass "
+            "from the handler that builds the page with `shortcuts.use()`. It "
+            "works the way `toast.success()` does. There is nothing to pass "
             "along, because the router opens and closes the request's list, "
-            "and HueRequestMiddleware does the same for a plain Django view."
+            "and the `HueRequestMiddleware` in `hue-django` and in `hue-fastapi` "
+            "does the same for a view that is not a hue route."
         ),
         pr.code(
             "class Shortcuts(ShortcutRegistry):\n"
@@ -230,15 +238,15 @@ def _build() -> ComponentType:
             "    return Page(...)"
         ),
         pr.p(
-            "use() can give the shortcut what it does on this page, as here, "
-            "or leave it to the href or action the Shortcut was declared with. "
+            "`use()` can give the shortcut what it does on this page, as here, "
+            "or leave it to the href or action the `Shortcut` was declared with. "
             "The latest response decides which scoped shortcuts are on. For an "
             "app that has any, every fragment response brings a fresh copy of "
             "the page's bindings, which replaces the old one: a handler that "
-            "swaps in another invoice calls use() again, and the archive key "
+            "swaps in another invoice calls `use()` again, and the archive key "
             "archives the invoice now on screen, while one that calls nothing "
             "turns the shortcut off, so a key never acts on content that has "
-            "been swapped away. Calling use() outside a request raises an "
+            "been swapped away. Calling `use()` outside a request raises an "
             "error."
         ),
         pr.h2("While someone is typing"),
@@ -267,7 +275,7 @@ def _build() -> ComponentType:
             "input, where a spoken word arrives as a string of key presses, and "
             "for anyone who presses keys by accident. WCAG 2.1.4 (Character Key "
             "Shortcuts) requires that shortcuts like these can be turned off. "
-            "Hue keeps that setting in an Alpine store, $store.shortcuts.letters, "
+            "Hue keeps that setting in an Alpine store, `$store.shortcuts.letters`, "
             "and remembers it in the browser. Shortcuts with mod, ctrl or alt "
             "are not affected."
         ),
@@ -292,29 +300,29 @@ def _build() -> ComponentType:
         .variant("warning")
         .title("Keys the browser keeps")
         .content(
-            pr.p(
+            pr.rich(
                 "Some chords never reach the page, whatever it asks. In Chrome "
-                "these include mod+n, mod+shift+n, mod+t, mod+shift+t and "
-                "mod+w, which open and close windows and tabs, and on a Mac "
-                "mod+q and mod+h belong to the system. A shortcut on one of them "
-                "is drawn but does nothing. Prefer alt or a sequence for an "
-                "app's own commands."
+                "these include `mod+n`, `mod+shift+n`, `mod+t`, `mod+shift+t` "
+                "and `mod+w`, which open and close windows and tabs, and on a "
+                "Mac `mod+q` and `mod+h` belong to the system. A shortcut on "
+                "one of them is drawn but does nothing. Prefer `alt` or a "
+                "sequence for an app's own commands."
             )
         ),
         pr.h2("What a screen reader hears"),
         pr.p(
-            "Each key is drawn with Kbd, which gives a modifier its spoken "
+            "Each key is drawn with `Kbd`, which gives a modifier its spoken "
             "name, so the command key is read as Command rather than as the "
             "name of its glyph. Between the presses of a sequence a screen "
             'reader hears "then". A chord is also written into '
-            "aria-keyshortcuts on the row that shows it, with the platform's "
+            "`aria-keyshortcuts` on the row that shows it, with the platform's "
             "own key for mod, which is how assistive technology learns about a "
             "shortcut without reading the row. A sequence has no way to be "
             "written there, so it is only drawn."
         ),
         pr.h2("Keys that are only shown"),
         pr.p(
-            "Tooltip's keys() takes a Kbd and binds nothing, because it "
+            "`Tooltip`'s `keys()` takes a `Kbd` and binds nothing, because it "
             "describes the key of the control it sits on. Bind the key in the "
             "registry, or as a palette's hotkey, and let the tooltip say what "
             "it is.",

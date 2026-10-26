@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from htmy import html as h
+from hue import html
 from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.types.core import ComponentType
@@ -164,7 +166,9 @@ def _specimen(key: str, **params: str) -> ComponentType:
     its own, so each is wrapped in a context carrying it - the nearest one
     wins, which is the same rule that lets the page's own sit outside.
     """
-    return pr.section(
+    # inert: drawn once for the page, the specimen's links and boxes would
+    # only reload this guide.
+    return h.div(
         HueContext(
             DataTable.from_state(_table(key)),
             # Under the table's key, as a URL carries it.
@@ -172,7 +176,9 @@ def _specimen(key: str, **params: str) -> ComponentType:
                 **{f"{key}-{name}": value for name, value in params.items()}
             ),
             csrf_token="",
-        )
+        ),
+        inert=True,
+        class_="space-y-3",
     )
 
 
@@ -218,6 +224,34 @@ class InvoicesView(HueView):
         self, request: HttpRequest, context: HueContext[HttpRequest]
     ) -> Page:
         return Page(title="Invoices", body=DataTable.from_state(self.invoices))"""
+
+
+_NOT_DONE = (
+    (
+        "Actions need JavaScript. Alpine draws the bar they sit in, "
+        "so with it off there is nothing to press. The action form "
+        "carries no CSRF token of its own either, since the bundle "
+        "sends it in the `X-CSRFToken` header, which `hue-django` "
+        "and `hue-fastapi` read."
+    ),
+    (
+        "An action redraws the table from its declaration alone, so "
+        "a caption or an empty state chained after `from_state()` is "
+        "gone after the first action. A sort, a search or a page "
+        "keeps it, because each of those loads the page again."
+    ),
+    (
+        "A hyphen in a filter's name can give two controls the same "
+        "id. The second option of a filter `a` and a filter named "
+        "`a-1` both get `invoices-filter-a-1`."
+    ),
+    (
+        "The filter panel does not show how many rows each answer "
+        "would leave. That count would have to be computed on the "
+        "server and swapped into the toolbar, which a read never "
+        "replaces."
+    ),
+)
 
 
 def _build() -> ComponentType:
@@ -608,32 +642,8 @@ def _build() -> ComponentType:
         .variant("warning")
         .title("What is not done yet")
         .content(
-            pr.bullets(
-                [
-                    pr.p(
-                        "Actions need JavaScript. Alpine draws the bar they sit in, "
-                        "so with it off there is nothing to press. The action form "
-                        "carries no CSRF token of its own either, since the bundle "
-                        "sends the header Django reads."
-                    ),
-                    pr.p(
-                        "An action redraws the table from its declaration alone, so "
-                        "a caption or an empty state chained after from_state() is "
-                        "gone after the first action. A sort, a search or a page "
-                        "keeps it, because each of those loads the page again."
-                    ),
-                    pr.p(
-                        "A hyphen in a filter's name can give two controls the same "
-                        "id: the second option of a filter a and a filter named a-1 "
-                        "both get invoices-filter-a-1."
-                    ),
-                    pr.p(
-                        "The filter panel does not show how many rows each answer "
-                        "would leave. That count would have to be computed on the "
-                        "server and swapped into the toolbar, which a read never "
-                        "replaces."
-                    ),
-                ]
+            html.ul(*[html.li(pr.rich(item)) for item in _NOT_DONE]).class_(
+                "list-disc space-y-1 ps-5"
             )
         ),
     )

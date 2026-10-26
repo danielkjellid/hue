@@ -8,7 +8,7 @@ from collections import defaultdict
 
 from hue_docs_v2.model import ComponentPage, GuidePage, NavGroup, NavItem
 
-GUIDE_GROUPS = ["Get started", "Guides", "Django"]
+GUIDE_GROUPS = ["Get started", "Guides", "Django", "FastAPI"]
 
 # Categories not listed come after these, alphabetically.
 CATEGORY_ORDER = [

@@ -174,6 +174,6 @@ PAGE = GuidePage(
     title="Icons",
     nav_label="Icons",
     group="Guides",
-    order=2,
+    order=3,
     build=_build,
 )

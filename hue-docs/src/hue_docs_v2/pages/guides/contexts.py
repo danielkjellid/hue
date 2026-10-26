@@ -17,24 +17,34 @@ class Workspace(ChainableComponent):
 # The sidebar is told the page, and can reach none of the rows on it.
 Sidebar().current("/events").content(SidebarBody().content(Workspace()))"""
 
-_CONTRACT = """@dataclass(frozen=True, slots=True)
+_CONTRACT = """# The value on offer. Frozen, since everything below the provider reads
+# the same instance.
+@dataclass(frozen=True, slots=True)
 class CurrentPage:
     path: str | None
 
+    # The one place that knows how to look it up, and what a missing
+    # provider means: here, that no page is current.
     @classmethod
     def from_context(cls, context: Context) -> CurrentPage:
         found = context.get(cls)
         return found if isinstance(found, cls) else cls(None)
 
 
+# The provider. htmy calls htmy_context() before rendering the sidebar's
+# children, and the mapping it returns is in the context of every one of
+# them, however deep.
 class Sidebar(ChainableComponent):
     def htmy_context(self) -> Context:
         return {CurrentPage: CurrentPage(self._get_prop("current"))}
 
 
+# A reader, any number of levels down. It asks for the value by its class
+# and marks itself, unless it was told outright with current().
 class SidebarItem(Clickable):
     def _render(self, context: Context) -> Component:
         here = CurrentPage.from_context(context).path
+        href = self._get_prop("href")
         current = self._get_prop("current", href is not None and href == here)"""
 
 _ANSWERS = """# A tab outside a row is a mistake. Say so.
@@ -88,9 +98,9 @@ def _build() -> ComponentType:
         ),
         pr.code(_PROBLEM),
         pr.p(
-            "The sidebar's children are one SidebarBody holding one "
-            "Workspace. The rows do not exist yet, and when they do it is "
-            "Workspace that makes them, which knows nothing about the "
+            "The sidebar's children are one `SidebarBody` holding one "
+            "`Workspace`. The rows do not exist yet, and when they do it is "
+            "`Workspace` that makes them, which knows nothing about the "
             "current page. A prop cannot cross that, and neither can a walk "
             "over the tree: the children of a component are what was "
             "attached to it, not what it will eventually render."
@@ -103,9 +113,9 @@ def _build() -> ComponentType:
         pr.h2("The contract"),
         pr.p(
             "Two halves, and neither of them is a base class. A component "
-            "that offers something defines htmy_context() and returns a "
+            "that offers something defines `htmy_context()` and returns a "
             "mapping. A component that wants something reads it off the "
-            "context its _render is handed. Anything between the two can be "
+            "context its `_render` is handed. Anything between the two can be "
             "any depth of anything."
         ),
         pr.code(_CONTRACT),
@@ -117,7 +127,7 @@ def _build() -> ComponentType:
             "behaviour."
         ),
         pr.p(
-            "from_context() as a classmethod on the key is a convention "
+            "`from_context()` as a classmethod on the key is a convention "
             "rather than a requirement, but it is worth keeping. It is the "
             "one place that knows what the key is, what the value looks like "
             "and what to do when nobody offered one, so every reader is a "
@@ -137,36 +147,36 @@ def _build() -> ComponentType:
             "the one it inherited, so a provider inside a provider shadows it "
             "for its own subtree and leaves the rest alone. A provider also "
             "sees its own context, which is what lets a component offer a "
-            "value and read it in the same _render."
+            "value and read it in the same `_render`."
         ),
         pr.code(_NESTING),
         pr.h2("What hue already offers"),
         pr.bullets(
             [
                 pr.p(
-                    "HueContext - the request and the CSRF token, put there "
-                    "by render_tree. Every component looks it up and throws "
+                    "`HueContext` holds the request and the CSRF token, put "
+                    "there by `render_tree`. Every component looks it up and throws "
                     "it away, so a tree rendered outside one fails at the "
                     "first component rather than at whichever one later "
                     "wants a token. A component that wants it reads it the "
                     "same way anything else in the context is read, out of "
-                    "the context its own _render was handed."
+                    "the context its own `_render` was handed."
                 ),
                 pr.p(
-                    "CurrentPage - the path a set of links was told it is "
-                    "on. Offered by Sidebar and by Tabs, because they are "
-                    "the same question asked twice: of these links, which "
-                    "one leads here? A link reads it and marks itself, on "
-                    "its own path and on the pages inside it."
+                    "`CurrentPage` holds the path a set of links was told it "
+                    "is on. `Sidebar` and `Tabs` both offer it, since both "
+                    "have to work out which of their links leads to the "
+                    "current page. A link reads it and marks itself, on its "
+                    "own path and on the pages inside it."
                 ),
                 pr.p(
-                    "TabsState - how a row of tabs is drawn and where a "
-                    "tab lands. A Tab reads it, and raises without it; the "
-                    "row offers CurrentPage alongside, so the two between "
+                    "`TabsState` says how a row of tabs is drawn and where a "
+                    "tab lands. A `Tab` reads it, and raises without it. The "
+                    "row offers `CurrentPage` alongside, so the two between "
                     "them are the whole of what a tab needs."
                 ),
                 pr.p(
-                    "FormErrors - what came back wrong, by control name. "
+                    "`FormErrors` holds what came back wrong, by control name. "
                     "Every named control looks itself up; one given an error "
                     "explicitly keeps it, so the form is the fallback rather "
                     "than an override."
@@ -185,7 +195,7 @@ def _build() -> ComponentType:
         pr.p(
             "The request needs more care. It is already in the context, and a "
             "leaf that reaches for it can no longer be rendered without a "
-            "request built for it first. Hue reads it in one place: the table "
+            "request built for it first. Hue reads it only in the table "
             "declaration, whose job is to turn a request into rows. It reads "
             "it once, at the top of the table, and everything under it reads "
             "the bound table instead."
