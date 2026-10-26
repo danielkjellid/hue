@@ -99,6 +99,7 @@ from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
+from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.radio import Radio
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules.datatable import (
@@ -1598,6 +1599,28 @@ class _SearchField(TextInput):
 
     _input_type = "search"
 
+    def _get_extra_classes(self) -> str:
+        # The slash hint after it hides off the input's focus and its text.
+        return "peer"
+
+
+def _slash_hint() -> ComponentType:
+    """
+    The slash key at the end of the box, saying how to reach it.
+
+    Cloaked until Alpine counts the boxes on the page, since slash only works
+    with one of them and not at all without Alpine. It hides while the box
+    has focus or text, so it never sits over what was typed or the clear
+    button. The input itself carries the key as aria-keyshortcuts.
+    """
+    return html.span(
+        Kbd("/"),
+        aria_hidden="true",
+        class_="flex flex-none items-center pe-2 peer-focus:hidden "
+        "peer-[:not(:placeholder-shown)]:hidden",
+        **{"x-show": "alone()", "x-cloak": ""},
+    )
+
 
 def _search_form(bound: BoundTable, form: str) -> ComponentType:
     """
@@ -1618,7 +1641,9 @@ def _search_form(bound: BoundTable, form: str) -> ComponentType:
         .hidden_label()
         .placeholder(bound.declaration.search or "")
         .value(bound.state.query)
-        .leading_icon(HueIcon("search")),
+        .leading_icon(HueIcon("search"))
+        .x_bind("aria-keyshortcuts", unsafe("alone() ? '/' : null"))
+        .action(_slash_hint()),
         id=form,
         method="get",
         action=bound.urls.read,
