@@ -526,6 +526,18 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
     assert "data-hue-table-search" in html
 
 
+def test_the_search_box_shows_slash_only_where_slash_works(mounted):
+    # Cloaked until the browser has counted the boxes, hidden by CSS while the
+    # field has focus or text, and named on the input for a screen reader.
+    form = _form(_table(mounted().invoices, _request()), "invoices-q")
+    hint = re.search(r'<span aria-hidden="true" class="([^"]*)"([^>]*)>.*?<kbd', form)
+    assert hint, "no slash hint"
+    assert "peer-focus:hidden" in hint[1]
+    assert "peer-[:not(:placeholder-shown)]:hidden" in hint[1]
+    assert 'x-show="alone()"' in hint[2] and "x-cloak" in hint[2]
+    assert ":aria-keyshortcuts=\"alone() ? '/' : null\"" in form
+
+
 def test_the_pages_are_redrawn_with_the_rows_and_remembered(mounted):
     # A page, a sort or a search replaces the rows region; the bar saying
     # which page of how many has to be inside it, or it goes stale. push,

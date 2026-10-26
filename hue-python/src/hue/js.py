@@ -16,8 +16,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import fields, is_dataclass
 from json import dumps
-from typing import Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 # A function or a path to one: sendInvoice, $store.cart.add, window.print.
 _FUNCTION = re.compile(r"^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$")
@@ -98,7 +104,7 @@ def ajax(
     *,
     target: str | Sequence[str],
     method: Method = "get",
-    body: Mapping[str, Any] | None = None,
+    body: Mapping[str, Any] | BaseModel | DataclassInstance | None = None,
 ) -> Expression:
     """
     A request to one of your routes, with the response merged into the page.
@@ -110,16 +116,21 @@ def ajax(
     $ajax would fall back to the id of the element the expression runs on,
     and fail on one without an id.
 
-    body is sent as form fields, which a route's body model validates. A list
-    or a dict in it arrives as one field holding JSON, the way $ajax sends
-    them, so the route reads [3, 4] from "[3,4]". A None is left out, so the
-    model's default applies rather than the text "null". A GET takes no body.
+    body is sent as form fields, which a route's body model validates. It can
+    be an instance of that model, a dataclass or a pydantic model, or a
+    mapping of field names to values. A model's fields are read one level
+    deep and left as they are, so an Expression in a field still goes in as
+    written. A list or a dict in it arrives as one field holding JSON, the
+    way $ajax sends them, so the route reads [3, 4] from "[3,4]". A None is
+    left out, so the model's default applies rather than the text "null". A
+    GET takes no body.
 
     Every value is quoted, the URL and the body's included. One that is
     already an Expression goes in as written, for what only the browser
     knows, as with call():
 
         ajax(url, method="post", target="invoices", body={"ids": unsafe("selected")})
+        ajax(url, method="post", target="invoice", body=Archive(reason="duplicate"))
     """
     targets = [target] if isinstance(target, str) else list(target)
     if not targets or not all(targets):
@@ -149,9 +160,30 @@ def ajax(
     }
     if body is not None:
         options["body"] = {
-            name: value for name, value in body.items() if value is not None
+            name: value for name, value in _body_fields(body) if value is not None
         }
     return call("$ajax", url, options)
+
+
+def _body_fields(body: object) -> list[tuple[str, Any]]:
+    """
+    The body's fields as name and value pairs, read shallowly so that an
+    Expression in a field survives. dataclasses.asdict and model_dump would
+    copy it. A pydantic field goes by its alias, the name its model validates.
+    """
+    if isinstance(body, Mapping):
+        return list(body.items())
+    if isinstance(body, BaseModel):
+        return [
+            (info.alias or name, getattr(body, name))
+            for name, info in type(body).model_fields.items()
+        ]
+    if is_dataclass(body) and not isinstance(body, type):
+        return [(each.name, getattr(body, each.name)) for each in fields(body)]
+    raise TypeError(
+        f"ajax() takes a body that is a mapping, a dataclass instance or a "
+        f"pydantic model instance, not {type(body).__name__}."
+    )
 
 
 def close() -> Expression:

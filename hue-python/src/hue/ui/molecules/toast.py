@@ -38,6 +38,12 @@ _ICONS: dict[ToastVariant, str] = {
     "loading": "",
 }
 
+# A toast of one line centres its icon, title and dismiss button, which are
+# taller than the title's line box; one with a description or an action keeps
+# them on the first line. It is a CSS selector so that a toast $toast() clones
+# from the template, then strips of its description and action, gets it too.
+_ALIGN = "items-center has-[[data-toast-description],[data-toast-action]]:items-start"
+
 _TONES: dict[ToastVariant, str] = {
     "success": "text-success",
     "danger": "text-danger",
@@ -151,7 +157,8 @@ class Toast(ChainableComponent):
             html.span(
                 icon,
                 aria_hidden="true",
-                class_=classnames("mt-0.5 flex-none", _TONES[variant]),
+                # The height of the title's line, so the icon sits on it.
+                class_=classnames("flex h-5 flex-none items-center", _TONES[variant]),
             ),
             html.div(
                 render_if(
@@ -192,7 +199,8 @@ class Toast(ChainableComponent):
                 ),
             ),
             class_=classnames(
-                "pointer-events-auto flex items-start gap-3 rounded-lg border",
+                "pointer-events-auto flex gap-3 rounded-lg border",
+                _ALIGN,
                 "border-border bg-surface-raised px-4 py-3 shadow-overlay",
                 "animate-toast-in",
                 self._get_prop("class_"),

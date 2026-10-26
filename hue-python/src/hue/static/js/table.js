@@ -101,11 +101,15 @@ export function registerTableSelection(Alpine) {
  */
 export function registerTableSearch(Alpine) {
 	Alpine.data("hueTableSearch", () => ({
+		// A page-wide key can only belong to one thing. With two tables on
+		// the page there is no answer to which one slash means, so it means
+		// neither and stays a slash, and neither box shows the hint for it.
+		alone() {
+			return document.querySelectorAll("[data-hue-table-search]").length === 1;
+		},
+
 		focusField(event) {
-			// A page-wide key can only belong to one thing. With two
-			// tables on the page there is no answer to which one slash
-			// means, so it means neither and stays a slash.
-			if (document.querySelectorAll("[data-hue-table-search]").length > 1) {
+			if (!this.alone()) {
 				return;
 			}
 			// Ignored while focus is in a field, or slash would be
