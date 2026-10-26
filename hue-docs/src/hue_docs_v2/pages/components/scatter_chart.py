@@ -93,7 +93,7 @@ def currency() -> ScatterChart:
 
 def _usage() -> ComponentType:
     return pr.page(
-        *_charts.point_data("ScatterChart", "(x, y)"),
+        *_charts.point_data("ScatterChart", "`(x, y)`"),
         pr.code(
             "ScatterChart()\n"
             '    .series([(12, 0.18), (25, 0.22), (31, 0.35)], label="Online")\n'
@@ -107,7 +107,7 @@ def _usage() -> ComponentType:
             "A `ScatterChart` raises a `ValueError` on a point with a third "
             "number, a size. A point with a size belongs on a `BubbleChart`."
         ),
-        *_charts.formats("ScatterChart", "x_format() and y_format()"),
+        *_charts.formats("ScatterChart", "`x_format()` and `y_format()`"),
         pr.p(
             "Each axis has its own format, so a `ScatterChart` can put money "
             "along the bottom and a percentage up the side."

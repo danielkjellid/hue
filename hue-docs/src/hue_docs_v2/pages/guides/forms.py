@@ -209,7 +209,9 @@ def _build() -> ComponentType:
             "`FormErrors` context, and every named control looks up its own "
             "entry, however deep in somebody else's layout it sits. ",
             pr.link("Contexts", "/contexts/"),
-            " explains the mechanism.",
+            " explains the mechanism, and ",
+            pr.link("Form", "/components/form/"),
+            " shows it in use.",
         ),
         pr.p(
             "A control with an error sets `aria-invalid`, shows the message in "

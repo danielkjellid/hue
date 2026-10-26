@@ -20,6 +20,7 @@ from hue.utils import render_when
 from hue_fastapi import Page
 
 from hue_docs_v2.icons import Icon
+from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.layout.code import code_block
 from hue_docs_v2.model import ComponentPage, Panel, caption
 from hue_docs_v2.render import preview
@@ -112,7 +113,9 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
             ),
             render_when(
                 bool(panel.hint),
-                html.span(panel.hint).class_("truncate text-2xs text-fg-subtle"),
+                html.span(pr.rich(panel.hint)).class_(
+                    "truncate text-2xs text-fg-subtle"
+                ),
             ),
         ).class_("flex min-w-0 items-baseline gap-3"),
         html.div(

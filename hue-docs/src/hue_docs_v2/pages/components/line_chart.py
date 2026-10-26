@@ -85,7 +85,7 @@ def _usage() -> ComponentType:
             "beneath the main one. Only the last point of each line is marked, "
             "which also keeps a series of a single value from drawing nothing."
         ),
-        *_charts.formats("LineChart", "y_format()"),
+        *_charts.formats("LineChart", "`y_format()`"),
         *_charts.size("LineChart"),
         *_charts.loading("LineChart"),
         *_charts.theme("LineChart"),

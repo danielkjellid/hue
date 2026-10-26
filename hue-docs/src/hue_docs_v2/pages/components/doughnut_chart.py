@@ -78,7 +78,7 @@ def _usage() -> ComponentType:
             "and gives a screen reader the same table."
         ),
         *_charts.slice_data("DoughnutChart"),
-        *_charts.formats("DoughnutChart", "value_format()", axis=False),
+        *_charts.formats("DoughnutChart", "`value_format()`", axis=False),
         *_charts.size("DoughnutChart"),
         *_charts.loading("DoughnutChart"),
         *_charts.theme("DoughnutChart"),

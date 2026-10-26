@@ -227,7 +227,7 @@ def _build() -> ComponentType:
         pr.p(
             "The same view can be included under more than one prefix. When "
             "Hue builds a link to one of the view's own routes, as a ",
-            pr.link("data table", "/data-tables/"),
+            pr.link("DataTable", "/components/data-table/"),
             " does for its page and its actions, the router's `_url_for` "
             "takes the prefix from the path of the current request. A reader "
             "on `/a/` gets links under `/a/`, and one on `/b/` gets links "

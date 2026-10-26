@@ -164,22 +164,22 @@ def _build() -> ComponentType:
                 ),
                 pr.p(
                     "`CurrentPage` holds the path a set of links was told it "
-                    "is on. `Sidebar` and `Tabs` both offer it, since both "
-                    "have to work out which of their links leads to the "
-                    "current page. A link reads it and marks itself, on its "
-                    "own path and on the pages inside it."
+                    "is on. `Sidebar` and `Tabs` both offer it, and each link "
+                    "inside marks itself. ",
+                    pr.link("Sidebar", "/components/sidebar/"),
+                    " has the matching rule.",
                 ),
                 pr.p(
                     "`TabsState` says how a row of tabs is drawn and where a "
-                    "tab lands. A `Tab` reads it, and raises without it. The "
-                    "row offers `CurrentPage` alongside, so the two between "
-                    "them are the whole of what a tab needs."
+                    "tab lands, and a `Tab` raises without it. ",
+                    pr.link("Tabs", "/components/tabs/"),
+                    " covers both of the contexts a row offers.",
                 ),
                 pr.p(
-                    "`FormErrors` holds what came back wrong, by control name. "
-                    "Every named control looks itself up; one given an error "
-                    "explicitly keeps it, so the form is the fallback rather "
-                    "than an override."
+                    "`FormErrors` holds what came back wrong, by control name, "
+                    "and every named control looks itself up. ",
+                    pr.link("Form", "/components/form/"),
+                    " covers how an error set on the control wins.",
                 ),
             ]
         ),

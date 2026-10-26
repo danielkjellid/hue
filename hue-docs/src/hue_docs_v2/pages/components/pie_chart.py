@@ -73,7 +73,7 @@ def currency() -> PieChart:
 def _usage() -> ComponentType:
     return pr.page(
         *_charts.slice_data("PieChart"),
-        *_charts.formats("PieChart", "value_format()", axis=False),
+        *_charts.formats("PieChart", "`value_format()`", axis=False),
         *_charts.size("PieChart"),
         *_charts.loading("PieChart"),
         *_charts.theme("PieChart"),
