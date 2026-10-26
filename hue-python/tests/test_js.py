@@ -1,6 +1,8 @@
 import json
+from dataclasses import dataclass
 
 import pytest
+from pydantic import BaseModel, Field
 
 from hue import html
 from hue.js import Expression, ajax, call, close, unsafe
@@ -43,6 +45,19 @@ class TestExpressions:
         assert call("f", value) == f"f({json.dumps(value)})"
 
 
+@dataclass
+class _ArchiveData:
+    reason: str
+    notify: bool | None = None
+    ids: object = None
+
+
+class _ArchiveModel(BaseModel):
+    reason: str
+    notify: bool | None = None
+    send_at: str = Field("now", alias="sendAt")
+
+
 class TestAjax:
     def test_a_request_is_written_with_every_value_quoted(self):
         # sync, so the toast region a route's toast arrives in is updated too.
@@ -70,6 +85,28 @@ class TestAjax:
             "/invoices/", method="post", target="t", body={"q": None, "page": 2}
         )
         assert '"body": {"page": 2}' in request
+
+    def test_a_body_can_be_a_dataclass(self):
+        request = ajax("/a/", method="post", target="t", body=_ArchiveData("dup"))
+        assert request.endswith('"body": {"reason": "dup"}})')
+
+    def test_a_body_can_be_a_pydantic_model_sent_by_its_aliases(self):
+        # The route validates the form by alias, so that is the field's name.
+        body = _ArchiveModel(reason="dup", notify=True)
+        request = ajax("/a/", method="post", target="t", body=body)
+        assert request.endswith(
+            '"body": {"reason": "dup", "notify": true, "sendAt": "now"}})'
+        )
+
+    def test_an_expression_in_a_model_field_goes_in_as_written(self):
+        # asdict would deep-copy it, and the copy is a plain str.
+        body = _ArchiveData("dup", ids=unsafe("selected"))
+        request = ajax("/a/", method="post", target="t", body=body)
+        assert request.endswith('"body": {"reason": "dup", "ids": selected}})')
+
+    def test_any_other_body_is_refused(self):
+        with pytest.raises(TypeError, match="mapping, a dataclass"):
+            ajax("/a/", method="post", target="t", body=[("q", 1)])  # type: ignore[arg-type]
 
     def test_it_defaults_to_get_like_ajax_itself(self):
         assert '"method": "get"' in ajax("/invoices/", target="invoices")
