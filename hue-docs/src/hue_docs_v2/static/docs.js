@@ -7,20 +7,23 @@ document.addEventListener("alpine:init", () => {
 
   // A panel's frame: how wide it is drawn, which theme it is drawn in, and a
   // height that follows what is inside it.
-  Alpine.data("docsPanel", ({ minHeight = 0, contentId } = {}) => ({
+  Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId } = {}) => ({
     width: null, // null fills the panel
     theme: null, // null follows the site
     showCode: false,
     minWidth: 320,
-    shownWidth: 0,
+    maxWidth,
+    room: 0, // how wide the panel can draw the frame
+    height: 0, // the frame's content height, unscaled
     sizes: null,
     content: null,
 
     init() {
       this.sizes = new ResizeObserver(() => {
-        this.shownWidth = this.$refs.holder.offsetWidth;
+        // Less the strip the handle sits in.
+        this.room = this.$refs.canvas.clientWidth - 16;
       });
-      this.sizes.observe(this.$refs.holder);
+      this.sizes.observe(this.$refs.canvas);
       this.$watch("effectiveTheme", () => this.paint());
     },
 
@@ -33,13 +36,40 @@ document.addEventListener("alpine:init", () => {
       return this.theme ?? Alpine.store("theme").resolved;
     },
 
-    maxWidth() {
-      // As wide as the panel, less the strip the handle sits in.
-      return this.$refs.canvas.clientWidth - 16;
+    // The viewport the example sees, which can be wider than the panel.
+    get shown() {
+      return this.width ?? this.room;
+    },
+
+    // A viewport wider than the panel is drawn at full width and scaled
+    // down, so the frame's media queries still see the width chosen.
+    get scale() {
+      return this.width !== null && this.width > this.room ? this.room / this.width : 1;
+    },
+
+    // Objects rather than strings: Alpine sets a string as the whole style
+    // attribute, which would drop the height the frame is given below.
+    holderStyle() {
+      if (this.width === null) return { width: "100%" };
+      if (this.scale === 1) return { width: `${this.width}px` };
+      return {
+        width: `${this.room}px`,
+        height: `${Math.ceil(this.height * this.scale)}px`,
+      };
+    },
+
+    frameStyle() {
+      if (this.scale === 1) return {};
+      return {
+        width: `${this.width}px`,
+        transform: `scale(${this.scale})`,
+        transformOrigin: document.dir === "rtl" ? "top right" : "top left",
+      };
     },
 
     readout() {
-      return `${Math.round(this.shownWidth)}px`;
+      const width = `${Math.round(this.shown)}px`;
+      return this.scale < 1 ? `${width} at ${Math.round(this.scale * 100)}%` : width;
     },
 
     // Called on every load of the frame, so a frame that reloads keeps its
@@ -55,8 +85,8 @@ document.addEventListener("alpine:init", () => {
       // A lazy frame loads about:blank first, which has none.
       if (!content) return;
       const fit = () => {
-        const height = Math.ceil(content.getBoundingClientRect().height);
-        frame.style.height = `${Math.max(minHeight, height)}px`;
+        this.height = Math.max(minHeight, Math.ceil(content.getBoundingClientRect().height));
+        frame.style.height = `${this.height}px`;
       };
       // One observer per frame: a reload replaces the document it watched.
       this.content?.disconnect();
@@ -71,14 +101,14 @@ document.addEventListener("alpine:init", () => {
     },
 
     clamp(width) {
-      return Math.min(this.maxWidth(), Math.max(this.minWidth, Math.round(width)));
+      return Math.min(this.maxWidth, Math.max(this.minWidth, Math.round(width)));
     },
 
     startDrag(event) {
       if (event.button !== 0) return;
       const handle = event.currentTarget;
       const startX = event.clientX;
-      const startWidth = this.$refs.holder.offsetWidth;
+      const startWidth = this.shown;
       handle.setPointerCapture(event.pointerId);
       // The frame swallows pointer events over it, which would drop the drag
       // whenever the pointer crossed into it.
@@ -108,7 +138,7 @@ document.addEventListener("alpine:init", () => {
     // The handle's keyboard: arrows step, shift steps further, Home and End
     // go to the narrowest and the full width.
     nudge(event) {
-      const current = this.$refs.holder.offsetWidth;
+      const current = this.shown;
       // Toward the handle's own side widens, as dragging does.
       const step = (event.shiftKey ? 64 : 16) * (document.dir === "rtl" ? -1 : 1);
       const moves = {

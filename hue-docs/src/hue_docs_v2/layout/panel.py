@@ -143,9 +143,9 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
             "focus-visible:shadow-ring"
         ),
         **{
-            ":aria-valuenow": "Math.round(shownWidth)",
+            ":aria-valuenow": "Math.round(shown)",
             ":aria-valuemin": "minWidth",
-            ":aria-valuemax": "maxWidth()",
+            ":aria-valuemax": "maxWidth",
             ":aria-valuetext": "readout()",
             "x-on:pointerdown": "startDrag($event)",
             "x-on:keydown": "nudge($event)",
@@ -160,15 +160,17 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
                     loading="lazy",
                     class_="block w-full border-0 bg-canvas",
                     style=f"height: {max(panel.min_height, 96)}px",
-                    **{"x-ref": "frame", "x-on:load": "attach()"},
+                    **{
+                        "x-ref": "frame",
+                        "x-on:load": "attach()",
+                        ":style": "frameStyle()",
+                    },
                 ),
                 handle,
             )
             .class_("relative max-w-full")
             .x_ref("holder")
-            .x_bind(
-                "style", unsafe("width === null ? 'width: 100%' : `width: ${width}px`")
-            ),
+            .x_bind("style", unsafe("holderStyle()")),
         )
         .class_("overflow-x-auto bg-canvas-subtle pe-4")
         .x_ref("canvas")
@@ -188,7 +190,13 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
         )
         .x_data(
             "docsPanel("
-            + json.dumps({"minHeight": panel.min_height, "contentId": FRAME_CONTENT})
+            + json.dumps(
+                {
+                    "minHeight": panel.min_height,
+                    "maxWidth": max(VIEWPORTS.values()),
+                    "contentId": FRAME_CONTENT,
+                }
+            )
             + ")"
         )
     )
