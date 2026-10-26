@@ -152,11 +152,12 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Card is a container you assemble from four parts: CardMedia, "
-            "CardHeader, CardBody and CardFooter. Each part is optional, and a "
-            "Card renders them in the order you pass them. variant() sets the "
-            "edge: bordered by default, raised for a shadow in place of the "
-            "border, and flat for a sunken fill with no border."
+            "A `Card` is a container you assemble from four parts, `CardMedia`, "
+            "`CardHeader`, `CardBody` and `CardFooter`. Each part is optional, and a "
+            "`Card` renders them in the order you pass them. `variant()` sets the "
+            'edge. `"bordered"` is the default, `"raised"` puts a shadow in place of '
+            "the "
+            'border, and `"flat"` gives a sunken fill with no border.'
         ),
         pr.code(
             "Card().content(\n"
@@ -170,21 +171,21 @@ def _usage() -> ComponentType:
         ),
         pr.h3("The parts of a Card"),
         pr.p(
-            "CardHeader shows a title and a description, and renders its own "
+            "`CardHeader` shows a title and a description, and renders its own "
             "children on the trailing side, opposite the title, which is where "
-            "a Badge or a small action goes. CardBody pads itself on top only "
+            "a `Badge` or a small action goes. `CardBody` pads itself on top only "
             "when it is the first part, so it sits right under a header. "
-            "CardFooter is a tinted strip along the bottom with its children "
-            "aligned to the end. CardMedia is a 16:9 band across the top that "
-            "an img inside it fills, cropped to cover."
+            "`CardFooter` is a tinted strip along the bottom with its children "
+            "aligned to the end. `CardMedia` is a 16:9 band across the top that "
+            "an `img` inside it fills, cropped to cover."
         ),
         pr.h2("A Card that links or acts"),
         pr.p(
-            "href() makes the header's title a link, and interactive() makes it "
-            "a button. Either way the title is stretched over the whole Card, "
+            "`href()` makes the header's title a link, and `interactive()` makes it "
+            "a button. Either way the title is stretched over the whole `Card`, "
             "so a click anywhere on it lands, while the title alone is the tab "
             "stop and the accessible name. Other buttons and links inside the "
-            "Card are lifted above that overlay and keep working. href() wins "
+            "`Card` are lifted above that overlay and keep working. `href()` wins "
             "when both are set."
         ),
         pr.code(
@@ -194,23 +195,24 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "A linked Card needs a CardHeader with a title as one of its own "
-            "children, and raises a ValueError without one. Only the first "
-            "titled CardHeader directly inside the Card becomes the control."
+            "A linked `Card` needs a `CardHeader` with a title as one of its own "
+            "children, and raises a `ValueError` without one. Only the first "
+            "titled `CardHeader` directly inside the `Card` becomes the control."
         ),
         pr.h3("Where the Card's attributes go"),
         pr.p(
-            "On a linked Card, what names or activates the control moves onto "
-            "the title: aria_label and the other ARIA naming attributes, "
-            "on_click and other click and key handlers, and the wiring a "
-            "Dialog or an Alpine AJAX request puts on its trigger. Everything "
-            "else, such as id() and class_(), stays on the Card itself."
+            "On a linked `Card`, whatever names or activates the control moves onto "
+            "the title. That covers `aria_label()` and the other ARIA naming "
+            "attributes, "
+            "`on_click()` and the other click and key handlers, and the wiring a "
+            "`Dialog` or an Alpine AJAX request puts on its trigger. Everything "
+            "else, such as `id()` and `class_()`, stays on the `Card` itself."
         ),
         pr.h2("Cards in a grid"),
         pr.p(
-            "A Card fills the width it is given and sets no width of its own, "
+            "A `Card` fills the width it is given and sets no width of its own, "
             "so the columns come from the element around it. A grid with "
-            "md:grid-cols-2 puts two Cards side by side from 768px and stacks "
+            "`md:grid-cols-2` puts two cards side by side from 768px and stacks "
             "them below that."
         ),
         pr.code('html.div(card_one, card_two).class_("grid gap-4 md:grid-cols-2")'),
@@ -222,7 +224,7 @@ PAGE = ComponentPage(
     lede=(
         "A card groups content about one thing, such as a metric, a record or "
         "a report, into a framed block built from a header, body, footer and "
-        "media band. With href() or interactive() the whole card becomes one "
+        "media band. With `href()` or `interactive()` the whole card becomes one "
         "control."
     ),
     usage=_usage,
@@ -253,25 +255,25 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "A linked Card puts a real a or button element around the title, so "
+            "A linked `Card` puts a real `a` or `button` element around the title, so "
             "the title is the accessible name and middle-click and open in new "
             "tab work on a link.",
         ),
         Note(
             "a11y",
-            "The focus ring is drawn on the whole Card, and only when its title "
+            "The focus ring is drawn on the whole `Card`, and only when its title "
             "has keyboard focus. Focusing a footer button does not light it.",
         ),
         Note(
             "note",
-            "Buttons and links inside a linked Card stay clickable and keep "
-            "their own tab stops, because the Card lifts them above the title's "
+            "Buttons and links inside a linked `Card` stay clickable and keep "
+            "their own tab stops, because the `Card` lifts them above the title's "
             "overlay.",
         ),
         Note(
             "warn",
-            "href() and interactive() raise a ValueError unless the Card has a "
-            "CardHeader with a title among its direct children. A header wrapped "
+            "`href()` and `interactive()` raise a `ValueError` unless the `Card` has a "
+            "`CardHeader` with a title among its direct children. A header wrapped "
             "in another element does not count.",
         ),
     ],

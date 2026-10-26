@@ -266,9 +266,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Stack is a flex container that lays its children out in a column, "
-            "or in a row with horizontal(). It spans the full width of its "
-            "parent. spacing() sets the gap between children, from xs to xl, "
+            "A `Stack` is a flex container that lays its children out in a column, "
+            "or in a row with `horizontal()`. It spans the full width of its "
+            "parent. `spacing()` sets the gap between children, from `xs` to `xl`, "
             "and defaults to sm."
         ),
         pr.code(
@@ -279,24 +279,25 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Aligning a Stack's children"),
         pr.p(
-            "justify_content() places the children along the Stack's direction "
-            "and align_items() across it. Both take the Tailwind class name as "
-            "their value, such as justify-between or items-center. The defaults "
-            "are justify-start and items-start, so children in a vertical Stack "
-            "keep their own width rather than stretching. Pass items-stretch to "
+            "`justify_content()` places the children along the `Stack`'s direction "
+            "and `align_items()` across it. Both take the Tailwind class name as "
+            "their value, such as `justify-between` or `items-center`. The defaults "
+            "are `justify-start` and `items-start`, so children in a vertical `Stack` "
+            "keep their own width rather than stretching. Pass `items-stretch` to "
             "make them fill it."
         ),
         pr.h3("Positioning a Stack"),
         pr.p(
-            "position() sets the CSS position: relative (the default), absolute, "
-            "fixed or sticky. Because a Stack is relative by default, it is "
-            "already the containing block for an absolute child. Set the offsets "
-            "yourself with class_(), such as top-0 for a sticky Stack."
+            '`position()` sets the CSS position, one of `"relative"` (the default), '
+            '`"absolute"`, `"fixed"` or `"sticky"`. Because a `Stack` is relative by '
+            "default, it is already the containing block for an absolute child. Set "
+            "the offsets yourself with `class_()`, such as `top-0` for a sticky "
+            "`Stack`."
         ),
         pr.h2("A Stack at narrow widths"),
         pr.p(
-            "A Stack has no responsive classes and its row never wraps. A "
-            "horizontal Stack stays one row at every width, and its children "
+            "A `Stack` has no responsive classes and its row never wraps. A "
+            "horizontal `Stack` stays one row at every width, and its children "
             "shrink to fit."
         ),
     )
@@ -337,20 +338,20 @@ PAGE = ComponentPage(
             "Width",
             a_row_that_shrinks,
             layout="stack",
-            hint="The row never wraps: at sm its children get narrower",
+            hint="The row never wraps, so at sm its children get narrower",
         ),
     ],
     notes=[
         Note(
             "note",
-            "A Stack is a div with no role. It groups children visually and "
+            "A `Stack` is a `div` with no role. It groups children visually and "
             "says nothing to a screen reader, so the reading order is the order "
             "of its children.",
         ),
         Note(
             "note",
-            "spacing() is applied with Tailwind's space-x and space-y utilities, "
-            "which set margins on the children. A Spacer inside a Stack adds "
+            "`spacing()` is applied with Tailwind's `space-x` and `space-y` utilities, "
+            "which set margins on the children. A `Spacer` inside a `Stack` adds "
             "its own margin on top of that gap.",
         ),
     ],

@@ -54,29 +54,30 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A PasswordInput is a ",
+            "A `PasswordInput` is a ",
             pr.link("TextInput", "/components/text-input/"),
-            " with type=password and autocomplete preset to current-password. "
+            ' with `type="password"` and `autocomplete` preset to '
+            '`"current-password"`. '
             "Label, hint, error, sizes and the other shared modifiers work as "
-            "the TextInput page shows. What PasswordInput adds is revealable().",
+            "the `TextInput` page shows. `PasswordInput` adds `revealable()`.",
         ),
         pr.code('PasswordInput().name("password").label("Password").revealable()'),
         pr.h2("Showing the password with revealable()"),
         pr.p(
-            "revealable() attaches an icon-only toggle inside the field. "
-            "Pressing it switches the input between type=password and "
-            "type=text. The toggle keeps one name, Show password, and reports "
-            "its state through aria-pressed instead of renaming itself."
+            "`revealable()` attaches an icon-only toggle inside the field. "
+            'Pressing it switches the input between `type="password"` and '
+            '`type="text"`. The toggle keeps one name, "Show password", and reports '
+            "its state through `aria-pressed` instead of renaming itself."
         ),
         pr.p(
-            "revealable() fills the input's action slot only when nothing "
-            "else is in it, so an action() set on the same PasswordInput "
+            "`revealable()` fills the input's action slot only when nothing "
+            "else is in it, so an `action()` set on the same `PasswordInput` "
             "replaces the toggle."
         ),
         pr.h2("New passwords"),
         pr.p(
-            "The current-password preset is the one for signing in. On a "
-            'sign-up or change-password form, set autocomplete("new-password"), '
+            'The `"current-password"` preset is the one for signing in. On a '
+            'sign-up or change-password form, set `autocomplete("new-password")`, '
             "which is the token password managers look for when they offer "
             "to generate one."
         ),
@@ -93,8 +94,8 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     PasswordInput,
     lede=(
-        "A TextInput for a password. It presets autocomplete to "
-        "current-password, and revealable() adds a toggle that shows what was "
+        "A `TextInput` for a password. It presets `autocomplete` to "
+        '`"current-password"`, and `revealable()` adds a toggle that shows what was '
         "typed."
     ),
     usage=_usage,
@@ -106,8 +107,8 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The reveal toggle is a real button named Show password. Its "
-            "aria-pressed turns true while the password is visible, so a "
+            'The reveal toggle is a real button named "Show password". Its '
+            "`aria-pressed` turns `true` while the password is visible, so a "
             "screen reader hears one control changing state rather than a new "
             "control each time.",
         ),

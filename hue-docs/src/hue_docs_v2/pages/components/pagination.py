@@ -155,9 +155,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Building a Pagination"),
         pr.p(
-            "page() is the page you are on and total_pages() how many there "
-            "are. total_records() adds the count on the left, and page_size(), "
-            "10 by default, turns the page number into the range of records "
+            "`page()` is the page you are on and `total_pages()` how many there "
+            "are. `total_records()` adds the count on the left, and `page_size()`, "
+            "`10` by default, turns the page number into the range of records "
             "it shows."
         ),
         pr.code(
@@ -168,24 +168,24 @@ def _usage() -> ComponentType:
             '    .href(lambda page: f"/invoices/?page={page}")'
         ),
         pr.p(
-            "A page() below 1 or above total_pages() is clamped to the nearest "
+            "A `page()` below `1` or above `total_pages()` is clamped to the nearest "
             "end, so a stale or hand-edited URL still renders a real page."
         ),
         pr.h3("Links or buttons"),
         pr.p(
-            "href() takes a function from a page number to its URL, and the "
-            "steps become links. Without href() the steps are buttons with no "
+            "`href()` takes a function from a page number to its URL, and the "
+            "steps become links. Without `href()` the steps are buttons with no "
             "handler, and the number in each is the only thing that says "
             "which page it leads to."
         ),
         pr.h2("Swapping a list with Pagination"),
         pr.p(
-            "target() names the id of the element a page lands in. Every link "
+            "`target()` names the id of the element a page lands in. Every link "
             "then fetches its page with Alpine AJAX, swaps that element and "
             "pushes the URL, so the back button and a reload still work. The "
-            "Pagination sits outside the element it swaps, so it needs an id() "
-            "of its own: it carries x-sync and refreshes itself from the same "
-            "response. A target() without an id() raises an error."
+            "`Pagination` sits outside the element it swaps, so it needs an `id()` "
+            "of its own, because it carries `x-sync` and refreshes itself from "
+            "the same response. A `target()` without an `id()` raises an error."
         ),
         pr.code(
             "Stack().content(\n"
@@ -205,31 +205,31 @@ def _usage() -> ComponentType:
         ),
         pr.h2("The window of Pagination numbers"),
         pr.p(
-            "The first and last pages always show. sibling_count(), 1 by "
+            "The first and last pages always show. `sibling_count()`, `1` by "
             "default, sets how many pages show either side of the current one. "
             "The gaps between them become an ellipsis."
         ),
         pr.h2("Rows per page in Pagination"),
         pr.p(
-            "page_sizes() renders a select of row counts beside the steps, "
-            "named page_size and preset to page_size(). Its id is built from "
-            "the Pagination's own, so page_sizes() also needs an id(). The "
-            "Pagination adds nothing that sends the select's value: put it in "
-            "a form or attach a handler to it."
+            "`page_sizes()` renders a `select` of row counts beside the steps, "
+            "named `page_size` and preset to `page_size()`. Its id is built from "
+            "the `Pagination`'s own, so `page_sizes()` also needs an `id()`. The "
+            "`Pagination` adds nothing that sends the select's value, so put it "
+            "in a form or attach a handler to it."
         ),
         pr.h2("Stepping by cursor"),
         pr.p(
-            "cursor(previous=..., next=...) replaces the numbers with Previous "
+            "`cursor(previous=..., next=...)` replaces the numbers with Previous "
             "and Next buttons, for a list too long or too live to count. Each "
             "argument says whether there is anything in that direction, and a "
-            "False disables its button. The count shows the total records "
+            "`False` disables its button. The count shows the total records "
             "without a range."
         ),
         pr.h2("One page or no records"),
         pr.p(
-            "With a single page, Pagination still draws its row, with every "
+            "With a single page, `Pagination` still draws its row, with every "
             "step inert, so the control does not vanish when a filter narrows "
-            'the list. With total_records(0) the count reads "No records".'
+            'the list. With `total_records(0)` the count reads "No records".'
         ),
     )
 
@@ -237,9 +237,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Pagination,
     lede=(
-        "Pagination moves through a long list one page at a time and says "
+        "`Pagination` moves through a long list one page at a time and says "
         "which records are showing out of how many. The steps are links to "
-        "real URLs, and with target() they swap the list in place."
+        "real URLs, and with `target()` they swap the list in place."
     ),
     usage=_usage,
     panels=[
@@ -271,28 +271,28 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The steps sit in a nav labelled "Pagination", and the current '
-            "page carries aria-current=page.",
+            'The steps sit in a `nav` labelled "Pagination", and the current '
+            'page carries `aria-current="page"`.',
         ),
         Note(
             "a11y",
             "The previous and next steps hold only a chevron, so they are "
-            'named "Previous page" and "Next page" with aria-label.',
+            'named "Previous page" and "Next page" with `aria-label`.',
         ),
         Note(
             "a11y",
-            "At either end the spent step stays in the row as a span with "
-            "aria-disabled, so it is announced but has nothing to activate.",
+            "At either end the spent step stays in the row as a `span` with "
+            "`aria-disabled`, so it is announced but has nothing to activate.",
         ),
         Note(
             "a11y",
-            "The ellipses are aria-hidden. The rows-per-page select has a "
+            "The ellipses are `aria-hidden`. The rows-per-page select has a "
             "visually hidden label, and the visible words beside it are "
-            "aria-hidden, so the control is announced once.",
+            "`aria-hidden`, so the control is announced once.",
         ),
         Note(
             "warn",
-            "page_sizes() and target() both need an id() on the Pagination, "
+            "`page_sizes()` and `target()` both need an `id()` on the `Pagination`, "
             "and raise an error without one.",
         ),
     ],

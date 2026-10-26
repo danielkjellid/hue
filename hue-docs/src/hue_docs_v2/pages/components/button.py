@@ -116,18 +116,18 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Button is a native button element. Its children are its "
-            "content, so text and icons go in content(), and the modifiers set "
-            "how it looks. variant() defaults to primary and size() to md."
+            "A `Button` is a native `button` element. Its children are its "
+            "content, so text and icons go in `content()`, and the modifiers set "
+            'how it looks. `variant()` defaults to `"primary"` and `size()` to `"md"`.'
         ),
         pr.code(
             'Button().variant("outline").size("sm").content(Icon("plus"), "Add row")'
         ),
         pr.h3("Submitting a form"),
         pr.p(
-            'A Button renders type="button" unless you set another type, so a '
-            "Button inside a form does not submit it by accident. Set "
-            'type("submit") on the one that should. formaction() sends a '
+            'A `Button` renders `type="button"` unless you set another type, so a '
+            "`Button` inside a form does not submit it by accident. Set "
+            '`type("submit")` on the one that should. `formaction()` sends a '
             "submit button's form somewhere other than the form's own action, "
             "which lets one form post to more than one place."
         ),
@@ -141,16 +141,16 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Buttons that hold only an icon"),
         pr.p(
-            "icon_only() makes the button square and takes the accessible name "
+            "`icon_only()` makes the button square and takes the accessible name "
             "as its argument. An icon has no text for a screen reader to read, "
             "so the signature requires the name."
         ),
         pr.h3("Work in flight"),
         pr.p(
-            "loading() shows a spinner over the label and disables the button, "
+            "`loading()` shows a spinner over the label and disables the button, "
             "so a second click cannot submit twice. The label stays in place "
             "with zero opacity, which keeps both the button's width and its "
-            "accessible name from changing, and aria-busy announces the state."
+            "accessible name from changing, and `aria-busy` announces the state."
         ),
     )
 
@@ -178,33 +178,33 @@ PAGE = ComponentPage(
         panel("Sizes", xs, sm, md, lg, hint="The same heights as the form controls"),
         panel("Anatomy", label_only, icon_and_label, icon_only, pill),
         panel("States", enabled, disabled, loading, loading_outline),
-        panel("Width", fluid, layout="stack", hint="fluid() fills its container"),
+        panel("Width", fluid, layout="stack", hint="`fluid()` fills its container"),
     ],
     notes=[
         Note(
             "a11y",
-            "icon_only() takes the accessible name as its argument and sets "
-            "aria-label from it, so an unnamed icon button cannot be written.",
+            "`icon_only()` takes the accessible name as its argument and sets "
+            "`aria-label` from it, so an unnamed icon button cannot be written.",
         ),
         Note(
             "a11y",
-            "loading() sets aria-busy and keeps the label in the accessibility "
+            "`loading()` sets `aria-busy` and keeps the label in the accessibility "
             "tree, so a screen reader still hears what the button is.",
         ),
         Note(
             "a11y",
-            "The focus ring shows on keyboard focus only (focus-visible), never "
+            "The focus ring shows on keyboard focus only (`focus-visible`), never "
             "on a mouse click.",
         ),
         Note(
             "note",
-            "disabled() renders the native disabled attribute, which also takes "
+            "`disabled()` renders the native `disabled` attribute, which also takes "
             "the button out of the tab order.",
         ),
         Note(
             "warn",
-            'A Button is type="button" by default, so clicking it does not '
-            'submit its form. Set type("submit") on the one that should.',
+            'A `Button` is `type="button"` by default, so clicking it does not '
+            'submit its form. Set `type("submit")` on the one that should.',
         ),
     ],
     related=[ButtonGroup, SegmentedControl],

@@ -154,10 +154,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A RadioGroup is a fieldset of native radio inputs. The group owns "
-            "the name, the legend and which option is selected; each Radio "
+            "A `RadioGroup` is a fieldset of native radio inputs. The group owns "
+            "the name, the legend and which option is selected; each `Radio` "
             "carries only its value, its label and an optional description. "
-            "value() on the group picks the option that starts selected."
+            "`value()` on the group picks the option that starts selected."
         ),
         pr.code(
             "(\n"
@@ -172,34 +172,34 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "legend() names the group. label() works as well and is used when "
-            "there is no legend. A RadioGroup with neither renders no legend at "
+            "`legend()` names the group. `label()` works as well and is used when "
+            "there is no legend. A `RadioGroup` with neither renders no legend at "
             "all, so always set one."
         ),
         pr.h3("Ids"),
         pr.p(
-            "Each Radio's id is built from the group's id and the option's "
-            "value, with the value percent-encoded, so values with spaces or "
-            "other scripts still give distinct ids. The group's id is its "
-            "name unless id() is set, so two RadioGroups that share a name "
-            "on one page need an id() on one of them."
+            "Each `Radio`'s id is built from the group's id and the option's value, "
+            "with the value percent-encoded, so values with spaces or other scripts "
+            "still give distinct ids. The group's id is its name unless `id()` is "
+            "set, so two `RadioGroup` components that share a name on one page need "
+            "an `id()` on one of them."
         ),
         pr.h3("Required, disabled and errors"),
         pr.p(
-            "required() puts the required attribute on every radio, which makes "
+            "`required()` puts the `required` attribute on every radio, which makes "
             "the browser refuse to submit until one is chosen, and adds the "
-            "asterisk to the legend. disabled() on the group disables the "
-            "fieldset and every radio in it; disabled() on a Radio disables "
+            "asterisk to the legend. `disabled()` on the group disables the "
+            "fieldset and every radio in it; `disabled()` on a `Radio` disables "
             "that option alone."
         ),
         pr.p(
-            "error() sets aria-invalid on the fieldset and shows the message "
-            "under the options. A RadioGroup shows its hint and its error "
+            "`error()` sets `aria-invalid` on the fieldset and shows the message "
+            "under the options. A `RadioGroup` shows its hint and its error "
             "together, one under the other."
         ),
         pr.h3("Cards"),
         pr.p(
-            "card() on the group gives every option a bordered surface that "
+            "`card()` on the group gives every option a bordered surface that "
             "fills with the accent when it is selected. It suits options that "
             "carry a description."
         ),
@@ -234,8 +234,8 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "Each radio is named by its label through aria-labelledby and "
-            "described by its description through aria-describedby, so the "
+            "Each radio is named by its label through `aria-labelledby` and "
+            "described by its description through `aria-describedby`, so the "
             "description is not read as part of the name.",
         ),
         Note(
@@ -246,7 +246,7 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            "A RadioGroup without legend() or label() renders no legend, and "
+            "A `RadioGroup` without `legend()` or `label()` renders no legend, and "
             "the options are then announced without their question.",
         ),
     ],

@@ -71,31 +71,31 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A ScrollArea is a box whose content scrolls once it is taller than "
-            "the box. The scrolling is the browser's own; ScrollArea only themes "
+            "A `ScrollArea` is a box whose content scrolls once it is taller than "
+            "the box. The scrolling is the browser's own; `ScrollArea` only themes "
             "the scrollbar and makes the box reachable from the keyboard. "
-            "label() is required, and rendering a ScrollArea without one raises "
-            "a ValueError."
+            "`label()` is required, and rendering a `ScrollArea` without one raises "
+            "a `ValueError`."
         ),
         pr.code(
             'ScrollArea().label("Release notes").max_height("max-h-64").content(...)'
         ),
         pr.h3("How tall a ScrollArea grows"),
         pr.p(
-            "max_height() takes a Tailwind class, such as max-h-64, and the box "
+            "`max_height()` takes a Tailwind class, such as `max-h-64`, and the box "
             "grows with its content up to that height before it scrolls. Leave "
-            "it out when the parent already gives the ScrollArea a height."
+            "it out when the parent already gives the `ScrollArea` a height."
         ),
         pr.h3("A ScrollArea with faded edges"),
         pr.p(
-            "fade() softens the top edge while there is content above and the "
+            "`fade()` softens the top edge while there is content above and the "
             "bottom edge while there is content below, in place of a hard cut. "
             "It watches the scroll position and the content's size with Alpine, "
             "so the fade updates when rows are added or the box is resized."
         ),
         pr.h3("Scrolling past the end"),
         pr.p(
-            "ScrollArea sets overscroll-contain, so a wheel or swipe that reaches "
+            "`ScrollArea` sets `overscroll-contain`, so a wheel or swipe that reaches "
             "the end of the box stops there instead of scrolling the page behind "
             "it."
         ),
@@ -122,18 +122,18 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'A ScrollArea has tabindex="0", so a keyboard user can focus it and '
+            'A `ScrollArea` has `tabindex="0"`, so a keyboard user can focus it and '
             "scroll it with the arrow keys, Page Up and Page Down. The focus "
             "ring shows on keyboard focus.",
         ),
         Note(
             "a11y",
-            'It renders with role="region" and aria-label from label(), so a '
-            "screen reader announces its name when focus lands on it.",
+            'A `ScrollArea` renders with `role="region"` and `aria-label` from '
+            "`label()`, so a screen reader announces its name when focus lands on it.",
         ),
         Note(
             "warn",
-            "label() is required. A ScrollArea without one raises a ValueError "
+            "`label()` is required. A `ScrollArea` without one raises a `ValueError` "
             "when it renders, because an unnamed tab stop tells a screen reader "
             "nothing.",
         ),

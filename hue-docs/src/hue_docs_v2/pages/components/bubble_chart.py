@@ -89,7 +89,7 @@ def currency() -> BubbleChart:
 
 def _usage() -> ComponentType:
     return pr.page(
-        *_charts.point_data("BubbleChart", "(x, y, size)"),
+        *_charts.point_data("BubbleChart", "`(x, y, size)`"),
         pr.code(
             "BubbleChart()\n"
             '    .series([(2, 40, 120), (5, 55, 340), (8, 48, 90)], label="Teams")\n'
@@ -100,9 +100,9 @@ def _usage() -> ComponentType:
         ),
         pr.h2("How BubbleChart sizes its bubbles"),
         pr.p(
-            "size_label() names what a bubble's size stands for. It is "
+            "`size_label()` names what a bubble's size stands for. It is "
             "required, like the axis labels, and heads the size column of the "
-            "table. A size cannot be negative: series() raises a ValueError "
+            "table. A size cannot be negative. `series()` raises a `ValueError` "
             "for one, and for a point that is not three numbers."
         ),
         pr.p(
@@ -112,9 +112,9 @@ def _usage() -> ComponentType:
             "20px radius. The chart keeps a margin around the plot, so a large "
             "bubble at the edge is not cut off."
         ),
-        *_charts.formats("BubbleChart", "x_format() and y_format()"),
+        *_charts.formats("BubbleChart", "`x_format()` and `y_format()`"),
         pr.p(
-            "The formats cover the two axes only. A BubbleChart always writes "
+            "The formats cover the two axes only. A `BubbleChart` always writes "
             "the size as a plain number, since it counts something of its own."
         ),
         *_charts.size("BubbleChart"),
@@ -137,7 +137,7 @@ PAGE = ComponentPage(
             "Series",
             two_series,
             layout="stack",
-            hint="A second series() adds a colour and a legend",
+            hint="A second `series()` adds a colour and a legend",
         ),
         panel(
             "Formats",
@@ -145,7 +145,7 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="x_format() and y_format() write the axes; the size stays a number",
+            hint="`x_format()` and `y_format()` write the axes. Sizes stay numbers",
         ),
     ],
     notes=[

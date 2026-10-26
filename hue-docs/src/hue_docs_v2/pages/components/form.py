@@ -73,9 +73,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Form renders a form element that stacks its children with a "
-            "gap between them. action() sets where it posts, and method() "
-            "defaults to post."
+            "A `Form` renders a `form` element that stacks its children with a "
+            "gap between them. `action()` sets where it posts, and `method()` "
+            'defaults to `"post"`.'
         ),
         pr.code(
             'Form().action("/sign-up/").content(\n'
@@ -86,12 +86,12 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Handing errors to the controls in a Form"),
         pr.p(
-            "Form.errors() takes a mapping from control name to message. Every "
+            "`Form.errors()` takes a mapping from control name to message. Every "
             "named control inside the form looks up its own name and shows "
-            "the message as if error() had been called on it: the red border, "
-            "aria-invalid and the message under the field. A control finds "
-            "its error however deeply it is nested, inside a Card, a Stack or "
-            "a component of your own, because the Form puts the errors in the "
+            "the message as if `error()` had been called on it: the red border, "
+            "`aria-invalid` and the message under the field. A control finds "
+            "its error however deeply it is nested, inside a `Card`, a `Stack` or "
+            "a component of your own, because the `Form` puts the errors in the "
             "render context, where every control below it can read them."
         ),
         pr.code(
@@ -106,14 +106,32 @@ def _usage() -> ComponentType:
         pr.p(
             "A name that matches no control is ignored, and a control with "
             "no entry renders as usual. An error set on the control itself "
-            "with error() wins over the one from the Form."
+            "with `error()` wins over the one from the `Form`."
+        ),
+        pr.h3("How a Form tells its controls about errors"),
+        pr.p(
+            "A `Form` puts its errors in the render context as a `FormErrors`, "
+            "which holds the mapping given to `errors()`, so every component "
+            "rendered inside the form can read them. When a named control "
+            "renders, it takes the `FormErrors` from the context and asks for "
+            "the message under its own `name()`, getting `None` when the "
+            "mapping has no entry for it."
+        ),
+        pr.p(
+            "A control checks its own `error()` first and reads the "
+            "`FormErrors` only when that is unset, so an error given to the "
+            "control directly always wins. Outside a `Form` there is no "
+            "`FormErrors` in the context, so the control finds an empty one "
+            "and shows only what `error()` gave it. ",
+            pr.link("Contexts", "/contexts/"),
+            " explains how a context reaches the components inside it.",
         ),
         pr.h3("Answering a failed submission"),
         pr.p(
             "Build the mapping from your validation errors, render the same "
-            "form with errors() and send it back. For the values to survive, "
-            "set value() on each control from what was posted: Form.errors() "
-            "carries only the messages."
+            "form with `errors()` and send it back. `Form.errors()` carries "
+            "only the messages, so set `value()` on each control from what "
+            "was posted to keep what the reader typed."
         ),
     )
 
@@ -122,7 +140,7 @@ PAGE = ComponentPage(
     Form,
     lede=(
         "A form element that also knows what went wrong with the last "
-        "submission. errors() maps control names to messages, and every named "
+        "submission. `errors()` maps control names to messages, and every named "
         "control inside picks up its own."
     ),
     usage=_usage,
@@ -139,19 +157,19 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "A control that gets an error from the Form is wired exactly as "
-            "with error(): aria-invalid is set and the message joins its "
-            "aria-describedby.",
+            "A control that gets an error from the `Form` is wired exactly as "
+            "with `error()`: `aria-invalid` is set and the message joins its "
+            "`aria-describedby`.",
         ),
         Note(
             "note",
-            "Neither Form nor the controls move focus to the first invalid "
+            "Neither `Form` nor the controls move focus to the first invalid "
             "field when the form renders with errors.",
         ),
         Note(
             "warn",
-            "Errors are matched by name(), so two controls with one name in "
-            "the same Form both show the message.",
+            "Errors are matched by `name()`, so two controls with one name in "
+            "the same `Form` both show the message.",
         ),
     ],
     related=[TextInput, Field],

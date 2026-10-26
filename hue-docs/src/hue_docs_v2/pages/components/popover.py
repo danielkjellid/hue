@@ -118,9 +118,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Popover renders its trigger and a panel anchored to it. A "
-            "click on the trigger opens and closes the panel. title() and "
-            "description() head the panel, and anything passed to content() "
+            "A `Popover` renders its trigger and a panel anchored to it. A "
+            "click on the trigger opens and closes the panel. `title()` and "
+            "`description()` head the panel, and anything passed to `content()` "
             "follows underneath."
         ),
         pr.code(
@@ -132,31 +132,31 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "trigger() takes a hue component rather than plain markup, because "
-            "the Popover writes the click handler, aria-expanded, "
-            "aria-controls and the anchor onto that control."
+            "`trigger()` takes a hue component rather than plain markup, because "
+            "the `Popover` writes the click handler, `aria-expanded`, "
+            "`aria-controls` and the anchor onto that control."
         ),
         pr.h2("Popover is not modal"),
         pr.p(
             "Nothing is trapped and the page behind stays live, so a form "
-            "inside a Popover is part of the page and Tab moves on past the "
-            "panel. Escape closes the Popover and puts focus back on the "
+            "inside a `Popover` is part of the page and Tab moves on past the "
+            "panel. Escape closes the `Popover` and puts focus back on the "
             "trigger. A click outside closes it and leaves focus where the "
             "click landed."
         ),
         pr.h3("Closing from inside"),
         pr.p(
-            "The Popover puts close() in scope for everything inside it. Pass "
-            "close() from hue.js to on_click on a control in the panel. Inside "
-            "a Popover that sits in a Dialog, close() closes the Popover and "
-            "leaves the Dialog open."
+            "The `Popover` puts `close()` in scope for everything inside it. Pass "
+            "`close()` from `hue.js` to `on_click()` on a control in the panel. "
+            "Inside a `Popover` that sits in a `Dialog`, `close()` closes the "
+            "`Popover` and leaves the `Dialog` open."
         ),
         pr.h2("Popover placement and width"),
         pr.p(
-            "placement() names the corner of the trigger the panel hangs "
-            "from: bottom-start (the default), bottom-end, top-start or "
-            "top-end. The panel flips and shifts to stay inside the viewport, "
-            "so the placement is a preference. The panel is 280px wide; fit() "
+            "`placement()` names the corner of the trigger the panel hangs "
+            'from: `"bottom-start"` (the default), `"bottom-end"`, `"top-start"` or '
+            '`"top-end"`. The panel flips and shifts to stay inside the viewport, '
+            "so the placement is a preference. The panel is 280px wide; `fit()` "
             "sizes it to its content instead, for a short line or a few links."
         ),
     )
@@ -165,9 +165,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Popover,
     lede=(
-        "A Popover is a panel anchored to a control, for content a reader "
+        "A `Popover` is a panel anchored to a control, for content a reader "
         "can interact with, such as a short form or a few links. It is not "
-        "modal: the page behind stays live."
+        "modal, so the page behind stays live."
     ),
     usage=_usage,
     panels=[
@@ -200,19 +200,19 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The panel has role="dialog" and is named by its title through '
-            "aria-labelledby, or by label() when it has no title. The trigger "
-            "gets aria-haspopup, aria-expanded and aria-controls.",
+            'The panel has `role="dialog"` and is named by its title through '
+            "`aria-labelledby`, or by `label()` when it has no title. The trigger "
+            "gets `aria-haspopup`, `aria-expanded` and `aria-controls`.",
         ),
         Note(
             "a11y",
-            "Escape closes the Popover and returns focus to the trigger. The "
-            "listener sits on the Popover and stops the key, so inside a "
-            "Dialog only the Popover closes.",
+            "Escape closes the `Popover` and returns focus to the trigger. The "
+            "listener sits on the `Popover` and stops the key, so inside a "
+            "`Dialog` only the `Popover` closes.",
         ),
         Note(
             "note",
-            "A Popover with neither title() nor label() raises an error when "
+            "A `Popover` with neither `title()` nor `label()` raises an error when "
             "it renders.",
         ),
         Note(

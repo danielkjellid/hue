@@ -52,32 +52,33 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "Kbd takes the keys of one chord as arguments and draws each as its "
-            "own kbd element, side by side inside a span. keys() replaces them "
+            "`Kbd` takes the keys of one chord as arguments and draws each as its "
+            "own `kbd` element, side by side inside a `span`. `keys()` replaces them "
             "later in a chain."
         ),
         pr.code('Kbd("mod", "K")\nKbd("shift", "mod", "P")\nKbd("esc")'),
         pr.h3("Key names Kbd understands"),
         pr.p(
-            "shift, alt, ctrl, esc, enter, tab, space, backspace, delete, up, "
-            "down, left, right, home, end, pageup and pagedown are drawn as "
+            "`shift`, `alt`, `ctrl`, `esc`, `enter`, `tab`, `space`, `backspace`, "
+            "`delete`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup` and "
+            "`pagedown` are drawn as "
             "their glyph or short name, and the names are matched in any case. "
             "Anything else is printed as given, with two rules for letters: a "
-            'letter on its own is drawn as written, so Kbd("g") shows g, and '
-            'a letter in a chord is drawn as a capital, so Kbd("ctrl", "g") '
-            "shows G. A function key, f1 to f12, is always a capital."
+            'letter on its own is drawn as written, so `Kbd("g")` shows `g`, and '
+            'a letter in a chord is drawn as a capital, so `Kbd("ctrl", "g")` '
+            "shows `G`. A function key, `f1` to `f12`, is always a capital."
         ),
         pr.h3("The mod key"),
         pr.p(
-            "mod is Command on Apple platforms and Control everywhere else. "
-            "The server cannot tell which, so Kbd renders ⌘ and Alpine swaps in "
+            "`mod` is Command on Apple platforms and Control everywhere else. "
+            "The server cannot tell which, so `Kbd` renders ⌘ and Alpine swaps in "
             "Ctrl in the browser, reading the platform from the shortcuts store "
             "in hue's bundle. Without hue's bundle the key stays ⌘."
         ),
         pr.h3("A sequence of key presses"),
         pr.p(
-            "One Kbd is one chord. For a shortcut pressed as a sequence, such "
-            "as G then B, put one Kbd per press side by side."
+            "One `Kbd` is one chord. For a shortcut pressed as a sequence, such "
+            "as G then B, put one `Kbd` per press side by side."
         ),
         pr.code('html.span(Kbd("g"), " then ", Kbd("b"))'),
     )
@@ -86,9 +87,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Kbd,
     lede=(
-        "Kbd draws keyboard keys as real kbd elements, for a shortcut written "
+        "`Kbd` draws keyboard keys as real `kbd` elements, for a shortcut written "
         "into a sentence, a menu or a hint. Modifier names become their glyphs, "
-        "and mod becomes Command or Control to match the reader's platform."
+        "and `mod` becomes Command or Control to match the reader's platform."
     ),
     usage=_usage,
     panels=[
@@ -114,12 +115,12 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "mod is announced as Command or Control, matching the key drawn.",
+            "`mod` is announced as Command or Control, matching the key drawn.",
         ),
         Note(
             "note",
-            "Each key is its own kbd element, wrapped in one span that takes "
-            "class_() and the other attributes.",
+            "Each key is its own `kbd` element, wrapped in one `span` that takes "
+            "`class_()` and the other attributes.",
         ),
     ],
     related=[Text],

@@ -285,9 +285,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Combobox is a text field with a list of options under it. "
+            "A `Combobox` is a text field with a list of options under it. "
             "Typing filters the list, and the options are the same "
-            "SelectOption and SelectGroup that a Select takes, with the same "
+            "`SelectOption` and `SelectGroup` that a `Select` takes, with the same "
             "descriptions, icons and metadata."
         ),
         pr.code(
@@ -308,14 +308,14 @@ def _usage() -> ComponentType:
             "list while its label contains what was typed, ignoring case, and "
             "a group is hidden once none of its options are left. The first "
             "match becomes active, so a word and Enter picks it. When nothing "
-            'matches, the list says empty_message(), which defaults to "Nothing '
+            'matches, the list says `empty_message()`, which defaults to "Nothing '
             'matches."'
         ),
         pr.h3("Keyboard"),
         pr.p("Focus stays in the text field throughout."),
         pr.bullets(
             [
-                "Down opens the list on the chosen option, or the first; Up "
+                "Down opens the list on the chosen option, or the first. Up "
                 "opens it on the last. Alt+Down opens it with nothing active.",
                 "Down and Up move through the options left after filtering "
                 "and stop at either end.",
@@ -326,23 +326,24 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Several values"),
         pr.p(
-            "multiple() lets several options be chosen. Each one shows in the "
+            "`multiple()` lets several options be chosen. Each one shows in the "
             "field as a token with a remove button, choosing an option toggles "
             "it, and the list stays open for the next. Backspace in an empty "
-            "field removes the last token. value() takes several values only "
-            "on a multiple Combobox; a single one given several raises a "
-            "ValueError when it renders."
+            "field removes the last token. `value()` takes several values only "
+            "on a multiple `Combobox`. A single one given several raises a "
+            "`ValueError` when it renders."
         ),
         pr.h3("What is submitted"),
         pr.p(
-            "Each chosen value is a hidden input under name(), so a multiple "
-            "Combobox submits the name once per value. The text field has no "
+            "Each chosen value is a hidden input under `name()`, so a multiple "
+            "`Combobox` submits the name once per value. The text field has no "
             "name and is never submitted. Clearing the text of a single "
-            "Combobox and leaving the field clears its value."
+            "`Combobox` and leaving the field clears its value."
         ),
         pr.p(
-            "x_model() binds the chosen value, never the typed text: a string "
-            "for a single Combobox, a list of values for a multiple one. It "
+            "`x_model()` binds the chosen value, never the typed text. It holds a "
+            "string "
+            "for a single `Combobox` and a list of values for a multiple one. It "
             "works both ways, so Alpine data can set the choice too."
         ),
         pr.code(
@@ -357,9 +358,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() sets aria-invalid on the text field, which draws the "
+            "`error()` sets `aria-invalid` on the text field, which draws the "
             "field's border in red, shows the message in place of the hint and "
-            "adds it to the field's aria-describedby."
+            "adds it to the field's `aria-describedby`."
         ),
     )
 
@@ -423,19 +424,19 @@ PAGE = ComponentPage(
             read_back_as_you_choose,
             layout="stack",
             min_height=260,
-            hint="x_model() with a multiple Combobox",
+            hint="`x_model()` with a multiple `Combobox`",
         ),
     ],
     notes=[
         Note(
             "a11y",
-            "The text field has role=combobox with aria-autocomplete=list, "
-            "aria-expanded and aria-activedescendant, so a screen reader "
+            'The text field has `role="combobox"` with `aria-autocomplete="list"`, '
+            "`aria-expanded` and `aria-activedescendant`, so a screen reader "
             "follows the arrows through options that never take focus.",
         ),
         Note(
             "a11y",
-            "The empty message sits in a role=status element that is always on "
+            'The empty message sits in a `role="status"` element that is always on '
             "the page, so it is announced when nothing matches.",
         ),
         Note(
@@ -447,11 +448,11 @@ PAGE = ComponentPage(
         Note(
             "a11y",
             "Escape closes only the list and stops there, so a dialog the "
-            "Combobox sits in stays open.",
+            "`Combobox` sits in stays open.",
         ),
         Note(
             "warn",
-            "required() sets aria-required and the asterisk, but the values "
+            "`required()` sets `aria-required` and the asterisk, but the values "
             "are in hidden inputs, which the browser does not validate. Check "
             "for a missing value on the server.",
         ),

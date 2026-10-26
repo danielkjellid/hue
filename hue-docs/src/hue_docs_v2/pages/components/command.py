@@ -107,10 +107,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Command is a search field over a list of things to go to or "
-            "do, in a modal panel. The items are CommandItem, optionally in a "
-            "labelled CommandGroup. hotkey() opens and closes it from "
-            "anywhere on the page, and trigger() adds a control that opens it "
+            "A `Command` is a search field over a list of things to go to or "
+            "do, in a modal panel. The items are `CommandItem`, optionally in a "
+            "labelled `CommandGroup`. `hotkey()` opens and closes it from "
+            "anywhere on the page, and `trigger()` adds a control that opens it "
             "as well."
         ),
         pr.code(
@@ -127,7 +127,8 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Hotkeys"),
         pr.p(
-            'hotkey() takes keys written the way a Shortcut writes them: "mod+k" '
+            "`hotkey()` takes keys written the way a `Shortcut` writes them, so "
+            '`"mod+k"` '
             "is Command-K on Apple platforms and Control-K elsewhere. When the "
             "app has a shortcut registry in the render context, the hotkey is "
             "checked against it, and keys a registered shortcut already has "
@@ -135,16 +136,16 @@ def _usage() -> ComponentType:
         ),
         pr.h2("CommandItem actions and links"),
         pr.p(
-            "href() makes a CommandItem a link, so it can also be opened in a "
-            "new tab. action() takes an Alpine expression, such as one from "
-            "toast.js or ajax(), and the palette closes before it runs. "
-            "keywords() are searched as well as the label, for an item people "
-            "look for by another name. description() adds a line under the "
-            "label, and meta() a short note at the end of the row."
+            "`href()` makes a `CommandItem` a link, so it can also be opened in a "
+            "new tab. `action()` takes an Alpine expression, such as one from "
+            "`toast.js` or `ajax()`, and the palette closes before it runs. "
+            "`keywords()` are searched as well as the label, for an item people "
+            "look for by another name. `description()` adds a line under the "
+            "label, and `meta()` a short note at the end of the row."
         ),
         pr.p(
-            "disabled() leaves a CommandItem in the list, dimmed, and the "
-            "arrow keys skip it. A disabled item with an href renders without "
+            "`disabled()` leaves a `CommandItem` in the list, dimmed, and the "
+            "arrow keys skip it. A disabled item with an `href()` renders without "
             "the link."
         ),
         pr.h3("Searching"),
@@ -153,15 +154,15 @@ def _usage() -> ComponentType:
             "contains what was typed. Items whose label starts with the text "
             "rank first in their group, then items with a word that starts "
             "with it, then the rest, and a group with no match left is "
-            "hidden. With nothing left, the list shows empty_message(), "
+            "hidden. With nothing left, the list shows `empty_message()`, "
             '"No matching commands." by default.'
         ),
         pr.h3("The app's shortcuts in a Command"),
         pr.p(
-            "CommandShortcuts lists the app's shortcuts as items, grouped by "
+            "`CommandShortcuts` lists the app's shortcuts as items, grouped by "
             "each shortcut's group, with their keys. It needs the shortcut "
             "registry in the render context and raises an error without one. "
-            "CommandItem().shortcut() does the same for a single shortcut."
+            "`CommandItem().shortcut()` does the same for a single shortcut."
         ),
         pr.code(
             'Command().hotkey("mod+k").content(CommandShortcuts())',
@@ -181,7 +182,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Command,
     lede=(
-        "A Command is a command palette: a search field over a list of "
+        "A `Command` is a command palette, a search field over a list of "
         "places to go and actions to run, opened with a hotkey from anywhere "
         "on the page. The arrow keys move through the matches while focus "
         "stays in the field."
@@ -206,13 +207,13 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The panel is a role="dialog" with aria-modal. The field is a '
+            'The panel is a `role="dialog"` with `aria-modal`. The field is a '
             "combobox that controls a listbox and points at the active option "
-            "with aria-activedescendant, so focus never leaves the field.",
+            "with `aria-activedescendant`, so focus never leaves the field.",
         ),
         Note(
             "a11y",
-            "The empty message is in a role=status region that is always on "
+            'The empty message is in a `role="status"` region that is always on '
             "the page, so it is announced when it appears.",
         ),
         Note(
@@ -223,7 +224,7 @@ PAGE = ComponentPage(
         Note(
             "note",
             "While a modal is open, the page's shortcuts do not run, except "
-            "inside a Command, whose items can run them.",
+            "inside a `Command`, whose items can run them.",
         ),
         Note(
             "warn",

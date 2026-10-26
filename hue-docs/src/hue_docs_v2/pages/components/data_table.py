@@ -360,12 +360,12 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("A DataTable from columns and rows"),
         pr.p(
-            "columns() takes a list of Column and rows() takes the records. A "
-            "Column reads its value with key, which is a dictionary key or an "
-            "attribute, a dotted path such as customer.name into a nested record "
-            "or a related object, or a callable given the row. render takes the "
-            "row and returns whatever the cell holds, such as a Badge. "
-            'align="end" ends the column and switches it to tabular figures, so '
+            "`columns()` takes a list of `Column` and `rows()` takes the records. A "
+            "`Column` reads its value with `key`, which is a dictionary key or an "
+            "attribute, a dotted path such as `customer.name` into a nested record "
+            "or a related object, or a callable given the row. `render` takes the "
+            "row and returns whatever the cell holds, such as a `Badge`. "
+            '`align="end"` ends the column and switches it to tabular figures, so '
             "the digits line up."
         ),
         pr.code(
@@ -378,70 +378,81 @@ def _usage() -> ComponentType:
             "]).rows(invoices)"
         ),
         pr.p(
-            "A string, a number or a boolean is written as it is, and None as an "
+            "A string, a number or a boolean is written as it is, and `None` as an "
             "empty cell. A date, a datetime and a time are written in the formats "
             "the context holds, which default to ISO 8601: 2026-03-01, "
-            "2026-03-01 14:05 and 14:05. hue-django fills them from the "
-            "HUE_DATE_FORMAT, HUE_DATETIME_FORMAT and HUE_TIME_FORMAT settings, "
-            "and with USE_TZ on converts an aware datetime to the current "
-            "timezone first. hue-fastapi takes them as formats= on configure_hue. "
-            "A Decimal is written in full as stored, so 2190.00 keeps its places. "
-            "Any other value raises, and needs a render() on its column."
+            "2026-03-01 14:05 and 14:05. `hue-django` fills them from the "
+            "`HUE_DATE_FORMAT`, `HUE_DATETIME_FORMAT` and `HUE_TIME_FORMAT` settings, "
+            "and with `USE_TZ` on converts an aware datetime to the current "
+            "timezone first. `hue-fastapi` takes them as `formats=` on "
+            "`configure_hue()`. "
+            "A `Decimal` is written in full as stored, so `2190.00` keeps its places. "
+            "Any other value raises, and needs a `render` on its column."
         ),
         pr.p(
-            "group_by() splits the rows into sections titled with the value its "
+            "`group_by()` splits the rows into sections titled with the value its "
             "key reads. The rows have to arrive in that order, because a value "
             "that comes back later opens a section of its own. A blank value "
             "raises, since a section needs a name."
         ),
         pr.p(
-            "loading() puts placeholder rows under the header, as many as there "
-            "are rows already or three when there are none. empty() replaces the "
-            "default empty state, and error() replaces the rows whatever else is "
-            "set. A column with sort= raises on a DataTable built this way, "
+            "`loading()` puts placeholder rows under the header, as many as there "
+            "are rows already or three when there are none. `empty()` replaces the "
+            "default empty state, and `error()` replaces the rows whatever else is "
+            "set. A column with `sort=` raises on a `DataTable` built this way, "
             "because only a declaration knows where the sorted rows live."
         ),
         pr.h2("Declare a DataTable on a view"),
         pr.p(
             "Sorting, searching, filtering, paging and acting on picked rows all "
             "need the server, so they come with a table declared once on a "
-            "HueView with build_datatable_state(). The declaration names the "
+            "`HueView` with `build_datatable_state()`. The declaration names the "
             "columns, the function that finds the rows, and what can be done with "
-            "the rows a reader picks. DataTable.from_state() draws it."
+            "the rows a reader picks. `DataTable.from_state()` draws it."
+        ),
+        pr.p(
+            "The example below is written for `hue-django`, with a Django "
+            "queryset as its rows. With `hue-fastapi`, `HueView`, `Router` and "
+            "`Page` come from `hue_fastapi`, and the request is Starlette's "
+            "`Request`."
         ),
         pr.code(_DECLARATION),
         pr.p(
             "The live example at the top of this page is this declaration over a "
-            "list of dictionaries, served from a HueView under /demos/data-table/."
+            "list of dictionaries, served from a `HueView` under `/demos/data-table/`."
         ),
         pr.h3("Rows come from one function"),
         pr.p(
-            "rows is the only part of a declared table that changes with each "
+            "`rows` is the only part of a declared table that changes with each "
             "request, so it is the only part that is a function. It receives the "
-            "request and a TableState holding what was asked for, and returns "
-            "every row that matches: the whole filtered, ordered set, not just "
-            "the page. The table counts it and slices out the page. A queryset "
+            "request and a `TableState` holding what was asked for, and returns "
+            "every row that matches, the whole filtered and ordered set rather than "
+            "only the page. The table counts it and slices out the page. A Django "
+            "queryset "
             "stays lazy, so a paginated table costs one count and one slice in "
             "the database. A page number past the last page shows the last page."
         ),
         pr.p(
-            "TableState carries the search in query, the order in sort, the page "
-            "number in page and the hidden columns in hidden. chosen() reads a "
-            "filter that can hold several answers, and value() reads one that "
+            "`TableState` carries the search in `query`, the order in `sort`, the page "
+            "number in `page` and the hidden columns in `hidden`. `chosen()` reads a "
+            "filter that can hold several answers, and `value()` reads one that "
             "holds a single answer."
         ),
         pr.p(
-            'sort is spelled the way order_by and query strings spell it: "amount", '
-            'or "-amount" for descending. The table only accepts an order that '
-            "one of its columns declares with sort=. Any other order in the URL "
-            "arrives as None, so nobody can sort by a field the table never "
-            "shows, and sort can go straight to order_by. Filters are checked the "
-            "same way: an answer a filter does not offer is dropped before rows "
+            "`sort` is spelled the way Django's `order_by()` and query strings spell "
+            "it, "
+            '`"amount"`, or `"-amount"` for descending. The table only accepts an '
+            "order that "
+            "one of its columns declares with `sort=`. Any other order in the URL "
+            "arrives as `None`, so nobody can sort by a field the table never "
+            "shows, and `sort` can go straight to `order_by()`. Filters are checked "
+            "the "
+            "same way, and an answer a filter does not offer is dropped before `rows` "
             "sees it."
         ),
         pr.p(
-            "There is no on_sort and no on_search. Both decide which rows to "
-            "show, and rows already answers that. A page of a queryset is sliced "
+            "There is no `on_sort` and no `on_search`. Both decide which rows to "
+            "show, and `rows` already answers that. A page of a queryset is sliced "
             "after it is ordered, so sorting the rows already on screen would "
             "give the wrong rows."
         ),
@@ -450,10 +461,10 @@ def _usage() -> ComponentType:
             "The declaration registers its action route on the view's router, "
             "and that route has to exist before the URLs are built. Django builds "
             "its URL table once, when the URLconf is imported, and FastAPI's "
-            "include_router copies a router's routes when it is called. A table "
-            "built inside index would register the route too late, and every "
+            "`include_router()` copies a router's routes when it is called. A table "
+            "built inside `index` would register the route too late, and every "
             "action would come back 404. So the declaration is made once, at "
-            "class scope, and bound to each request when DataTable.from_state() "
+            "class scope, and bound to each request when `DataTable.from_state()` "
             "renders it."
         ),
         pr.h2("A declared DataTable keeps its state in the URL"),
@@ -467,14 +478,14 @@ def _usage() -> ComponentType:
         ),
         pr.p(
             "Every link and toolbar form on the table points at the page the "
-            "table is drawn on, which is the view's index. Alpine AJAX fetches "
+            "table is drawn on, which is the view's `index`. Alpine AJAX fetches "
             "that page and swaps in the part that changed, and pushes the URL, "
             "so it reloads to the same table, can be sent to someone, and works "
             "with the back button. With JavaScript off, sorting, paging and "
             "searching still work as full page loads."
         ),
         pr.p(
-            "Each read loads the whole page, so whatever else index computes runs "
+            "Each read loads the whole page, so whatever else `index` computes runs "
             "on every sort, search and page too."
         ),
         pr.p(
@@ -493,15 +504,18 @@ def _usage() -> ComponentType:
             "from another view raises an error."
         ),
         pr.code(
+            "# hue-django\n"
             'urlpatterns = [path("billing/", include(InvoicesView.urls))]\n'
+            "# hue-fastapi\n"
+            'app.include_router(InvoicesView.api_router, prefix="/billing")\n'
             "\n"
             "# the page:    /billing/?invoices-sort=-amount\n"
             "# an action:   /billing/invoices/archive/"
         ),
         pr.h2("DataTable search, filters and columns"),
         pr.p(
-            "search gives the table a search box, with the text as its label and "
-            "placeholder. It is a GET form that submits 300 milliseconds after "
+            "`search` gives the table a search box, with the text as its label and "
+            "placeholder. It is a `GET` form that submits 300 milliseconds after "
             "the last keystroke, and Enter submits it at once. Slash focuses it "
             "from anywhere on the page, except while focus is in another field "
             "or when the page has more than one table search. Escape empties it, "
@@ -509,7 +523,7 @@ def _usage() -> ComponentType:
             "still reaches a dialog the table sits in."
         ),
         pr.p(
-            "Each Filter gets a parameter in the URL, a group in the panel behind "
+            "Each `Filter` gets a parameter in the URL, a group in the panel behind "
             "the Filter button, and a chip under the toolbar for every answer "
             "that is on."
         ),
@@ -520,21 +534,22 @@ def _usage() -> ComponentType:
             'Filter("min", "Minimum amount", numeric=True, prefix="USD")'
         ),
         pr.p(
-            "A Filter with options is a list of checkboxes, or radios with "
-            "multiple=False. Without options it is a text field, and "
-            "numeric=True makes it a number field, which drops anything that is "
-            "not a finite number. prefix and placeholder decorate the field. "
-            "There is no Apply button: a change submits the panel at once, and "
+            "A `Filter` with `options` is a list of checkboxes, or radios with "
+            "`multiple=False`. Without `options` it is a text field, and "
+            "`numeric=True` makes it a number field, which drops anything that is "
+            "not a finite number. `prefix` and `placeholder` decorate the field. "
+            "There is no Apply button. A change submits the panel at once, and "
             "the chips show what is on and take it off again."
         ),
         pr.p(
-            "A filter cannot be called sort, q, page, hide or selected, which the "
+            "A filter cannot be called `sort`, `q`, `page`, `hide` or `selected`, "
+            "which the "
             "table already uses, and an option's value cannot hold a comma, which "
             "is what the URL puts between answers. Both raise when the table is "
             "declared."
         ),
         pr.p(
-            "hideable lists the columns a reader may hide, by key. In the Columns "
+            "`hideable` lists the columns a reader may hide, by key. In the Columns "
             "panel a ticked box is a column that shows, while the URL carries the "
             "hidden ones, so a column added later shows up for someone following "
             "an old link. The other columns are listed too, ticked, disabled and "
@@ -547,9 +562,9 @@ def _usage() -> ComponentType:
         ),
         pr.h2("DataTable bulk actions"),
         pr.p(
-            "actions are what can be done with the rows a reader ticks, and "
-            "identifier names the property a row is known by. The two come as a "
-            "pair: actions put a checkbox in every row, and a declaration with "
+            "`actions` are what can be done with the rows a reader ticks, and "
+            "`identifier` names the property a row is known by. The two come as a "
+            "pair. `actions` put a checkbox in every row, and a declaration with "
             "one and not the other raises. The identifier is kept apart from the "
             "columns because a row is usually known by something nobody needs to "
             "see, such as a primary key. A row that lacks it raises."
@@ -566,19 +581,20 @@ def _usage() -> ComponentType:
         ),
         pr.p(
             "A handler receives the request and the ids of the ticked rows. It "
-            "never receives an id the reader could not see: the table posts its "
-            "state along with the selection, runs rows for that state, and keeps "
+            "never receives an id the reader could not see, because the table posts "
+            "its "
+            "state along with the selection, runs `rows` for that state, and keeps "
             "only the posted ids it finds there. For a queryset that check is one "
             "filter on the identifier."
         ),
         pr.p(
-            "confirm takes a Dialog with the question on it, for an action that "
+            "`confirm` takes a `Dialog` with the question on it, for an action that "
             "cannot be taken back. The button in the bar opens the dialog, and "
             "the table fills its footer with Cancel and the button that runs the "
             "action."
         ),
         pr.p(
-            "After an action the table redraws in the state it was in: the same "
+            "After an action the table redraws in the state it was in, with the same "
             "page, order and filters. If the handler raises, the reader gets a "
             "danger toast naming the action, the table redraws as it now is, and "
             "the ticked rows stay ticked. The error is logged with its traceback, "
@@ -590,17 +606,19 @@ def _usage() -> ComponentType:
             "Ticking a row brings up a bar that floats at the bottom of the "
             "window, with the count, a button that clears the selection, and the "
             "actions. Escape clears the selection too. There is one selection per "
-            "page: starting one in a table clears any other. A ticked row that a "
+            "page, so starting one in a table clears any other. A ticked row that a "
             "sort, a page or a search takes off the page leaves the selection."
         ),
         pr.p(
-            "rows and the handlers run in a thread rather than on the event loop, "
-            "because Django refuses a query made on the loop. Async functions are "
-            "not supported in either place."
+            "A sync `rows` function and a sync handler run in a thread, off "
+            "the event loop. In `hue-django` that is because the ORM refuses a "
+            "query made on the loop, and in `hue-fastapi` it keeps a blocking "
+            "call from holding up other requests. An async function is awaited "
+            "on the loop instead."
         ),
         pr.h2("Drawing a declared DataTable"),
         pr.p(
-            "DataTable.from_state() draws everything the declaration describes, "
+            "`DataTable.from_state()` draws everything the declaration describes, "
             "and none of the parts is exported on its own. It binds to the "
             "request in the context, so the view passes nothing else. Anything "
             "chained after it, such as a caption or an empty state, stays on the "
@@ -614,19 +632,19 @@ def _usage() -> ComponentType:
             "    )"
         ),
         pr.p(
-            "A table searched or filtered down to nothing says Nothing matches, "
+            'A table searched or filtered down to nothing says "Nothing matches", '
             "with a button that clears the search and the filters and keeps the "
-            "order and the hidden columns. An empty() of your own is shown "
+            "order and the hidden columns. An `empty()` of your own is shown "
             "instead."
         ),
         pr.p(
-            "bind(request) on the declaration is for code that wants the values "
+            "`bind(request)` on the declaration is for code that wants the values "
             "instead of the table, such as a total for a heading. It is a "
             "coroutine that returns the state, the page of rows and the total."
         ),
         pr.h3("How a declared DataTable is put together"),
         pr.p(
-            "The table is one frame with bands inside it: the toolbar, the rows "
+            "The table is one frame with bands inside it, and the toolbar, the rows "
             "and the pages share one border. Only the band holding the table "
             "scrolls sideways, because overflow on the frame would clip the "
             "Filter and Columns panels."
@@ -656,7 +674,7 @@ def _usage() -> ComponentType:
         pr.p(
             "Since a read never replaces the toolbar, its forms cannot hold the "
             "rest of the state themselves. Those hidden fields are drawn in the "
-            "rows region instead, each tied to its form by the form attribute. "
+            "rows region instead, each tied to its form by the `form` attribute. "
             "The row checkboxes are tied to the empty action form the same way, "
             "because a form wrapped around the frame would contain the search "
             "form, and browsers discard a nested form."
@@ -665,30 +683,26 @@ def _usage() -> ComponentType:
         .variant("warning")
         .title("Known gaps in a declared DataTable")
         .content(
-            pr.bullets(
-                [
-                    pr.p(
+            html.ul(
+                *[
+                    html.li(pr.rich(gap))
+                    for gap in [
                         "Actions need JavaScript, since Alpine draws the bar they "
                         "sit in. The action form carries no CSRF field, so the "
-                        "CSRF token travels in the header hue's bundle sends."
-                    ),
-                    pr.p(
+                        "CSRF token travels in the `X-CSRFToken` header that "
+                        "hue's bundle sends.",
                         "An action redraws the table from its declaration alone, "
-                        "so a caption or an empty() chained after from_state() is "
-                        "gone after the first action. A sort, a search or a page "
-                        "keeps it, because each of those loads the page again."
-                    ),
-                    pr.p(
+                        "so a caption or an `empty()` chained after `from_state()` "
+                        "is gone after the first action. A sort, a search or a "
+                        "page keeps it, because each of those loads the page again.",
                         "A hyphen in a filter's name can give two controls one "
-                        "id: the second option of a filter called a and a text "
-                        "filter called a-1 both get invoices-filter-a-1."
-                    ),
-                    pr.p(
+                        "`id`. The second option of a filter called `a` and a text "
+                        "filter called `a-1` both get `invoices-filter-a-1`.",
                         "One column is sorted at a time. Clicking another column "
-                        "replaces the order."
-                    ),
+                        "replaces the order.",
+                    ]
                 ]
-            )
+            ).class_("list-disc space-y-1 ps-5")
         ),
     )
 
@@ -696,7 +710,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     DataTable,
     lede=(
-        "A DataTable builds a Table from a list of columns and a list of "
+        "A `DataTable` builds a `Table` from a list of columns and a list of "
         "records. Declared on a view, it also sorts, searches, filters, pages "
         "and acts on picked rows, all through links and forms whose state "
         "lives in the URL."
@@ -708,7 +722,7 @@ PAGE = ComponentPage(
             declared_table,
             layout="stack",
             min_height=420,
-            hint="A declared table on a demo route; Archive changes nothing",
+            hint="A declared table on a demo route. Archive changes nothing",
         ),
         panel(
             "Anatomy",
@@ -730,7 +744,7 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "The header of the column the rows are sorted by carries aria-sort, "
+            "The header of the column the rows are sorted by carries `aria-sort`, "
             "on one header at a time. A sortable header's label is a link, so "
             "it is reached with Tab and followed with Enter.",
         ),
@@ -744,12 +758,12 @@ PAGE = ComponentPage(
         Note(
             "a11y",
             "While a request runs, Alpine AJAX marks the part about to be "
-            "replaced aria-busy, and the table dims it.",
+            "replaced `aria-busy`, and the table dims it.",
         ),
         Note(
             "a11y",
-            "loading() hides the placeholder rows with aria-hidden and marks "
-            "the table aria-busy, so a screen reader is not read rows of nothing.",
+            "`loading()` hides the placeholder rows with `aria-hidden` and marks "
+            "the table `aria-busy`, so a screen reader is not read rows of nothing.",
         ),
         Note(
             "note",

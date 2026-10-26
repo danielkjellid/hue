@@ -77,9 +77,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Building a Breadcrumbs trail"),
         pr.p(
-            "items() takes the trail root first, as (href, label) pairs. The "
-            "step with None for its href is the page you are on: Breadcrumbs "
-            "renders it as text with aria-current=page rather than as a link. "
+            "`items()` takes the trail root first, as `(href, label)` pairs. The "
+            "step with `None` for its `href` is the page you are on. `Breadcrumbs` "
+            'renders it as text with `aria-current="page"` rather than as a link. '
             "Put it last."
         ),
         pr.code(
@@ -92,19 +92,19 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "The pairs unpack into Crumb, a named tuple with href and label "
-            "fields. Crumb lives in hue.ui.molecules.breadcrumbs and is not "
-            "exported from hue.ui."
+            "The pairs unpack into `Crumb`, a named tuple with `href` and `label` "
+            "fields. `Crumb` lives in `hue.ui.molecules.breadcrumbs` and is not "
+            "exported from `hue.ui`."
         ),
         pr.h2("Folding a long Breadcrumbs trail"),
         pr.p(
-            "collapse_after(n) folds the middle of the trail once it has more "
-            "than n steps. The first step and the last two stay in the row. "
+            "`collapse_after(n)` folds the middle of the trail once it has more "
+            "than `n` steps. The first step and the last two stay in the row. "
             "The steps between them move into a popover behind an ellipsis "
             "button, which opens below it as a list of links."
         ),
         pr.p(
-            "A trail of three steps or fewer never folds, whatever n is, "
+            "A trail of three steps or fewer never folds, whatever `n` is, "
             "because there is no middle to fold."
         ),
         pr.code(
@@ -113,7 +113,7 @@ def _usage() -> ComponentType:
         pr.h2("Breadcrumbs on a narrow screen"),
         pr.p(
             "The steps sit in a row that wraps. A trail too long for its "
-            "container continues on a second line, and collapse_after() is "
+            "container continues on a second line, and `collapse_after()` is "
             "how you keep it on one."
         ),
     )
@@ -123,7 +123,7 @@ PAGE = ComponentPage(
     Breadcrumbs,
     lede=(
         "Breadcrumbs show the path from the root of a hierarchy down to the "
-        "page you are on, with a link to each step above it. collapse_after() "
+        "page you are on, with a link to each step above it. `collapse_after()` "
         "folds the middle of a deep trail behind an ellipsis."
     ),
     usage=_usage,
@@ -143,16 +143,16 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The trail is a nav labelled "Breadcrumb" around an ordered list, '
+            'The trail is a `nav` labelled "Breadcrumb" around an ordered list, '
             "so a screen reader announces it as a landmark and counts the steps.",
         ),
         Note(
             "a11y",
-            "The page you are on is text with aria-current=page, not a link.",
+            'The page you are on is text with `aria-current="page"`, not a link.',
         ),
         Note(
             "a11y",
-            "The chevrons between steps are aria-hidden, so they are not read "
+            "The chevrons between steps are `aria-hidden`, so they are not read "
             "out between every pair of steps.",
         ),
         Note(
@@ -163,8 +163,8 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            "A step with an href of None anywhere but last still renders as "
-            "the current page. Breadcrumbs does not check the order.",
+            "A step with an `href` of `None` anywhere but last still renders as "
+            "the current page. `Breadcrumbs` does not check the order.",
         ),
     ],
     related=[Tabs, Sidebar],

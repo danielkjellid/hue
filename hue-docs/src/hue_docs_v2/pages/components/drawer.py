@@ -152,10 +152,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Drawer is a Dialog that slides in from an edge of the screen. "
-            "It takes the same title(), description(), content(), footer(), "
-            "trigger(), dismissible() and open() as a Dialog, and adds side() "
-            "and size()."
+            "A `Drawer` is a `Dialog` that slides in from an edge of the screen. "
+            "It takes the same `title()`, `description()`, `content()`, "
+            "`footer()`, `trigger()`, `dismissible()` and `open()` as a "
+            "`Dialog`, and adds `side()` and `size()`."
         ),
         pr.code(
             "from hue.js import close\n\n"
@@ -168,28 +168,29 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "Pass close() from hue.js to on_click on a footer button to close "
-            "the Drawer. A button with no handler leaves it open."
+            "Pass `close()` from `hue.js` to `on_click()` on a footer button to close "
+            "the `Drawer`. A button with no handler leaves it open."
         ),
         pr.h2("Drawer sides and widths"),
         pr.p(
-            "side() takes end, start or bottom, and defaults to end. The sides "
-            "are logical: end is the right edge in a left-to-right page and "
-            "the left edge in a right-to-left one. size() sets the width of a "
-            "side Drawer, 320px, 420px or 560px, and defaults to md. A bottom "
-            "Drawer is as wide as the screen, so size() does nothing there."
+            '`side()` takes `"end"`, `"start"` or `"bottom"`, and defaults to '
+            '`"end"`. The sides '
+            'are logical: `"end"` is the right edge in a left-to-right page and '
+            "the left edge in a right-to-left one. `size()` sets the width of a "
+            'side `Drawer`, 320px, 420px or 560px, and defaults to `"md"`. A bottom '
+            "`Drawer` is as wide as the screen, so `size()` does nothing there."
         ),
         pr.h3("Below the md breakpoint"),
         pr.p(
-            "Below md (768px) every Drawer is a bottom sheet with a grab "
-            "handle, whatever side() says, at most 85% of the screen tall. "
-            "Drag the Sides panel narrower than md to see all three become "
+            "Below `md` (768px) every `Drawer` is a bottom sheet with a grab "
+            "handle, whatever `side()` says, at most 85% of the screen tall. "
+            "Drag the Sides panel narrower than `md` to see all three become "
             "the same sheet."
         ),
         pr.h2("Drawer that has to be answered"),
         pr.p(
-            "dismissible(False) removes the close button and the click on the "
-            "dimmed page that would close the Drawer, so the footer actions "
+            "`dismissible(False)` removes the close button and the click on the "
+            "dimmed page that would close the `Drawer`, so the footer actions "
             "are the way out. Escape still closes it."
         ),
     )
@@ -198,9 +199,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Drawer,
     lede=(
-        "A Drawer is a modal panel that slides in from an edge, for a list or "
-        "a form too long for a centred Dialog. Below the md breakpoint every "
-        "Drawer becomes a bottom sheet."
+        "A `Drawer` is a modal panel that slides in from an edge, for a list or "
+        "a form too long for a centred `Dialog`. Below the `md` breakpoint every "
+        "`Drawer` becomes a bottom sheet."
     ),
     usage=_usage,
     panels=[
@@ -225,29 +226,29 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The panel is an aside with role="dialog" and aria-modal, named by '
-            "its title through aria-labelledby, or by label() when it has no "
+            'The panel is an `aside` with `role="dialog"` and `aria-modal`, named by '
+            "its title through `aria-labelledby`, or by `label()` when it has no "
             "title.",
         ),
         Note(
             "a11y",
-            "Focus is trapped inside while the Drawer is open and the page "
+            "Focus is trapped inside while the `Drawer` is open and the page "
             "behind is inert. Closing gives focus back to the control that "
             "opened it.",
         ),
         Note(
             "a11y",
-            "Escape closes only the innermost overlay, so a Popover inside a "
-            "Drawer closes before the Drawer does.",
+            "Escape closes only the innermost overlay, so a `Popover` inside a "
+            "`Drawer` closes before the `Drawer` does.",
         ),
         Note(
             "note",
-            "A Drawer with neither title() nor label() raises an error when it "
+            "A `Drawer` with neither `title()` nor `label()` raises an error when it "
             "renders.",
         ),
         Note(
             "warn",
-            "Escape closes a Drawer even with dismissible(False).",
+            "Escape closes a `Drawer` even with `dismissible(False)`.",
         ),
     ],
     related=[Dialog],

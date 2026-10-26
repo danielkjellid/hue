@@ -47,27 +47,27 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "An EmailInput is a ",
+            "An `EmailInput` is a ",
             pr.link("TextInput", "/components/text-input/"),
-            " with type=email and autocomplete preset to email. Label, hint, "
+            ' with `type="email"` and `autocomplete` preset to `"email"`. Label, hint, '
             "error, sizes, prefixes, an attached action, readonly and "
-            "horizontal all work the same way, and the TextInput page shows "
+            "horizontal all work the same way, and the `TextInput` page shows "
             "each of them.",
         ),
         pr.code('EmailInput().name("email").label("Email")'),
         pr.h2("Changing the EmailInput autocomplete"),
         pr.p(
-            "autocomplete() replaces the preset. A sign-in form whose account "
-            "key is an email address can ask for username instead, which is "
+            "`autocomplete()` replaces the preset. A sign-in form whose account "
+            'key is an email address can ask for `"username"` instead, which is '
             "the token password managers pair with a password."
         ),
         pr.code('EmailInput().name("login").label("Email").autocomplete("username")'),
         pr.h2("Validating an EmailInput"),
         pr.p(
-            "type=email lets the browser check the address's shape before the "
+            '`type="email"` lets the browser check the address\'s shape before the '
             "form submits. Anything that posts to your route directly skips "
             "that check, so validate on the server too and hand the message "
-            "back with error(), or by name through Form.errors()."
+            "back with `error()`, or by name through `Form.errors()`."
         ),
         pr.code(
             'Form().errors({"email": "That address is already invited."}).content(\n'
@@ -80,8 +80,8 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     EmailInput,
     lede=(
-        "A TextInput for an email address. It sets type=email and presets "
-        "autocomplete to email, and shares every other modifier with TextInput."
+        'A `TextInput` for an email address. It sets `type="email"` and presets '
+        '`autocomplete` to `"email"`, and shares every other modifier with `TextInput`.'
     ),
     usage=_usage,
     panels=[
@@ -92,9 +92,9 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The label, hint and error are wired exactly as on TextInput: a "
-            "label element for the input, and the hint and error in "
-            "aria-describedby.",
+            "The label, hint and error are wired exactly as on `TextInput`: a "
+            "`label` element for the input, and the hint and error in "
+            "`aria-describedby`.",
         ),
     ],
     related=[TextInput, PasswordInput, Form],

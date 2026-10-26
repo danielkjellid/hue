@@ -81,29 +81,29 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Progress is a horizontal bar. value() is the percentage done, "
-            "from 0 to 100, and label() names the bar. The label shows above "
+            "A `Progress` is a horizontal bar. `value()` is the percentage done, "
+            "from `0` to `100`, and `label()` names the bar. The label shows above "
             "the bar with the percentage beside it."
         ),
         pr.code('Progress().value(64).label("Uploading archive.zip")'),
         pr.p(
-            "label() is required. A Progress without one raises a ValueError "
-            "when it renders, because a progressbar with no name is announced "
-            "as only a number. hidden_label() keeps the label as the bar's "
+            "`label()` is required. A `Progress` without one raises a `ValueError` "
+            "when it renders, because a `progressbar` with no name is announced "
+            "as only a number. `hidden_label()` keeps the label as the bar's "
             "accessible name and takes it and the percentage off the screen."
         ),
         pr.h3("Values"),
         pr.p(
-            "value() is clamped to the range 0 to 100, so 120 renders as 100 "
-            "and -5 as 0. NaN raises a ValueError. The percentage prints "
-            "without trailing zeros: 37.5 shows as 37.5% and 40.0 as 40%."
+            "`value()` is clamped to the range `0` to `100`, so `120` renders as "
+            "`100` and `-5` as `0`. `NaN` raises a `ValueError`. The percentage prints "
+            "without trailing zeros: `37.5` shows as 37.5% and `40.0` as 40%."
         ),
         pr.h3("Unknown length"),
         pr.p(
-            "indeterminate() sweeps a short bar along the track and leaves out "
-            "aria-valuenow, so a screen reader hears no position rather than "
-            "0 percent. It wins over value(). A Progress with neither value() "
-            "nor indeterminate() renders as indeterminate too."
+            "`indeterminate()` sweeps a short bar along the track and leaves out "
+            "`aria-valuenow`, so a screen reader hears no position rather than "
+            "0 percent. It wins over `value()`. A `Progress` with neither "
+            "`value()` nor `indeterminate()` renders as indeterminate too."
         ),
         pr.p(
             "With reduced motion, the sweep stops and the bar fills the whole "
@@ -112,9 +112,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Variant and size"),
         pr.p(
-            "variant() colours the fill: accent by default, or success, "
-            "warning or danger. size() sets the track height: sm is 4px, md "
-            "6px and lg 10px."
+            '`variant()` colours the fill: `"accent"` by default, or `"success"`, '
+            '`"warning"` or `"danger"`. `size()` sets the track height: `"sm"` '
+            'is 4px, `"md"` 6px and `"lg"` 10px.'
         ),
     )
 
@@ -122,9 +122,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Progress,
     lede=(
-        "A Progress is a bar that shows how far along a task is, such as an "
+        "A `Progress` is a bar that shows how far along a task is, such as an "
         "upload or an import. It reports a percentage, or sweeps when the "
-        "length of the work is unknown. For a circle, use ProgressRing."
+        "length of the work is unknown. For a circle, use `ProgressRing`."
     ),
     usage=_usage,
     panels=[
@@ -143,22 +143,23 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The track renders role="progressbar" with aria-valuemin 0, '
-            "aria-valuemax 100, aria-valuenow and aria-label from label().",
+            'The track renders `role="progressbar"` with `aria-valuemin` `0`, '
+            "`aria-valuemax` `100`, `aria-valuenow` and `aria-label` from `label()`.",
         ),
         Note(
             "a11y",
-            "An indeterminate bar has no aria-valuenow, so a screen reader "
+            "An indeterminate bar has no `aria-valuenow`, so a screen reader "
             "announces no position instead of 0 percent.",
         ),
         Note(
             "warn",
-            "label() is required: a Progress without one raises a ValueError "
-            "on render. Use hidden_label() when the label should not show.",
+            "`label()` is required, and a `Progress` without one raises a "
+            "`ValueError` on render. Use `hidden_label()` when the label should "
+            "not show.",
         ),
         Note(
             "note",
-            "Leaving out value() renders the bar as indeterminate, not as 0%.",
+            "Leaving out `value()` renders the bar as indeterminate, not as 0%.",
         ),
     ],
     related=[ProgressRing, Spinner, Skeleton],

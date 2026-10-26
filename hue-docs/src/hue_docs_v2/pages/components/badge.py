@@ -71,16 +71,17 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Badge is an inline span holding a short label. variant() sets "
-            "the colour and defaults to neutral. size() is md (20px tall) or lg "
+            "A `Badge` is an inline `span` holding a short label. `variant()` sets "
+            'the colour and defaults to `"neutral"`. `size()` is `"md"` (20px tall) or '
+            '`"lg"` '
             "(24px tall)."
         ),
         pr.code('Badge().variant("success").dot().content("Paid")'),
         pr.h3("Dot, pill and numeric"),
         pr.p(
-            "dot() puts a small dot before the label in the label's own "
-            "colour. pill() rounds the ends fully and widens the padding. "
-            "numeric() switches the figures to tabular widths, so counts in a "
+            "`dot()` puts a small dot before the label in the label's own "
+            "colour. `pill()` rounds the ends fully and widens the padding. "
+            "`numeric()` switches the figures to tabular widths, so counts in a "
             "column line up digit for digit."
         ),
         pr.code('Badge().pill().numeric().content("128")'),
@@ -90,9 +91,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Badge,
     lede=(
-        "A Badge is a short status or count label, such as Paid on an invoice "
-        "row or 12 next to a tab. Seven variants set its tone, and dot(), "
-        "pill() and numeric() adjust it for status and counts."
+        "A `Badge` is a short status or count label, such as Paid on an invoice "
+        "row or 12 next to a tab. Seven variants set its tone, and `dot()`, "
+        "`pill()` and `numeric()` adjust it for status and counts."
     ),
     usage=_usage,
     panels=[
@@ -112,12 +113,12 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "A Badge is a span with no role, so a screen reader reads its text "
+            "A `Badge` is a `span` with no role, so a screen reader reads its text "
             "inline with whatever is around it.",
         ),
         Note(
             "a11y",
-            "The dot is aria-hidden and the colour is not announced, so the "
+            "The dot is `aria-hidden` and the colour is not announced, so the "
             "text label is all a screen reader hears.",
         ),
     ],

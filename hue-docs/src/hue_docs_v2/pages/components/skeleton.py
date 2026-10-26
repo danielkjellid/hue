@@ -77,32 +77,32 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Skeleton is a grey shimmering block in the shape of content "
-            "that is still loading. shape() picks one of four shapes, each "
-            "with the size it usually stands in for. text, the default, is a "
-            "full-width bar 14px tall; circle is 36px across; rect is a "
-            "full-width 36px block; card is a full-width block 128px tall."
+            "A `Skeleton` is a grey shimmering block in the shape of content "
+            "that is still loading. `shape()` picks one of four shapes, each "
+            'with the size it usually stands in for. `"text"`, the default, is a '
+            'full-width bar 14px tall; `"circle"` is 36px across; `"rect"` is '
+            'a full-width 36px block; `"card"` is a full-width block 128px tall.'
         ),
         pr.code('Skeleton().shape("text").lines(3)'),
         pr.h3("Sizing a Skeleton"),
         pr.p(
-            "width() and height() each take one Tailwind class and replace "
-            'that axis of the shape outright, such as width("w-1/2") or '
-            'height("h-20"). A class built at runtime, such as an f-string, '
+            "`width()` and `height()` each take one Tailwind class and replace "
+            'that axis of the shape outright, such as `width("w-1/2")` or '
+            '`height("h-20")`. A class built at runtime, such as an f-string, '
             "is one Tailwind never sees, so write the class out in full."
         ),
         pr.h3("Paragraphs"),
         pr.p(
-            "lines() stacks text bars into a paragraph whose last line stops "
-            "at 62% width. It applies only to the text shape: lines() above 1 "
-            "on any other shape raises a ValueError. Inside a horizontal "
-            'Stack, give the paragraph class_("flex-1") so it takes the '
+            "`lines()` stacks text bars into a paragraph whose last line stops "
+            'at 62% width. It applies only to the `"text"` shape. `lines()` above `1` '
+            "on any other shape raises a `ValueError`. Inside a horizontal "
+            '`Stack`, give the paragraph `class_("flex-1")` so it takes the '
             "space left beside its neighbours."
         ),
         pr.h2("Marking the region busy"),
         pr.p(
-            "A Skeleton renders aria-hidden, so a screen reader skips it. "
-            'Set aria_busy("true") on the container the Skeleton stands in '
+            "A `Skeleton` renders `aria-hidden`, so a screen reader skips it. "
+            'Set `aria_busy("true")` on the container the `Skeleton` stands in '
             "for, and remove it when the content arrives, usually by "
             "replacing the container with the loaded version."
         ),
@@ -116,7 +116,7 @@ def _usage() -> ComponentType:
         ),
         pr.p(
             "The shimmer is a CSS animation. With reduced motion turned on, "
-            "hue's stylesheet stops it, and the Skeleton is a still grey "
+            "hue's stylesheet stops it, and the `Skeleton` is a still grey "
             "block."
         ),
     )
@@ -125,7 +125,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Skeleton,
     lede=(
-        "A Skeleton is a placeholder in the shape of content that is still "
+        "A `Skeleton` is a placeholder in the shape of content that is still "
         "loading, so the page keeps its layout while it waits. Four shapes "
         "cover lines of text, avatars, controls and cards."
     ),
@@ -139,7 +139,7 @@ PAGE = ComponentPage(
             half_width,
             shorter_card,
             layout="stack",
-            hint="width() and height() replace the shape's own size",
+            hint="`width()` and `height()` replace the shape's own size",
         ),
         panel(
             "Loading",
@@ -152,17 +152,18 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "Every Skeleton renders aria-hidden, so a screen reader passes over it.",
+            "Every `Skeleton` renders `aria-hidden`, so a screen reader passes over "
+            "it.",
         ),
         Note(
             "a11y",
-            'Set aria_busy("true") on the region the Skeleton stands in for, '
+            'Set `aria_busy("true")` on the region the `Skeleton` stands in for, '
             "so assistive technology knows the region is still loading.",
         ),
         Note(
             "warn",
-            "lines() above 1 on a circle, rect or card shape raises a "
-            "ValueError. Repeat the Skeleton instead.",
+            '`lines()` above `1` on a `"circle"`, `"rect"` or `"card"` shape raises a '
+            "`ValueError`. Repeat the `Skeleton` instead.",
         ),
     ],
     related=[Spinner, Progress, Empty],

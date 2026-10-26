@@ -76,15 +76,15 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Pointing TableOfContents at the content"),
         pr.p(
-            "TableOfContents reads its entries from the page in the browser. "
-            "of() is a CSS selector for the element that holds the content, "
-            '"main" by default, and every h2 and h3 inside it becomes an '
+            "`TableOfContents` reads its entries from the page in the browser. "
+            "`of()` is a CSS selector for the element that holds the content, "
+            '`"main"` by default, and every `h2` and `h3` inside it becomes an '
             "entry. You do not list the headings yourself."
         ),
         pr.code('TableOfContents().of("main").title("On this page")'),
         pr.p(
             "Levels nest by their own number, and the shallowest level found "
-            "is the top of the list, so a page whose headings start at h3 is "
+            "is the top of the list, so a page whose headings start at `h3` is "
             "not indented. When the content changes, for example when a "
             "fragment is swapped in, the list is rebuilt."
         ),
@@ -92,13 +92,13 @@ def _usage() -> ComponentType:
         pr.p(
             "Each entry links to its heading's id. A heading without an id "
             "links to the nearest ancestor with an id that holds no other "
-            "listed heading, such as a section element around it. Failing "
-            "that, TableOfContents gives the heading an id made from its text, "
+            "listed heading, such as a `section` element around it. Failing "
+            "that, `TableOfContents` gives the heading an id made from its text, "
             "with a number added when the id is already taken on the page."
         ),
         pr.h2("Choosing the headings for a TableOfContents"),
         pr.p(
-            "The headings keyword of of() is a selector of its own, h2 and h3 "
+            "The `headings` keyword of `of()` is a selector of its own, `h2` and `h3` "
             "by default. Narrow it to change which levels are listed, or use "
             "it to leave a heading out."
         ),
@@ -107,7 +107,7 @@ def _usage() -> ComponentType:
             'TableOfContents().of("main", headings="h2:not([data-toc-skip]), h3")'
         ),
         pr.p(
-            "A data-toc attribute on a heading replaces its text in the list "
+            "A `data-toc` attribute on a heading replaces its text in the list "
             "without changing the heading on the page."
         ),
         pr.code(
@@ -118,20 +118,20 @@ def _usage() -> ComponentType:
         pr.p(
             "A rail runs down the side of the entries, bending where the "
             "level changes, and fills in as far as the heading being read. "
-            "That heading's link gets aria-current=location. A heading counts "
+            'The link to that heading gets `aria-current="location"`. A heading counts '
             "as reached once it has scrolled to the top of the content, less "
-            "its scroll-margin-top. Once the content can scroll no further, "
+            "its `scroll-margin-top`. Once the content can scroll no further, "
             "the last heading counts as reached."
         ),
         pr.p(
             "The content can scroll with the window or inside its own "
-            "container with overflow set to auto or scroll, as in the example "
-            "on this page; TableOfContents measures from whichever one "
+            "container with `overflow` set to `auto` or `scroll`, as in the example "
+            "on this page; `TableOfContents` measures from whichever one "
             "scrolls."
         ),
         pr.h2("A TableOfContents with no headings"),
         pr.p(
-            "When of() matches no headings, TableOfContents hides itself, "
+            "When `of()` matches no headings, `TableOfContents` hides itself, "
             "title included."
         ),
     )
@@ -158,23 +158,23 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "TableOfContents renders a nav labelled by its title, so a page "
+            "`TableOfContents` renders a `nav` labelled by its title, so a page "
             "with more than one set of links says which one this is.",
         ),
         Note(
             "a11y",
-            "The entry being read carries aria-current=location rather than "
-            "page: every entry points into the page you are already on.",
+            'The entry being read carries `aria-current="location"` rather than '
+            '`"page"`, because every entry points into the page you are already on.',
         ),
         Note(
             "a11y",
-            "The rail and its dots are an aria-hidden SVG; the entries are "
+            "The rail and its dots are an `aria-hidden` SVG; the entries are "
             "plain links in an ordered list.",
         ),
         Note(
             "note",
             "The list is built in the browser, so the server-rendered markup "
-            "holds no entries and the nav stays hidden until Alpine has run.",
+            "holds no entries and the `nav` stays hidden until Alpine has run.",
         ),
     ],
     related=[Sidebar, Tabs],

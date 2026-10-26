@@ -133,11 +133,11 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Dialog renders its trigger and, hidden until the trigger is "
-            "clicked, a panel over a dimmed page. title() and description() "
-            "head the panel, content() fills the scrolling body, and footer() "
-            "puts the actions on a tinted strip along the bottom. size() sets "
-            "the width from sm up and defaults to md."
+            "A `Dialog` renders its trigger and, hidden until the trigger is "
+            "clicked, a panel over a dimmed page. `title()` and `description()` "
+            "head the panel, `content()` fills the scrolling body, and `footer()` "
+            "puts the actions on a tinted strip along the bottom. `size()` sets "
+            'the width from the `sm` breakpoint up and defaults to `"md"`.'
         ),
         pr.code(
             "from hue.js import close\n\n"
@@ -154,35 +154,35 @@ def _usage() -> ComponentType:
         ),
         pr.h3("The trigger is a hue component"),
         pr.p(
-            "trigger() takes a hue component, such as a Button, and not plain "
-            "markup, because the Dialog writes the click handler, "
-            "aria-expanded and aria-haspopup onto that control. A click "
-            "handler the control already has through on_click stays beside "
-            "the Dialog's own."
+            "`trigger()` takes a hue component, such as a `Button`, and not plain "
+            "markup, because the `Dialog` writes the click handler, "
+            "`aria-expanded` and `aria-haspopup` onto that control. A click "
+            "handler the control already has through `on_click()` stays beside "
+            "the `Dialog`'s own."
         ),
         pr.h3("Closing from inside"),
         pr.p(
-            "The Dialog puts close() in scope for everything inside it. Pass "
-            "close() from hue.js to on_click on a footer button. A footer "
-            "button with no handler does nothing when clicked, and the Dialog "
+            "The `Dialog` puts `close()` in scope for everything inside it. Pass "
+            "`close()` from `hue.js` to `on_click()` on a footer button. A footer "
+            "button with no handler does nothing when clicked, and the `Dialog` "
             "stays open."
         ),
         pr.h3("A Dialog that has to be answered"),
         pr.p(
-            "dismissible(False) removes the close button and the click on the "
+            "`dismissible(False)` removes the close button and the click on the "
             "dimmed page that would close it, so the footer actions are the "
             "way out. Escape still closes it."
         ),
         pr.h3("A destructive question"),
         pr.p(
-            "destructive() renders the panel as an alertdialog and points its "
-            "aria-describedby at the description, so a screen reader reads "
-            "the description together with the title. A Dialog that is not "
+            "`destructive()` renders the panel as an `alertdialog` and points its "
+            "`aria-describedby` at the description, so a screen reader reads "
+            "the description together with the title. A `Dialog` that is not "
             "destructive leaves the description to be read in order."
         ),
         pr.h3("Opened by the server"),
         pr.p(
-            "open() renders the Dialog already open. When it closes, focus "
+            "`open()` renders the `Dialog` already open. When it closes, focus "
             "goes to its trigger, since nothing on the page opened it."
         ),
         pr.code(
@@ -192,10 +192,10 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Dialog on small screens"),
         pr.p(
-            "Below the sm breakpoint (640px) a Dialog docks to the bottom edge "
+            "Below the `sm` breakpoint (640px) a `Dialog` docks to the bottom edge "
             "as a full-width sheet with a grab handle, at most 85% of the "
-            "screen tall. From sm up it is centred at the width size() sets. "
-            "Drag the panel narrower on any Dialog example to see the switch."
+            "screen tall. From `sm` up it is centred at the width `size()` sets. "
+            "Drag the panel narrower on any `Dialog` example to see the switch."
         ),
     )
 
@@ -203,7 +203,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Dialog,
     lede=(
-        "A Dialog is a modal window over the page: while it is open, the page "
+        "A `Dialog` is a modal window over the page. While it is open, the page "
         "behind cannot be tabbed into or scrolled. Use it for a question or a "
         "short form that has to be dealt with before anything else."
     ),
@@ -216,7 +216,7 @@ PAGE = ComponentPage(
             min_height=440,
             hint="Open it, tab through it, press Escape",
         ),
-        panel("Sizes", sm, md, lg, min_height=360, hint="The width from sm up"),
+        panel("Sizes", sm, md, lg, min_height=360, hint="The width from `sm` up"),
         panel(
             "States",
             destructive,
@@ -235,31 +235,31 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The panel has role="dialog" (alertdialog with destructive()) and '
-            "aria-modal. It is named by its title through aria-labelledby, or "
-            "by label() when it has no title.",
+            'The panel has `role="dialog"` (`alertdialog` with `destructive()`) and '
+            "`aria-modal`. It is named by its title through `aria-labelledby`, or "
+            "by `label()` when it has no title.",
         ),
         Note(
             "a11y",
-            "Focus is trapped inside while the Dialog is open, and the page "
+            "Focus is trapped inside while the `Dialog` is open, and the page "
             "behind is made inert. Closing gives focus back to the control "
             "that opened it.",
         ),
         Note(
             "a11y",
-            "Escape closes only the innermost overlay: the listener sits on "
-            "the Dialog and stops the key there, so a menu or Popover inside a "
-            "Dialog closes on the first press and the Dialog on the second.",
+            "Escape closes only the innermost overlay. The listener sits on "
+            "the `Dialog` and stops the key there, so a menu or `Popover` inside a "
+            "`Dialog` closes on the first press and the `Dialog` on the second.",
         ),
         Note(
             "note",
-            "A Dialog with neither title() nor label() raises an error when it "
+            "A `Dialog` with neither `title()` nor `label()` raises an error when it "
             "renders, because a modal with no name is announced as just "
             '"dialog".',
         ),
         Note(
             "warn",
-            "Escape closes a Dialog even with dismissible(False). Do not rely "
+            "Escape closes a `Dialog` even with `dismissible(False)`. Do not rely "
             "on the footer being the only way out.",
         ),
     ],

@@ -82,8 +82,8 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Building an Accordion"),
         pr.p(
-            "An Accordion holds AccordionItem children. Each item takes its "
-            "heading text from title() and its panel from content(). open() "
+            "An `Accordion` holds `AccordionItem` children. Each item takes its "
+            "heading text from `title()` and its panel from `content()`. `open()` "
             "starts an item open."
         ),
         pr.code(
@@ -97,17 +97,18 @@ def _usage() -> ComponentType:
         ),
         pr.h2("One open item or several in an Accordion"),
         pr.p(
-            "By default an Accordion keeps one item open: opening one closes "
-            "the one that was open. multiple() lets any number stay open. In "
-            "the default mode, when more than one item is set with open(), "
+            "By default an `Accordion` keeps one item open, and opening one closes "
+            "the one that was open. `multiple()` lets any number stay open. In "
+            "the default mode, when more than one item is set with `open()`, "
             "only the first of them starts open."
         ),
         pr.h2("Heading levels in an Accordion"),
         pr.p(
             "Every trigger sits inside a heading, which is how a screen reader "
-            "lists and jumps between the sections. The level is h3 by default. "
-            'Set heading() to one of "h2", "h3", "h4", "h5" or "h6" so it fits '
-            "the headings around the Accordion. The level changes the markup "
+            "lists and jumps between the sections. The level is `h3` by default. "
+            'Set `heading()` to one of `"h2"`, `"h3"`, `"h4"`, `"h5"` or `"h6"` so it '
+            "fits "
+            "the headings around the `Accordion`. The level changes the markup "
             "and not the look."
         ),
         pr.code(
@@ -115,7 +116,7 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Accordion width"),
         pr.p(
-            "An Accordion fills the width of its container, so it does not "
+            "An `Accordion` fills the width of its container, so it does not "
             "change width as items open and close. The text in a panel stops "
             "at 72 characters a line."
         ),
@@ -145,29 +146,29 @@ PAGE = ComponentPage(
         Note(
             "a11y",
             "Each trigger is a native button inside a heading, with "
-            "aria-expanded for its state and aria-controls pointing at its "
+            "`aria-expanded` for its state and `aria-controls` pointing at its "
             "panel. It is in the tab order, and Enter or Space toggles it.",
         ),
         Note(
             "a11y",
-            "Each panel has role=region and is labelled by its trigger, so a "
+            'Each panel has `role="region"` and is labelled by its trigger, so a '
             "screen reader that lands in a panel announces which section it "
             "is in.",
         ),
         Note(
             "note",
             "The ids that join a trigger to its panel are generated per item "
-            "with Alpine's $id, so two accordions on one page cannot point at "
+            "with Alpine's `$id`, so two accordions on one page cannot point at "
             "each other's panels.",
         ),
         Note(
             "note",
-            "The chevron is drawn from aria-expanded, so it turns with the "
+            "The chevron is drawn from `aria-expanded`, so it turns with the "
             "state a screen reader hears.",
         ),
         Note(
             "warn",
-            "Panels carry x-cloak, so every panel stays hidden until Alpine "
+            "Panels carry `x-cloak`, so every panel stays hidden until Alpine "
             "has loaded. A page without hue's script shows only the headings, "
             "with no way to open them.",
         ),

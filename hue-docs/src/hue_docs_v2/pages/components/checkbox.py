@@ -99,17 +99,18 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Checkbox is the browser's own checkbox input with a styled box, "
-            "inside a label element that also holds its text. The whole row is "
-            "the hit area, so a click on the words toggles the box. name() is "
-            "required and sets the submitted name; without value() the browser "
-            "submits on for a ticked box and nothing for an empty one."
+            "A `Checkbox` is the browser's own checkbox input with a styled box, "
+            "inside a `label` element that also holds its text. The whole row is "
+            "the hit area, so a click on the words toggles the box. `name()` is "
+            "required and sets the submitted name. Without `value()` the browser "
+            "submits `on` for a ticked box and nothing for an empty one."
         ),
         pr.code('Checkbox().name("terms").label("I accept the terms").required()'),
         pr.h3("Several boxes under one name"),
         pr.p(
-            "Give each Checkbox the same name() and its own value(), and the form "
-            "submits one entry per ticked box. A Checkbox with a value builds its "
+            "Give each `Checkbox` the same `name()` and its own `value()`, and the "
+            "form "
+            "submits one entry per ticked box. A `Checkbox` with a value builds its "
             "id from the name and the value, so boxes that share a name still "
             "get ids of their own, and each label toggles its own box."
         ),
@@ -119,31 +120,32 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Description and card"),
         pr.p(
-            "description() adds a second line under the label. A Checkbox has "
-            "no hint(): its extra sentence sits beside the box rather than "
-            "under the row. card() puts the row on a bordered surface that "
+            "`description()` adds a second line under the label. A `Checkbox` has "
+            "no `hint()`, because its extra sentence sits beside the box rather than "
+            "under the row. `card()` puts the row on a bordered surface that "
             "fills with the accent while the box is ticked."
         ),
         pr.h3("A Checkbox without visible text"),
         pr.p(
-            "hidden_label() renders the input alone, with no row around it, and "
-            "moves the label onto the input as aria-label. Use it where the "
+            "`hidden_label()` renders the input alone, with no row around it, and "
+            "moves the label onto the input as `aria-label`. Use it where the "
             "position already says what the box is for, such as one per row "
             "of a table."
         ),
         pr.h3("Indeterminate"),
         pr.p(
-            "indeterminate() draws a dash in place of the tick, for a box that "
+            "`indeterminate()` draws a dash in place of the tick, for a box that "
             "stands for several others that disagree. HTML has no attribute "
-            "for the mixed state, so the Checkbox sets the DOM property when "
+            "for the mixed state, so the `Checkbox` sets the `indeterminate` DOM "
+            "property when "
             "Alpine starts. The first click clears it, the way the native "
             "control behaves."
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() sets aria-invalid on the input, which draws the box with a "
-            "red border, and shows the message under the row. A Form's "
-            "errors() reaches a Checkbox by its name, the same as any other "
+            "`error()` sets `aria-invalid` on the input, which draws the box with a "
+            "red border, and shows the message under the row. A `Form`'s "
+            "`errors()` reaches a `Checkbox` by its name, the same as any other "
             "control."
         ),
     )
@@ -188,31 +190,31 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The input points at its label with aria-labelledby and at its "
-            "description with aria-describedby, so a screen reader reads the "
+            "The input points at its label with `aria-labelledby` and at its "
+            "description with `aria-describedby`, so a screen reader reads the "
             "label as the name and the description after it, rather than the "
             "whole row as one long name.",
         ),
         Note(
             "a11y",
-            "There is no role attribute: the native checkbox already has one, "
+            "There is no `role` attribute, since the native checkbox already has one, "
             "and Space toggles it as the browser always does.",
         ),
         Note(
             "a11y",
-            "The error message has role=alert and is added to the input's "
-            "aria-describedby, and aria-invalid draws the red border, so the "
+            'The error message has `role="alert"` and is added to the input\'s '
+            "`aria-describedby`, and `aria-invalid` draws the red border, so the "
             "colour never carries the meaning alone.",
         ),
         Note(
             "note",
-            "required() sets the native required attribute. The row shows no "
-            "asterisk; the browser blocks the submit until the box is ticked.",
+            "`required()` sets the native `required` attribute. The row shows no "
+            "asterisk, and the browser blocks the submit until the box is ticked.",
         ),
         Note(
             "warn",
-            "Two Checkboxes with the same name and no value get the same id. "
-            "Give each a value(), its own name() or an id().",
+            "Two checkboxes with the same name and no value get the same `id`. "
+            "Give each a `value()`, its own `name()` or an `id()`.",
         ),
     ],
     related=[Switch, RadioGroup],

@@ -282,10 +282,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Building a Table"),
         pr.p(
-            "Table is the frame, and its parts mirror the HTML elements one for "
-            "one: TableCaption, TableHeader, TableBody, TableFooter, TableRow, "
-            "TableHead and TableCell. Put the parts in content() in the order "
-            "the elements go."
+            "`Table` is the frame, and its parts mirror the HTML elements one for "
+            "one: `TableCaption`, `TableHeader`, `TableBody`, `TableFooter`, "
+            "`TableRow`, `TableHead` and `TableCell`. Put the parts in `content()` in "
+            "the order the elements go."
         ),
         pr.code(
             "Table().content(\n"
@@ -303,54 +303,54 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "For a list of records, DataTable builds all of this from a column "
+            "For a list of records, `DataTable` builds all of this from a column "
             "definition and the rows, and adds loading, empty and error states. "
-            "Reach for Table when the layout is your own: row headers, column "
+            "Reach for `Table` when the layout is your own: row headers, column "
             "groups, a totals row."
         ),
         pr.h2("Table frame and bands"),
         pr.p(
-            "The frame owns the border and the radius. toolbar() adds a band "
-            "above the table inside the frame, under() a band along the bottom, "
-            "and footer() is where an empty or error state goes, under the "
+            "The frame owns the border and the radius. `toolbar()` adds a band "
+            "above the table inside the frame, `under()` a band along the bottom, "
+            "and `footer()` is where an empty or error state goes, under the "
             "header. Only the band holding the table scrolls sideways, so a "
             "popover opened from the toolbar is not clipped. An id set on the "
-            "Table goes on the frame, and the region holding the rows and "
-            "whatever stands in for them gets the same id with -rows on the end, "
+            "`Table` goes on the frame, and the region holding the rows and "
+            "whatever stands in for them gets the same id with `-rows` on the end, "
             "so a response can replace the rows alone."
         ),
         pr.p(
-            "footer() is not TableFooter. TableFooter is a tfoot row group inside "
-            "the table, for a total or a summary of the rows above it."
+            "`footer()` is not `TableFooter`. `TableFooter` is a `tfoot` row group "
+            "inside the table, for a total or a summary of the rows above it."
         ),
         pr.h2("Table columns, sections and density"),
         pr.p(
-            'align() on TableHead and TableCell takes "start", "center" or '
-            '"end". "end" also switches the cell to tabular figures, so the '
+            '`align()` on `TableHead` and `TableCell` takes `"start"`, `"center"` or '
+            '`"end"`. `"end"` also switches the cell to tabular figures, so the '
             "digits line up down a column of numbers. Set it on the header and "
             "on every cell of the column. Cells wrap rather than truncate."
         ),
         pr.p(
-            'TableHead is scoped to its column. scope("row") makes it the header '
-            'of its row, and scope("colgroup") with colspan() heads a group of '
+            '`TableHead` is scoped to its column. `scope("row")` makes it the header '
+            'of its row, and `scope("colgroup")` with `colspan()` heads a group of '
             "columns."
         ),
         pr.p(
-            "A table can hold several TableBody groups. title() on each turns it "
-            "into a section that opens with a row naming it, as a rowgroup "
+            "A table can hold several `TableBody` groups. `title()` on each turns it "
+            "into a section that opens with a row naming it, as a `rowgroup` "
             "header, so a screen reader announces the section with each cell in "
-            "it. colspan is the number of columns, so the title runs the width "
+            "it. `colspan` is the number of columns, so the title runs the width "
             "of the table, and a blank title raises."
         ),
         pr.p(
-            "compact() on the Table sets the row height of every cell at once, so "
+            "`compact()` on the `Table` sets the row height of every cell at once, so "
             "no two cells can disagree. The side padding stays the same."
         ),
         pr.h2("Table row and header states"),
         pr.p(
-            "selected() on a TableRow sets aria-selected, which is what a screen "
-            'reader reads and what tints the row. sorted("ascending") or '
-            'sorted("descending") on a TableHead sets aria-sort. It draws no '
+            "`selected()` on a `TableRow` sets `aria-selected`, which is what a screen "
+            'reader reads and what tints the row. `sorted("ascending")` or '
+            '`sorted("descending")` on a `TableHead` sets `aria-sort`. It draws no '
             "arrow, so put an icon in the header if the order should show."
         ),
     )
@@ -359,9 +359,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Table,
     lede=(
-        "A Table is a styled HTML table built from parts that mirror the "
+        "A `Table` is a styled HTML table built from parts that mirror the "
         "elements one for one. Use it when the layout is your own; for a list "
-        "of records, DataTable builds the table from columns and rows."
+        "of records, `DataTable` builds the table from columns and rows."
     ),
     usage=_usage,
     panels=[
@@ -378,36 +378,37 @@ PAGE = ComponentPage(
             "Alignment",
             start_center_end,
             layout="stack",
-            hint='"end" also lines up the digits',
+            hint='`"end"` also lines up the digits',
         ),
         panel("States", selected_row, compact, layout="stack"),
-        panel("Empty", empty_footer, layout="stack", hint="footer() holds it"),
+        panel("Empty", empty_footer, layout="stack", hint="`footer()` holds it"),
     ],
     notes=[
         Note(
             "a11y",
-            "Every part renders its own element (table, caption, thead, tbody, "
-            "tfoot, tr, th, td), so a screen reader gets real table navigation.",
+            "Every part renders its own element (`table`, `caption`, `thead`, "
+            "`tbody`, `tfoot`, `tr`, `th`, `td`), so a screen reader gets real table "
+            "navigation.",
         ),
         Note(
             "a11y",
-            'TableHead renders scope="col" unless scope() says otherwise. A '
-            "section title from TableBody.title() is a th with "
-            'scope="rowgroup".',
+            '`TableHead` renders `scope="col"` unless `scope()` says otherwise. A '
+            "section title from `TableBody.title()` is a `th` with "
+            '`scope="rowgroup"`.',
         ),
         Note(
             "a11y",
-            "TableCaption names the table and is read before it. It renders "
+            "`TableCaption` names the table and is read before it. It renders "
             "above the table.",
         ),
         Note(
             "note",
-            "sorted() sets aria-sort on one header. Set it on one header only: "
-            "ARIA cannot say which of two sorted columns came first.",
+            "`sorted()` sets `aria-sort` on one header. Set it on one header "
+            "only, because ARIA cannot say which of two sorted columns came first.",
         ),
         Note(
             "warn",
-            "TableRow().selected() only tints the row and sets aria-selected. "
+            "`TableRow().selected()` only tints the row and sets `aria-selected`. "
             "It does not pick or submit the row.",
         ),
     ],

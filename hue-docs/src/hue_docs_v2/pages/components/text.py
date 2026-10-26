@@ -110,11 +110,11 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "Text takes its text as the first argument and renders it in a p "
-            "element by default. variant() picks the type style, tag() picks "
-            "the element, align() the alignment, and muted() or destructive() "
-            "the colour. Children passed to content() follow the text, so a "
-            "Text can hold other components inline."
+            "`Text` takes its text as the first argument and renders it in a `p` "
+            "element by default. `variant()` picks the type style, `tag()` picks "
+            "the element, `align()` the alignment, and `muted()` or `destructive()` "
+            "the colour. Children passed to `content()` follow the text, so a "
+            "`Text` can hold other components inline."
         ),
         pr.code(
             'Text("Quarterly report").variant("title-2").tag("h1")\n'
@@ -122,28 +122,28 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Text variant and tag are separate"),
         pr.p(
-            "variant() sets only the size and weight. tag() sets the element: "
-            'p, span, h1 to h6 or label. A Text with variant("title-1") is '
-            "still a paragraph until tag() makes it a heading, and a heading "
-            "can take any variant, so the heading level can follow the "
-            "document outline while the size follows the design."
+            "`variant()` sets only the size and weight. `tag()` sets the element: "
+            '`p`, `span`, `h1` to `h6` or `label`. A `Text` with `variant("title-1")` '
+            "is still a paragraph until `tag()` makes it a heading, and a heading can "
+            "take any variant, so the heading level can follow the document outline "
+            "while the size follows the design."
         ),
         pr.h3("Text variants"),
         pr.p(
-            "body is the default: 13px on a 24px line. title-1, title-2 and "
-            "title-3 are the large sizes, the first two in bold. subtitle-1 "
-            "(14px) and subtitle-2 (13px) are medium weight."
+            "`body` is the default, 13px on a 24px line. `title-1`, `title-2` and "
+            "`title-3` are the large sizes, the first two in bold. `subtitle-1` "
+            "(14px) and `subtitle-2` (13px) are medium weight."
         ),
         pr.h3("Text alignment"),
         pr.p(
-            "align() takes the Tailwind class itself: text-left (the default), "
-            "text-center or text-right."
+            "`align()` takes the Tailwind class itself: `text-left` (the default), "
+            "`text-center` or `text-right`."
         ),
         pr.h3("Text colour"),
         pr.p(
-            "The default colour is the foreground token. muted() switches to "
-            "the muted foreground and destructive() to the danger text colour. "
-            "When both are set, destructive wins."
+            "The default colour is the foreground token. `muted()` switches to "
+            "the muted foreground and `destructive()` to the danger text colour. "
+            "When both are set, `destructive()` wins."
         ),
     )
 
@@ -151,7 +151,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Text,
     lede=(
-        "Text renders a run of text in one of hue's type styles, from page "
+        "`Text` renders a run of text in one of hue's type styles, from page "
         "titles down to body copy. Its modifiers also set the element, the "
         "alignment and the colour."
     ),
@@ -179,7 +179,7 @@ PAGE = ComponentPage(
             h6,
             label,
             layout="stack",
-            hint="tag() sets the element; variant() sets the look",
+            hint="`tag()` sets the element; `variant()` sets the look",
         ),
         panel("Alignment", left, center, right, layout="stack"),
         panel("Colour", default, muted, destructive, muted_and_destructive),
@@ -187,14 +187,14 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "variant() changes only the look. A screen reader finds headings "
-            'by their element, so a heading needs tag("h1") to tag("h6"), '
+            "`variant()` changes only the look. A screen reader finds headings "
+            'by their element, so a heading needs `tag("h1")` to `tag("h6")`, '
             "whatever its variant.",
         ),
         Note(
             "note",
-            'tag("label") renders a label with no for attribute, and Text has '
-            "no html_for(). To name a form control, use Label.",
+            '`tag("label")` renders a `label` with no `for` attribute, and `Text` has '
+            "no `html_for()`. To name a form control, use `Label`.",
         ),
     ],
     related=[Label, Kbd],

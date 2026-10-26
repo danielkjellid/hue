@@ -121,41 +121,41 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Textarea is the multi-line field. Like ",
+            "A `Textarea` is the multi-line field. Like ",
             pr.link("TextInput", "/components/text-input/"),
-            ", it renders its own label, hint and error, and name() sets the "
+            ", it renders its own label, hint and error, and `name()` sets the "
             "submitted name and the ids that tie them together. It takes "
-            "label(), hint(), error(), placeholder(), value(), required(), "
-            "disabled(), readonly(), hidden_label() and horizontal(), but has "
-            "no size(), prefix, suffix or action.",
+            "`label()`, `hint()`, `error()`, `placeholder()`, `value()`, `required()`, "
+            "`disabled()`, `readonly()`, `hidden_label()` and `horizontal()`, but has "
+            "no `size()`, prefix, suffix or action.",
         ),
         pr.code('Textarea().name("bio").label("About you").rows(4)'),
         pr.p(
-            "value() goes between the tags exactly as given, so the server "
+            "`value()` goes between the tags exactly as given, so the server "
             "gets back what it sent, with no newline added at either end."
         ),
         pr.h2("Counting characters with max_length()"),
         pr.p(
-            "Textarea.max_length() is a soft limit. It shows a count such as "
+            "`Textarea.max_length()` is a soft limit. It shows a count such as "
             "12 / 280 at the end of the label row and keeps it up to date as "
             "the reader types. Past the limit the count turns red and the "
-            "textarea sets aria-invalid, but every character is still "
-            "accepted. There is no maxlength attribute, so nothing stops the "
+            "textarea sets `aria-invalid`, but every character is still "
+            "accepted. There is no `maxlength` attribute, so nothing stops the "
             "keyboard."
         ),
         pr.p(
             "Because the text is never cut, a submission can still be too "
             "long. Check the length on the server and return the message "
-            "with error(). While an error is set, the count no longer "
-            "toggles aria-invalid: the error already sets it."
+            "with `error()`. While an error is set, the count no longer "
+            "toggles `aria-invalid`, because the error already sets it."
         ),
         pr.code('Textarea().name("bio").label("About you").max_length(280)'),
         pr.h2("Growing a Textarea with autosize()"),
         pr.p(
-            "autosize() makes the textarea as tall as its text, on load and "
-            "on every input, instead of scrolling inside a fixed box. rows() "
-            "makes one that does not autosize taller; a Textarea is never "
-            "shorter than 84px, so a small rows() has no effect. Either "
+            "`autosize()` makes the textarea as tall as its text, on load and "
+            "on every input, instead of scrolling inside a fixed box. `rows()` "
+            "makes one that does not autosize taller; a `Textarea` is never "
+            "shorter than 84px, so a small `rows()` has no effect. Either "
             "way, the reader can drag the corner to resize it vertically."
         ),
     )
@@ -165,8 +165,8 @@ PAGE = ComponentPage(
     Textarea,
     lede=(
         "A multi-line text field with its label, hint and error built in. "
-        "max_length() adds a live character count that warns past the limit "
-        "without cutting the text, and autosize() lets it grow with what is "
+        "`max_length()` adds a live character count that warns past the limit "
+        "without cutting the text, and `autosize()` lets it grow with what is "
         "typed."
     ),
     usage=_usage,
@@ -192,20 +192,20 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "With max_length(), the visible count is hidden from screen "
+            "With `max_length()`, the visible count is hidden from screen "
             'readers. A sentence such as "You have 12 characters remaining" '
-            "takes its place: it is part of the textarea's description, and "
+            "takes its place. It is part of the textarea's description, and "
             "it is a polite live region that updates a second after typing "
             "stops.",
         ),
         Note(
             "a11y",
             "Past the limit the count turns red and the textarea sets "
-            "aria-invalid, so the colour never carries the meaning alone.",
+            "`aria-invalid`, so the colour never carries the meaning alone.",
         ),
         Note(
             "warn",
-            "max_length() does not stop input. Enforce the limit on the "
+            "`max_length()` does not stop input. Enforce the limit on the "
             "server, or a long submission goes through.",
         ),
     ],

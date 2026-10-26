@@ -73,8 +73,8 @@ def currency() -> DoughnutChart:
 def _usage() -> ComponentType:
     return pr.page(
         pr.p(
-            "A DoughnutChart is a PieChart drawn as a ring. It takes the same "
-            "slices() and value_format(), groups slices past six the same way, "
+            "A `DoughnutChart` is a `PieChart` drawn as a ring. It takes the same "
+            "`slices()` and `value_format()`, groups slices past six the same way, "
             "and gives a screen reader the same table."
         ),
         *_charts.slice_data("DoughnutChart"),

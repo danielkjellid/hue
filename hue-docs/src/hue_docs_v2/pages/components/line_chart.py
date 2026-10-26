@@ -80,7 +80,7 @@ def _usage() -> ComponentType:
         *_charts.series_data("LineChart"),
         pr.h2("How LineChart draws its series"),
         pr.p(
-            "The main series is a solid 2px line in the accent. A compare() "
+            "The main series is a solid 2px line in the accent. A `compare()` "
             "series is a thinner dashed line in the muted grey, painted "
             "beneath the main one. Only the last point of each line is marked, "
             "which also keeps a series of a single value from drawing nothing."

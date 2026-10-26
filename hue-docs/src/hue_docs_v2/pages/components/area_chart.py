@@ -81,13 +81,13 @@ def _usage() -> ComponentType:
         *_charts.series_data("AreaChart"),
         pr.h2("How AreaChart draws its series"),
         pr.p(
-            "An AreaChart is a LineChart with the area under the main series "
+            "An `AreaChart` is a `LineChart` with the area under the main series "
             "filled. The fill runs down to zero as a gradient of the accent, "
-            "fading out toward the bottom. A compare() series is not filled: "
-            "it is a thinner dashed line in the muted grey, painted beneath "
+            "fading out toward the bottom. A `compare()` series is not filled. "
+            "It is a thinner dashed line in the muted grey, painted beneath "
             "the main one. Only the last point of each line is marked."
         ),
-        *_charts.formats("AreaChart", "y_format()"),
+        *_charts.formats("AreaChart", "`y_format()`"),
         *_charts.size("AreaChart"),
         *_charts.loading("AreaChart"),
         *_charts.theme("AreaChart"),
@@ -109,7 +109,7 @@ PAGE = ComponentPage(
             one_series,
             with_compare,
             layout="stack",
-            hint="The legend appears with compare()",
+            hint="The legend appears with `compare()`",
         ),
         panel(
             "Formats",
@@ -117,7 +117,7 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="y_format() writes the axis, the tooltip and the table",
+            hint="`y_format()` writes the axis, the tooltip and the table",
         ),
     ],
     notes=_charts.notes("AreaChart"),

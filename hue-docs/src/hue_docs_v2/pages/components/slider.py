@@ -86,9 +86,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Slider is a native range input with its label, hint and the "
-            "number it is set to. min() and max() default to 0 and 100, and "
-            "value() defaults to min(). step() is left to the browser unless "
+            "A `Slider` is a native range input with its label, hint and the "
+            "number it is set to. `min()` and `max()` default to `0` and `100`, and "
+            "`value()` defaults to `min()`. `step()` is left to the browser unless "
             "you set it."
         ),
         pr.code('Slider().name("seats").label("Team seats").min(1).max(50).value(12)'),
@@ -96,14 +96,14 @@ def _usage() -> ComponentType:
         pr.p(
             "The current value is shown at the end of the label row and "
             "follows the thumb as it moves. It is on by default. "
-            "show_value(False) removes it, for a row that already shows the "
+            "`show_value(False)` removes it, for a row that already shows the "
             "number somewhere else."
         ),
         pr.p(
-            "prefix() and suffix() wrap the number in the readout, such as $ "
-            "or %. They are plain text and never part of an expression, so a "
+            "`prefix()` and `suffix()` wrap the number in the readout, such as `$` "
+            "or `%`. They are plain text and never part of an expression, so a "
             "quote or an apostrophe in one is safe. "
-            "With either one set, the range input also gets aria-valuetext, "
+            "With either one set, the range input also gets `aria-valuetext`, "
             "so a screen reader hears $600 rather than 600."
         ),
         pr.code(
@@ -111,16 +111,16 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Slider ticks"),
         pr.p(
-            "ticks() takes labels and spreads them evenly under the track, "
+            "`ticks()` takes labels and spreads them evenly under the track, "
             "from the first at the start to the last at the end. They are "
-            "labels only: they do not snap the thumb, and they are not placed "
+            "labels only. They do not snap the thumb, and they are not placed "
             "by value, so pass ones that sit at even intervals."
         ),
         pr.h2("Keyboard"),
         pr.p(
             "The range input is native, so the browser handles the keys: the "
-            "arrow keys move it by one step, Home and End jump to min() and "
-            "max(), and Page Up and Page Down take larger steps. The readout "
+            "arrow keys move it by one step, Home and End jump to `min()` and "
+            "`max()`, and Page Up and Page Down take larger steps. The readout "
             "follows every change."
         ),
     )
@@ -130,7 +130,7 @@ PAGE = ComponentPage(
     Slider,
     lede=(
         "A range input paired with the number it is set to. The readout sits "
-        "in the label row and follows the thumb, and prefix() and suffix() "
+        "in the label row and follows the thumb, and `prefix()` and `suffix()` "
         "give it a unit."
     ),
     usage=_usage,
@@ -143,18 +143,18 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The track is a native input type=range with a label element, so "
+            'The track is a native `input type="range"` with a `label` element, so '
             "it is announced as a slider with its value, and every key the "
             "browser supports works.",
         ),
         Note(
             "a11y",
-            "With a prefix or suffix, aria-valuetext carries the same text as "
+            "With a prefix or suffix, `aria-valuetext` carries the same text as "
             "the readout, so the spoken value includes the unit.",
         ),
         Note(
             "note",
-            "disabled() sets the native disabled attribute: the slider leaves "
+            "`disabled()` sets the native `disabled` attribute, so the slider leaves "
             "the tab order and is not submitted with the form.",
         ),
     ],

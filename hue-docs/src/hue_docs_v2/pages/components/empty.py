@@ -129,10 +129,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "An Empty takes the place of content that is not there: a table "
+            "An `Empty` takes the place of content that is not there: a table "
             "with no rows, a search with no matches, a list that failed to "
-            "load. Every part is optional. title() is the bold line, "
-            "description() the sentence under it, and actions() a row of "
+            "load. Every part is optional. `title()` is the bold line, "
+            "`description()` the sentence under it, and `actions()` a row of "
             "buttons below both."
         ),
         pr.code(
@@ -143,31 +143,31 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Variant and icon"),
         pr.p(
-            "variant() is neutral or danger, and only changes the icon chip: "
-            "neutral shows an inbox on a grey chip, danger a cross on a red "
-            "one. icon() replaces the variant's icon and keeps the chip's "
-            "colour. icon(None) removes the chip, and with it the only visible "
+            '`variant()` is `"neutral"` or `"danger"`, and only changes the icon chip: '
+            '`"neutral"` shows an inbox on a grey chip, `"danger"` a cross on a red '
+            "one. `icon()` replaces the variant's icon and keeps the chip's "
+            "colour. `icon(None)` removes the chip, and with it the only visible "
             "difference between the two variants."
         ),
         pr.h3("Headings"),
         pr.p(
-            "title() renders a div by default. Pass heading, as in "
-            'title("No projects yet", heading="h2"), to render a real heading '
-            "element instead, so an Empty that stands in for a page or a "
+            "`title()` renders a `div` by default. Pass `heading`, as in "
+            '`title("No projects yet", heading="h2")`, to render a real heading '
+            "element instead, so an `Empty` that stands in for a page or a "
             "section shows up in the document outline. The heading looks the "
-            "same as the div."
+            "same as the `div`."
         ),
         pr.h3("Inside a card or a table"),
         pr.p(
-            "compact() reduces the padding and the icon chip, for an Empty "
+            "`compact()` reduces the padding and the icon chip, for an `Empty` "
             "inside a card, a table body or a panel."
         ),
         pr.h2("Swapping an Empty in"),
         pr.p(
-            "An Empty is a plain div with no role and no live region. When one "
+            "An `Empty` is a plain `div` with no role and no live region. When one "
             "replaces a list after a search or a filter, a screen reader is "
             "not told. Put the announcement on the region that changes, for "
-            "example with aria_live() on its container."
+            "example with `aria_live()` on its container."
         ),
     )
 
@@ -175,7 +175,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Empty,
     lede=(
-        "An Empty fills the space where content would be: nothing created "
+        "An `Empty` fills the space where content would be: nothing created "
         "yet, nothing matched, or nothing could be loaded. It holds an icon, a "
         "title, a description and actions, every one of them optional."
     ),
@@ -203,17 +203,17 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The icon is aria-hidden, so the title and description are what a "
+            "The icon is `aria-hidden`, so the title and description are what a "
             "screen reader reads.",
         ),
         Note(
             "a11y",
-            'title(..., heading="h2") renders a heading element, which puts '
-            "the Empty in the document outline.",
+            '`title(..., heading="h2")` renders a heading element, which puts '
+            "the `Empty` in the document outline.",
         ),
         Note(
             "warn",
-            "An Empty has no role and no live region, so swapping one in by "
+            "An `Empty` has no role and no live region, so swapping one in by "
             "AJAX is silent to a screen reader unless its container announces "
             "the change.",
         ),

@@ -109,10 +109,11 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Banner is an Alert with square corners and no side borders, so "
+            "A `Banner` is an `Alert` with square corners and no side borders, so "
             "it can run across the full width of a page. Every modifier is the "
-            "Alert one: variant(), title(), content(), actions(), icon() and "
-            "dismissible() behave the same way, and the roles and the focus "
+            "`Alert` one. `variant()`, `title()`, `content()`, `actions()`, `icon()` "
+            "and "
+            "`dismissible()` behave the same way, and the roles and the focus "
             "handling on dismiss are the same too."
         ),
         pr.code(
@@ -124,19 +125,18 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Placing a Banner"),
         pr.p(
-            "A Banner sets no position and no width of its own. Put it first "
+            "A `Banner` sets no position and no width of its own. Put it first "
             "in the page body, outside the padded content column, so it spans "
             "the page. Inside a padded container it stops at the padding like "
             "any other block. A flex parent that does not stretch its children, "
-            "such as a column with items-start, shrinks it to its text, so the "
-            'examples on this page set class_("w-full").'
+            "such as a column with `items-start`, shrinks it to its text, so the "
+            'examples on this page set `class_("w-full")`.'
         ),
         pr.h3("Dismissing a Banner"),
         pr.p(
-            "dismissible() hides the Banner in the browser and sends no "
-            "request, so a reload renders the Banner again. Keeping it gone "
-            "is up to your code: record the dismissal on the server and stop "
-            "rendering the Banner."
+            "`dismissible()` hides the `Banner` in the browser and sends no "
+            "request, so a reload renders the `Banner` again. To keep it gone, "
+            "record the dismissal on the server and stop rendering the `Banner`."
         ),
     )
 
@@ -144,9 +144,9 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Banner,
     lede=(
-        "A Banner is a message about the whole page or account, run edge to "
+        "A `Banner` is a message about the whole page or account, run edge to "
         "edge across the top, such as a trial that ends on Friday. "
-        "It is an Alert in a different shape, so it has the same variants, "
+        "It is an `Alert` in a different shape, so it has the same variants, "
         "roles and dismiss behaviour."
     ),
     usage=_usage,
@@ -155,7 +155,7 @@ PAGE = ComponentPage(
             "Live",
             trial_ending,
             layout="stack",
-            hint="Tab to Dismiss and press Enter: focus moves to the next button",
+            hint="Tab to Dismiss and press Enter, and focus moves to the next button",
         ),
         panel("Variants", neutral, info, success, warning, danger, layout="stack"),
         panel(
@@ -170,17 +170,17 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'danger renders role="alert" and the other variants role="status", '
-            "the same as Alert.",
+            '`"danger"` renders `role="alert"` and the other variants `role="status"`, '
+            "the same as `Alert`.",
         ),
         Note(
             "a11y",
             "Dismissing moves focus to the next focusable element, else the "
-            "previous one, else the Banner's container, before the Banner hides.",
+            "previous one, else the `Banner`'s container, before the `Banner` hides.",
         ),
         Note(
             "note",
-            "A Banner is not a landmark. It renders a div with the variant's "
+            "A `Banner` is not a landmark. It renders a `div` with the variant's "
             "role, so it does not appear in a screen reader's list of regions.",
         ),
     ],

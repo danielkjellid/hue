@@ -129,38 +129,38 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Switch is a native checkbox input with role=switch, drawn as a "
-            "track and a knob. It submits like a checkbox: the name with on "
+            'A `Switch` is a native checkbox input with `role="switch"`, drawn '
+            "as a track and a knob. It submits like a checkbox: the name with `on` "
             "when it is on, nothing when it is off. The whole row is a label, "
             "so a click on the text flips it too."
         ),
         pr.code('Switch().name("notify").label("Email notifications").checked()'),
         pr.h3("Layout"),
         pr.p(
-            "By default the Switch sits before its text. horizontal() puts the "
-            "text first and pushes the Switch to the far end of the row, the "
-            "order a settings list reads in. description() adds a second line "
+            "By default the `Switch` sits before its text. `horizontal()` puts the "
+            "text first and pushes the `Switch` to the far end of the row, the "
+            "order a settings list reads in. `description()` adds a second line "
             "under the label."
         ),
         pr.h3("Reporting the save"),
         pr.p(
-            "submission_state() shows how the write the Switch started is "
+            "`submission_state()` shows how the write the `Switch` started is "
             "going, with an icon beside the label:"
         ),
         pr.bullets(
             [
-                '"pending" shows a spinner, announced as Saving, and disables '
-                "the Switch.",
-                '"success" shows a tick, announced as Saved.',
-                '"error" shows an alert icon, announced as Not saved.',
-                '"none", the default, shows nothing.',
+                '`"pending"` shows a spinner, announced as Saving, and disables '
+                "the `Switch`.",
+                '`"success"` shows a tick, announced as Saved.',
+                '`"error"` shows an alert icon, announced as Not saved.',
+                '`"none"`, the default, shows nothing.',
             ]
         ),
         pr.p(
             "A success or error indicator clears itself after 2400ms, and the "
             "countdown starts only if the row is visible when it renders. "
-            "settle_after() changes the delay in milliseconds, and "
-            "settle_after(None) keeps the indicator until the next render, as "
+            "`settle_after()` changes the delay in milliseconds, and "
+            "`settle_after(None)` keeps the indicator until the next render, as "
             "the specimens on this page do."
         ),
         pr.code(
@@ -175,9 +175,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() sets aria-invalid on the input and shows the message under "
-            "the row, with role=alert. A Switch has no hint(); description() is "
-            "its second line."
+            "`error()` sets `aria-invalid` on the input and shows the message under "
+            'the row, with `role="alert"`. A `Switch` has no `hint()`; '
+            "`description()` is its second line."
         ),
     )
 
@@ -186,7 +186,7 @@ PAGE = ComponentPage(
     Switch,
     lede=(
         "An on and off control for a setting that takes effect as soon as it "
-        "is flipped. It is a native checkbox with role=switch, so it is "
+        'is flipped. It is a native checkbox with `role="switch"`, so it is '
         "announced as on or off, and it can show whether the change was saved."
     ),
     usage=_usage,
@@ -201,36 +201,37 @@ PAGE = ComponentPage(
             pending,
             success,
             error,
-            hint="submission_state(), held with settle_after(None)",
+            hint="`submission_state()`, held with `settle_after(None)`",
         ),
         panel("Error", field_error, layout="stack"),
     ],
     notes=[
         Note(
             "a11y",
-            "role=switch on a native checkbox: a screen reader says on or off "
-            "rather than checked or not checked, and Space flips it.",
+            'A `Switch` is a native checkbox with `role="switch"`, so a screen '
+            "reader says on or off rather than checked or not checked, and "
+            "Space flips it.",
         ),
         Note(
             "a11y",
-            "The submission indicator has role=status and an aria-label of "
+            'The submission indicator has `role="status"` and an `aria-label` of '
             "Saving, Saved or Not saved, so the outcome is announced and not "
             "only drawn.",
         ),
         Note(
             "a11y",
-            "The input is named by its label through aria-labelledby and "
+            "The input is named by its label through `aria-labelledby` and "
             "described by its description, so the description is not read as "
             "part of the name.",
         ),
         Note(
             "note",
-            'submission_state("pending") disables the input, which also takes '
+            '`submission_state("pending")` disables the input, which also takes '
             "it out of the tab order.",
         ),
         Note(
             "warn",
-            "A Switch submits nothing while it is off. Read a missing name as "
+            "A `Switch` submits nothing while it is off. Read a missing name as "
             "off on the server.",
         ),
     ],

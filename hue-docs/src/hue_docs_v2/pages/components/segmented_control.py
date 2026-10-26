@@ -143,9 +143,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A SegmentedControl is a row of SegmentedOption buttons where one "
-            "is on. label() names the control, value() picks the option that "
-            "starts selected, and each option's value() is what that "
+            "A `SegmentedControl` is a row of `SegmentedOption` buttons where one "
+            "is on. `label()` names the control, `value()` picks the option that "
+            "starts selected, and each option's `value()` is what that "
             "selection is matched against. The control sets every option's "
             "size and pressed state itself."
         ),
@@ -161,19 +161,19 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Where a SegmentedControl keeps its selection"),
         pr.p(
-            "With value() set, the control renders an Alpine scope holding "
-            "selected, and a click on an option sets selected to that "
-            "option's value. The server renders aria-pressed for the starting "
+            "With `value()` set, the control renders an Alpine scope holding "
+            "`selected`, and a click on an option sets `selected` to that "
+            "option's value. The server renders `aria-pressed` for the starting "
             "option, so the right one is on before Alpine starts. The "
-            "selection stays in the browser: the control renders no input, so "
+            "selection stays in the browser. The control renders no input, so "
             "a form around it submits nothing for it."
         ),
         pr.h3("Driving a SegmentedControl from your own state"),
         pr.p(
-            "Leave value() unset and the control keeps no state at all. Give "
-            "each option its own click handler and its own aria-pressed "
+            "Leave `value()` unset and the control keeps no state at all. Give "
+            "each option its own click handler and its own `aria-pressed` "
             "binding, and the selection can live in any Alpine scope around "
-            "the control, where other elements can read it. ThemeSwitcher is "
+            "the control, where other elements can read it. `ThemeSwitcher` is "
             "built this way, on the theme store."
         ),
         pr.code(
@@ -192,14 +192,14 @@ def _usage() -> ComponentType:
         ),
         pr.h3("SegmentedControl options that hold only an icon"),
         pr.p(
-            "icon_only() makes the option square and takes its accessible name "
+            "`icon_only()` makes the option square and takes its accessible name "
             "as the argument, because an icon has no text to read. An option "
-            "with visible text is named by the text, so it needs no label()."
+            "with visible text is named by the text, so it needs no `label()`."
         ),
         pr.h3("SegmentedControl sizes"),
         pr.p(
-            "size() sets the height of the whole track: 32px for sm, 36px for "
-            "md (the default) and 44px for lg. The options sit 8px shorter "
+            "`size()` sets the height of the whole track: 32px for `sm`, 36px for "
+            "`md` (the default) and 44px for `lg`. The options sit 8px shorter "
             "than the track, inside its padding and border."
         ),
     )
@@ -222,14 +222,14 @@ PAGE = ComponentPage(
             selection_in_your_own_state,
             layout="stack",
             captions=False,
-            hint="No value(); the options bind to a scope around the control",
+            hint="No `value()`; the options bind to a scope around the control",
         ),
     ],
     notes=[
         Note(
             "a11y",
-            'The control is a div with role="group" named by label(). Each '
-            "option is a native button with aria-pressed, so a screen reader "
+            'The control is a `div` with `role="group"` named by `label()`. Each '
+            "option is a native button with `aria-pressed`, so a screen reader "
             "hears a toggle button that is pressed or not.",
         ),
         Note(
@@ -239,8 +239,8 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "icon_only() takes the option's accessible name as its argument and "
-            "renders it as aria-label.",
+            "`icon_only()` takes the option's accessible name as its argument and "
+            "renders it as `aria-label`.",
         ),
         Note(
             "note",
@@ -249,9 +249,9 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            "With value() set, the control writes each option's click handler "
-            "itself, so an on_click() of your own on an option is replaced. To "
-            "run code on a choice, leave value() unset and bind the options "
+            "With `value()` set, the control writes each option's click handler "
+            "itself, so an `on_click()` of your own on an option is replaced. To "
+            "run code on a choice, leave `value()` unset and bind the options "
             "yourself, as in the Driven by Alpine panel.",
         ),
     ],

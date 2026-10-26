@@ -151,9 +151,10 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Put the region in your page base"),
         pr.p(
-            "ToastRegion collects toasts, announces them and times them. It has "
-            "the fixed id hue-toasts, which the toasts behind a fragment are "
-            "merged into, so a page holds one: put it in your page base."
+            "`ToastRegion` collects toasts, announces them and times them. It "
+            "has the fixed id `hue-toasts`, which the toasts behind a fragment "
+            "are merged into, so a page holds exactly one. Put it in your page "
+            "base."
         ),
         pr.code(
             "from hue.ui import ToastRegion\n\n"
@@ -171,11 +172,12 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Raise one from a route"),
         pr.p(
-            "toast.success() queues a toast for the current request. You pass "
-            "no context and no target: whatever the route returns carries it. "
+            "`toast.success()` queues a toast for the current request. You pass "
+            "no context and no target, because whatever the route returns "
+            "carries it. "
             "A page renders it into its own region. A fragment gets the region "
             "appended behind it, and Alpine AJAX merges that into the region on "
-            "the page, because the region carries x-sync and so is a target of "
+            "the page, because the region carries `x-sync` and so is a target of "
             "every request the page makes."
         ),
         pr.code(
@@ -189,41 +191,58 @@ def _usage() -> ComponentType:
             "    return InvoiceRow(id)"
         ),
         pr.p(
-            "There is one method per variant, with the options description, "
-            "duration, dismissible and action. The queue lives exactly as long "
-            "as the request, so a toast cannot surface in somebody else's "
-            "response. Calling toast.success() outside a request raises an "
-            "error instead of dropping the toast."
+            "The route path is written in FastAPI's syntax. In `hue-django` "
+            "the same route is `invoices/<int:id>/send/`."
+        ),
+        pr.p(
+            "There is one method per variant, with the options `description`, "
+            "`duration`, `dismissible` and `action`. The queue lives exactly as "
+            "long as the request, so a toast cannot surface in somebody else's "
+            "response. Calling `toast.success()` outside a request raises a "
+            "`RuntimeError` instead of dropping the toast."
         ),
         pr.h3("Across a redirect"),
         pr.p(
-            "A redirect has no markup to carry a toast. HueRequestMiddleware "
-            "keeps such toasts in the session and hands them to the next page. "
-            "Without the middleware, a hue route that raises a toast and then "
-            "redirects raises a RuntimeError instead of dropping it. An action "
+            "A redirect has no markup to carry a toast. `HueRequestMiddleware`, "
+            "which `hue-django` and `hue-fastapi` each provide, keeps such "
+            "toasts in the session and hands them to the next page. Without "
+            "the middleware, a hue route that raises a toast and then "
+            "redirects raises a `RuntimeError` instead of dropping it. An action "
             "cannot cross a redirect, because an action is a component rather "
             "than data."
         ),
+        pr.p(
+            "In Django, list hue's middleware after Django's "
+            "`SessionMiddleware` in `MIDDLEWARE`:"
+        ),
         pr.code(
-            "# Django\n"
+            "# settings.py\n"
             "MIDDLEWARE = [\n"
             '    "django.contrib.sessions.middleware.SessionMiddleware",\n'
             '    "hue_django.middleware.HueRequestMiddleware",\n'
             "    ...\n"
-            "]\n\n"
-            "# FastAPI\n"
+            "]"
+        ),
+        pr.p(
+            "In FastAPI, add `HueRequestMiddleware` first and Starlette's "
+            "`SessionMiddleware` after it. Starlette runs the middleware added "
+            "last first, so the session wraps hue's middleware:"
+        ),
+        pr.code(
+            "from hue_fastapi import HueRequestMiddleware\n"
+            "from starlette.middleware.sessions import SessionMiddleware\n\n"
             "app.add_middleware(HueRequestMiddleware)\n"
             "app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)"
         ),
         pr.h2("Raise one from the browser"),
         pr.p(
             "For something the server never hears about, such as a copy to the "
-            "clipboard, toast.js builds the expression to hand to on_click. The "
+            "clipboard, `toast.js` builds the expression to hand to `on_click()`. The "
             "values are quoted for you, so an apostrophe in a description is a "
-            "word and not a syntax error. duration is in milliseconds, None "
+            "word and not a syntax error. `duration` is in milliseconds, `None` "
             "keeps the toast until it is dismissed, and leaving it out takes the "
-            "region's default. action is a label and the expression its button "
-            "runs."
+            "region's default. `action` is a pair of a label and the expression "
+            "its button runs."
         ),
         pr.code(
             "from hue import toast\n"
@@ -244,32 +263,34 @@ def _usage() -> ComponentType:
         .variant("warning")
         .title("What is safe to interpolate")
         .content(
-            "Titles, descriptions and action labels are quoted and written into "
-            "the page as text, so building them from user input is safe. The "
-            "second half of an action is code, so it has to be an expression "
-            "built with ajax(), call() or unsafe(); a plain string is refused. "
-            "Never build one with unsafe() from user input. The region also "
-            "accepts toasts from any response that carries its id, so fetch "
-            "fragments only from your own app."
+            pr.rich(
+                "Titles, descriptions and action labels are quoted and written "
+                "into the page as text, so building them from user input is "
+                "safe. The second half of an action is code, so it has to be an "
+                "expression built with `ajax()`, `call()` or `unsafe()`; a plain "
+                "string is refused. Never build one with `unsafe()` from user "
+                "input. The region also accepts toasts from any response that "
+                "carries its id, so fetch fragments only from your own app."
+            )
         ),
         pr.p(
-            "toast.js produces a call to the $toast magic, which any Alpine "
+            "`toast.js` produces a call to the `$toast` magic, which any Alpine "
             "expression can also call directly. The markup is cloned from "
             "templates the region renders, so a toast raised in the browser is "
             "the same element as one rendered in Python. With no region on the "
-            "page, $toast logs a warning to the console and drops the message."
+            "page, `$toast` logs a warning to the console and drops the message."
         ),
         pr.code(
             "$toast.success('Invoice sent', { description: 'INV-2048 to Ada' })\n"
             "$toast.loading('Exporting 2,481 rows', { duration: null })",
             language="javascript",
         ),
-        pr.h2("How long they stay"),
+        pr.h2("How long a toast stays"),
         pr.p(
-            "5200 milliseconds by default. The region does the timing, so a "
-            "Toast rendered on its own, like the specimens on this page, has no "
-            "timer and stays. Set the page-wide default with "
-            "default_duration() on the region, and override it per toast."
+            "A toast stays for 5200 milliseconds by default. The region does "
+            "the timing, so a `Toast` rendered on its own, like the specimens "
+            "on this page, has no timer and stays. Set the page-wide default "
+            "with `default_duration()` on the region, and override it per toast."
         ),
         pr.code(
             "ToastRegion().default_duration(8000)\n\n"
@@ -284,12 +305,12 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Toast variants"),
         pr.p(
-            "A toast's variant sets its icon and colour: success, danger, "
-            "warning, info or loading. A danger toast is also copied into a "
-            "role=alert element and read at once. A loading toast shows a "
-            "spinner in place of the icon. duration(None) keeps any toast on "
-            "screen until it is dismissed, and dismissible(False) leaves out its "
-            "close button."
+            'A toast\'s variant sets its icon and colour: `"success"`, `"danger"`, '
+            '`"warning"`, `"info"` or `"loading"`. A danger toast is also copied into '
+            'a `role="alert"` element and read at once. A loading toast shows a '
+            "spinner in place of the icon. `duration(None)` keeps any toast on screen "
+            "until it is dismissed, and `dismissible(False)` leaves out its close "
+            "button."
         ),
     )
 
@@ -320,7 +341,7 @@ PAGE = ComponentPage(
             raise_loading,
             min_height=280,
             captions=False,
-            hint="toast.js, no request",
+            hint="`toast.js`, no request",
         ),
         panel(
             "Variants",
@@ -343,9 +364,10 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The region is an aria-live=polite container, so a toast is read at "
-            "the next pause. A danger toast is also copied into a separate, "
-            "always-present role=alert element, so a failure is read at once.",
+            'The region is an `aria-live="polite"` container, so a toast is '
+            "read at the next pause. A danger toast is also copied into a "
+            'separate, always-present `role="alert"` element, so a failure is '
+            "read at once.",
         ),
         Note(
             "a11y",
@@ -359,7 +381,7 @@ PAGE = ComponentPage(
         ),
         Note(
             "note",
-            "A toast leaves the screen once its duration is up. An Alert stays "
+            "A toast leaves the screen once its duration is up. An `Alert` stays "
             "until it is dismissed.",
         ),
     ],

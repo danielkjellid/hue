@@ -104,12 +104,12 @@ def _usage() -> ComponentType:
             '    .description("Margin grows with basket size, faster online.")'
         ),
         pr.p(
-            "A point with a third number, a size, is refused: it belongs on a "
-            "BubbleChart."
+            "A `ScatterChart` raises a `ValueError` on a point with a third "
+            "number, a size. A point with a size belongs on a `BubbleChart`."
         ),
         *_charts.formats("ScatterChart", "x_format() and y_format()"),
         pr.p(
-            "Each axis has its own format, so a ScatterChart can put money "
+            "Each axis has its own format, so a `ScatterChart` can put money "
             "along the bottom and a percentage up the side."
         ),
         *_charts.size("ScatterChart"),
@@ -134,7 +134,7 @@ PAGE = ComponentPage(
             "Series",
             two_series,
             layout="stack",
-            hint="A second series() adds a colour and a legend",
+            hint="A second `series()` adds a colour and a legend",
         ),
         panel(
             "Formats",
@@ -142,7 +142,7 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="x_format() and y_format() write each axis on its own",
+            hint="`x_format()` and `y_format()` write each axis on its own",
         ),
     ],
     notes=_charts.notes("ScatterChart"),

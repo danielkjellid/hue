@@ -83,36 +83,37 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "An Avatar shows a person as their initials or a picture. name() "
+            "An `Avatar` shows a person as their initials or a picture. `name()` "
             "sets both the initials and the accessible name, so most avatars "
-            "need nothing else. size() defaults to md."
+            'need nothing else. `size()` defaults to `"md"`.'
         ),
         pr.code('Avatar().name("Ada Lovelace").size("sm")'),
         pr.h3("Initials"),
         pr.p(
-            "An Avatar takes the first letters of the first and last words of "
+            "An `Avatar` takes the first letters of the first and last words of "
             "the name, so Ada Augusta Lovelace becomes AL. A name of one word "
             "gives its first two letters, so Plato becomes PL. The initials "
             "are upper case either way."
         ),
         pr.h3("A picture"),
         pr.p(
-            "src() replaces the initials with an image, loaded lazily and "
-            "cropped to fill the shape. Keep name() alongside it: the image has "
-            "an empty alt, and the Avatar's accessible name still comes from "
-            "name()."
+            "`src()` replaces the initials with an image, loaded lazily and "
+            "cropped to fill the shape. Keep `name()` alongside it. The image has "
+            "an empty `alt`, and the `Avatar`'s accessible name still comes from "
+            "`name()`."
         ),
         pr.code('Avatar().name("Ada Lovelace").src("https://example.com/ada.jpg")'),
         pr.h3("A status dot"),
         pr.p(
-            "status() adds a dot at the bottom corner: online, away, busy or "
-            "offline. The status joins the accessible name, so an Avatar named "
-            'Grace Hopper with status online reads as "Grace Hopper, online".'
+            '`status()` adds a dot at the bottom corner, one of `"online"`, `"away"`, '
+            '`"busy"` or `"offline"`. The status joins the accessible name, so an '
+            "`Avatar` named "
+            'Grace Hopper with `status("online")` reads as "Grace Hopper, online".'
         ),
         pr.h3("An icon or a logo"),
         pr.p(
-            "With no name and no src, an Avatar shows its children instead, "
-            "such as an icon. square() rounds the corners instead of making a "
+            "With no `name()` and no `src()`, an `Avatar` shows its children instead, "
+            "such as an icon. `square()` rounds the corners instead of making a "
             "circle, for a logo or a product a circle would crop."
         ),
         pr.code(
@@ -121,7 +122,7 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Several people"),
         pr.p(
-            "Put avatars in an AvatarGroup to overlap them and announce the "
+            "Put avatars in an `AvatarGroup` to overlap them and announce the "
             "row as one image with one label."
         ),
     )
@@ -144,8 +145,8 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'An Avatar with a name renders role="img" with the name as its '
-            "aria-label, so a screen reader reads the name and not the "
+            'An `Avatar` with a name renders `role="img"` with the name as its '
+            "`aria-label`, so a screen reader reads the name and not the "
             "initials.",
         ),
         Note(
@@ -155,12 +156,12 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            'The picture from src() renders with alt="", because the Avatar '
+            'The picture from `src()` renders with `alt=""`, because the `Avatar` '
             "around it already carries the name.",
         ),
         Note(
             "note",
-            "An Avatar with no name renders no role and no label, so it is "
+            "An `Avatar` with no name renders no role and no label, so it is "
             "decorative. Whatever it holds, such as an icon, has to carry its own "
             "name if it needs one.",
         ),

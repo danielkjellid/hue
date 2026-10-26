@@ -90,7 +90,7 @@ def _usage() -> ComponentType:
         *_charts.series_data("BarChart"),
         pr.h2("Highlighting one bar of a BarChart"),
         pr.p(
-            "highlight() takes the label of one bar, draws that bar in the "
+            "`highlight()` takes the label of one bar, draws that bar in the "
             "accent and mutes the others to grey. Without it, every bar of the "
             "series is in the accent."
         ),
@@ -99,20 +99,20 @@ def _usage() -> ComponentType:
             '.series([92, 31, 14], label="Invoices").highlight("Paid")'
         ),
         pr.p(
-            "The label has to be one of the chart's labels, and highlight() "
-            "cannot be combined with compare(), whose bars are already muted. "
-            "Either mistake raises a ValueError when the chart renders. The "
+            "The label has to be one of the chart's labels, and `highlight()` "
+            "cannot be combined with `compare()`, whose bars are already muted. "
+            "Either mistake raises a `ValueError` when the chart renders. The "
             "highlight is drawn only, so the table a screen reader reads does "
-            "not mark it: say what it stands for in description()."
+            "not mark it. Say what it stands for in `description()`."
         ),
         pr.h2("How BarChart draws its series"),
         pr.p(
-            "With compare(), the two series stand side by side at each label, "
+            "With `compare()`, the two series stand side by side at each label, "
             "the main series in the accent and the comparison in the muted "
             "grey. Bars have slightly rounded corners and are at most 44px "
             "wide, however few labels there are."
         ),
-        *_charts.formats("BarChart", "y_format()"),
+        *_charts.formats("BarChart", "`y_format()`"),
         *_charts.size("BarChart"),
         *_charts.loading("BarChart"),
         *_charts.theme("BarChart"),
@@ -137,7 +137,7 @@ PAGE = ComponentPage(
             highlighted,
             with_compare,
             layout="stack",
-            hint="highlight() and compare() do not combine",
+            hint="`highlight()` and `compare()` do not combine",
         ),
         panel(
             "Formats",
@@ -145,15 +145,15 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="y_format() writes the axis, the tooltip and the table",
+            hint="`y_format()` writes the axis, the tooltip and the table",
         ),
     ],
     notes=[
         *_charts.notes("BarChart"),
         Note(
             "warn",
-            "highlight() is only drawn. The table a screen reader reads lists "
-            "every bar alike, so description() has to say what the accented "
+            "`highlight()` is only drawn. The table a screen reader reads lists "
+            "every bar alike, so `description()` has to say what the accented "
             "bar stands for.",
         ),
     ],

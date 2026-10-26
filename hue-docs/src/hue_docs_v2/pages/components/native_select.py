@@ -154,9 +154,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A NativeSelect is the browser's own select element with hue's "
-            "field styling, its label, hint and error built in. options() takes "
-            "the choices as (value, label) pairs, and value() picks the one "
+            "A `NativeSelect` is the browser's own `select` element with hue's "
+            "field styling, its label, hint and error built in. `options()` takes "
+            "the choices as `(value, label)` pairs, and `value()` picks the one "
             "that starts selected."
         ),
         pr.code(
@@ -170,30 +170,30 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Placeholder"),
         pr.p(
-            "placeholder() adds a first option with an empty value, rendered "
+            "`placeholder()` adds a first option with an empty value, rendered "
             "disabled, so it cannot be chosen again once a real option has "
-            "been picked. It is selected whenever value() names none of the "
+            "been picked. It is selected whenever `value()` names none of the "
             "options, including an empty string or a value that no longer "
             "exists. Without a placeholder, the browser shows and submits the "
             "first option in that case."
         ),
         pr.p(
-            "Together with required(), the placeholder makes the browser "
+            "Together with `required()`, the placeholder makes the browser "
             "refuse to submit until a real option is chosen, since the "
             "placeholder's value is empty."
         ),
         pr.h3("NativeSelect or Select"),
         pr.p(
-            "A NativeSelect gets the phone's own picker, typeahead and every "
+            "A `NativeSelect` gets the phone's own picker, typeahead and every "
             "assistive technology behaviour from the browser. An option can "
-            "only be a line of text. Select draws its own list, which can hold "
-            "descriptions, icons, metadata and groups. Combobox adds a text "
+            "only be a line of text. `Select` draws its own list, which can hold "
+            "descriptions, icons, metadata and groups. `Combobox` adds a text "
             "field that filters the options."
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() sets aria-invalid on the select, shows the message in "
-            "place of the hint and adds it to the select's aria-describedby."
+            "`error()` sets `aria-invalid` on the `select`, shows the message in "
+            "place of the hint and adds it to the `select`'s `aria-describedby`."
         ),
     )
 
@@ -228,17 +228,17 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The label is a real label element pointing at the select, and the "
-            "hint and error are tied to it through aria-describedby.",
+            "The label is a real `label` element pointing at the `select`, and the "
+            "hint and error are tied to it through `aria-describedby`.",
         ),
         Note(
             "a11y",
             "The list, the keyboard and the typeahead are the browser's, so "
-            "they behave as they do in every other select on the platform.",
+            "they behave as they do in every other `select` on the platform.",
         ),
         Note(
             "note",
-            "disabled() sets the native disabled attribute, which takes the "
+            "`disabled()` sets the native `disabled` attribute, which takes the "
             "select out of the tab order and out of the submitted form.",
         ),
     ],

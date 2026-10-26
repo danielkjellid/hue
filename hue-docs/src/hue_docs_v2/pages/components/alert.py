@@ -155,9 +155,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "An Alert is a box with a title, a body and an icon. variant() "
-            "sets the colour, the icon and the role, and defaults to neutral. "
-            "title() is the bold first line, and content() is everything "
+            "An `Alert` is a box with a title, a body and an icon. `variant()` "
+            'sets the colour, the icon and the role, and defaults to `"neutral"`. '
+            "`title()` is the bold first line, and `content()` is everything "
             "under it."
         ),
         pr.code(
@@ -166,8 +166,8 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Content and actions"),
         pr.p(
-            "content() takes any children, so an Alert body can be a sentence "
-            "or a row with a button in it. actions() puts its children in a "
+            "`content()` takes any children, so an `Alert` body can be a sentence "
+            "or a row with a button in it. `actions()` puts its children in a "
             "row under the content, with the gap and the space above already "
             "set."
         ),
@@ -182,37 +182,38 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "A ghost Button anywhere inside an Alert takes the Alert's text "
-            "colour and a translucent hover, in content() as well as in "
-            "actions(). Solid and outline buttons keep their own colours."
+            "A ghost `Button` anywhere inside an `Alert` takes the `Alert`'s text "
+            "colour and a translucent hover, in `content()` as well as in "
+            "`actions()`. Solid and outline buttons keep their own colours."
         ),
         pr.h3("Icons"),
         pr.p(
-            "Each variant has its own icon: an info circle for neutral and "
-            "info, a check for success, a triangle for warning and a cross "
-            "for danger. icon() replaces it with one of your own."
+            'Each variant has its own icon. `"neutral"` and `"info"` get an info '
+            "circle, "
+            '`"success"` a check, `"warning"` a triangle and `"danger"` a cross. '
+            "`icon()` replaces it with one of your own."
         ),
         pr.h2("How an Alert is announced"),
         pr.p(
-            'The danger variant renders role="alert", which interrupts a '
-            'screen reader. Every other variant renders role="status", which '
+            'The `"danger"` variant renders `role="alert"`, which interrupts a '
+            'screen reader. Every other variant renders `role="status"`, which '
             "waits for a pause. A live region that is on the page with its "
             "content when the page loads is not announced, so a server-rendered "
-            "Alert is read in document order. The role matters when an Alert "
+            "`Alert` is read in document order. The role matters when an `Alert` "
             "arrives later, for example in a fragment swapped in by Alpine "
-            "AJAX. role() on the Alert replaces the one the variant picks."
+            "AJAX. `role()` on the `Alert` replaces the one the variant picks."
         ),
         pr.h2("Dismissing an Alert"),
         pr.p(
-            "dismissible() adds a close button labelled Dismiss. Pressing it "
-            "hides the Alert in the browser. No request is sent, so the next "
-            "render of the page shows the Alert again unless your code stops "
+            "`dismissible()` adds a close button labelled Dismiss. Pressing it "
+            "hides the `Alert` in the browser. No request is sent, so the next "
+            "render of the page shows the `Alert` again unless your code stops "
             "rendering it."
         ),
         pr.p(
-            "When focus is inside the Alert at that moment, it moves first: "
+            "When focus is inside the `Alert` at that moment, focus first moves "
             "to the next focusable element on the page, else the previous "
-            "one, else the element around the Alert, which is made focusable "
+            "one, else the element around the `Alert`, which is made focusable "
             "for the purpose."
         ),
     )
@@ -221,10 +222,10 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     Alert,
     lede=(
-        "An Alert is a message about the content it sits next to: a failed "
-        "payment above a form, a read-only notice above a table. It stays "
+        "An `Alert` is a message about the content it sits next to, such as a failed "
+        "payment above a form or a read-only notice above a table. It stays "
         "until the page changes or the reader dismisses it. For a message "
-        "about the whole page, use Banner."
+        "about the whole page, use `Banner`."
     ),
     usage=_usage,
     panels=[
@@ -232,7 +233,7 @@ PAGE = ComponentPage(
             "Live",
             dismiss_it,
             layout="stack",
-            hint="Tab to Dismiss and press Enter: focus moves to the next button",
+            hint="Tab to Dismiss and press Enter, and focus moves to the next button",
         ),
         panel("Variants", neutral, info, success, warning, danger, layout="stack"),
         panel(
@@ -250,18 +251,18 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'danger renders role="alert" and the other variants role="status", '
+            '`"danger"` renders `role="alert"` and the other variants `role="status"`, '
             "so only a failure interrupts what a screen reader is saying.",
         ),
         Note(
             "a11y",
-            "The variant icon is aria-hidden. The title and content carry the "
+            "The variant icon is `aria-hidden`. The title and content carry the "
             "message, so a reader who cannot see the colour loses nothing.",
         ),
         Note(
             "a11y",
             "Dismissing moves focus to the next focusable element, else the "
-            "previous one, else the Alert's container, before the Alert hides.",
+            "previous one, else the `Alert`'s container, before the `Alert` hides.",
         ),
         Note(
             "note",
@@ -270,7 +271,7 @@ PAGE = ComponentPage(
         Note(
             "warn",
             "A live region only announces content added after it exists. An "
-            "Alert rendered with the page is read in order, not announced.",
+            "`Alert` rendered with the page is read in order, not announced.",
         ),
     ],
     related=[Banner, Toast, Empty],

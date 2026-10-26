@@ -110,8 +110,8 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "An AvatarGroup overlaps a row of Avatars and announces them as "
-            "one image. label() is required: it is the only thing a screen "
+            "An `AvatarGroup` overlaps a row of Avatars and announces them as "
+            "one image. `label()` is required. It is the only thing a screen "
             "reader hears, so it names the people in the row, the ones behind "
             "the count included."
         ),
@@ -127,21 +127,21 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "An AvatarGroup without a label raises a ValueError when it "
+            "An `AvatarGroup` without a label raises a `ValueError` when it "
             "renders, so a group with no accessible name cannot reach the page."
         ),
         pr.h3("The count"),
         pr.p(
-            "more(3) ends the row with +3, for people the row does not show. "
-            "The AvatarGroup does not count its children for you, and the "
-            "number is not part of the accessible name, so say it in label() "
+            "`more(3)` ends the row with +3, for people the row does not show. "
+            "The `AvatarGroup` does not count its children for you, and the "
+            "number is not part of the accessible name, so say it in `label()` "
             "too."
         ),
         pr.h3("Size"),
         pr.p(
-            "size() on the AvatarGroup sizes every Avatar in it, and the count "
-            "and the overlap with them. size() defaults to md. An Avatar that "
-            "sets its own size() keeps it."
+            "`size()` on the `AvatarGroup` sizes every `Avatar` in it, and the count "
+            'and the overlap with them. `size()` defaults to `"md"`. An `Avatar` that '
+            "sets its own `size()` keeps it."
         ),
         pr.h3("Stacking order"),
         pr.p(
@@ -162,25 +162,25 @@ PAGE = ComponentPage(
     usage=_usage,
     panels=[
         panel("Live", reviewers, layout="center"),
-        panel("Sizes", xs, sm, md, lg, xl, hint="size() reaches every member"),
+        panel("Sizes", xs, sm, md, lg, xl, hint="`size()` reaches every member"),
         panel("Anatomy", everyone_shown, with_a_count, with_pictures),
     ],
     notes=[
         Note(
             "a11y",
-            'The AvatarGroup renders role="img" with label() as its '
-            "aria-label. Every member and the count are aria-hidden, so the "
+            'The `AvatarGroup` renders `role="img"` with `label()` as its '
+            "`aria-label`. Every member and the count are `aria-hidden`, so the "
             "row is announced once.",
         ),
         Note(
             "warn",
             "The +N count is hidden from screen readers. Include the people it "
-            "stands for in label().",
+            "stands for in `label()`.",
         ),
         Note(
             "note",
-            "label() is required. Rendering an AvatarGroup without one raises a "
-            "ValueError.",
+            "`label()` is required. Rendering an `AvatarGroup` without one raises a "
+            "`ValueError`.",
         ),
     ],
     related=[Avatar],

@@ -133,9 +133,9 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A DropdownMenu renders its trigger and a menu anchored to it. "
-            "The items are MenuItem, with MenuLabel for a heading over a run "
-            "of items and MenuSeparator for a rule between two runs. label() "
+            "A `DropdownMenu` renders its trigger and a menu anchored to it. "
+            "The items are `MenuItem`, with `MenuLabel` for a heading over a run "
+            "of items and `MenuSeparator` for a rule between two runs. `label()` "
             "names the menu for a screen reader."
         ),
         pr.code(
@@ -151,38 +151,38 @@ def _usage() -> ComponentType:
             ")"
         ),
         pr.p(
-            "trigger() takes a hue component rather than plain markup, because "
-            "the DropdownMenu writes the click handler, the Down key handler, "
-            "aria-expanded and the anchor onto that control."
+            "`trigger()` takes a hue component rather than plain markup, because "
+            "the `DropdownMenu` writes the click handler, the Down key handler, "
+            "`aria-expanded` and the anchor onto that control."
         ),
         pr.h2("MenuItem actions and links"),
         pr.p(
-            "A MenuItem is a button, or a link when it has href(). Give it "
-            "something to do with on_click or an AJAX action. Picking an item "
-            "closes the menu. variant() takes default or danger; danger "
+            "A `MenuItem` is a button, or a link when it has `href()`. Give it "
+            "something to do with `on_click()` or an AJAX action. Picking an item "
+            'closes the menu. `variant()` takes `"default"` or `"danger"`; `"danger"` '
             "colours the item's text and icon."
         ),
         pr.h3("Checkable items"),
         pr.p(
-            "checkable() makes a MenuItem a menuitemcheckbox with a tick in "
-            "the gutter, and checked() starts it ticked. Picking a checkable "
+            "`checkable()` makes a `MenuItem` a `menuitemcheckbox` with a tick in "
+            "the gutter, and `checked()` starts it ticked. Picking a checkable "
             "item toggles the tick and leaves the menu open. The tick is "
-            "client state; bind it with x_model or an AJAX action to keep it."
+            "client state; bind it with `x_model()` or an AJAX action to keep it."
         ),
         pr.h3("Disabled items"),
         pr.p(
-            "disabled() dims a MenuItem and sets aria-disabled, and leaves it "
+            "`disabled()` dims a `MenuItem` and sets `aria-disabled`, and leaves it "
             "in the menu where the arrow keys still reach it. A disabled item "
             "has no click handler, its own or the caller's, so Enter does "
-            "nothing on it. A disabled link loses its href."
+            "nothing on it. A disabled link loses its `href`."
         ),
         pr.h3("Items that run a shortcut"),
         pr.p(
-            "shortcut() makes a MenuItem a way to run one of the app's "
+            "`shortcut()` makes a `MenuItem` a way to run one of the app's "
             "shortcuts: it shows the keys and does what the shortcut does, and "
             "takes the shortcut's label and icon when it has none of its own. "
             "It needs the app's shortcut registry in the render context, and "
-            "raises an error if the item also has an href or a handler."
+            "raises an error if the item also has an `href` or a handler."
         ),
         pr.code(
             "MenuItem().shortcut(Shortcuts.copy_link)",
@@ -197,9 +197,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Placement"),
         pr.p(
-            "placement() names the corner of the trigger the menu hangs from: "
-            "bottom-start (the default), bottom-end, top-start or top-end. The "
-            "menu flips and shifts to stay inside the viewport."
+            "`placement()` names the corner of the trigger the menu hangs from: "
+            '`"bottom-start"` (the default), `"bottom-end"`, `"top-start"` or '
+            '`"top-end"`. The menu flips and shifts to stay inside the viewport.'
         ),
     )
 
@@ -207,7 +207,7 @@ def _usage() -> ComponentType:
 PAGE = ComponentPage(
     DropdownMenu,
     lede=(
-        "A DropdownMenu is a list of actions that hangs off a control and is "
+        "A `DropdownMenu` is a list of actions that hangs off a control and is "
         "walked with the arrow keys. A list of links that navigates is not a "
         "menu; put it in a plain list instead."
     ),
@@ -242,24 +242,24 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The menu has role="menu" and each item role="menuitem", or '
-            "menuitemcheckbox with aria-checked when it is checkable. The "
-            "trigger gets aria-haspopup=menu and aria-expanded.",
+            'The menu has `role="menu"` and each item `role="menuitem"`, or '
+            "`menuitemcheckbox` with `aria-checked` when it is checkable. The "
+            'trigger gets `aria-haspopup="menu"` and `aria-expanded`.',
         ),
         Note(
             "a11y",
-            "Items are out of the tab order (tabindex=-1): focus moves between "
+            'Items are out of the tab order (`tabindex="-1"`): focus moves between '
             "them with the arrow keys, and hovering an item focuses it, so the "
             "pointer and the keys share one active item.",
         ),
         Note(
             "a11y",
             "Escape closes only the innermost overlay and returns focus to the "
-            "trigger, so a DropdownMenu in a Dialog leaves the Dialog open.",
+            "trigger, so a `DropdownMenu` in a `Dialog` leaves the `Dialog` open.",
         ),
         Note(
             "note",
-            "label() names the menu. The trigger's own name is read first, so "
+            "`label()` names the menu. The trigger's own name is read first, so "
             "the label names the group the items belong to.",
         ),
     ],

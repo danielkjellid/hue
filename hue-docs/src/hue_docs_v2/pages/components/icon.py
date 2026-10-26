@@ -103,11 +103,11 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Bind an icon source"),
         pr.p(
-            "Hue ships no icon set for your own use, so an Icon draws from a "
-            "source you bind. Call create_icon_base once with a folder of .svg "
-            "files and use the class it returns everywhere. The Icon in hue.ui "
+            "Hue ships no icon set for your own use, so an `Icon` draws from a "
+            "source you bind. Call `create_icon_base` once with a folder of `.svg` "
+            "files and use the class it returns everywhere. The `Icon` in `hue.ui` "
             "has no source of its own: rendering one with a name raises an "
-            "error that says to call create_icon_base."
+            "error that says to call `create_icon_base`."
         ),
         pr.code(
             "from hue.ui import create_icon_base\n\n"
@@ -116,16 +116,16 @@ def _usage() -> ComponentType:
             'Icon("calendar")'
         ),
         pr.p(
-            "The name is the file name without .svg, so calendar reads "
-            "calendar.svg from that folder. An Icon with an empty name renders "
+            'The name is the file name without `.svg`, so `"calendar"` reads '
+            "`calendar.svg` from that folder. An `Icon` with an empty name renders "
             "nothing. Each file is read and parsed once per process and then "
-            "cached, so the same Icon in a hundred table rows costs one read."
+            "cached, so the same `Icon` in a hundred table rows costs one read."
         ),
         pr.h2("Size and colour an Icon"),
         pr.p(
-            "An Icon inlines the SVG into the page instead of pointing an img "
-            "at it, so utility classes reach it. Size it with size-*. Colour it "
-            "with text-*, which works when the SVG paints with currentColor, as "
+            "An `Icon` inlines the SVG into the page instead of pointing an `img` "
+            "at it, so utility classes reach it. Size it with `size-*`. Colour it "
+            "with `text-*`, which works when the SVG paints with `currentColor`, as "
             "most icon sets do."
         ),
         pr.code(
@@ -133,27 +133,27 @@ def _usage() -> ComponentType:
             'Icon("trash").class_("size-5 text-danger-text")'
         ),
         pr.p(
-            "The Icon drops any width and height set on the file's svg element, "
-            "so they never fight your size classes, and the viewBox alone sets "
-            "the aspect ratio. A class already in the file is kept, and the "
-            "classes from class_() are added after it."
+            "The `Icon` drops any `width` and `height` set on the file's `svg` "
+            "element, so they never fight your size classes, and the `viewBox` "
+            "alone sets the aspect ratio. A class already in the file is kept, and the "
+            "classes from `class_()` are added after it."
         ),
         pr.h2("What an Icon file needs"),
         pr.p(
-            "An Icon inlines everything inside the svg element as it is, so any "
-            "element an icon set uses (path, circle, rect, line, polyline, g, "
-            "gradients) survives. Each file needs two things, and an Icon "
+            "An `Icon` inlines everything inside the `svg` element as it is, so any "
+            "element an icon set uses (`path`, `circle`, `rect`, `line`, `polyline`, "
+            "`g`, gradients) survives. Each file needs two things, and an `Icon` "
             "raises an error when either is missing:"
         ),
         pr.bullets(
             [
-                pr.p("A single svg root element."),
-                pr.p("A viewBox, so the icon scales to whatever size you give it."),
+                pr.p("A single `svg` root element."),
+                pr.p("A `viewBox`, so the icon scales to whatever size you give it."),
             ]
         ),
         pr.p(
-            "For an icon that takes the text colour, set fill or stroke to "
-            "currentColor in the file instead of a fixed colour:"
+            "For an icon that takes the text colour, set `fill` or `stroke` to "
+            "`currentColor` in the file instead of a fixed colour:"
         ),
         pr.code(
             '<svg viewBox="0 0 24 24">\n'
@@ -163,7 +163,7 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Use several icon sets at once"),
         pr.p(
-            "Each call to create_icon_base returns its own Icon class with its "
+            "Each call to `create_icon_base` returns its own `Icon` class with its "
             "own source, so outline and filled sets, or two libraries, live "
             "side by side:"
         ),
@@ -175,7 +175,7 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Load Icon markup from anywhere"),
         pr.p(
-            "A folder is only the default. Pass create_icon_base a resolver "
+            "A folder is only the default. Pass `create_icon_base` a `resolver` "
             "instead: any function that takes an icon name and returns SVG "
             "markup. It can read icons shipped inside your Python package, a "
             "sprite or a service. Icons shipped as package resources travel "
@@ -190,14 +190,14 @@ def _usage() -> ComponentType:
             "Icon = create_icon_base(resolver=resolve)"
         ),
         pr.p(
-            "An Icon calls its resolver on every render and caches the parse "
+            "An `Icon` calls its resolver on every render and caches the parse "
             "of the markup it gets back. Caching the fetch itself is up to the "
             "resolver, so add a cache inside one whose source is slow to reach."
         ),
         pr.h3("icons_dir is directory_resolver"),
         pr.p(
-            "icons_dir is shorthand. directory_resolver(path) builds the "
-            "resolver that reads .svg files from a folder, and icons_dir calls "
+            "`icons_dir` is shorthand. `directory_resolver(path)` builds the "
+            "resolver that reads `.svg` files from a folder, and `icons_dir` calls "
             "it for you. These two lines do the same thing:"
         ),
         pr.code(
@@ -206,9 +206,9 @@ def _usage() -> ComponentType:
             'create_icon_base(resolver=directory_resolver("assets/icons"))'
         ),
         pr.p(
-            "Use icons_dir to read a folder. Use directory_resolver when you "
+            "Use `icons_dir` to read a folder. Use `directory_resolver` when you "
             "need the resolver as a value to wrap, such as falling back from "
-            "one set to another. directory_resolver raises a RuntimeError for "
+            "one set to another. `directory_resolver` raises a `RuntimeError` for "
             "a name with no file, which is what the fallback catches:"
         ),
         pr.code(
@@ -223,28 +223,28 @@ def _usage() -> ComponentType:
             "Icon = create_icon_base(resolver=resolve)"
         ),
         pr.p(
-            "A resolver that reads .svg files from a folder should wrap "
-            "directory_resolver instead of opening files itself. "
-            "directory_resolver reads each file once per process, raises one "
+            "A resolver that reads `.svg` files from a folder should wrap "
+            "`directory_resolver` instead of opening files itself. "
+            "`directory_resolver` reads each file once per process, raises one "
             "consistent error for a missing icon, and refuses a name that "
             "points outside its folder."
         ),
         pr.h2("Icon accessibility"),
         pr.p(
-            'An Icon renders aria-hidden="true" by default, because most icons '
+            'An `Icon` renders `aria-hidden="true"` by default, because most icons '
             "sit beside a label that already says what they mean. Setting "
-            "aria_label(), role() or aria_hidden() on the Icon drops that "
+            "`aria_label()`, `role()` or `aria_hidden()` on the `Icon` drops that "
             "default."
         ),
         pr.p(
-            "An Icon that carries meaning on its own takes a name. Give it "
-            'role("img") and aria_label(), so it is announced as an image '
+            "An `Icon` that carries meaning on its own takes a name. Give it "
+            '`role("img")` and `aria_label()`, so it is announced as an image '
             "with that name:"
         ),
         pr.code('Icon("star").class_("size-5").role("img").aria_label("Starred")'),
         pr.p(
             "In a button that holds only an icon, name the button instead. "
-            "Button's icon_only() takes the name as its argument, and the Icon "
+            "`Button.icon_only()` takes the name as its argument, and the `Icon` "
             "inside stays hidden:"
         ),
         pr.code('Button().icon_only("Delete").content(Icon("trash"))'),
@@ -255,7 +255,7 @@ PAGE = ComponentPage(
     HueIconClass,
     lede=(
         "An icon draws an SVG inline, from an icon set you bind once with "
-        "create_icon_base. Size and colour it with the same utility classes "
+        "`create_icon_base`. Size and colour it with the same utility classes "
         "as everything else on the page."
     ),
     usage=_usage,
@@ -290,31 +290,31 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'An Icon is aria-hidden="true" unless it has an aria-label, a role '
-            "or its own aria-hidden, so a decorative icon stays out of the "
+            'An `Icon` is `aria-hidden="true"` unless it has an `aria-label`, a `role` '
+            "or its own `aria-hidden`, so a decorative icon stays out of the "
             "accessibility tree.",
         ),
         Note(
             "a11y",
-            'An icon that means something on its own needs role("img") and '
-            "aria_label(). In an icon-only Button, name the button with "
-            "icon_only() instead.",
+            'An icon that means something on its own needs `role("img")` and '
+            "`aria_label()`. In an icon-only `Button`, name the button with "
+            "`icon_only()` instead.",
         ),
         Note(
             "note",
-            "directory_resolver raises a ValueError for a name that resolves "
-            "outside its folder, such as ../secret. The markup is inlined "
+            "`directory_resolver` raises a `ValueError` for a name that resolves "
+            "outside its folder, such as `../secret`. The markup is inlined "
             "unescaped, so this keeps a name taken from a request from "
             "reaching another SVG on disk.",
         ),
         Note(
             "warn",
-            "The SVG is inlined as it is. Only resolve markup you trust: a "
-            "resolver returning SVG from users puts their markup in your page.",
+            "The SVG is inlined as it is, so a resolver that returns SVG from "
+            "users puts their markup in your page. Resolve only markup you trust.",
         ),
         Note(
             "note",
-            "An Icon adds the SVG namespace (xmlns) when the file leaves it "
+            "An `Icon` adds the SVG namespace (`xmlns`) when the file leaves it "
             "out, so the markup stays valid outside an HTML page.",
         ),
     ],

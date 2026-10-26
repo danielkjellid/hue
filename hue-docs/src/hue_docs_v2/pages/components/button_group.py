@@ -100,7 +100,7 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A ButtonGroup joins the buttons inside it into one row. It squares "
+            "A `ButtonGroup` joins the buttons inside it into one row. It squares "
             "off the inner corners, keeps the outer ones rounded and pulls each "
             "button 1px onto its neighbour, so two borders meet as one line. "
             "Each button keeps its own variant, size and click handler, so give "
@@ -114,9 +114,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("Naming a ButtonGroup"),
         pr.p(
-            'label() adds role="group" and an aria-label, so a screen reader '
-            "announces the name as focus enters the group. Without label() the "
-            "ButtonGroup is a plain div with no role, since a group with no name "
+            '`label()` adds `role="group"` and an `aria-label`, so a screen reader '
+            "announces the name as focus enters the group. Without `label()` the "
+            "`ButtonGroup` is a plain `div` with no role, since a group with no name "
             'is announced as only "group".'
         ),
         pr.code(
@@ -128,15 +128,16 @@ def _usage() -> ComponentType:
         pr.h3("Variants a ButtonGroup accepts"),
         pr.p(
             "The shared edge is made of the buttons' borders, so only variants "
-            "with a border can join: primary, secondary, outline, danger and "
-            "danger-outline. A ghost or link Button placed directly in a "
-            "ButtonGroup raises a ValueError when the group renders."
+            'with a border can join, which are `"primary"`, `"secondary"`, '
+            '`"outline"`, `"danger"` and '
+            '`"danger-outline"`. A ghost or link `Button` placed directly in a '
+            "`ButtonGroup` raises a `ValueError` when the group renders."
         ),
         pr.h3("A choice between options"),
         pr.p(
-            "A ButtonGroup holds actions, and none of its buttons is ever on. "
+            "A `ButtonGroup` holds actions, and none of its buttons is ever on. "
             "For a row where exactly one option is selected, use "
-            "SegmentedControl."
+            "`SegmentedControl`."
         ),
     )
 
@@ -146,7 +147,7 @@ PAGE = ComponentPage(
     lede=(
         "A button group joins related buttons into one control. The buttons "
         "share their edges and nothing else, so each one keeps its own action. "
-        "A split button is the common case: an action and a button beside it "
+        "The common case is a split button, an action with a button beside it "
         "for its options."
     ),
     usage=_usage,
@@ -160,14 +161,14 @@ PAGE = ComponentPage(
             outline,
             danger,
             danger_outline,
-            hint="The Button variants with a border",
+            hint="The `Button` variants with a border",
         ),
     ],
     notes=[
         Note(
             "a11y",
-            'label() renders role="group" with an aria-label. Without it the '
-            "group is a div with no role.",
+            '`label()` renders `role="group"` with an `aria-label`. Without it the '
+            "group is a `div` with no role.",
         ),
         Note(
             "a11y",
@@ -181,8 +182,8 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            "A ghost or link Button placed directly in the group raises a "
-            "ValueError at render, because those variants have no border to "
+            "A ghost or link `Button` placed directly in the group raises a "
+            "`ValueError` at render, because those variants have no border to "
             "share.",
         ),
     ],

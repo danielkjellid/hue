@@ -243,11 +243,11 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A Select is a button that opens a list of SelectOption children. "
-            "Each option has a value() and a label(); the label is what the "
-            "list and the trigger show, and falls back to the value. value() "
-            "on the Select picks the option that starts selected, and "
-            "placeholder() is what the trigger says while nothing is."
+            "A `Select` is a button that opens a list of `SelectOption` children. "
+            "Each option has a `value()` and a `label()`; the label is what the "
+            "list and the trigger show, and falls back to the value. `value()` "
+            "on the `Select` picks the option that starts selected, and "
+            "`placeholder()` is what the trigger says while nothing is."
         ),
         pr.code(
             "(\n"
@@ -263,16 +263,16 @@ def _usage() -> ComponentType:
         ),
         pr.h3("What an option can hold"),
         pr.p(
-            "description() adds a muted line under the label, icon() puts a "
-            "component before it, and meta() puts a short note at the end of "
-            "the row, such as a price or a code. SelectGroup().label() heads a "
-            "run of options. disabled() on an option keeps it in the list but "
+            "`description()` adds a muted line under the label, `icon()` puts a "
+            "component before it, and `meta()` puts a short note at the end of "
+            "the row, such as a price or a code. `SelectGroup().label()` heads a "
+            "run of options. `disabled()` on an option keeps it in the list but "
             "out of reach of the keys and the pointer."
         ),
         pr.h3("Keyboard"),
         pr.p(
             "Focus stays on the trigger the whole time. The option the keys are "
-            "on is named by aria-activedescendant."
+            "on is named by `aria-activedescendant`."
         ),
         pr.bullets(
             [
@@ -289,21 +289,21 @@ def _usage() -> ComponentType:
         ),
         pr.h3("What is submitted"),
         pr.p(
-            "The value travels in a hidden input under name(). The trigger is "
+            "The value travels in a hidden input under `name()`. The trigger is "
             "as wide as its longest label, the way a native select is, so "
-            "choosing an option does not resize it. disabled() disables both "
-            "the trigger and the hidden input, so a disabled Select submits "
+            "choosing an option does not resize it. `disabled()` disables both "
+            "the trigger and the hidden input, so a disabled `Select` submits "
             "nothing."
         ),
         pr.p(
-            "x_model() goes on the hidden input, so Alpine data bound to a "
-            "Select reads the chosen value. The Select sends input and change "
+            "`x_model()` goes on the hidden input, so Alpine data bound to a "
+            "`Select` reads the chosen value. The `Select` sends `input` and `change` "
             "events from the hidden input whenever the value changes."
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() sets aria-invalid on the trigger, shows the message in "
-            "place of the hint and adds it to the trigger's aria-describedby."
+            "`error()` sets `aria-invalid` on the trigger, shows the message in "
+            "place of the hint and adds it to the trigger's `aria-describedby`."
         ),
     )
 
@@ -314,7 +314,7 @@ PAGE = ComponentPage(
         "A select that draws its own list, so an option can carry a "
         "description, an icon, trailing metadata or a group heading. It "
         "follows the ARIA select-only combobox pattern. For a plain list of "
-        "words, NativeSelect is the lighter choice."
+        "words, `NativeSelect` is the lighter choice."
     ),
     usage=_usage,
     panels=[
@@ -353,24 +353,24 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The trigger is a button with role=combobox, aria-haspopup=listbox "
-            "and aria-expanded; the list is a listbox named after the label, "
-            "and each option has role=option with aria-selected.",
+            'The trigger is a button with `role="combobox"`, `aria-haspopup="listbox"` '
+            "and `aria-expanded`; the list is a listbox named after the label, "
+            'and each option has `role="option"` with `aria-selected`.',
         ),
         Note(
             "a11y",
             "Escape closes only the list and stops there, so a dialog the "
-            "Select sits in stays open.",
+            "`Select` sits in stays open.",
         ),
         Note(
             "a11y",
-            "Option ids are built from the Select's id and a hash of the "
+            "Option ids are built from the `Select`'s id and a hash of the "
             "value, so values that differ only in spacing or punctuation never "
             "share an id.",
         ),
         Note(
             "warn",
-            "required() sets aria-required and the asterisk, but the value is "
+            "`required()` sets `aria-required` and the asterisk, but the value is "
             "in a hidden input, which the browser does not validate. Check "
             "for an empty value on the server.",
         ),
