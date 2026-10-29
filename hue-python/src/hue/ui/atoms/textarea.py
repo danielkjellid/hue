@@ -143,7 +143,8 @@ class Textarea(FieldControl):
         counter: dict[str, str] = {}
         if limit is not None:
             count_id = f"{control_id}-count"
-            steps.append("count = $el.value.length")
+            # Spread, so an emoji counts once, as len() does on the server.
+            steps.append("count = [...$el.value].length")
             # The spoken count waits for a pause in typing, so a screen reader
             # is not talked over on every keystroke.
             counter["x-on:input.debounce.1000ms"] = "said = count"
