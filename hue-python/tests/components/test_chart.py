@@ -42,7 +42,8 @@ class TestSeriesCharts:
         # than saying it a second time.
         html = await render_tree(_chart(), context_args=context_args)
         assert_attr(html, "canvas", "aria-hidden", "true")
-        assert_selector(html, "table.sr-only")
+        # Hidden on a wrapper, since a table box does not shrink to 1px.
+        assert_selector(html, "div.sr-only > table")
         caption = select(html, "table caption")[0].text.strip()
         assert caption == "Revenue peaked on Tuesday."
         # And it names the figure, where focus lands after a retry.

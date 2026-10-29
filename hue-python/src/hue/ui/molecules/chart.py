@@ -678,23 +678,28 @@ def _legend(items: list[tuple[str, str]]) -> ComponentType:
 
 def _table(caption: str, headers: list[str], rows: list[list[str]]) -> ComponentType:
     # The numbers behind the drawing, for a screen reader to step through.
-    return html.table(
-        html.caption(caption, **{":id": _CAPTION_ID}),
-        html.thead(
-            html.tr(
-                *(
-                    html.th(header, scope="col") if header else html.td()
-                    for header in headers
-                )
-            )
-        ),
-        html.tbody(
-            *(
+    # sr-only goes on a wrapper because a table box does not shrink to 1px,
+    # so on the table itself it widens a narrow page.
+    return html.div(
+        html.table(
+            html.caption(caption, **{":id": _CAPTION_ID}),
+            html.thead(
                 html.tr(
-                    html.th(row[0], scope="row"), *(html.td(cell) for cell in row[1:])
+                    *(
+                        html.th(header, scope="col") if header else html.td()
+                        for header in headers
+                    )
                 )
-                for row in rows
-            )
+            ),
+            html.tbody(
+                *(
+                    html.tr(
+                        html.th(row[0], scope="row"),
+                        *(html.td(cell) for cell in row[1:]),
+                    )
+                    for row in rows
+                )
+            ),
         ),
         class_="sr-only",
     )
