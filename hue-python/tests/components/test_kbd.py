@@ -74,6 +74,22 @@ class TestKbd:
         assert "Command" in html and "Control" in html
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("key", "glyph", "word"),
+        [("ctrl", "⌃", "Ctrl"), ("alt", "⌥", "Alt"), ("shift", "⇧", "Shift")],
+    )
+    async def test_modifiers_are_words_away_from_apple(
+        self, context_args, key, glyph, word
+    ):
+        html = await render_tree(Kbd(key), context_args=context_args)
+        assert_attr(
+            html,
+            "kbd > span[aria-hidden]",
+            "x-text",
+            f"($store.shortcuts?.apple ?? true) ? '{glyph}' : '{word}'",
+        )
+
+    @pytest.mark.asyncio
     async def test_other_keys_need_no_javascript(self, context_args):
-        html = await render_tree(Kbd("shift", "K"), context_args=context_args)
+        html = await render_tree(Kbd("esc", "up", "K"), context_args=context_args)
         assert_no_selector(html, "kbd[x-data]")

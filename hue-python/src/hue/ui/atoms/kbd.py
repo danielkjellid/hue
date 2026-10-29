@@ -5,17 +5,30 @@ from typing_extensions import Self
 
 from hue import html as hue_html
 from hue.js import unsafe
-from hue.shortcuts import FUNCTION_KEY, KEYS
+from hue.shortcuts import FUNCTION_KEY, KEYS, Key
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
-# Which key "mod" means is only knowable in the browser. The server renders the
+# Which key "mod" means, and whether the modifiers are drawn as Apple's glyphs
+# or as words, is only knowable in the browser. The server renders the
 # Apple glyph and Alpine corrects it, so the markup is right either way and
 # nothing flashes for the majority of a given app's users. The answer comes
 # from the store the shortcuts are matched by, so the key drawn is the key
 # that works; without hue's bundle there is no store, and the glyph stays.
 _IS_APPLE = "($store.shortcuts?.apple ?? true)"
+
+_COMMAND = Key("⌘", "Command")
+
+# How each modifier is printed away from Apple platforms, whose keyboards
+# spell them out rather than drawing the glyphs.
+_OFF_APPLE = {
+    "mod": Key("Ctrl", "Control"),
+    "ctrl": Key("Ctrl", "Control"),
+    "alt": Key("Alt", "Alt"),
+    "shift": Key("Shift", "Shift"),
+}
+
 
 _KEY_CLASSES = (
     "inline-flex items-center justify-center min-w-5 h-5 px-[5px] "
@@ -31,6 +44,7 @@ class Kbd(ChainableComponent):
     Modifier names become their glyphs and carry a spoken name alongside, so a
     screen reader announces "Command" rather than the glyph's Unicode name.
     "mod" is the command key on Apple platforms and control everywhere else,
+    and the other modifiers are drawn as words away from Apple platforms,
     which only the browser can decide.
 
         Kbd("mod", "K")
@@ -50,7 +64,9 @@ class Kbd(ChainableComponent):
         self._keys = values
         return self
 
-    def _mod_key(self) -> ComponentType:
+    def _modifier(self, name: str) -> ComponentType:
+        apple = _COMMAND if name == "mod" else KEYS[name]
+        other = _OFF_APPLE[name]
         return (
             hue_html.kbd()
             .class_(_KEY_CLASSES)
@@ -58,18 +74,18 @@ class Kbd(ChainableComponent):
             # only under a page that declares one.
             .x_data({})
             .content(
-                hue_html.span("⌘")
+                hue_html.span(apple.glyph)
                 .aria_hidden("true")
-                .x_text(unsafe(f"{_IS_APPLE} ? '⌘' : 'Ctrl'")),
-                hue_html.span("Command")
+                .x_text(unsafe(f"{_IS_APPLE} ? '{apple.glyph}' : '{other.glyph}'")),
+                hue_html.span(apple.spoken)
                 .class_("sr-only")
-                .x_text(unsafe(f"{_IS_APPLE} ? 'Command' : 'Control'")),
+                .x_text(unsafe(f"{_IS_APPLE} ? '{apple.spoken}' : '{other.spoken}'")),
             )
         )
 
     def _key(self, key: str) -> ComponentType:
-        if key == "mod":
-            return self._mod_key()
+        if key.lower() in _OFF_APPLE:
+            return self._modifier(key.lower())
 
         named = KEYS.get(key.lower())
         if named is None:
