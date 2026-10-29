@@ -194,7 +194,7 @@ PAGE = ComponentPage(
             title_and_description,
             with_content,
             fit_to_content,
-            min_height=300,
+            min_height=360,
         ),
     ],
     notes=[
