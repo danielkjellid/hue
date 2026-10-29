@@ -18,8 +18,8 @@ def linked_to_an_input() -> ComponentType:
         .name("company")
         .id("company")
         .class_(
-            "h-control-md w-64 rounded-md border border-border-input bg-surface "
-            "px-3 text-fg shadow-field"
+            "h-control-md w-full max-w-64 rounded-md border border-border-input "
+            "bg-surface px-3 text-fg shadow-field"
         ),
     ).class_("flex flex-col gap-1.5")
 
@@ -55,8 +55,8 @@ def hidden_label() -> ComponentType:
         .id("invoice-search")
         .placeholder("Search invoices")
         .class_(
-            "h-control-md w-64 rounded-md border border-border-input bg-surface "
-            "px-3 text-fg shadow-field"
+            "h-control-md w-full max-w-64 rounded-md border border-border-input "
+            "bg-surface px-3 text-fg shadow-field"
         ),
     )
 

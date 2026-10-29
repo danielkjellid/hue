@@ -330,6 +330,7 @@ PAGE = ComponentPage(
             descriptions,
             icons_and_meta,
             groups,
+            layout="stack",
             min_height=420,
         ),
         panel("Sizes", sm, md, lg, min_height=260),

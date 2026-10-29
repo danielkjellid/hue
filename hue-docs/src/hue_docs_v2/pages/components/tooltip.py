@@ -146,10 +146,11 @@ PAGE = ComponentPage(
         ),
         panel(
             "Placements",
+            # start and end sit inside the row, so their bubbles never run off it.
             top,
-            bottom,
             start,
             end,
+            bottom,
             layout="center",
             min_height=200,
             captions=False,

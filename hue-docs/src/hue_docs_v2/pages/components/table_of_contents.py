@@ -32,7 +32,7 @@ def beside_an_article() -> ComponentType:
         .id("guide")
         .class_("flex h-64 flex-col gap-3 overflow-y-auto pe-4 pb-48 text-base"),
         TableOfContents().of("#guide").title("On this page"),
-    ).class_("grid grid-cols-[1fr_12rem] gap-6")
+    ).class_("grid gap-6 sm:grid-cols-[1fr_12rem]")
 
 
 # Anatomy
@@ -54,7 +54,7 @@ def renamed_and_skipped() -> ComponentType:
         TableOfContents()
         .of("#sso-guide", headings="h2:not([data-toc-skip]), h3")
         .title("Contents"),
-    ).class_("grid grid-cols-[1fr_12rem] gap-6")
+    ).class_("grid gap-6 sm:grid-cols-[1fr_12rem]")
 
 
 def top_level_only() -> ComponentType:
@@ -69,7 +69,7 @@ def top_level_only() -> ComponentType:
         .id("setup-guide")
         .class_("flex flex-col gap-2 text-base"),
         TableOfContents().of("#setup-guide", headings="h2").title("Setup"),
-    ).class_("grid grid-cols-[1fr_12rem] gap-6")
+    ).class_("grid gap-6 sm:grid-cols-[1fr_12rem]")
 
 
 def _usage() -> ComponentType:
