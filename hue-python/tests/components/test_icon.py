@@ -1,5 +1,6 @@
 import pytest
 
+from hue.assets import icons_path
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import create_icon_base
@@ -151,6 +152,13 @@ class TestIcon:
         )
         assert_attr(html, "svg", "x-data", "{ open: false }")
         assert_attr(html, "svg", "@click", "open = true")
+
+
+def test_hues_own_icons_carry_no_title():
+    # A title shows as a hover tooltip and joins the text of whatever the
+    # icon sits in, so a button labelled Shipping read "Shipping chevron-down".
+    titled = [p.name for p in icons_path().glob("*.svg") if "<title" in p.read_text()]
+    assert titled == []
 
 
 class TestAttrNameContract:

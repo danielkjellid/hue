@@ -1,8 +1,18 @@
+import re
+
 import pytest
 
+from hue.assets import icons_path
 from hue.renderer import render_tree
 from hue.ui import Empty
 from tests._a11y import assert_no_selector, assert_selector
+
+
+def _drawing(name: str) -> str:
+    # The icon's first path, which is what tells one icon from another.
+    match = re.search(r' d="([^"]+)"', (icons_path() / f"{name}.svg").read_text())
+    assert match is not None
+    return match.group(1)
 
 
 class TestEmpty:
@@ -35,9 +45,9 @@ class TestEmpty:
             Empty().variant("danger").title("Could not load"),
             context_args=context_args,
         )
-        assert "inbox" in neutral
+        assert _drawing("inbox") in neutral
         assert_selector(neutral, "span.bg-surface-sunken")
-        assert "circle-x" in danger
+        assert _drawing("circle-x") in danger
         assert_selector(danger, "span.bg-danger-subtle")
 
     @pytest.mark.asyncio
@@ -46,7 +56,7 @@ class TestEmpty:
             Empty().icon("!").title("Nothing"), context_args=context_args
         )
         assert_selector(html, "span.size-12")
-        assert "inbox" not in html
+        assert _drawing("inbox") not in html
 
     @pytest.mark.asyncio
     async def test_none_means_no_icon(self, context_args):
@@ -54,7 +64,7 @@ class TestEmpty:
             Empty().icon(None).title("Nothing"), context_args=context_args
         )
         assert_no_selector(html, "span.size-12")
-        assert "inbox" not in html
+        assert _drawing("inbox") not in html
 
     @pytest.mark.asyncio
     async def test_actions_are_optional(self, context_args):
