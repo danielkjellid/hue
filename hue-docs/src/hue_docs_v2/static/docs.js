@@ -7,8 +7,8 @@ document.addEventListener("alpine:init", () => {
 
   // A panel's frame: how wide it is drawn, which theme it is drawn in, and a
   // height that follows what is inside it.
-  Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId } = {}) => ({
-    width: null, // null fills the panel
+  Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId, width = null } = {}) => ({
+    width, // null fills the panel
     theme: null, // null follows the site
     showCode: false,
     minWidth: 320,

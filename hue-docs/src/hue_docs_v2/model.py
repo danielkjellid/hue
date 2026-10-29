@@ -21,6 +21,8 @@ from hue_fastapi import HueFragmentsView, HueView
 
 type Example = Callable[[], ComponentType]
 type Layout = Literal["grid", "stack", "center"]
+# The breakpoints a panel can start at, which layout/panel.py names the widths of.
+type Viewport = Literal["sm", "md", "lg", "xl"]
 type NoteKind = Literal["a11y", "note", "warn"]
 
 
@@ -43,7 +45,9 @@ class Panel:
     grid lays examples out as a state matrix, each under its caption; stack
     gives each the full width; center shows a single example in the middle of
     the canvas. min_height keeps room for an overlay that opens out of a small
-    trigger, since the frame only grows with what is laid out in it.
+    trigger, since the frame only grows with what is laid out in it. width
+    starts the frame at a breakpoint instead of filling the panel, for a
+    component that looks different above it.
     """
 
     label: str
@@ -52,6 +56,7 @@ class Panel:
     layout: Layout = "grid"
     min_height: int = 0
     captions: bool = True
+    width: Viewport | None = None
 
     @property
     def slug(self) -> str:
@@ -65,6 +70,7 @@ def panel(
     layout: Layout = "grid",
     min_height: int = 0,
     captions: bool = True,
+    width: Viewport | None = None,
 ) -> Panel:
     """
     captions=False drops the name above each example, for examples that
@@ -79,6 +85,7 @@ def panel(
         layout=layout,
         min_height=min_height,
         captions=captions,
+        width=width,
     )
 
 

@@ -198,6 +198,7 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
                     "minHeight": panel.min_height,
                     "maxWidth": max(VIEWPORTS.values()),
                     "contentId": FRAME_CONTENT,
+                    "width": VIEWPORTS[panel.width] if panel.width else None,
                 }
             )
             + ")"

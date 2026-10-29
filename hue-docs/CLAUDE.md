@@ -77,7 +77,8 @@ CSS, and the docs never change hue to suit themselves.
 
 Each panel renders in an iframe with its own width presets, drag handle and theme. An
 overlay that opens from a small trigger needs `min_height` so it has room inside the
-frame.
+frame. A component that only shows its layout above a breakpoint, such as a
+side drawer, starts the frame there with `width="lg"` (any key of `VIEWPORTS`).
 
 ### Lessons from moving every component
 
