@@ -74,7 +74,7 @@ def whole_sidebar() -> ComponentType:
             ),
             SidebarFooter().content(
                 SidebarItem().content(
-                    Avatar().name("Erica Meyers").size("sm"),
+                    Avatar().name("Erica Meyers").size("sm").aria_hidden("true"),
                     SidebarLabel().content("Erica Meyers"),
                 ),
             ),
