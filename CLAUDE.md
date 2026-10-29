@@ -170,6 +170,10 @@ both themes; to change one role only, redefine that alias.
 
 ## Docs auto-discovery (don't break it)
 
+This section is about v1 (`hue-docs/src/hue_docs/`). Docs v2 (`src/hue_docs_v2/`)
+declares its pages in Python and does not read `example()`; its rules are in
+`hue-docs/CLAUDE.md`. v1 stays until v2 replaces it, so keep `example()` working for now.
+
 `hue-docs` introspects `hue.ui.__all__`, keeps `ChainableComponent` subclasses, derives
 "axes" from `Literal` enum and `bool` modifier signatures, and reads default values out of
 the `_render` source via the AST (`_get_prop("name", <literal>)`). Practical rules so a new

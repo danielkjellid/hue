@@ -1,0 +1,9 @@
+{
+  "name": "hue-docs-highlight",
+  "private": true,
+  "type": "module",
+  "description": "Highlights the docs' code blocks with Shiki at build time.",
+  "dependencies": {
+    "shiki": "4.5.0"
+  }
+}
