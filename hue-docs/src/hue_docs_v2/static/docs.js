@@ -160,7 +160,7 @@ document.addEventListener("alpine:init", () => {
     active: -1,
     searched: false,
     status: "",
-    pagefind: null,
+    loading: null,
 
     reset() {
       this.query = "";
@@ -170,13 +170,15 @@ document.addEventListener("alpine:init", () => {
       this.status = "";
     },
 
-    async load() {
-      if (!this.pagefind) {
-        this.pagefind = await import(`${base}pagefind/pagefind.js`);
+    // Caches the promise, so every keystroke before the first load finishes
+    // waits on that one load, and the latest query still wins.
+    load() {
+      this.loading ??= import(`${base}pagefind/pagefind.js`).then(async (pagefind) => {
         // The index already holds each page's full path, base included.
-        await this.pagefind.options({ baseUrl: "/" });
-      }
-      return this.pagefind;
+        await pagefind.options({ baseUrl: "/" });
+        return pagefind;
+      });
+      return this.loading;
     },
 
     async search() {
