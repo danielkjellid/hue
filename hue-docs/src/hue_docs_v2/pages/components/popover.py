@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hue.js import close
+from hue.js import call, close
 from hue.types.core import ComponentType
 from hue.ui import Button, Checkbox, Dialog, DropdownMenu, Popover, TextInput, Tooltip
 
@@ -24,7 +24,12 @@ def share() -> Popover:
             .hidden_label()
             .value("hue.app/p/9f2Kd8")
             .readonly()
-            .action(Button().variant("outline").content("Copy")),
+            .action(
+                Button()
+                .variant("outline")
+                .content("Copy")
+                .on_click(call("navigator.clipboard.writeText", "hue.app/p/9f2Kd8"))
+            ),
             Checkbox().name("allow_comments").label("Allow comments"),
         )
     )

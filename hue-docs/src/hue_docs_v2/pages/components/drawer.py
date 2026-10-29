@@ -48,10 +48,7 @@ def filters() -> Drawer:
                 ),
             )
         )
-        .footer(
-            Button().variant("ghost").content("Reset all"),
-            Button().content("Show 148 records").on_click(close()),
-        )
+        .footer(Button().content("Show 148 records").on_click(close()))
     )
 
 
@@ -85,10 +82,7 @@ def bottom() -> Drawer:
         .title("INV-2048")
         .description("$1,200.00, paid 12 Sep 2026")
         .trigger(Button().variant("outline").content("Bottom"))
-        .footer(
-            Button().variant("outline").content("Close").on_click(close()),
-            Button().content("Download PDF"),
-        )
+        .footer(Button().variant("outline").content("Close").on_click(close()))
     )
 
 
