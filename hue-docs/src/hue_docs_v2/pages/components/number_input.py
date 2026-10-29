@@ -53,6 +53,7 @@ def over_the_plan() -> NumberInput:
         .name("plan_seats")
         .label("Seats")
         .min(1)
+        .max(50)
         .value("80")
         .error("Your plan allows up to 50 seats.")
     )
