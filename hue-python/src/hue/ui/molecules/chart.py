@@ -155,7 +155,9 @@ class Chart(ChainableComponent):
                     hidden=True,
                     **{":hidden": "!failed"},
                 ),
-                class_="relative aspect-[5/2] w-full",
+                # min-h-0, or the drawn canvas holds the box open at its old
+                # height and the ratio only ever grows.
+                class_="relative aspect-[5/2] min-h-0 w-full",
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
