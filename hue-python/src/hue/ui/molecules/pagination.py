@@ -42,6 +42,9 @@ _STEPS = {
     "next": ("Next page", "chevron-right"),
 }
 
+# Wraps rather than running out of a narrow container.
+_ROW = "flex min-w-0 flex-wrap items-center gap-1"
+
 
 class Pagination(SwapsTarget):
     """
@@ -150,7 +153,7 @@ class Pagination(SwapsTarget):
                     self._number(1, current=True, inert=True),
                     self._step(2, "next", False),
                     aria_label="Pagination, single page",
-                    class_="flex items-center gap-1",
+                    class_=_ROW,
                 )
                 if total_pages <= 1
                 else html.nav(
@@ -158,7 +161,7 @@ class Pagination(SwapsTarget):
                     *self._numbers(page, total_pages),
                     self._step(page + 1, "next", page < total_pages),
                     aria_label="Pagination",
-                    class_="flex items-center gap-1",
+                    class_=_ROW,
                 )
             )
 

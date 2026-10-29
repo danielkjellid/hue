@@ -7,16 +7,18 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
+from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.ui.base import ChainableComponent
 from hue.ui.navigation import CurrentPage, SwapsTarget, swap
 from hue.utils import classnames, render_if
 
 # Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
 # a second line stops reading as one row of choices, and every tab stays a
-# real link either way.
-_ROW = "flex gap-1 overflow-x-auto border-b border-border"
-_ROW_SEGMENTED = f"{SEGMENTED_TRACK} overflow-x-auto"
+# real link either way. Capped at its container's width, or a parent that
+# does not stretch it (a Stack, say) lets it grow and scroll nothing.
+_SCROLLS = "min-w-0 max-w-full overflow-x-auto"
+_ROW = f"flex gap-1 border-b border-border {_SCROLLS}"
+_ROW_SEGMENTED = f"{SEGMENTED_TRACK} {_SCROLLS}"
 
 # What an underline tab is, laid out. The segmented track says all of
 # this for its own items already, so only one of the two is ever applied.
@@ -226,7 +228,8 @@ class Tab(ChainableComponent):
             # items, and two colours on one element resolve by stylesheet
             # order rather than by intent.
             _UNREACHABLE if unreachable else "" if segmented else _IDLE,
-            FOCUS_RING,
+            # Inset, because the scrolling row clips a ring drawn outside it.
+            FOCUS_RING_INSET,
         )
         children = (
             *self._children,
