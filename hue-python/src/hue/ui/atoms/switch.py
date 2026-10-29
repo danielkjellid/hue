@@ -138,8 +138,8 @@ class Switch(FormControl):
 
     def _indicator(self, state: SubmissionState) -> ComponentType:
         """
-        The icon beside the label. No text: the row already says what it is,
-        and the name is on the icon for anything that cannot see it.
+        The icon beside the label. The outcome is there as text only for a
+        screen reader, since the row already says what it is.
         """
         if state == "pending":
             return Spinner().size("xs").muted().aria_label("Saving")
@@ -162,10 +162,12 @@ class Switch(FormControl):
                 "x-show": "!settled",
             }
         )
+        # A live region announces the text inside it and ignores its
+        # aria-label, so the outcome is written out for screen readers.
         return html.span(
             HueIcon(icon).class_(f"size-4 {tone}"),
+            html.span(label, class_="sr-only"),
             role="status",
-            aria_label=label,
             class_="inline-flex",
             **settling,
         )
