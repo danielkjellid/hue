@@ -17,6 +17,7 @@ document.addEventListener("alpine:init", () => {
     height: 0, // the frame's content height, unscaled
     sizes: null,
     content: null,
+    themes: null,
 
     init() {
       this.sizes = new ResizeObserver(() => {
@@ -30,6 +31,7 @@ document.addEventListener("alpine:init", () => {
     destroy() {
       this.sizes?.disconnect();
       this.content?.disconnect();
+      this.themes?.disconnect();
     },
 
     get effectiveTheme() {
@@ -79,6 +81,13 @@ document.addEventListener("alpine:init", () => {
       const doc = frame.contentDocument;
       if (!doc) return;
       this.paint();
+      // A ThemeSwitcher in the frame sets its own theme, which the bar follows.
+      this.themes?.disconnect();
+      this.themes = new MutationObserver(() => {
+        const theme = doc.documentElement.getAttribute("data-theme");
+        if (theme !== this.effectiveTheme) this.theme = theme;
+      });
+      this.themes.observe(doc.documentElement, { attributeFilter: ["data-theme"] });
       // The content, not the body: the body is at least as tall as the
       // frame, so measuring it could only ever grow the frame.
       const content = doc.getElementById(contentId);
