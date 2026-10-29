@@ -1137,6 +1137,12 @@ def test_a_control_its_own_swap_takes_away_hands_focus_on(mounted):
     assert 'data-hue-refocus="invoices-select-all"' in bar
 
 
+def test_a_search_is_trimmed_where_it_enters(mounted):
+    # "contoso " found nothing, and a box of spaces narrowed to nothing.
+    assert _bind(mounted().invoices, _request(q=" contoso ")).state.query == "contoso"
+    assert _bind(mounted().invoices, _request(q="   ")).state.query == ""
+
+
 def test_an_empty_table_that_is_not_narrowed_is_just_empty(urlpatterns_):
     html = _table(_plain(urlpatterns_, rows=lambda request, asked: []), _request())
     assert "Nothing matches" not in html

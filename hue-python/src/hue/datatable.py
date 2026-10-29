@@ -782,7 +782,8 @@ class _Declaration:
         hideable = set(self.hideable)
         return TableState(
             sort=self._sort_in(asked),
-            query=_one(asked, _QUERY) or "",
+            # Trimmed, so a space typed after a word still finds it.
+            query=(_one(asked, _QUERY) or "").strip(),
             page=page,
             filters=self._filters_in(asked),
             # Only columns that could have been hidden, so a key typed
