@@ -141,6 +141,13 @@ class Tabs(SwapsTarget):
         }
 
     def _render(self, context: Context) -> Component:
+        own_id: str | None = self._attrs.get("id")
+        if own_id is not None:
+            # A swap replaces every tab, and the id is how focus finds the
+            # new one. By position, since an href can be anything.
+            for index, child in enumerate(self._children):
+                if isinstance(child, Tab):
+                    child._attrs.setdefault("id", f"{own_id}-tab-{index}")
         return html.nav(
             *self._children,
             aria_label=self._get_prop("label"),

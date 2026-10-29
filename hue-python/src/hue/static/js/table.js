@@ -75,6 +75,12 @@ export function registerTableSelection(Alpine) {
 		},
 
 		clear() {
+			// The bar hides once nothing is picked, so focus in it would drop
+			// to the body. The box that picks every row is the nearest thing
+			// that still means the selection.
+			if (this.$refs.bar?.contains(document.activeElement)) {
+				this.frame.querySelector("[name=hue-select-all]")?.focus();
+			}
 			this.selected = [];
 		},
 
@@ -199,6 +205,7 @@ export function registerTableFilters(Alpine) {
 				this.clearControl(el);
 			}
 			this.apply();
+			this.refocus(this.chipButtons().indexOf(document.activeElement));
 		},
 
 		clear() {
@@ -206,6 +213,26 @@ export function registerTableFilters(Alpine) {
 				this.clearControl(el);
 			}
 			this.apply();
+			this.refocus(0);
+		},
+
+		chipButtons() {
+			return Array.from(this.$refs.chips.querySelectorAll("[data-chip]"));
+		},
+
+		// The chip that had focus is gone once Alpine redraws the row, and
+		// the whole row with the last of them. Focus goes to the chip that
+		// took its place, the one before it, or the Filter button.
+		refocus(at) {
+			if (!this.$refs.chips.contains(document.activeElement)) return;
+			this.$nextTick(() => {
+				const chips = this.chipButtons();
+				const next =
+					chips[at] ??
+					chips[at - 1] ??
+					this.$refs.form.querySelector("[data-hue-trigger]");
+				next?.focus();
+			});
 		},
 
 		apply() {

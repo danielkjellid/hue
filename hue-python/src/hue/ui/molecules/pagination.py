@@ -36,6 +36,12 @@ _CURRENT = "bg-accent-subtle border-accent-border text-accent-text cursor-pointe
 # that disappears at the ends teaches nobody where the ends are.
 _SPENT = "border-transparent text-fg-disabled cursor-not-allowed pointer-events-none"
 
+# The name and the glyph of each step.
+_STEPS = {
+    "previous": ("Previous page", "chevron-left"),
+    "next": ("Next page", "chevron-right"),
+}
+
 
 class Pagination(SwapsTarget):
     """
@@ -140,19 +146,17 @@ class Pagination(SwapsTarget):
             # breaking.
             nav = (
                 html.nav(
-                    self._step(0, "Previous page", "chevron-left", False),
+                    self._step(0, "previous", False),
                     self._number(1, current=True, inert=True),
-                    self._step(2, "Next page", "chevron-right", False),
+                    self._step(2, "next", False),
                     aria_label="Pagination, single page",
                     class_="flex items-center gap-1",
                 )
                 if total_pages <= 1
                 else html.nav(
-                    self._step(page - 1, "Previous page", "chevron-left", page > 1),
+                    self._step(page - 1, "previous", page > 1),
                     *self._numbers(page, total_pages),
-                    self._step(
-                        page + 1, "Next page", "chevron-right", page < total_pages
-                    ),
+                    self._step(page + 1, "next", page < total_pages),
                     aria_label="Pagination",
                     class_="flex items-center gap-1",
                 )
@@ -202,6 +206,7 @@ class Pagination(SwapsTarget):
         return html.a(
             str(number),
             href=href(number),
+            id=self._link_id(f"page-{number}"),
             aria_current="page" if current else None,
             class_=classes,
             **self._swap_attrs(),
@@ -237,7 +242,8 @@ class Pagination(SwapsTarget):
             class_="flex items-center gap-2 [&_select]:w-20",
         )
 
-    def _step(self, number: int, label: str, icon: str, enabled: bool) -> ComponentType:
+    def _step(self, number: int, way: str, enabled: bool) -> ComponentType:
+        label, icon = _STEPS[way]
         glyph = HueIcon(icon).class_("size-3.5")
         href = self._get_prop("href")
 
@@ -260,10 +266,23 @@ class Pagination(SwapsTarget):
         return html.a(
             glyph,
             href=href(number),
+            id=self._link_id(way),
             aria_label=label,
             class_=classnames(_ITEM, _IDLE, FOCUS_RING),
+            # Spent at either end, so focus goes on to the page it led to.
+            data_hue_refocus=self._link_id(f"page-{number}"),
             **self._swap_attrs(),
         )
+
+    def _link_id(self, part: str) -> str | None:
+        """
+        A link's id, under the pagination's own. A swap replaces the links,
+        and the id is how focus finds the new one.
+        """
+        own_id: str | None = self._attrs.get("id")
+        if own_id is None:
+            return None
+        return f"{own_id}-{part}"
 
 
 #: The range separator. An en dash, which is what a range takes.

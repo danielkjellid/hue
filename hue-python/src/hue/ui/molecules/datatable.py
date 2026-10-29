@@ -461,11 +461,14 @@ class DataTable(ChainableComponent):
         return TableHeader().content(
             TableRow().content(
                 self._select_all(),
-                *[self._header_cell(column) for column in self._columns],
+                *[
+                    self._header_cell(column, index)
+                    for index, column in enumerate(self._columns)
+                ],
             )
         )
 
-    def _header_cell(self, column: Column) -> ComponentType:
+    def _header_cell(self, column: Column, index: int) -> ComponentType:
         head = TableHead().align(column.align)
         if column.sort is None:
             return head.content(column.label)
@@ -495,6 +498,9 @@ class DataTable(ChainableComponent):
                 column.label,
                 _sort_icon(current),
                 href=href(following),
+                # The swap replaces this link, and the id is how focus finds
+                # the new one. By position, as the rows are.
+                id=f"{target}-sort-{index}" if target else None,
                 class_=classnames(_SORT_TRIGGER, FOCUS_RING),
                 # The order is a place, as a page or a filter is.
                 **swap(target),
@@ -542,6 +548,8 @@ class DataTable(ChainableComponent):
             aria_label="Selected rows",
             class_=_BULK_BAR,
             **{
+                # So clear() can tell focus is in here before hiding it.
+                "x-ref": "bar",
                 "x-show": "selected.length > 0",
                 "x-cloak": True,
                 "x-on:keydown.escape.window": "if (selected.length) clear()",
@@ -578,6 +586,7 @@ class DataTable(ChainableComponent):
             .content(
                 Checkbox()
                 .name("hue-select-all")
+                .id(select_all_id(self._attrs["id"]))
                 .label("Select all rows")
                 .hidden_label()
                 .x_effect(unsafe("$el.checked = all; $el.indeterminate = some"))
@@ -699,6 +708,14 @@ class DataTable(ChainableComponent):
             else _Value(resolve_value(row, column.key))
         )
         return TableCell().align(column.align).content(content)
+
+
+def select_all_id(table_id: str) -> str:
+    """
+    The id of the checkbox above the row checkboxes, which is where focus
+    goes when the bar for picked rows goes away.
+    """
+    return f"{table_id}-select-all"
 
 
 def _section(row: Any, key: RowKey) -> Any:
