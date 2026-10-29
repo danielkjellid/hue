@@ -39,7 +39,7 @@ class Breadcrumbs(ChainableComponent):
 
     Worth the row it costs only where the hierarchy is real and deeper than
     two levels. collapse_after() folds the middle of a long trail behind an
-    ellipsis that expands in place.
+    ellipsis that opens it in a popover.
 
         Breadcrumbs().items([("/", "Home"), (None, "INV-2048")])
     """
