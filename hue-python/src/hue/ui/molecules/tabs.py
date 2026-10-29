@@ -50,7 +50,7 @@ _SEGMENTED_TAB = (
 # the same element.
 _IDLE = "text-fg-muted hover:text-fg"
 
-# Not a link, so there is nothing to disable - it is text that says so.
+# A link with nowhere to go, which says so.
 _UNREACHABLE = "cursor-not-allowed text-fg-disabled hover:bg-transparent"
 
 
@@ -200,9 +200,10 @@ class Tab(ChainableComponent):
         """
         A section there is nothing in yet.
 
-        Rendered as text rather than as a link, because a link that goes
-        nowhere is one a keyboard still lands on and a screen reader
-        still offers.
+        Rendered as a link with no href, which the Tab key skips. It keeps
+        the link role and aria-disabled, so a screen reader still reads it
+        as a link that is unavailable. On a span, aria-disabled is never
+        read out.
         """
         self._props["disabled"] = value
         return self
@@ -237,8 +238,9 @@ class Tab(ChainableComponent):
         )
 
         if unreachable:
-            return html.span(
+            return html.a(
                 *children,
+                role="link",
                 aria_disabled="true",
                 class_=classes,
                 **self._get_base_html_attrs(),

@@ -140,7 +140,8 @@ class TestTabs:
     # disabled() and badge(): both branches each
     @pytest.mark.asyncio
     async def test_a_section_with_nothing_in_it_is_not_a_link(self, context_args):
-        # A link that goes nowhere is one a keyboard still lands on.
+        # No href, so the keyboard skips it; the role is what lets a screen
+        # reader announce aria-disabled at all, which it ignores on a span.
         html = await render_tree(
             Tabs().content(
                 Tab().href("/settings/account").content("Account"),
@@ -148,8 +149,8 @@ class TestTabs:
             ),
             context_args=context_args,
         )
-        assert_selector(html, "nav > a", count=1)
-        assert_attr(html, "span[aria-disabled]", "aria-disabled", "true")
+        assert_selector(html, "nav > a[href]", count=1)
+        assert_attr(html, 'a[role="link"]:not([href])', "aria-disabled", "true")
 
     @pytest.mark.asyncio
     async def test_a_reachable_tab_says_nothing(self, context_args):
