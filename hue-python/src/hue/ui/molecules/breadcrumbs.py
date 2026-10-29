@@ -151,6 +151,11 @@ class Breadcrumbs(ChainableComponent):
                                     "text-fg no-underline hover:bg-surface-hover",
                                     FOCUS_RING,
                                 ),
+                                # A link that does not leave the page, a
+                                # fragment say, would otherwise leave the
+                                # panel open over it. close() hands focus
+                                # back to the ellipsis rather than the body.
+                                **{"x-on:click": "close()"},
                             )
                         )
                         for crumb in hidden

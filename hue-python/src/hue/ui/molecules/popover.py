@@ -22,10 +22,11 @@ class Popover(ChainableComponent):
     """
     A panel anchored to a control, for content that can be interacted with.
 
-    Click opens it, Escape and a click outside close it, and Escape puts focus
-    back on the trigger. Nothing is trapped and the page behind stays live, so
-    a form in a popover is a form on the page. title() and description() open
-    it; anything else passed as content follows underneath.
+    Click opens it. Escape, a click outside and focus leaving it close it, and
+    Escape puts focus back on the trigger. Nothing is trapped and the page
+    behind stays live, so a form in a popover is a form on the page. title()
+    and description() open it; anything else passed as content follows
+    underneath.
     """
 
     category = "Overlays"
@@ -154,6 +155,15 @@ class Popover(ChainableComponent):
                 **_overlay.overlay_root(_overlay.overlay_state(return_to=find_trigger)),
                 "x-id": "['hue-popover', 'hue-popover-title']",
                 "x-on:click.outside": "open = false",
+                # Tabbing out closes it too, or the panel would sit over
+                # whatever took focus next. Focus went somewhere on purpose,
+                # so it stays there. A focusout with nowhere to go is a
+                # click on the page or the window losing focus, and the
+                # first is the click outside's to handle.
+                "x-on:focusout": (
+                    "if (open && $event.relatedTarget "
+                    "&& !$el.contains($event.relatedTarget)) open = false"
+                ),
                 **self._get_base_html_attrs(),
             },
         )
