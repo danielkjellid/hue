@@ -268,21 +268,30 @@ class ToastRegion(ChainableComponent):
         # Whatever the handler queued is rendered here, which is also what
         # keeps the router from appending it a second time.
         return html.div(
+            # A stack taller than the window scrolls rather than running off
+            # its top, so every toast stays reachable by pointer, touch and
+            # Tab. Reversed around its one child, which starts the scroll at
+            # the bottom and keeps it there as toasts arrive, without
+            # changing the reading order. The gutter is padding rather than
+            # an inset, so the toasts' shadows are not clipped.
             html.div(
-                *(_template(variant) for variant in _ICONS),
-                *(from_message(message) for message in toast.drain()),
-                id=REGION_ID,
-                # x-sync puts this element in the targets of every Alpine AJAX
-                # request, so a toast raised by any handler finds its way
-                # here; append rather than replace, so the ones already on
-                # screen stay.
-                **{**SYNC, "x-merge": "append"},
-                aria_live="polite",
+                html.div(
+                    *(_template(variant) for variant in _ICONS),
+                    *(from_message(message) for message in toast.drain()),
+                    id=REGION_ID,
+                    # x-sync puts this element in the targets of every Alpine
+                    # AJAX request, so a toast raised by any handler finds its
+                    # way here; append rather than replace, so the ones
+                    # already on screen stay.
+                    **{**SYNC, "x-merge": "append"},
+                    aria_live="polite",
+                    class_="flex flex-col gap-2",
+                ),
                 class_=classnames(
-                    "pointer-events-none fixed inset-x-4 bottom-4 z-90 flex",
-                    "flex-col gap-2",
-                    "sm:inset-x-auto sm:end-6 sm:bottom-6",
-                    "sm:w-[min(380px,calc(100vw-2rem))]",
+                    "pointer-events-none fixed inset-x-0 bottom-0 z-90 flex",
+                    "max-h-dvh flex-col-reverse overflow-y-auto p-4",
+                    "sm:inset-x-auto sm:end-0 sm:p-6",
+                    "sm:w-[calc(min(380px,100vw-2rem)+3rem)]",
                 ),
             ),
             # Assertive and empty, waiting for a failure to be written into

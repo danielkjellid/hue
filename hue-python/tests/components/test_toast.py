@@ -161,6 +161,13 @@ class TestToastRegion:
         assert_attr(html, "#hue-toasts", "x-merge", "append")
 
     @pytest.mark.asyncio
+    async def test_a_tall_stack_scrolls_instead_of_leaving_the_window(
+        self, context_args
+    ):
+        html = await render_tree(ToastRegion(), context_args=context_args)
+        assert_selector(html, "div.max-h-dvh.overflow-y-auto > #hue-toasts")
+
+    @pytest.mark.asyncio
     async def test_the_region_sets_the_default_a_toast_takes(self, context_args):
         # Toasts inside it inherit the number through the Alpine scope.
         html = await render_tree(
