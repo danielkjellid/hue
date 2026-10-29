@@ -11,7 +11,7 @@ import { registerDismissibleData } from "./dismiss.js";
 import { registerScrollAreaData } from "./scroll-area.js";
 import { registerSelectData } from "./select.js";
 import { registerShortcuts } from "./shortcuts.js";
-import { keepFocusThroughSwaps } from "./swaps.js";
+import { keepFocusThroughSwaps, markFirstHistoryEntry } from "./swaps.js";
 import {
 	registerTableColumns,
 	registerTableSelection,
@@ -50,6 +50,7 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 
 	clearStaleBusyMarks();
 	keepFocusThroughSwaps();
+	markFirstHistoryEntry();
 
 	registerChartData(Alpine);
 	registerComboboxData(Alpine);

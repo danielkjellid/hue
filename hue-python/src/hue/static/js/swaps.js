@@ -1,5 +1,6 @@
 /**
- * What a swap needs from hue besides Alpine AJAX: focus that survives it.
+ * What a swap needs from hue besides Alpine AJAX: focus that survives it, and
+ * a first history entry that Back can return to.
  */
 
 /**
@@ -43,5 +44,23 @@ export function keepFocusThroughSwaps() {
 				if (found && document.activeElement === found) return;
 			}
 		});
+	});
+}
+
+/**
+ * Let Back return to the page as it was before the first swap.
+ *
+ * Alpine AJAX reloads the page on Back only when the entry it lands on was
+ * one of its own, marked __ajax. The entry the page loaded in is not, so
+ * Back to it would change the address and leave the swapped region alone.
+ * hue marks that entry too, just before the first swap pushes, so Back
+ * reloads it like any other. A page that never pushes keeps
+ * plain history, so Back from a #fragment link is not a reload there.
+ */
+export function markFirstHistoryEntry() {
+	document.addEventListener("ajax:before", (event) => {
+		if (history.state?.__ajax) return;
+		if (!event.target.hasAttribute?.("x-target.push")) return;
+		history.replaceState({ ...history.state, __ajax: true }, "");
 	});
 }
