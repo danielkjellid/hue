@@ -263,18 +263,29 @@ document.addEventListener("alpine:init", () => {
   }));
 });
 
-// Inside a panel's frame, a specimen's link would load a made-up path into
-// the frame. Links to the demo routes, which the live examples use, and
-// links within the page still work.
+// Inside a panel's frame, a specimen's link or form would load a made-up
+// path, or the frame's own GET-only one, into the frame. Links and forms to
+// the demo routes, which the live examples use, and links within the page
+// still work.
 if (window.self !== window.top) {
+  const guard = (event) => {
+    const link = event.target.closest?.("a[href]");
+    if (!link || link.getAttribute("href").startsWith("#")) return;
+    if (new URL(link.href).pathname.includes("/demos/")) return;
+    event.preventDefault();
+  };
+  // auxclick too, or a middle click opens the made-up path in a new tab.
+  document.addEventListener("click", guard, true);
+  document.addEventListener("auxclick", guard, true);
   document.addEventListener(
-    "click",
+    "submit",
     (event) => {
-      const link = event.target.closest?.("a[href]");
-      if (!link || link.getAttribute("href").startsWith("#")) return;
-      if (new URL(link.href).pathname.includes("/demos/")) return;
+      if (new URL(event.target.action).pathname.includes("/demos/")) return;
       event.preventDefault();
     },
     true,
   );
+  // A demo's swaps would otherwise push entries onto the docs page's history,
+  // so Back would walk the demo before it left the page.
+  history.pushState = history.replaceState.bind(history);
 }

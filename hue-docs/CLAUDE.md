@@ -94,8 +94,10 @@ frame.
   overlay in the footer, or describe it in prose.
 - Shared prose for a family of pages (the charts) goes in a module whose name starts
   with an underscore, such as `pages/components/_charts.py`, and is not registered.
-- Specimen links can point anywhere: a frame ignores clicks on links outside
-  `/demos/` and the page's own anchors.
+- Specimen links and forms can point anywhere: a frame ignores clicks on links
+  outside `/demos/` and the page's own anchors, and submits outside `/demos/`.
+  A swap inside a frame replaces the frame's history entry rather than adding
+  one, so Back still leaves the docs page.
 
 ## Writing rules
 
