@@ -83,7 +83,11 @@ def _sidebar(nav: list[NavGroup], current: str) -> ComponentType:
         )
         # Off-canvas below lg, shown by the menu button.
         .x_bind("class", unsafe("navOpen ? '' : 'max-lg:hidden'"))
-        .x_on("keydown.escape", unsafe("navOpen = false; $refs.menu.focus()"))
+        # A modal drawer while open, as hue's Dialog is: the trap keeps Tab
+        # inside, hides the page behind from screen readers, stops it
+        # scrolling, and gives focus back to the menu button on close.
+        .x_trap(unsafe("navOpen"), inert=True, noscroll=True)
+        .x_on("keydown.escape", unsafe("navOpen = false"))
     )
 
 
@@ -111,7 +115,6 @@ def _topbar(title: str) -> ComponentType:
             .icon_only("Menu")
             .class_("lg:hidden")
             .aria_controls("docs-nav")
-            .x_ref("menu")
             .x_bind("aria-expanded", unsafe("String(navOpen)"))
             .x_on("click", unsafe("navOpen = !navOpen"))
             .content(Icon("menu")),
