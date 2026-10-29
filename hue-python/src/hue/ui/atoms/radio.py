@@ -19,6 +19,7 @@ from hue.ui.molecules.field import (
     error_component,
     hint_component,
     legend_component,
+    visible_hint,
 )
 from hue.utils import classnames, render_if
 
@@ -244,7 +245,9 @@ class RadioGroup(FieldControl):
                     "gap-2" if card else "gap-3",
                 ),
             ),
-            render_if(hint, lambda text: hint_component(text, control_id)),
+            render_if(
+                visible_hint(hint, error), lambda text: hint_component(text, control_id)
+            ),
             render_if(error, lambda text: error_component(text, control_id)),
             **fieldset_attrs,
         )
