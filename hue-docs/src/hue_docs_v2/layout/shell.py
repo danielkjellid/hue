@@ -96,7 +96,13 @@ def _search_trigger() -> ComponentType:
         Button()
         .variant("outline")
         .size("sm")
-        .aria_keyshortcuts("Meta+K Control+K")
+        .aria_keyshortcuts("Meta+K")
+        # mod is the command key on Apple platforms and control elsewhere,
+        # as hue's Kbd decides it.
+        .x_bind(
+            "aria-keyshortcuts",
+            unsafe("($store.shortcuts?.apple ?? true) ? 'Meta+K' : 'Control+K'"),
+        )
         .content(
             Icon("search"),
             html.span("Search").class_("text-fg-muted"),

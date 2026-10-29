@@ -124,6 +124,9 @@ def search_dialog() -> ComponentType:
         placeholder="Search components and guides",
         autocomplete="off",
         spellcheck="false",
+        # The dialog's trap focuses this after it notes where focus goes back
+        # to on close.
+        autofocus="",
         class_=(
             "h-11 min-w-0 flex-1 bg-transparent text-md text-fg outline-none "
             "placeholder:text-fg-subtle"
@@ -136,7 +139,6 @@ def search_dialog() -> ComponentType:
             ":aria-expanded": "String(!query.trim() || results.length > 0)",
             ":aria-activedescendant": "active >= 0 ? optionId(active) : null",
             "x-model": "query",
-            "x-ref": "input",
             "x-on:input": "search()",
             "x-on:keydown.arrow-down.prevent": "move(1)",
             "x-on:keydown.arrow-up.prevent": "move(-1)",
@@ -187,12 +189,9 @@ def search_dialog() -> ComponentType:
             )
             .class_("-mx-5 -mb-5 flex flex-col")
             .x_data(f"docsSearch({json.dumps(url('/'))})")
-            # Reset when it opens, so the reader starts from an empty box, and
-            # focused by hand: the dialog's trap would otherwise land on its
-            # close button, which comes first. -mx-5 -mb-5 and open lean on
-            # Dialog's body padding and its state's name.
-            .x_effect(
-                unsafe("if (open) { reset(); $nextTick(() => $refs.input.focus()) }")
-            )
+            # Reset when it opens, so the reader starts from an empty box.
+            # -mx-5 -mb-5 and open lean on Dialog's body padding and its
+            # state's name.
+            .x_effect(unsafe("if (open) reset()"))
         )
     )
