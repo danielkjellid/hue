@@ -28,6 +28,16 @@ from hue_docs_v2.layout.search import search_dialog
 from hue_docs_v2.model import NavGroup
 from hue_docs_v2.site import url
 
+# The brand's tile as the tab's icon. hue's Page has no head of its own to
+# add to, and the browser takes an icon link from the body too.
+_FAVICON = (
+    "data:image/svg+xml,"
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+    "<rect width='32' height='32' rx='6' fill='%230075AD'/>"
+    "<path d='M11 9v14M21 9v14M11 16h10' stroke='white' stroke-width='3.5'/>"
+    "</svg>"
+)
+
 
 def _brand() -> ComponentType:
     return (
@@ -153,6 +163,7 @@ def shell(
         "self-start overflow-y-auto py-10 xl:block"
     )
     body = html.div(
+        h.link(rel="icon", href=_FAVICON),
         skip,
         html.div(
             # Behind the off-canvas navigation, so a tap beside it closes it.
