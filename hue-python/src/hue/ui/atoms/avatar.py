@@ -53,9 +53,10 @@ class Avatar(ChainableComponent):
     """
     A person, as a picture or their initials.
 
-    name() gives both the initials and the accessible name; src() swaps the
-    initials for an image. status() adds a dot, which folds into the label -
-    "Grace Hopper, online" - rather than being announced separately.
+    name() gives both the initials and the accessible name; src() lays a
+    picture over the initials, which show again if it fails to load.
+    status() adds a dot, which folds into the label - "Grace Hopper,
+    online" - rather than being announced separately.
 
         Avatar().name("Ada Lovelace").status("online")
     """
@@ -116,24 +117,24 @@ class Avatar(ChainableComponent):
         if label is not None and status is not None:
             label = f"{label}, {status}"
 
-        body: tuple[ComponentType, ...]
-        if src is not None:
-            # The picture is the face; initials underneath would only show
-            # through wherever it does not quite cover.
-            body = (
-                html.img(
-                    src=src,
-                    alt="",
-                    loading="lazy",
-                    class_="size-full object-cover",
-                ),
-            )
-        elif name:
-            body = (_initials(name),)
-        else:
-            # No name and no picture: whatever the caller put inside, such as
-            # an icon.
-            body = self._children
+        # The initials sit under the picture and show when it fails to load,
+        # instead of the browser's broken-image glyph. The picture has the
+        # avatar's own ground, so a transparent one does not show them. They
+        # share one grid cell rather than being positioned, which would paint
+        # the picture over the hairline below.
+        fallback: tuple[ComponentType, ...] = (
+            (_initials(name),) if name else self._children
+        )
+        picture = render_if(
+            src,
+            lambda url: html.img(
+                src=url,
+                alt="",
+                loading="lazy",
+                onerror="this.remove()",
+                class_="size-full bg-surface-active object-cover [grid-area:1/1]",
+            ),
+        )
 
         radius = "rounded-md" if square else "rounded-full"
 
@@ -142,9 +143,10 @@ class Avatar(ChainableComponent):
             # so the status dot below can sit over the edge without being
             # trimmed to a wedge by the same overflow rule.
             html.span(
-                *body,
+                html.span(*fallback, class_="flex [grid-area:1/1]"),
+                picture,
                 class_=classnames(
-                    "flex size-full items-center justify-center overflow-hidden",
+                    "grid size-full place-items-center overflow-hidden",
                     # An inset hairline, so a pale photo or a surface-coloured
                     # circle still has an edge on a light page. Drawn as an
                     # outline rather than a border because it costs no layout.

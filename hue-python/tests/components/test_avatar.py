@@ -23,14 +23,14 @@ class TestAvatar:
 
     # src(): both branches
     @pytest.mark.asyncio
-    async def test_a_picture_replaces_the_initials(self, context_args):
-        # The picture is the face; initials underneath would only show through
-        # wherever it does not quite cover.
+    async def test_a_picture_covers_the_initials(self, context_args):
+        # The initials stay underneath for when the picture fails to load.
         html = await render_tree(
             Avatar().name("Grace Hopper").src("/grace.jpg"),
             context_args=context_args,
         )
-        assert "GH" not in html
+        assert "GH" in html
+        assert_attr(html, "img", "onerror", "this.remove()")
         assert_attr(html, "img", "src", "/grace.jpg")
         # Empty alt, because the wrapper already carries the name - otherwise
         # the same person is announced twice.
