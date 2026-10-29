@@ -220,11 +220,14 @@ async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page
             render_when(
                 captioned,
                 html.span(caption(example)).class_(
-                    "font-mono text-[10px] uppercase tracking-[0.04em] text-fg-subtle"
+                    "block font-mono text-[10px] uppercase tracking-[0.04em] "
+                    "text-fg-subtle"
                 ),
             ),
             await preview(example, request),
-        ).class_("flex min-w-0 flex-col items-start gap-[7px]")
+            # Block flow, so a block component such as a Card fills the cell
+            # and an inline one such as a Button keeps its own width.
+        ).class_("min-w-0 space-y-[7px]")
         for example in panel.examples
     ]
     body = (
