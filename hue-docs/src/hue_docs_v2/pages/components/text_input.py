@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hue.js import call
 from hue.types.core import ComponentType
 from hue.ui import Button, EmailInput, Field, NumberInput, PasswordInput, TextInput
 
@@ -58,7 +59,14 @@ def action() -> TextInput:
         .label("Invite link")
         .value("https://hue.dev/join/4f2a")
         .readonly()
-        .action(Button().variant("outline").content("Copy"))
+        .action(
+            Button()
+            .variant("outline")
+            .content("Copy")
+            .on_click(
+                call("navigator.clipboard.writeText", "https://hue.dev/join/4f2a")
+            )
+        )
     )
 
 
