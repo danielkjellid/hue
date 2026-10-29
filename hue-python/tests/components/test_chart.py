@@ -308,6 +308,9 @@ class TestPieChart:
             chart.value_format("percent"), context_args=context_args
         )
         assert _spec(html)["series"][0]["display"] == ["25%", "75%"]
+        # Nor does the table give a Share column repeating them.
+        assert [th.text for th in select(html, "thead th")] == ["Value"]
+        assert [td.text for td in select(html, "tbody td")] == ["25%", "75%"]
 
     @pytest.mark.asyncio
     async def test_a_zero_slice_is_only_in_the_table(self, context_args):

@@ -422,9 +422,11 @@ class PieChart(Chart):
                 return "<1%"
             return f"{number / total:.0%}"
 
+        # Values already given as percentages would only say it twice.
+        percent = format_.kind == "percent"
+
         def written(number: float) -> str:
-            # Values already given as percentages would only say it twice.
-            if format_.kind == "percent":
+            if percent:
                 return format_.write(number)
             return f"{format_.write(number)} ({share(number)})"
 
@@ -439,9 +441,9 @@ class PieChart(Chart):
                     }
                 ],
             },
-            headers=["", "Value", "Share"],
+            headers=["", "Value"] if percent else ["", "Value", "Share"],
             rows=[
-                [label, format_.write(number), share(number)]
+                [label, format_.write(number)] + ([] if percent else [share(number)])
                 for label, number in slices
             ],
             legend=[
