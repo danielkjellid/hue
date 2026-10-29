@@ -136,22 +136,25 @@ function distanceToLine(element, top) {
 }
 
 /**
- * Whether there is nothing left to scroll.
+ * How far the content can scroll, and whether it has gone all the way.
  *
  * The last section is often too short to fill the screen, so the scroll
- * stops before its heading ever reaches the line. Once it can go no
- * further, that heading is what is being looked at.
+ * stops before its heading ever reaches the line, and once it can go no
+ * further that heading is the one being read. A page with nothing to
+ * scroll never counts as at its end.
  */
-function atEnd(scroller) {
-	if (scroller) {
-		return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
-	}
-	return window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+function scrollState(scroller) {
+	const page = scroller ?? document.scrollingElement;
+	const room = page.scrollHeight - page.clientHeight;
+	const scrolls = room > 2;
+	return { page, scrolls, atEnd: scrolls && page.scrollTop >= room - 2 };
 }
 
 export function registerTocData(Alpine) {
 	Alpine.data("hueToc", ({ of = "main", headings = "h2, h3" } = {}) => ({
 		active: 0,
+		// The entry the reader clicked, until the scroll can show it itself.
+		chosen: null,
 		entries: [],
 		reach: [],
 		length: 0,
@@ -250,12 +253,14 @@ export function registerTocData(Alpine) {
 			// empty list is worse than nothing at all.
 			this.$root.hidden = this.entries.length === 0;
 
+			this.chosen = null;
 			const list = this.$refs.list;
 			list.replaceChildren();
-			for (const entry of this.entries) {
+			for (const [index, entry] of this.entries.entries()) {
 				const row = this.$refs.row.content.firstElementChild.cloneNode(true);
 				entry.link = row.querySelector("a");
 				entry.link.href = `#${entry.target.id}`;
+				entry.link.addEventListener("click", (event) => this.follow(event, index));
 				entry.link.firstElementChild.textContent = labelFor(entry.element);
 				entry.link.style.paddingInlineStart = `${RAIL_X + entry.depth * INDENT + GAP}px`;
 				list.append(row);
@@ -360,7 +365,17 @@ export function registerTocData(Alpine) {
 				.map((entry, index) => index)
 				.filter((index) => entries[index].element.getClientRects().length > 0);
 
-			if (atEnd(scroller)) {
+			// A click wins where the scroll could not follow it: an early
+			// entry on a page already at its end, or any entry on a page
+			// with nothing to scroll. The first scroll that moves clears it.
+			const { scrolls, atEnd } = scrollState(scroller);
+			if (this.chosen !== null && (atEnd || !scrolls)) {
+				this.select(this.chosen);
+				return;
+			}
+			this.chosen = null;
+
+			if (atEnd) {
 				this.select(shown.at(-1) ?? 0);
 				return;
 			}
@@ -374,6 +389,40 @@ export function registerTocData(Alpine) {
 				if (distanceToLine(entries[index].target, top) <= SLACK) active = index;
 			}
 			this.select(active);
+		},
+
+		/**
+		 * Go to an entry's heading by scrolling only what holds it.
+		 *
+		 * Following the link natively would scroll every ancestor document
+		 * as well, moving the page around contents that sit in a scrolling
+		 * panel or an iframe. Focus goes to the heading, as it would after
+		 * a skip link, so the next Tab carries on from the section rather
+		 * than from the list.
+		 */
+		follow(event, index) {
+			// A new tab or window is the browser's to open.
+			if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+				return;
+			}
+			event.preventDefault();
+
+			const { target } = this.entries[index];
+			const scroller = scrollerOf(this.container);
+			const top = scroller ? scroller.getBoundingClientRect().top : 0;
+
+			if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+			target.focus({ preventScroll: true });
+			// The page's own scroll-behavior still applies.
+			scrollState(scroller).page.scrollBy({ top: distanceToLine(target, top) });
+			// A history entry, as following the link would have made, unless
+			// the link is the one already in the address bar.
+			if (decodeURIComponent(location.hash.slice(1)) !== target.id) {
+				history.pushState(history.state, "", `#${target.id}`);
+			}
+
+			this.chosen = index;
+			this.select(index);
 		},
 
 		select(index) {
