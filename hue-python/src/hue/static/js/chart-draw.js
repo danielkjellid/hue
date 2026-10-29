@@ -83,23 +83,23 @@ function palette(canvas) {
 }
 
 function numberFormat({ format, currency }) {
-	// English and the currency's code, like the values the components write
-	// for the tooltip and the table, so the axis does not group digits or mark
-	// money differently from them.
-	return new Intl.NumberFormat("en", {
+	// English, with a currency's code after the number, like the values the
+	// components write for the tooltip and the table, so the axis does not
+	// group digits or mark money differently from them.
+	const compact = new Intl.NumberFormat("en", {
 		notation: "compact",
-		currencyDisplay: "code",
-		style: format === "number" ? "decimal" : format,
-		currency: format === "currency" ? currency : undefined,
+		style: format === "percent" ? "percent" : "decimal",
 	});
+	return format === "currency"
+		? (value) => `${compact.format(value)} ${currency}`
+		: (value) => compact.format(value);
 }
 
 function valueAxis(theme, format, extra = {}) {
-	const written = numberFormat(format);
 	return {
 		grid: { color: theme.colors.grid },
 		border: { display: false },
-		ticks: { ...theme.ticks, maxTicksLimit: 5, callback: (value) => written.format(value) },
+		ticks: { ...theme.ticks, maxTicksLimit: 5, callback: numberFormat(format) },
 		title: format.label
 			? { display: true, text: format.label, color: theme.colors.axis, font: theme.ticks.font }
 			: undefined,
