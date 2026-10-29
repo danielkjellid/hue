@@ -525,10 +525,14 @@ def _usage() -> ComponentType:
         pr.p(
             "Each `Filter` gets a parameter in the URL, a group in the panel behind "
             "the Filter button, and a chip under the toolbar for every answer "
-            "that is on."
+            "that is on. The panel's checkboxes submit the parameter once per "
+            "answer, as in `?invoices-status=paid&invoices-status=draft`. The links "
+            "the table builds itself join the answers with commas, as in "
+            "`?invoices-status=paid,draft`. A `DataTable` reads both spellings the "
+            "same way."
         ),
         pr.code(
-            "# ?invoices-status=paid,draft\n"
+            "# ?invoices-status=paid&invoices-status=draft\n"
             'Filter("status", "Status", options=STATUS)\n'
             "# ?invoices-min=500\n"
             'Filter("min", "Minimum amount", numeric=True, prefix="USD")'
@@ -544,8 +548,8 @@ def _usage() -> ComponentType:
         pr.p(
             "A filter cannot be called `sort`, `q`, `page`, `hide` or `selected`, "
             "which the "
-            "table already uses, and an option's value cannot hold a comma, which "
-            "is what the URL puts between answers. Both raise when the table is "
+            "table already uses, and an option's value cannot hold a comma, because "
+            "the table splits answers on commas. Both raise when the table is "
             "declared."
         ),
         pr.p(

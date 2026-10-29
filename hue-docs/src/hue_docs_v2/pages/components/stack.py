@@ -297,8 +297,9 @@ def _usage() -> ComponentType:
         pr.h2("A Stack at narrow widths"),
         pr.p(
             "A `Stack` has no responsive classes and its row never wraps. A "
-            "horizontal `Stack` stays one row at every width, and its children "
-            "shrink to fit."
+            "horizontal `Stack` stays one row at every width. Its children shrink "
+            "until each is as narrow as its longest word, and below that width the "
+            "row overflows its parent."
         ),
     )
 

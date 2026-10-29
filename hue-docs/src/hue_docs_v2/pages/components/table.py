@@ -348,8 +348,13 @@ def _usage() -> ComponentType:
         ),
         pr.h2("Table row and header states"),
         pr.p(
-            "`selected()` on a `TableRow` sets `aria-selected`, which is what a screen "
-            'reader reads and what tints the row. `sorted("ascending")` or '
+            "`selected()` on a `TableRow` tints the row and sets `aria-selected`. "
+            "ARIA defines `aria-selected` for rows in a `grid` or `treegrid`, and a "
+            "`Table` renders a plain `table`, so screen readers generally do not "
+            "announce it. Give the row something they do read, such as a labelled "
+            "checkbox, as a `DataTable` does. Each of its row checkboxes is named "
+            '"Select" followed by the text of the row\'s first cell. '
+            '`sorted("ascending")` or '
             '`sorted("descending")` on a `TableHead` sets `aria-sort`. It draws no '
             "arrow, so put an icon in the header if the order should show."
         ),
@@ -408,8 +413,9 @@ PAGE = ComponentPage(
         ),
         Note(
             "warn",
-            "`TableRow().selected()` only tints the row and sets `aria-selected`. "
-            "It does not pick or submit the row.",
+            "`TableRow().selected()` only tints the row and sets `aria-selected`, "
+            "which screen readers generally ignore on a plain table row. It does "
+            "not pick or submit the row.",
         ),
     ],
     parts=[
