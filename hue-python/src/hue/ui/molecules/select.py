@@ -38,7 +38,7 @@ _LISTBOX = (
 # one option, and selected wins the colour, so the value is always findable.
 _OPTION = (
     "flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-[7px] "
-    "text-base text-fg "
+    "text-base text-fg [&>svg]:size-4 [&>svg]:flex-none "
     "data-active:bg-surface-hover "
     "aria-selected:bg-accent-subtle aria-selected:font-medium "
     "aria-selected:text-accent-text "
@@ -275,7 +275,10 @@ class Select(FieldControl):
                 class_="relative w-full",
                 **{
                     "x-data": call("hueSelect", value or "", placeholder),
+                    # Focus leaving closes the list too, so tabbing away or
+                    # clicking into another document does not leave it open.
                     "x-on:click.outside": "hide()",
+                    "x-on:focusout": "leave($event)",
                 },
             ),
         )
