@@ -565,11 +565,13 @@ class _PointChart(Chart):
                     {
                         "label": label,
                         "points": points,
+                        # One line per value, so the tooltip stacks them and
+                        # stays narrow enough for a phone.
                         "display": [
-                            ", ".join(
+                            [
                                 f"{name}: {cell}"
                                 for name, cell in zip(names, cells(point), strict=True)
-                            )
+                            ]
                             for point in points
                         ],
                     }

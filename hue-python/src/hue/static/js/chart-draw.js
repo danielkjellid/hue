@@ -178,6 +178,15 @@ function categoryConfig(spec, theme) {
 			const series = spec.series[datasetIndex];
 			return `${series.label}: ${series.display[dataIndex]}`;
 		},
+		// Chart.js takes a line's swatch from its point, which is hollow, so
+		// it is filled with the line's colour to match the legend.
+		swatch:
+			spec.kind === "bar"
+				? undefined
+				: ({ dataset }) => ({
+						borderColor: dataset.borderColor,
+						backgroundColor: dataset.borderColor,
+					}),
 	};
 }
 
@@ -234,9 +243,10 @@ function pointConfig(spec, theme) {
 				y: valueAxis(theme, spec.y, { grace: "5%" }),
 			},
 		},
+		// The series on a line of its own, then a line per value.
 		label: ({ datasetIndex, dataIndex }) => {
 			const series = spec.series[datasetIndex];
-			return `${series.label}: ${series.display[dataIndex]}`;
+			return [series.label, ...series.display[dataIndex]];
 		},
 	};
 }
@@ -255,7 +265,7 @@ export function draw(canvas, spec, { animate = true } = {}) {
 	const colors = palette(canvas);
 	const font = { family: getComputedStyle(canvas).fontFamily, size: 11, weight: 500 };
 	const theme = { colors, ticks: { color: colors.axis, font } };
-	const { type, data, options, label } = CONFIGS[spec.kind](spec, theme);
+	const { type, data, options, label, swatch } = CONFIGS[spec.kind](spec, theme);
 
 	return new Chart(canvas, {
 		type,
@@ -272,7 +282,10 @@ export function draw(canvas, spec, { animate = true } = {}) {
 					titleFont: { family: font.family },
 					bodyFont: { family: font.family },
 					cornerRadius: 6,
-					callbacks: { label: (item) => ` ${label(item)}` },
+					callbacks: {
+						label: (item) => [label(item)].flat().map((line) => ` ${line}`),
+						...(swatch && { labelColor: swatch }),
+					},
 				},
 			},
 		},

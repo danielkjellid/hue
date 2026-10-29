@@ -359,7 +359,8 @@ class TestScatterChart:
         spec = _spec(await render_tree(_scatter(), context_args=context_args))
         assert spec["kind"] == "scatter"
         assert spec["series"][0]["points"] == [[1, 2], [3, 4.5]]
-        assert spec["series"][0]["display"][1] == "Basket: 3, Margin: 4.5"
+        # A line per value, which the tooltip stacks.
+        assert spec["series"][0]["display"][1] == ["Basket: 3", "Margin: 4.5"]
         assert spec["x"]["label"] == "Basket"
         assert spec["y"]["label"] == "Margin"
 
