@@ -145,7 +145,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     // The handle's keyboard: arrows step, shift steps further, Home and End
-    // go to the narrowest and the full width.
+    // go to the narrowest and the widest. Fill is the preset beside it.
     nudge(event) {
       const current = this.shown;
       // Toward the handle's own side widens, as dragging does.
@@ -154,7 +154,7 @@ document.addEventListener("alpine:init", () => {
         ArrowLeft: () => this.clamp(current - step),
         ArrowRight: () => this.clamp(current + step),
         Home: () => this.minWidth,
-        End: () => null,
+        End: () => this.maxWidth,
       };
       if (!(event.key in moves)) return;
       event.preventDefault();
