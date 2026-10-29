@@ -71,14 +71,6 @@ class Sidebar(ChainableComponent):
         self._props["current"] = value
         return self
 
-    def label(self, value: str) -> Self:
-        """
-        What this navigation is, for a page with more than one. "Main" by
-        default, which a screen reader reads before the links.
-        """
-        self._props["label"] = value
-        return self
-
     def htmy_context(self) -> Context:
         """
         What the page you are on is, for everything below to read.
@@ -123,6 +115,10 @@ class SidebarBody(ChainableComponent):
     category = None
 
     def label(self, value: str) -> Self:
+        """
+        What this navigation is, for a page with more than one. "Main" by
+        default, which a screen reader reads before the links.
+        """
         self._props["label"] = value
         return self
 

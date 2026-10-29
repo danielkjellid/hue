@@ -52,6 +52,13 @@ class TestSidebar:
         assert_selector(html, "div.border-t")
 
     @pytest.mark.asyncio
+    async def test_the_body_names_the_navigation(self, context_args):
+        html = await render_tree(
+            SidebarBody().label("Settings"), context_args=context_args
+        )
+        assert_attr(html, "nav", "aria-label", "Settings")
+
+    @pytest.mark.asyncio
     async def test_the_icon_sits_half_a_step_down(self, context_args):
         # Where a glyph's optical centre sits against a line of text rather
         # than against the box around it.
