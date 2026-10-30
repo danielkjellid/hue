@@ -10,10 +10,13 @@ from htmy import html
 from playwright.sync_api import Page, expect
 
 from hue.datatable import BulkAction, Filter, build_datatable_state
+from hue.js import unsafe
 from hue.ui import (
     Accordion,
     AccordionItem,
     Button,
+    Card,
+    CardBody,
     Column,
     DataTable,
     Dialog,
@@ -115,6 +118,43 @@ def test_a_long_tables_bar_is_in_reach_from_the_top(
     _tick_first(page)
     assert _in_reach(page)
     assert page.evaluate("document.documentElement.scrollWidth") <= width
+
+
+def test_a_long_tables_bar_is_in_reach_in_a_card(show: Show) -> None:
+    page = show(Card().content(CardBody().content(_long())), width=390, height=700)
+    _tick_first(page)
+    assert _in_reach(page)
+
+
+def test_the_tables_own_sideways_band_keeps_the_bar_in_reach(show: Show) -> None:
+    # A DataTable scrolls its rows sideways itself, which holds the bar no
+    # more than the page does. A wrapper of the caller's own that sets
+    # overflow would, which the docstring warns against.
+    columns = [
+        Column("invoice", "Invoice"),
+        *[Column(f"c{n}", f"Column {n}") for n in range(8)],
+    ]
+    table = DataTable.from_state(
+        build_datatable_state(
+            _Router(),
+            key="invoices",
+            columns=columns,
+            rows=lambda request, asked: [
+                {"invoice": f"INV-{n:03}", **{f"c{c}": "wide value" for c in range(8)}}
+                for n in range(40)
+            ],
+            identifier="invoice",
+            actions={"archive": BulkAction("Archive", lambda request, ids: None)},
+            page_size=40,
+        )
+    )
+    page = show(table, width=320, height=700)
+    assert page.evaluate(
+        "(() => { const band = document.querySelector('#invoices table')"
+        ".parentElement; return band.scrollWidth > band.clientWidth })()"
+    )
+    _tick_first(page)
+    assert _in_reach(page)
 
 
 def test_a_long_tables_bar_is_in_reach_in_an_app_shell(show: Show) -> None:
@@ -365,4 +405,38 @@ def test_a_removed_accordion_leaves_no_listener_behind(show: Show) -> None:
     page.evaluate(
         "(() => { const i = document.createElement('input'); i.required = true;"
         " document.body.append(i); i.checkValidity(); })()"
+    )
+
+
+def test_checking_validity_while_typing_leaves_the_open_section(show: Show) -> None:
+    # A form that enables Save as it becomes valid checks itself on every
+    # keystroke. Nothing is reported, so nothing the reader has open closes.
+    page = show(
+        _form(
+            Accordion().content(
+                AccordionItem()
+                .title("Billing")
+                .open()
+                .content(
+                    TextInput()
+                    .name("card")
+                    .label("Card")
+                    .x_on("input", unsafe("$el.form.checkValidity()"))
+                ),
+                AccordionItem()
+                .title("Plans")
+                .content(TextInput().name("plan").label("Plan").required()),
+            )
+        )
+    )
+    card = page.get_by_role("textbox", name="Card")
+    card.press_sequentially("42")
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    assert card.is_visible()
+    assert page.evaluate("document.activeElement.name") == "card"
+    assert (
+        page.get_by_role("button", name="Plans").get_attribute("aria-expanded")
+        == "false"
     )
