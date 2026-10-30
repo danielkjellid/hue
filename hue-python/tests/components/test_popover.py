@@ -52,6 +52,8 @@ class TestPopover:
         handler = select(html, "[x-data]")[0]["x-on:focusout"]
         assert "!$el.contains($event.relatedTarget)" in handler
         assert "open = false" in handler
+        # Focus leaving the document has no relatedTarget either.
+        assert "!document.hasFocus()" in handler
 
     @pytest.mark.asyncio
     async def test_it_hangs_off_the_trigger(self, context_args):

@@ -153,12 +153,19 @@ class Popover(ChainableComponent):
                 "x-on:click.outside": "open = false",
                 # Tabbing out closes it too, or the panel would sit over
                 # whatever took focus next. Focus went somewhere on purpose,
-                # so it stays there. A focusout with nowhere to go is a
-                # click on the page or the window losing focus, and the
-                # first is the click outside's to handle.
+                # so it stays there. A focusout with nowhere to go is one of
+                # three things, told apart a tick later. A click on the page
+                # leaves the document focused and is the click outside's to
+                # handle. Another window or tab taking focus leaves
+                # activeElement where it was, so the popover is still open
+                # on the way back. Tabbing out of the document leaves
+                # neither, and closes it.
                 "x-on:focusout": (
                     "if (open && $event.relatedTarget "
-                    "&& !$el.contains($event.relatedTarget)) open = false"
+                    "&& !$el.contains($event.relatedTarget)) open = false; "
+                    "if (open && !$event.relatedTarget) setTimeout(() => { "
+                    "if (!document.hasFocus() "
+                    "&& !$el.contains(document.activeElement)) open = false })"
                 ),
                 **self._get_base_html_attrs(),
             },
