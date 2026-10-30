@@ -157,8 +157,14 @@ class Tabs(SwapsTarget):
                 _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW,
                 self._get_prop("class_"),
             ),
-            **self._sync_attrs(),
-            **self._get_base_html_attrs(),
+            **{
+                # Chrome scrolls a focused tab in only once it is wholly
+                # out of view, so one cut off at the edge stays cut off.
+                "x-on:focusin": "$event.target.scrollIntoView("
+                "{ inline: 'nearest', block: 'nearest' })",
+                **self._sync_attrs(),
+                **self._get_base_html_attrs(),
+            },
         )
 
 

@@ -94,6 +94,13 @@ class TestTabs:
         assert_attr(html, "nav#settings-tabs", "x-sync")
 
     @pytest.mark.asyncio
+    async def test_a_focused_tab_scrolls_fully_into_the_row(self, context_args):
+        # The row scrolls sideways, and Chrome leaves a half-hidden tab
+        # half hidden when it takes focus.
+        html = await render_tree(_tabs(), context_args=context_args)
+        assert "scrollIntoView" in select(html, "nav")[0]["x-on:focusin"]
+
+    @pytest.mark.asyncio
     async def test_each_tab_takes_an_id_from_the_row(self, context_args):
         # A swap replaces the row, and the id is how focus finds the tab it
         # was on. Two rows on one page keep theirs apart.
