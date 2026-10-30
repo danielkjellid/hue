@@ -60,6 +60,8 @@ class ScrollArea(ChainableComponent):
         Soften the top and bottom edges, each only while there is more that
         way. Worth it for prose, where a hard cut mid-sentence reads as the
         end; a list of rows already says it continues by cutting one in half.
+        The fade keeps an Alpine scope of its own, so x_data() raises here
+        and belongs on an element around the area.
         """
         self._props["fade"] = value
         return self
@@ -88,6 +90,14 @@ class ScrollArea(ChainableComponent):
         }
 
         if fade:
+            # One element holds one scope, so a caller's and the fade's
+            # cannot both live here, and either replacing the other is silent.
+            if "x-data" in attrs:
+                raise ValueError(
+                    "A ScrollArea with fade() keeps its own Alpine scope, so it "
+                    "cannot also take x_data(). Put the x_data() on an element "
+                    "around it, where the area's content can still read it."
+                )
             attrs |= {
                 "x-data": "hueScrollArea()",
                 "x-on:scroll": "edges()",
