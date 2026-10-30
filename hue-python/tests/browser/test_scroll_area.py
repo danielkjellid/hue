@@ -27,3 +27,22 @@ def test_the_fade_shows_while_the_area_is_not_focused(show: Show) -> None:
     area = page.get_by_role("region")
     expect(area).to_have_attribute("data-scroll-below", "true")
     assert area.evaluate("el => getComputedStyle(el).maskImage") != "none"
+
+
+def test_the_top_fades_only_once_there_is_something_above(show: Show) -> None:
+    page = show(ScrollArea.example())
+    area = page.get_by_role("region")
+    expect(area).not_to_have_attribute("data-scroll-above", "true")
+    area.evaluate("el => el.scrollTo(0, el.scrollHeight)")
+    expect(area).to_have_attribute("data-scroll-above", "true")
+    expect(area).not_to_have_attribute("data-scroll-below", "true")
+
+
+def test_the_keyboard_scrolls_the_area(show: Show) -> None:
+    page = show(ScrollArea.example())
+    page.keyboard.press("Tab")
+    expect(page.get_by_role("region")).to_be_focused()
+    page.keyboard.press("PageDown")
+    page.wait_for_function(
+        "() => document.querySelector('[role=region]').scrollTop > 0"
+    )
