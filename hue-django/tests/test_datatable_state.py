@@ -518,7 +518,7 @@ def test_objects_that_do_not_carry_the_identifier_are_refused():
 
 def test_the_search_box_answers_to_slash_and_escape(mounted):
     html = _table(mounted().invoices, _request())
-    assert 'x-data="hueTableSearch"' in html
+    assert re.search(r"x-data='hueTableSearch\(\"invoices-q\"\)'", html)
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
     assert '@keydown.escape="clearField($event)"' in html
     # What the shortcut counts to decide whether it means anything: a
@@ -798,8 +798,9 @@ def test_the_panel_ticks_the_columns_that_are_showing(mounted):
     # The way round anybody reads a list of columns, while the URL
     # carries the ones that are hidden.
     html = _table(mounted().invoices, _request(hide="customer"))
-    assert """x-data='hueTableColumns(["customer"], "invoices")'""" in html
-    assert """x-effect='$el.checked = showing("customer")'""" in html
+    columns = r"x-data='hueTableColumns\(\[\"customer\"\], \"invoices\", \d+\)'"
+    assert re.search(columns, html)
+    assert """x-effect='$el.checked = showing("customer");""" in html
     # Locked is a padlock to look at and a description to hear.
     assert re.search(
         r'id="invoices-hide-invoice"[^>]*aria-describedby="invoices-hide-invoice-locked"',
@@ -840,7 +841,7 @@ def test_reset_redraws_the_whole_frame(mounted):
 def test_the_panels_tell_the_reset_which_table_they_belong_to(mounted):
     html = _table(mounted().invoices, _request())
     assert """x-data='hueTableFilters("invoices")'""" in html
-    assert """x-data='hueTableColumns([], "invoices")'""" in html
+    assert re.search(r"x-data='hueTableColumns\(\[\], \"invoices\", \d+\)'", html)
 
 
 def test_every_name_the_markup_hands_the_script_is_one_it_reads(mounted):
