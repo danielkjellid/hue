@@ -202,3 +202,56 @@ def test_a_heading_nothing_opens_is_not_marked(show: Show) -> None:
     _entry(page, "Hidden").click()
     expect(_entry(page, "Beta")).to_have_attribute("aria-current", "location")
     assert page.evaluate("location.hash") == "#beta"
+
+
+def _long_page() -> tuple[object, ...]:
+    """
+    Twelve sections, and contents in a fixed column too short to show
+    every entry, which scrolls on its own.
+    """
+    return (
+        html.div(
+            TableOfContents().of("#doc"),
+            id="column",
+            style="position: fixed; top: 0; right: 0; width: 200px;"
+            " max-height: 120px; overflow-y: auto",
+        ),
+        html.div(
+            *[
+                html.section(html.h2(f"Part {n:02}"), html.div(style="height: 400px"))
+                for n in range(1, 13)
+            ],
+            id="doc",
+            style="margin-right: 220px",
+        ),
+    )
+
+
+def _in_column(page: Page, name: str) -> bool:
+    return page.evaluate(
+        """(name) => {
+            const column = document.getElementById('column').getBoundingClientRect();
+            const link = [...document.querySelectorAll('#column a')]
+                .find((a) => a.textContent.trim() === name).getBoundingClientRect();
+            return link.top >= column.top - 1 && link.bottom <= column.bottom + 1;
+        }""",
+        name,
+    )
+
+
+def test_the_active_entry_stays_inside_a_scrolling_column(show: Show) -> None:
+    page = show(*_long_page(), width=1000, height=600)
+    end = page.evaluate("document.documentElement.scrollHeight - innerHeight")
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    expect(_entry(page, "Part 12")).to_have_attribute("aria-current", "location")
+    page.wait_for_function(
+        "() => document.querySelector('#column a[aria-current]')"
+        ".getBoundingClientRect().bottom"
+        " <= document.getElementById('column').getBoundingClientRect().bottom + 1"
+    )
+    assert _in_column(page, "Part 12")
+    # The column scrolled, and the page stayed where the reader put it.
+    assert page.evaluate("window.scrollY") == end
+    page.evaluate("window.scrollTo(0, 0)")
+    expect(_entry(page, "Part 01")).to_have_attribute("aria-current", "location")
+    page.wait_for_function("() => document.getElementById('column').scrollTop === 0")

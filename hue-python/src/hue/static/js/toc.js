@@ -122,6 +122,23 @@ function scrollerOf(element) {
 }
 
 /**
+ * The column the contents scroll in, apart from the page.
+ *
+ * The nearest ancestor of the contents that scrolls, unless it holds the
+ * headings as well: that is the content itself, which only the reader
+ * scrolls.
+ */
+function columnOf(nav, content) {
+	for (let node = nav; node; node = node.parentElement) {
+		if (content && node.contains(content)) return null;
+		const overflow = getComputedStyle(node).overflowY;
+		if (overflow !== "auto" && overflow !== "scroll") continue;
+		if (node.scrollHeight > node.clientHeight) return node;
+	}
+	return null;
+}
+
+/**
  * Where a heading sits relative to the line it is reached at.
  *
  * That line is the top of whatever the content scrolls inside, less the
@@ -501,6 +518,27 @@ export function registerTocData(Alpine) {
 			if (index === this.active) return;
 			this.active = index;
 			this.apply();
+			this.keepInView();
+		},
+
+		/**
+		 * Scroll the column the contents sit in, where that scrolls on its
+		 * own, so the marked entry is in it. Only the column: the page is
+		 * where the reader is reading, and the first entry takes the column
+		 * back to its top, title and all.
+		 */
+		keepInView() {
+			const column = columnOf(this.$root, this.container);
+			const link = this.entries[this.active]?.link;
+			if (!column || !link) return;
+			if (this.active === 0) {
+				column.scrollTop = 0;
+				return;
+			}
+			const box = column.getBoundingClientRect();
+			const row = link.getBoundingClientRect();
+			if (row.top < box.top) column.scrollTop -= box.top - row.top + SLACK;
+			else if (row.bottom > box.bottom) column.scrollTop += row.bottom - box.bottom + SLACK;
 		},
 
 		/**
