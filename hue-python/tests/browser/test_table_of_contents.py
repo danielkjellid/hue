@@ -47,6 +47,10 @@ def _heading_top(page: Page, name: str) -> float:
     )
 
 
+def _doc_scroll(page: Page) -> float:
+    return page.evaluate("document.getElementById('doc').scrollTop")
+
+
 def test_click_scrolls_only_the_container(show: Show) -> None:
     page = show(*_in_container())
     _entry(page, "Beta").click()
@@ -79,6 +83,21 @@ def test_back_restores_a_container_scrolled_by_hand(show: Show) -> None:
     _entry(page, "Beta").click()
     page.go_back()
     page.wait_for_function("document.getElementById('doc').scrollTop === 150")
+
+
+def test_back_restores_a_hand_scroll_over_the_fragment(show: Show) -> None:
+    page = show(*_in_container())
+    _entry(page, "Alpha").click()
+    # Somewhere the fragment #alpha does not point at.
+    page.evaluate("document.getElementById('doc').scrollTop = 450")
+    _entry(page, "Beta").click()
+    page.go_back()
+    expect(page).to_have_url("http://hue.test/#alpha")
+    # Two frames, so a fragment scroll the browser runs late has had its turn.
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    assert _doc_scroll(page) == 450
 
 
 def test_click_brings_an_out_of_view_container_into_view(show: Show) -> None:
