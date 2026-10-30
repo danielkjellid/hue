@@ -15,9 +15,8 @@ from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
+from hue.ui.molecules import _overlay
 from hue.utils import classes_if, classnames, render_if
-
-_OFFSET = 6
 
 # The field's own shell, laid out as a row: the value takes the space and
 # truncates, the chevron keeps its place at the end.
@@ -254,7 +253,7 @@ class Select(FieldControl):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                f"x-anchor.bottom-start.offset.{_OFFSET}": "$refs.trigger",
+                **_overlay.anchor("bottom-start", "$refs.trigger"),
             },
         )
         hidden = html.input_(

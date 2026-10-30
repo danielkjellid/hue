@@ -95,7 +95,10 @@ class TestDropdownMenu:
             _menu().placement("bottom-end"), context_args=context_args
         )
         assert_attr(
-            html, '[role="menu"]', "x-anchor.bottom-end.offset.6", _overlay.TRIGGER
+            html,
+            '[role="menu"]',
+            "x-anchor.fixed.bottom-end.offset.6",
+            _overlay.TRIGGER,
         )
         assert_selector(html, "button[aria-haspopup][data-hue-trigger]", count=1)
 
@@ -119,7 +122,9 @@ class TestDropdownMenu:
         menu = _menu().trigger(Tooltip().content("More actions"))
         html = await render_tree(menu, context_args=context_args)
         assert_no_selector(html, "[aria-haspopup], [data-hue-trigger]")
-        assert_attr(html, '[role="menu"]', "x-anchor.bottom-start.offset.6", "null")
+        assert_attr(
+            html, '[role="menu"]', "x-anchor.fixed.bottom-start.offset.6", "null"
+        )
 
 
 class TestMenuItem:

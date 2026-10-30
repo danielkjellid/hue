@@ -9,8 +9,8 @@ from hue.ui._styles import FOCUS_RING, GROUP_STATES, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import modelable
 from hue.ui.form import FieldControl
+from hue.ui.molecules import _overlay
 from hue.ui.molecules.select import (
-    _OFFSET,
     SelectOption,
     SelectState,
     _options,
@@ -298,7 +298,7 @@ class Combobox(FieldControl):
                 # Clicking an option would otherwise take focus from the field
                 # and close the list before the click arrived.
                 "x-on:mousedown.prevent": "",
-                f"x-anchor.bottom-start.offset.{_OFFSET}": "$refs.shell",
+                **_overlay.anchor("bottom-start", "$refs.shell"),
             },
         )
         root_attrs: dict[str, object] = {

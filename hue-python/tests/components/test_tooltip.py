@@ -55,22 +55,23 @@ class TestTooltip:
         assert "shown = true, 400)" in html
 
     @pytest.mark.parametrize(
-        ("placement", "position"),
-        [
-            ("top", "bottom-full"),
-            ("bottom", "top-full"),
-            ("start", "right-full"),
-            ("end", "left-full"),
-        ],
+        ("placement", "side"),
+        [("top", "top"), ("bottom", "bottom"), ("start", "left"), ("end", "right")],
     )
     @pytest.mark.asyncio
     async def test_each_placement_puts_the_bubble_somewhere_else(
-        self, context_args, placement, position
+        self, context_args, placement, side
     ):
+        # noflip: the arrow is drawn for one side only.
         html = await render_tree(
             _tooltip().placement(placement), context_args=context_args
         )
-        assert_selector(html, f'[role="tooltip"].{position}')
+        assert_attr(
+            html,
+            '[role="tooltip"]',
+            f"x-anchor.fixed.noflip.{side}.offset.6",
+            "$el.parentElement",
+        )
 
     @pytest.mark.parametrize(
         ("placement", "bridge"),

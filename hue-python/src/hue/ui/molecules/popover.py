@@ -13,10 +13,6 @@ from hue.utils import classnames, render_if, render_when
 
 type PopoverPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
 
-# 6px off the trigger: far enough that the panel reads as its own surface,
-# near enough that the pointer crosses the gap without leaving the pair.
-_OFFSET = 6
-
 
 class Popover(ChainableComponent):
     """
@@ -140,7 +136,7 @@ class Popover(ChainableComponent):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                f"x-anchor.{placement}.offset.{_OFFSET}": find_trigger,
+                **_overlay.anchor(placement, find_trigger),
                 **_overlay.HOLDS_FOCUS,
             },
         )

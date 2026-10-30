@@ -9,6 +9,7 @@ from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
 
 type TooltipPlacement = Literal["top", "bottom", "start", "end"]
@@ -17,15 +18,11 @@ type TooltipPlacement = Literal["top", "bottom", "start", "end"]
 # makes the association legible: a bubble floating free of its trigger reads
 # as a stray chip. The before element spans the gap on the trigger side, so a
 # pointer on its way into the bubble never leaves the wrapper and closes it.
-_PLACEMENTS: dict[TooltipPlacement, str] = {
-    "top": "bottom-full left-1/2 -translate-x-1/2 mb-1.5 "
-    "before:top-full before:inset-x-0 before:h-1.5",
-    "bottom": "top-full left-1/2 -translate-x-1/2 mt-1.5 "
-    "before:bottom-full before:inset-x-0 before:h-1.5",
-    "start": "right-full top-1/2 -translate-y-1/2 me-1.5 "
-    "before:left-full before:inset-y-0 before:w-1.5",
-    "end": "left-full top-1/2 -translate-y-1/2 ms-1.5 "
-    "before:right-full before:inset-y-0 before:w-1.5",
+_PLACEMENTS: dict[TooltipPlacement, tuple[str, str]] = {
+    "top": ("top", "before:top-full before:inset-x-0 before:h-1.5"),
+    "bottom": ("bottom", "before:bottom-full before:inset-x-0 before:h-1.5"),
+    "start": ("left", "before:left-full before:inset-y-0 before:w-1.5"),
+    "end": ("right", "before:right-full before:inset-y-0 before:w-1.5"),
 }
 
 _ARROWS: dict[TooltipPlacement, str] = {
@@ -96,6 +93,7 @@ class Tooltip(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         placement: TooltipPlacement = self._get_prop("placement", "top")
+        side, bridge = _PLACEMENTS[placement]
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
         # Alpine mints the id, so two tooltips on a page cannot share one, and
@@ -120,24 +118,26 @@ class Tooltip(ChainableComponent):
             ),
             role="tooltip",
             class_=classnames(
-                "absolute z-20 inline-flex w-max max-w-60 items-center gap-1.5",
+                "z-20 inline-flex w-max max-w-60 items-center gap-1.5",
                 "rounded-sm bg-surface-inverse px-[9px] py-[5px] shadow-raised",
                 "font-ui text-xs font-normal leading-[1.45] text-surface-inverse-fg",
                 "before:absolute before:content-['']",
-                _PLACEMENTS[placement],
+                bridge,
             ),
             **{
                 ":id": bubble_id,
                 "x-show": "shown",
                 "x-cloak": True,
                 "x-transition.opacity": "",
+                # The arrow points one way, so the bubble keeps its side.
+                **_overlay.anchor(side, "$el.parentElement", flip=False),
             },
         )
 
         return html.span(
             render_if(trigger, lambda control: control),
             bubble,
-            class_=classnames("relative inline-flex", self._get_prop("class_")),
+            class_=classnames("inline-flex", self._get_prop("class_")),
             **{
                 # shown rather than open: a menu or dialog the trigger opens
                 # names its own state open, and the trigger sits in this

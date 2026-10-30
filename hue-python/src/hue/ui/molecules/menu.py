@@ -18,8 +18,6 @@ from hue.utils import classes_if, classnames, render_if, render_when
 type MenuPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
 type MenuItemVariant = Literal["default", "danger"]
 
-# The same 6px the popover keeps off its trigger.
-_OFFSET = 6
 
 _ITEM = (
     "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-[7px] "
@@ -130,7 +128,7 @@ class DropdownMenu(ChainableComponent):
                 "x-on:keydown.up.prevent": "$focus.wrap().previous()",
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
-                f"x-anchor.{placement}.offset.{_OFFSET}": find_trigger,
+                **_overlay.anchor(placement, find_trigger),
                 **_overlay.HOLDS_FOCUS,
             },
         )
