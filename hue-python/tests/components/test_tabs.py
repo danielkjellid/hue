@@ -84,8 +84,11 @@ class TestTabs:
         html = await render_tree(
             _tabs(target="panel", id="settings-tabs"), context_args=context_args
         )
-        # push, so a section is still a place the back button knows.
-        assert_attr(html, "nav a", "x-target.push", "panel")
+        # push, so a section is still a place the back button knows. The
+        # tab you are on replaces, so following it again adds no entry.
+        assert_attr(html, 'nav a[href="/settings/team"]', "x-target.push", "panel")
+        assert_attr(html, "nav a[aria-current]", "x-target.replace", "panel")
+        assert_no_selector(html, "nav a[aria-current][x-target\\.push]")
         # The row sits outside the panel and refreshes itself from the
         # response, so the mark moves to the tab you land on.
         assert_attr(html, "nav#settings-tabs", "x-sync")

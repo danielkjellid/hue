@@ -121,6 +121,10 @@ class TestPagination:
             context_args=context_args,
         )
         assert_attr(html, 'nav a[href="?page=4"]', "x-target.push", "invoices-rows")
+        # The page you are on replaces: Enter on it, where focus lands once
+        # a step is spent, would otherwise add the same page again.
+        assert_attr(html, 'nav a[href="?page=3"]', "x-target.replace", "invoices-rows")
+        assert_no_selector(html, 'nav a[href="?page=3"][x-target\\.push]')
         # It sits outside the rows and refreshes itself from the response,
         # so the mark moves to the page you land on.
         assert_attr(html, "#invoices-pages", "x-sync")

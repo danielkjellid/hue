@@ -252,7 +252,7 @@ class Tab(ChainableComponent):
             aria_current="page" if current else None,
             class_=classes,
             **{
-                **swap(state.target),
+                **swap(state.target, current=current),
                 **self._get_base_html_attrs(),
             },
         )

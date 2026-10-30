@@ -212,7 +212,7 @@ class Pagination(SwapsTarget):
             id=self._link_id(f"page-{number}"),
             aria_current="page" if current else None,
             class_=classes,
-            **self._swap_attrs(),
+            **self._swap_attrs(current=current),
         )
 
     def _sizes(self, options: list[int]) -> ComponentType:
