@@ -399,7 +399,12 @@ if (window.self !== window.top) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" || event.defaultPrevented || event.isComposing) return;
     const typing = event.target.isContentEditable || event.target.closest?.(field);
-    if (typing && !event.metaKey && !event.ctrlKey) return;
+    // Nor from inside a modal open in here, as hue's shortcuts run none
+    // outside an open modal; a chord still opens the site's search.
+    const modal = [...document.querySelectorAll('[aria-modal="true"]')].some((el) =>
+      el.checkVisibility(),
+    );
+    if ((typing || modal) && !event.metaKey && !event.ctrlKey) return;
     const top = window.top;
     const forwarded = new top.KeyboardEvent("keydown", {
       key: event.key,
@@ -425,16 +430,34 @@ if (window.self !== window.top) {
     if (!searched || had === document.body) return;
     window.addEventListener(
       "focus",
-      () => {
-        if (document.activeElement === document.body && had.isConnected) had.focus();
-      },
+      // A task later, once a menu or popover that losing focus closes
+      // (below) has closed. Its item goes with it, so focus goes to the
+      // control that opened it, found as the trigger beside the panel.
+      () =>
+        setTimeout(() => {
+          if (document.activeElement !== document.body) return;
+          const panel = had.closest('[role="menu"], [role="dialog"], [role="listbox"]');
+          let host = panel?.parentElement;
+          while (host && !host.querySelector("[data-hue-trigger]")) host = host.parentElement;
+          const trigger = host?.querySelector("[data-hue-trigger]");
+          const closed = trigger?.getAttribute("aria-expanded") === "false";
+          (closed ? trigger : had).focus();
+        }),
       { once: true },
     );
   });
   // A menu or a popover closes on a click outside it, which a click on the
-  // docs page never is to this frame. Focus leaving the frame stands in for
-  // one, so nothing stays open over a page the reader has moved on from.
-  window.addEventListener("blur", () => document.body?.click());
+  // docs page never is to this frame. Focus moving to the docs page or
+  // another frame stands in for one. Focus going to another window or tab
+  // does not, so a popover stays open while the reader looks elsewhere.
+  window.addEventListener("blur", () =>
+    setTimeout(() => {
+      // Dispatched rather than click(), which does nothing while the
+      // search's trap holds this frame inert.
+      if (!window.top.document.hasFocus()) return;
+      document.body?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }),
+  );
 }
 
 if (window.self === window.top) {
