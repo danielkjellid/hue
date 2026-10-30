@@ -18,9 +18,7 @@ from hue.utils import classnames, render_if
 # What every step is, minus anything its state decides. The three states
 # below each name a border colour, a text colour and a cursor, so no two
 # classes are left competing for the same property.
-# A container, so the window of numbers narrows with the space the bar is
-# given rather than with the viewport.
-_BAR = "@container flex w-full flex-wrap items-center justify-between gap-4"
+_BAR = "flex w-full flex-wrap items-center justify-between gap-4"
 _COUNT = "text-sm tabular-nums text-fg-muted"
 
 _ITEM = (
@@ -50,13 +48,15 @@ _STEPS = {
 # close to a pixel, which is what lets five 40px pages fit beside the steps;
 # a focused step is raised over its neighbours, so their backgrounds cannot
 # cover the ring it draws into that gap.
-_ROW = "flex min-w-0 flex-wrap items-center gap-1 @max-md:gap-px"
+_ROW = "flex min-w-0 flex-wrap items-center gap-1 max-sm:gap-px"
 
-# Below this width the numbers either side of the current page fold away,
-# so the row of steps stays on one line at 320px, even with a phone's 40px
-# targets.
-_WIDE_ONLY = "@max-md:hidden"
-_NARROW_ONLY = "@md:hidden"
+# On a screen narrower than sm the numbers either side of the current page
+# fold away, so the row of steps stays on one line at 320px, even with a
+# phone's 40px targets. The screen rather than the bar's own width: a bar
+# that answered to its own width could not take its width from its content,
+# and would fold to nothing in a parent sized to fit it.
+_WIDE_ONLY = "max-sm:hidden"
+_NARROW_ONLY = "sm:hidden"
 # A narrow row as a phone draws it: 288px, which is 320 less two 16px
 # gutters, less the two steps, holds pages at 40px and ellipses at 28px,
 # each with its 1px gap. A wide window that fits is kept narrow too.
@@ -109,8 +109,8 @@ class Pagination(SwapsTarget):
     def sibling_count(self, value: int) -> Self:
         """
         How many pages to show either side of the current one before the rest
-        fold into an ellipsis. Where the row is narrower than 28rem they fold
-        too, so the steps stay on one line.
+        fold into an ellipsis. On a screen narrower than 40rem they fold too,
+        so the steps stay on one line.
         """
         if value < 0:
             raise ValueError(f"Pagination shows 0 or more siblings, not {value}.")
