@@ -351,12 +351,18 @@ if (window.self !== window.top) {
   // keep: mod+k opens the site's search, and Escape also goes to the frame
   // under the pointer.
   const apple = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  // Escape is passed on in the capture phase, before a component in this
+  // frame that takes the key, such as an open tooltip, stops it.
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") window.top.docsEscape?.(window);
+    },
+    true,
+  );
   document.addEventListener("keydown", (event) => {
     const top = window.top;
-    if (event.key === "Escape") {
-      top.docsEscape?.(window);
-      return;
-    }
+    if (event.key === "Escape") return;
     const mod = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
     if (event.key.toLowerCase() !== "k" || !mod || event.altKey || event.shiftKey) return;
     if (event.defaultPrevented) return;
@@ -381,9 +387,13 @@ if (window.self === window.top) {
     if (!win || win === source) return;
     win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   };
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") window.docsEscape(window);
-  });
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") window.docsEscape(window);
+    },
+    true,
+  );
 
   // Frames paint first in the theme saved under their own key (FramePage in
   // panel.py), so it follows the site's choice, and a ThemeSwitcher demo
