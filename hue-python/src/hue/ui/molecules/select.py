@@ -26,9 +26,10 @@ _TRIGGER = classnames(
     # Open reads like focused: the listbox belongs to the trigger, and the
     # halo says which control it came from. An invalid one stays red, as it
     # does when focused.
-    "aria-expanded:ring-3 not-aria-invalid:aria-expanded:border-accent "
+    "not-aria-invalid:aria-expanded:border-accent "
+    "not-aria-invalid:aria-expanded:ring-3 "
     "not-aria-invalid:aria-expanded:ring-accent-subtle "
-    "aria-invalid:aria-expanded:ring-danger-subtle",
+    "aria-invalid:aria-expanded:ring-2 aria-invalid:aria-expanded:ring-danger",
 )
 
 _LISTBOX = (

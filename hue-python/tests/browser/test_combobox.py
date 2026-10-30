@@ -1,6 +1,7 @@
 from playwright.sync_api import Locator, expect
 
 from hue.ui import Combobox, SelectOption
+from tests.browser._fields import css, still, token
 from tests.browser.conftest import Show
 
 
@@ -101,3 +102,11 @@ def test_backspace_on_an_empty_multiple_field_removes_the_last_token(
     page.keyboard.press("Backspace")
     expect(page.locator("input[type=hidden][name=fruit]")).to_have_count(1)
     expect(page.locator("input[type=hidden][name=fruit]")).to_have_value("apple")
+
+
+def test_focused_invalid_combobox_draws_a_solid_danger_ring(show: Show) -> None:
+    page = still(show(_fruit().error("Pick one")))
+    page.get_by_role("combobox", name="Fruit").click()
+    shell = page.locator("[x-ref=shell]")
+    expect(shell).to_have_css("border-top-color", token(page, "danger"))
+    assert f"{token(page, 'danger')} 0px 0px 0px 2px" in css(shell, "boxShadow")

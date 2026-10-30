@@ -47,16 +47,20 @@ CONTROL_SIZES: dict[ControlSize, str] = {
 #:
 #: No focus ring here: a control with a border of its own tightens that border
 #: to the accent and lays a 3px halo outside it, which moves nothing, where the
-#: offset ring on a button would jump the layout of a form row.
+#: offset ring on a button would jump the layout of a form row. An invalid one
+#: keeps its red border and draws a solid 2px danger ring instead, since a
+#: pale red halo is too faint to show focus.
 FIELD_SHELL = (
     "w-full min-w-0 rounded-md border border-border-input bg-surface text-fg "
     "font-body shadow-field placeholder:text-fg-subtle "
     "transition-[border-color,box-shadow] duration-150 "
-    # Hover leaves an invalid border alone: it sorts after aria-invalid, so it
-    # would otherwise grey out the red under the pointer.
-    "enabled:not-aria-invalid:hover:border-border-hover "
-    "focus:outline-none focus:border-accent focus:ring-3 focus:ring-accent-subtle "
-    "aria-invalid:border-danger aria-invalid:focus:ring-danger-subtle "
+    # Hover leaves an invalid or focused border alone: it sorts after both, so
+    # it would otherwise grey out the red or the accent under the pointer.
+    "enabled:not-aria-invalid:not-focus:hover:border-border-hover "
+    "focus:outline-none not-aria-invalid:focus:border-accent "
+    "not-aria-invalid:focus:ring-3 not-aria-invalid:focus:ring-accent-subtle "
+    "aria-invalid:border-danger aria-invalid:focus:ring-2 "
+    "aria-invalid:focus:ring-danger "
     # The attribute, not :read-only, which every select and button matches.
     "[&[readonly]]:bg-surface-sunken "
     "disabled:cursor-not-allowed disabled:bg-surface-sunken "
@@ -71,18 +75,20 @@ FIELD_SHELL = (
 #: typing here" and nothing else. An attached button is its own control and
 #: says it has focus the way every other button does, with its own ring.
 #: The states of a frame that answers the control inside it, shared by
-#: GROUP_SHELL and the combobox. Hover and the accent only apply to a valid
-#: control, so an invalid one keeps its danger border and halo the way an
-#: ungrouped field does. Left to the order the variants sort in, hover and
-#: focus would win.
+#: GROUP_SHELL and the combobox. Hover only applies to a valid, enabled,
+#: unfocused control and the accent only to a valid one, so an invalid one
+#: keeps its danger border and ring the way an ungrouped field does. Left to
+#: the order the variants sort in, hover and focus would win.
 GROUP_STATES = (
     "transition-[border-color,box-shadow] duration-150 "
-    "not-has-[[aria-invalid=true]]:hover:border-border-hover "
-    "has-[input:focus]:ring-3 "
+    "not-has-[[aria-invalid=true]]:not-has-[input:focus]:"
+    "not-has-[input:disabled]:hover:border-border-hover "
     "not-has-[[aria-invalid=true]]:has-[input:focus]:border-accent "
+    "not-has-[[aria-invalid=true]]:has-[input:focus]:ring-3 "
     "not-has-[[aria-invalid=true]]:has-[input:focus]:ring-accent-subtle "
     "has-[[aria-invalid=true]]:border-danger "
-    "has-[[aria-invalid=true]:focus]:ring-danger-subtle "
+    "has-[[aria-invalid=true]:focus]:ring-2 "
+    "has-[[aria-invalid=true]:focus]:ring-danger "
     "has-[:disabled]:bg-surface-sunken"
 )
 

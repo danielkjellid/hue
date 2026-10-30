@@ -53,3 +53,21 @@ def test_open_invalid_select_stays_red(show: Show) -> None:
     expect(trigger).to_have_attribute("aria-expanded", "true")
     expect(trigger).to_have_css("border-top-color", token(page, "danger"))
     assert token(page, "accent-subtle") not in css(trigger, "boxShadow")
+
+
+def test_open_invalid_select_draws_a_solid_danger_ring(show: Show) -> None:
+    page = still(show(_fruit().error("Pick one")))
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.click()
+    expect(trigger).to_have_attribute("aria-expanded", "true")
+    ring = f"{token(page, 'danger')} 0px 0px 0px 2px"
+    assert ring in css(trigger, "boxShadow")
+
+
+def test_open_valid_select_keeps_its_accent_halo(show: Show) -> None:
+    page = still(show(_fruit()))
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.click()
+    expect(trigger).to_have_css("border-top-color", token(page, "accent"))
+    ring = f"{token(page, 'accent-subtle')} 0px 0px 0px 3px"
+    assert ring in css(trigger, "boxShadow")
