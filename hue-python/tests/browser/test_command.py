@@ -79,3 +79,13 @@ def test_escape_clears_the_text_then_closes(show: Show) -> None:
     expect(page.get_by_role("dialog")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog")).to_be_hidden()
+
+
+def test_enter_straight_after_typing_runs_the_first_match(show: Show) -> None:
+    page = show(_palette())
+    _open(page)
+    # "s" leaves Go to settings active, and "sh" filters it out.
+    page.keyboard.type("share")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog")).to_be_hidden()
+    assert page.evaluate("window.ran") == "copy"
