@@ -211,7 +211,9 @@ def _usage() -> ComponentType:
         pr.p(
             "The first and last pages always show. `sibling_count()`, `1` by "
             "default, sets how many pages show either side of the current one. "
-            "The gaps between them become an ellipsis."
+            "The gaps between them become an ellipsis. In a container narrower "
+            "than 28rem the neighbours fold away as well, so the steps stay on one "
+            "line on a phone."
         ),
         pr.h2("Rows per page in Pagination"),
         pr.p(

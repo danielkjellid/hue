@@ -21,7 +21,6 @@ def split_button() -> ButtonGroup:
             .variant("outline")
             .size("sm")
             .icon_only("Export options")
-            .class_("rounded-s-none")
             .content(Icon("chevron-down"))
         )
         .content(
@@ -125,11 +124,9 @@ def _usage() -> ComponentType:
         pr.h3("A split button in a ButtonGroup"),
         pr.p(
             "For a split button, put a `DropdownMenu` in the `ButtonGroup` and give "
-            "it the icon-only `Button` as its `trigger()`. The menu wraps its "
-            "trigger in a `span`, so the group squares off the corners of that "
-            "`span` and not of the `Button` inside it. Add "
-            '`class_("rounded-s-none")` to the trigger so its inner corners meet '
-            "the button beside it."
+            "it the icon-only `Button` as its `trigger()`. The group squares off "
+            "the trigger's inner corners and lifts it while it has focus, as it "
+            "does for any other button, also when a `Tooltip` wraps it."
         ),
         pr.h3("Naming a ButtonGroup"),
         pr.p(

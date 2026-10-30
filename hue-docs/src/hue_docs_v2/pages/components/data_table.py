@@ -501,10 +501,12 @@ def _usage() -> ComponentType:
             "to answer."
         ),
         pr.p(
-            "Ticking a row brings up a bar that floats at the bottom of the "
-            "window, with the count, a button that clears the selection, and the "
-            "actions. Escape clears the selection too. There is one selection per "
-            "page, so starting one in a table clears any other. A ticked row that a "
+            "Ticking a row brings up a bar under the pager, inside the table, with "
+            "the count, a button that clears the selection, and the actions. While "
+            "the table runs past the bottom of whatever it scrolls in, the bar "
+            "sticks to that bottom edge. Escape clears the selection too. There is "
+            "one selection per page, so starting one in a table clears any other. A "
+            "ticked row that a "
             "sort, a page or a search takes off the page leaves the selection."
         ),
         pr.p(
@@ -561,6 +563,7 @@ def _usage() -> ComponentType:
             '             form="invoices-search">\n'
             "    </div>\n"
             "  </div>\n"
+            '  <div role="group" aria-label="Selected rows">  <!-- sticks -->\n'
             "</div>\n"
             '<p id="invoices-summary" role="status" x-sync>8 records.</p>',
             language="html",

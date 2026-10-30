@@ -76,15 +76,15 @@ def label() -> Text:
 
 
 def left() -> Text:
-    return Text("Aligned to the start of the line.").align("text-left")
+    return Text("Aligned to the start of the line.").align("start")
 
 
 def center() -> Text:
-    return Text("Centred on the line.").align("text-center")
+    return Text("Centred on the line.").align("center")
 
 
 def right() -> Text:
-    return Text("Aligned to the end of the line.").align("text-right")
+    return Text("Aligned to the end of the line.").align("end")
 
 
 # Colour
@@ -132,12 +132,13 @@ def _usage() -> ComponentType:
         pr.p(
             "`body` is the default, 13px on a 24px line. `title-1`, `title-2` and "
             "`title-3` are the large sizes, the first two in bold. `subtitle-1` "
-            "(14px) and `subtitle-2` (13px) are medium weight."
+            "(14px) and `subtitle-2` (13px) are semibold."
         ),
         pr.h3("Text alignment"),
         pr.p(
-            "`align()` takes the Tailwind class itself: `text-left` (the default), "
-            "`text-center` or `text-right`."
+            "`align()` takes `start` (the default), `center`, `end` or `justify`. "
+            "Start and end follow the text direction, so right-to-left text lines "
+            "up on the right."
         ),
         pr.h3("Text colour"),
         pr.p(
