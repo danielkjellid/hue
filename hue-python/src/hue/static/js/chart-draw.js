@@ -209,7 +209,8 @@ function pieConfig(spec, theme) {
 			],
 		},
 		options: {},
-		label: ({ dataIndex }) => `${spec.labels[dataIndex]}: ${series.display[dataIndex]}`,
+		// The tooltip's title already names the slice.
+		label: ({ dataIndex }) => series.display[dataIndex],
 	};
 }
 
