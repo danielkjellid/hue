@@ -4,7 +4,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Progress, ProgressRing
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _bar() -> Progress:
@@ -91,6 +91,13 @@ class TestProgress:
         assert "64%" in html
 
     @pytest.mark.asyncio
+    async def test_only_a_full_bar_claims_100(self, context_args):
+        html = await render_tree(
+            Progress().value(99.99999).label("Upload"), context_args=context_args
+        )
+        assert select(html, "span.tabular-nums")[0].text == "99%"
+
+    @pytest.mark.asyncio
     async def test_a_hidden_label_leaves_just_the_named_track(self, context_args):
         html = await render_tree(
             _bar().value(64).class_("w-40"),
@@ -170,6 +177,15 @@ class TestProgressRing:
             await render_tree(
                 ProgressRing().value(float("nan")), context_args=context_args
             )
+
+    @pytest.mark.parametrize(("value", "shown"), [(99.99999, "99"), (100, "100")])
+    @pytest.mark.asyncio
+    async def test_only_a_full_ring_claims_100(self, context_args, value, shown):
+        html = await render_tree(
+            ProgressRing().value(value).show_value(), context_args=context_args
+        )
+        assert select(html, "span[aria-hidden]")[0].text == f"{shown}%"
+        assert_attr(html, 'svg[role="img"]', "aria-label", f"{shown} percent complete")
 
     # show_value(): both branches
     @pytest.mark.asyncio
