@@ -1,6 +1,6 @@
 from playwright.sync_api import Page, expect
 
-from hue.ui import Button, Dialog, DropdownMenu, MenuItem
+from hue.ui import Button, Dialog, DropdownMenu, MenuItem, MenuLabel, MenuSeparator
 from tests.browser.conftest import Show
 
 
@@ -59,3 +59,38 @@ def test_hovering_an_open_menu_moves_focus(show: Show) -> None:
     expect(page.get_by_role("menuitem", name="Delete")).to_be_focused()
     page.keyboard.press("ArrowUp")
     expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()
+
+
+def _grouped() -> DropdownMenu:
+    return (
+        DropdownMenu()
+        .label("Actions")
+        .trigger(Button().content("Actions"))
+        .content(
+            MenuItem().content("Open"),
+            MenuSeparator(),
+            MenuLabel().content("Project"),
+            MenuItem().content("Rename"),
+            MenuItem().content("Duplicate"),
+            MenuSeparator(),
+            MenuLabel().content("Sharing"),
+            MenuItem().content("Invite"),
+        )
+    )
+
+
+def test_the_arrow_keys_walk_across_labelled_runs_and_wrap(show: Show) -> None:
+    page = show(_grouped())
+    page.get_by_role("button", name="Actions").focus()
+    page.keyboard.press("ArrowDown")
+    order = ["Open", "Rename", "Duplicate", "Invite", "Open"]
+    expect(page.get_by_role("menuitem", name=order[0])).to_be_focused()
+    for name in order[1:]:
+        page.keyboard.press("ArrowDown")
+        expect(page.get_by_role("menuitem", name=name)).to_be_focused()
+    page.keyboard.press("ArrowUp")
+    expect(page.get_by_role("menuitem", name="Invite")).to_be_focused()
+    page.keyboard.press("Home")
+    expect(page.get_by_role("menuitem", name="Open")).to_be_focused()
+    page.keyboard.press("End")
+    expect(page.get_by_role("menuitem", name="Invite")).to_be_focused()

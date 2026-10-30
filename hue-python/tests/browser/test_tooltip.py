@@ -2,7 +2,7 @@ import pytest
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Button, Dialog, Kbd, Popover, Tooltip
+from hue.ui import Button, Dialog, DropdownMenu, Kbd, MenuItem, Popover, Tooltip
 from hue.ui.molecules.tooltip import TooltipPlacement
 from tests.browser.conftest import Show
 
@@ -203,3 +203,38 @@ def test_the_keys_are_described_once_while_shown(show: Show) -> None:
     page = show(_tooltip().keys(Kbd("shift", "mod", "K")))
     _shown(page)
     assert _description(page) == "Copy to clipboard Shift Command K"
+
+
+def _menu_with_a_tooltip() -> DropdownMenu:
+    return (
+        DropdownMenu()
+        .label("Actions")
+        .trigger(Tooltip().content("More actions").trigger(Button().icon_only("More")))
+        .content(MenuItem().content("Rename"), MenuItem().content("Delete"))
+    )
+
+
+def test_a_menu_opened_after_its_tooltip_closes_on_the_first_escape(
+    show: Show,
+) -> None:
+    page = show(_menu_with_a_tooltip())
+    trigger = page.get_by_role("button", name="More")
+    trigger.hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    trigger.click()
+    expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("menu")).to_be_hidden()
+    expect(trigger).to_be_focused()
+
+
+def test_a_menu_opened_from_the_keyboard_hides_the_tooltip(show: Show) -> None:
+    page = show(_menu_with_a_tooltip())
+    page.keyboard.press("Tab")
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("menu")).to_be_hidden()
