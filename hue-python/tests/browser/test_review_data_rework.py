@@ -1,7 +1,7 @@
 """
-Review tests for the data rework: the bar's room on the table's scroller,
-Pagination's narrow window decided by width, and the single-mode Accordion
-that opens only the section of the field the browser reports.
+Review tests for the data rework: Pagination's narrow window decided by
+width, and the single-mode Accordion that opens only the section of the field
+the browser reports.
 """
 
 import struct
@@ -16,85 +16,13 @@ from playwright.sync_api import Page, expect
 from hue.datatable import BulkAction, build_datatable_state
 from hue.ui import Accordion, AccordionItem, Column, DataTable, Disclosure, TextInput
 from tests.browser.conftest import ORIGIN, Show, render_page
-from tests.browser.test_datatable import _Router, _table
+from tests.browser.test_datatable import _Router
 from tests.browser.test_review_data_navigation import _coarse, _form, _pager
-
-# The bar's room.
-
-_BAR_TOP = (
-    "(() => { const bar = document.querySelector('[aria-label=\"Selected rows\"]');"
-    " return innerHeight - parseFloat(getComputedStyle(bar).bottom)"
-    " - bar.offsetHeight })()"
-)
-
-
-def _tick(page: Page, scope: str = "#invoices") -> None:
-    page.locator(scope).get_by_role("checkbox", name="Select INV-2050").check()
-    expect(
-        page.get_by_role("group", name="Selected rows").locator("visible=true")
-    ).to_have_count(1)
 
 
 def _frames(page: Page) -> None:
     page.evaluate(
         "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
-    )
-
-
-def _shell(*parts: object, style: str = "") -> object:
-    return html.div(
-        html.div(style="height: 600px"),
-        *parts,
-        id="shell",
-        style="position: fixed; inset: 0; overflow-y: auto; padding: 16px;" + style,
-    )
-
-
-def test_two_tables_in_one_shell_give_back_its_own_padding(show: Show) -> None:
-    page = show(
-        _shell(_table("first"), _table("second"), style="padding-bottom: 12px"),
-        width=390,
-        height=600,
-    )
-    _tick(page, "#first")
-    page.wait_for_function(
-        "() => document.getElementById('shell').style.paddingBottom !== '12px'"
-    )
-    first = page.evaluate("document.getElementById('shell').style.paddingBottom")
-    assert float(first.removesuffix("px")) > 12
-    _tick(page, "#second")
-    _frames(page)
-    assert (
-        page.evaluate("document.getElementById('shell').style.paddingBottom") == first
-    )
-    page.keyboard.press("Escape")
-    page.wait_for_function(
-        "() => document.getElementById('shell').style.paddingBottom === '12px'"
-        " && document.getElementById('shell').style.scrollPaddingBottom === ''"
-    )
-    # The page itself was never touched.
-    assert page.evaluate("document.documentElement.style.paddingBottom") == ""
-
-
-def test_a_table_swapped_out_of_its_shell_gives_back_the_room(show: Show) -> None:
-    page = show(_shell(html.div(_table("invoices"), id="region")), width=390)
-    _tick(page)
-    page.wait_for_function("() => document.getElementById('shell').style.paddingBottom")
-    page.evaluate("document.getElementById('region').replaceChildren()")
-    # 16px is the shell's own, from its padding shorthand.
-    page.wait_for_function(
-        "() => document.getElementById('shell').style.paddingBottom === '16px'"
-        " && !document.getElementById('shell').style.scrollPaddingBottom"
-    )
-
-
-def test_a_focused_page_link_in_a_shell_is_not_under_the_bar(show: Show) -> None:
-    page = show(_shell(_table("invoices")), width=390, height=600)
-    _tick(page)
-    page.locator("#invoices-rows-pagination-page-2").focus()
-    page.wait_for_function(
-        "() => document.querySelector('#invoices-rows-pagination-page-2')"
-        f".getBoundingClientRect().bottom <= {_BAR_TOP}"
     )
 
 

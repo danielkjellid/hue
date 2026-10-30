@@ -53,6 +53,12 @@ _LOADING = (
     "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:cursor-progress"
 )
 
+# A stuck bar sits over the last rows and the pager until the reader scrolls
+# to its place, and a control focused there would be under it. The margin is
+# room for the bar, wrapped onto two lines, and the 24px it floats above the
+# foot.
+_CLEAR_OF_BAR = "[&_:is(a,button,input,select)]:scroll-mb-28"
+
 # The one band that scrolls, and the only place a table is ever too wide.
 _BODY_BAND = "overflow-x-auto"
 
@@ -134,13 +140,13 @@ class Table(ChainableComponent):
         self._props["footer"] = values
         return self
 
-    def _floating(self, *values: ComponentType) -> Self:
+    def _sticky_bar(self, *values: ComponentType) -> Self:
         """
-        What lives in the frame's Alpine scope but takes no room in it, such
-        as a bar teleported over the page. Kept apart from the toolbar, which
-        would otherwise square off the corners above the rows.
+        A bar under the rows that sticks to the foot of what the table
+        scrolls in, such as the one for picked rows. Kept apart from the
+        footer, which a response replaces.
         """
-        self._props["floating"] = values
+        self._props["sticky_bar"] = values
         return self
 
     def under(self, *values: ComponentType) -> Self:
@@ -164,6 +170,7 @@ class Table(ChainableComponent):
         scope = attrs.pop("x-data", None)
 
         toolbar = self._get_prop("toolbar", ())
+        sticky_bar = self._get_prop("sticky_bar", ())
         below = (*self._get_prop("footer", ()), *self._get_prop("under", ()))
         inside: list[ComponentType] = [
             *toolbar,
@@ -197,13 +204,13 @@ class Table(ChainableComponent):
                 # them, so a response that changes the rows changes these.
                 *below,
                 id=rows_id(frame_id),
-                class_=_LOADING,
+                class_=classnames(_LOADING, {_CLEAR_OF_BAR: bool(sticky_bar)}),
                 # Refreshed by every response that carries it, not only the
                 # ones aimed at it. Each read loads the whole page, so another
                 # table's links and carried state keep up with this one's.
                 **(SYNC if frame_id else {}),
             ),
-            *self._get_prop("floating", ()),
+            *sticky_bar,
         ]
         action: str | None = self._get_prop("form")
         if action is not None:

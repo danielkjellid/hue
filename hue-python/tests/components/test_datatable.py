@@ -467,20 +467,21 @@ class TestDataTable:
         assert_no_selector(html, "[x-data]")
 
     @pytest.mark.asyncio
-    async def test_what_to_do_with_the_picked_rows_floats_over_the_page(
+    async def test_what_to_do_with_the_picked_rows_sticks_under_the_rows(
         self, context_args
     ):
-        # Moved to the end of the body so it is in reach wherever the page
-        # is scrolled, and declared inside the frame so it keeps the scope.
+        # In the frame, after the rows and the pager, so it keeps the scope
+        # and sticks to the foot of whatever the table scrolls in.
         html = await render_tree(
             _selectable(),
             context_args=context_args,
         )
-        bar = "div[x-data] template[x-teleport=body] > div[role=group]"
+        bar = "div[x-data] > div[role=group]"
         assert_selector(html, bar)
+        assert_no_selector(html, "template[x-teleport]")
         assert_attr(html, bar, "aria-label", "Selected rows")
         assert_attr(html, bar, "x-show", "selected.length > 0")
-        assert_selector(html, f"{bar}.fixed")
+        assert_selector(html, f"{bar}.sticky")
         assert_selector(html, f"{bar} button", count=2)
 
     @pytest.mark.asyncio
@@ -489,7 +490,7 @@ class TestDataTable:
             _selectable(),
             context_args=context_args,
         )
-        bar = "template[x-teleport=body] > div[role=group]"
+        bar = "div[x-data] > div[role=group]"
         assert_attr(
             html,
             f"{bar} button[aria-label='Clear selection']",
@@ -510,7 +511,7 @@ class TestDataTable:
         )
         assert_attr(
             html,
-            "template[x-teleport=body] > div",
+            "div[x-data] > div[role=group]",
             "x-on:ajax:merged.window",
             "prune()",
         )
