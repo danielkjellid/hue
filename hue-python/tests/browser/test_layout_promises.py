@@ -134,6 +134,11 @@ def test_escape_closes_the_confirmation_then_clears_the_selection(
     page.locator(_BAR).get_by_role("button", name="Delete").click()
     dialog = page.get_by_role("alertdialog")
     expect(dialog).to_be_visible()
+    # Once the dialog holds focus, as it does by the time anyone can press a
+    # key.
+    page.wait_for_function(
+        "() => document.activeElement?.closest('[role=alertdialog]') !== null"
+    )
     page.keyboard.press("Escape")
     expect(dialog).to_be_hidden()
     # The selection outlives the first Escape, and focus is back on Delete.

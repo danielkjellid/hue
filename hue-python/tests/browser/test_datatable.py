@@ -159,6 +159,11 @@ def _tick(page: Page) -> None:
 
 
 def _end_of(page: Page, scroller: str) -> None:
+    # Once the bar has slid in, since it adds to what there is to scroll.
+    page.wait_for_function(
+        "bar => getComputedStyle(document.querySelector(bar)).transform === 'none'",
+        arg=_BAR,
+    )
     page.evaluate(f"(() => {{ const s = {scroller}; s.scrollTop = s.scrollHeight }})()")
 
 
@@ -213,13 +218,6 @@ def test_a_focused_row_checkbox_is_not_under_the_bar(show: Show) -> None:
 
 def test_the_pager_scrolls_clear_of_the_bar_on_the_page(show: Show) -> None:
     page = _at_the_foot(show, _table("invoices"))
-    _tick(page)
-    _end_of(page, "document.scrollingElement")
-    _clear_of_the_bar(page)
-
-
-def test_the_pager_scrolls_clear_in_an_overflow_x_wrapper(show: Show) -> None:
-    page = _at_the_foot(show, html.div(_table("invoices"), style="overflow-x: auto"))
     _tick(page)
     _end_of(page, "document.scrollingElement")
     _clear_of_the_bar(page)

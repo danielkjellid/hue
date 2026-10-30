@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from hue.assets import css_built_path
 
 from hue.context import HueContextArgs
 from hue.router import PathParseResult, Router
@@ -110,17 +109,17 @@ def mock_request() -> MockRequest:
     return _mock_request
 
 
-@pytest.fixture(scope="session", autouse=True)
-def built_stylesheet() -> None:
+def pytest_configure(config: pytest.Config) -> None:
     """
-    Build the stylesheet if it is missing.
+    Build the stylesheet once, before any test runs.
 
-    It is generated rather than committed, so a fresh checkout has none and the
-    asset tests would otherwise fail on an artifact nobody had made yet.
+    It is generated rather than committed, and a class added since the last
+    build would be missing from an old one, so the browser would test stale
+    styles. Only the main process builds it: the workers pytest-xdist starts
+    would otherwise all write the same file at once.
     """
-    if css_built_path().exists():
+    if hasattr(config, "workerinput"):
         return
-
     package_root = Path(__file__).resolve().parent.parent
     subprocess.run(
         ["make", "build-css"], cwd=package_root, check=True, capture_output=True

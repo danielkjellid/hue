@@ -56,6 +56,7 @@ dev = [
     "ruff>=0.14.4",
     "playwright>=1.64.1",
     "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.ruff]
@@ -80,6 +81,10 @@ DEP002 = ["pytailwindcss", "hatchling"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
+# The browser tests spend most of their time waiting on real delays and
+# transitions, so they run spread over the cores, a whole file per worker so
+# each keeps its browser.
+addopts = "-n auto --dist loadfile"
 # A browser test that waits on a promise the page never settles would hang the
 # whole run; this fails it instead, with a traceback that names it.
 timeout = 120

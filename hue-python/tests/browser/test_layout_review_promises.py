@@ -475,5 +475,5 @@ def test_a_search_typed_while_an_empty_one_is_in_flight_is_sent(show: Show) -> N
     with page.expect_request(lambda r: "invoices-q=7" in r.url):
         page.keyboard.type("7")
         page.keyboard.press("Enter")
-    for route in held:
-        route.abort()
+    # Left pending: closing the page drops them quietly, where an abort would
+    # log a failed fetch for the fixture to catch.

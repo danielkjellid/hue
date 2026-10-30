@@ -53,20 +53,6 @@ def render_page(*components: ComponentType, dir: str | None = None) -> str:
     return document if dir is None else document.replace("<html", f'<html dir="{dir}"', 1)
 
 
-@pytest.fixture(scope="session")
-def fresh_stylesheet() -> None:
-    """
-    Rebuild the stylesheet once per run.
-
-    A class added since the last build would otherwise be missing from it, and
-    the browser would test the old styles.
-    """
-    package_root = Path(__file__).resolve().parents[2]
-    subprocess.run(
-        ["make", "build-css"], cwd=package_root, check=True, capture_output=True
-    )
-
-
 # Per module, not per session: the sync API keeps an event loop running on
 # this thread while it is open, which the async component tests cannot share.
 @pytest.fixture(scope="module")
@@ -76,7 +62,7 @@ def playwright() -> Iterator[Playwright]:
 
 
 @pytest.fixture(scope="module")
-def browser(playwright: Playwright, fresh_stylesheet: None) -> Iterator[Browser]:
+def browser(playwright: Playwright) -> Iterator[Browser]:
     # The installed Chrome, which GitHub's runners carry too, so nothing is
     # downloaded.
     browser = playwright.chromium.launch(channel="chrome")
