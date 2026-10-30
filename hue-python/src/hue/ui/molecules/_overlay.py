@@ -134,6 +134,20 @@ def overlay_root(state: str) -> dict[str, str]:
     return {"x-data": state, **CLOSE_ON_ESCAPE}
 
 
+class WrapsTrigger(ChainableComponent):
+    """
+    A component drawn around the control given to its trigger().
+
+    Whatever wires behaviour onto it from outside, a Tooltip's description
+    or another overlay's listeners, belongs on that control and not on the
+    element around it, which never takes focus.
+    """
+
+    def _trigger_control(self) -> ChainableComponent | None:
+        trigger: ChainableComponent | None = self._get_prop("trigger")
+        return trigger._trigger_control() if trigger is not None else None
+
+
 #: What wire_trigger hands back for a control it has marked.
 TRIGGER = "$root.querySelector('[data-hue-trigger]')"
 

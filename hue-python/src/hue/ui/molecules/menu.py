@@ -39,7 +39,7 @@ _VARIANTS: dict[MenuItemVariant, str] = {
 }
 
 
-class DropdownMenu(ChainableComponent):
+class DropdownMenu(_overlay.WrapsTrigger):
     """
     A list of actions hanging off a control.
 

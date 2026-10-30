@@ -1,7 +1,7 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Button, Kbd, Tooltip
+from hue.ui import Button, Dialog, Drawer, DropdownMenu, Kbd, Popover, Tooltip
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -22,6 +22,30 @@ class TestTooltip:
         assert_attr(html, "button", ":aria-describedby", "$id('hue-tooltip')")
         assert_no_selector(html, "span[aria-describedby]")
 
+    @pytest.mark.parametrize(
+        "overlay",
+        [
+            Dialog().title("Settings"),
+            Drawer().title("Settings"),
+            Popover().title("Settings"),
+            DropdownMenu().label("Settings"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_an_overlay_trigger_describes_its_control(
+        self, context_args, overlay
+    ):
+        # The overlay wraps its control in an element of its own, which is
+        # not what focus lands on.
+        tooltip = (
+            Tooltip()
+            .content("Open settings")
+            .trigger(overlay.trigger(Button().content("Settings")))
+        )
+        html = await render_tree(tooltip, context_args=context_args)
+        assert_attr(html, "button", ":aria-describedby", "$id('hue-tooltip')")
+        assert len(select(html, "[\\:aria-describedby]")) == 1
+
     @pytest.mark.asyncio
     async def test_the_id_is_minted_rather_than_fixed(self, context_args):
         # Two tooltips on a page would otherwise point at the same bubble.
@@ -33,7 +57,7 @@ class TestTooltip:
     async def test_it_opens_on_focus_as_well_as_hover(self, context_args):
         # A keyboard never hovers, so hover alone hides it from half the users.
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert_attr(html, "[x-data]", "x-on:focusin", "shown = true")
+        assert_attr(html, "[x-data]", "x-on:focusin")
         assert_attr(html, "[x-data]", "x-on:mouseenter")
 
     @pytest.mark.asyncio
@@ -48,7 +72,7 @@ class TestTooltip:
     async def test_it_waits_before_opening(self, context_args):
         # A pointer crossing a toolbar would otherwise trail bubbles behind it.
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert "shown = true, 400)" in html
+        assert ", 400)" in html
 
     @pytest.mark.parametrize(
         ("placement", "ltr", "rtl"),

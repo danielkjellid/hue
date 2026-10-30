@@ -43,7 +43,7 @@ _SIZES: dict[DrawerSize, str] = {
 }
 
 
-class Drawer(ChainableComponent):
+class Drawer(_overlay.WrapsTrigger):
     """
     A dialog that slides in from an edge, for a list or a form long enough
     that a centred box would be cramped.
