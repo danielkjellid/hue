@@ -6,9 +6,11 @@ sized to it, and a Card or a Panel in a row or holding a long table.
 import pytest
 from htmy import html
 
-from hue.ui import Card, CardBody
+from hue.datatable import BulkAction, build_datatable_state
+from hue.ui import Card, CardBody, Column, DataTable, Stack
 from tests.browser.conftest import Show
 from tests.browser.test_data_navigation_promises import _coarse
+from tests.browser.test_datatable import _Router
 from tests.browser.test_layout_promises import _pager
 
 # Pagination.
@@ -42,3 +44,56 @@ def test_a_pager_keeps_its_width_in_a_parent_sized_to_it(
     )
     assert tops == 1
     assert page.evaluate("document.documentElement.scrollWidth") <= width
+
+
+# Card.
+
+
+def _wide(key: str = "invoices", rows: int = 3) -> DataTable:
+    return DataTable.from_state(
+        build_datatable_state(
+            _Router(),
+            key=key,
+            columns=[
+                Column("invoice", "Invoice"),
+                *[Column(f"c{n}", f"Column {n}") for n in range(8)],
+            ],
+            rows=lambda request, asked: [
+                {"invoice": f"INV-{n:03}", **{f"c{c}": "wide value" for c in range(8)}}
+                for n in range(rows)
+            ],
+            identifier="invoice",
+            actions={"archive": BulkAction("Archive", lambda request, ids: None)},
+            page_size=rows,
+        )
+    )
+
+
+@pytest.mark.parametrize("width", [390, 1440])
+@pytest.mark.parametrize("layout", ["flex", "grid"])
+def test_cards_beside_each_other_shrink_around_a_wide_table(
+    show: Show, width: int, layout: str
+) -> None:
+    cards = (
+        Card().id("one").class_("flex-1").content(CardBody().content(_wide())),
+        Card().id("two").class_("flex-1").content(CardBody().content("Two")),
+    )
+    row = (
+        Stack().horizontal().content(*cards)
+        if layout == "flex"
+        else html.div(*cards, class_="grid grid-cols-2 gap-4")
+    )
+    page = show(row, width=width)
+    if width == 390:
+        _coarse(page)
+    assert page.evaluate("document.documentElement.scrollWidth") <= width
+    widths = page.evaluate(
+        "['one', 'two'].map((id) =>"
+        " document.getElementById(id).getBoundingClientRect().width)"
+    )
+    assert abs(widths[0] - widths[1]) < 1
+    # The table scrolls sideways in its own band instead.
+    assert page.evaluate(
+        "(() => { const band = document.querySelector('#invoices table')"
+        ".parentElement; return band.scrollWidth > band.clientWidth })()"
+    )
