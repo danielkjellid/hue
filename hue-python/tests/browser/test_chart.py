@@ -1,5 +1,5 @@
 from htmy import html
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from hue.ui import BarChart, BubbleChart, LineChart, ScatterChart
 from tests.browser.conftest import Show
@@ -114,3 +114,24 @@ def test_a_point_chart_is_five_by_two_when_that_is_tall_enough(show: Show) -> No
     for index in (0, 1):
         box = _holder_size(page, index)
         assert abs(box["height"] - box["width"] * 2 / 5) < 1
+
+
+def test_the_retry_overlay_stays_inside_a_short_chart(show: Show) -> None:
+    page = show(html.div(LineChart.example(), style="width:80px"))
+    _drawn(page)
+    # Failing for real logs a console error, which fails the test.
+    page.evaluate(
+        "() => { Alpine.$data(document.querySelector('figure')).failed = true }"
+    )
+    retry = page.get_by_role("button", name="Retry")
+    expect(retry).to_be_visible()
+    holder = _holder_size(page)
+    for part in (page.get_by_text("Unable to load chart."), retry):
+        box = part.bounding_box()
+        assert box is not None
+        assert holder["top"] <= box["y"]
+        assert box["y"] + box["height"] <= holder["bottom"]
+    # Neither squashed: a small control is 32px tall.
+    assert retry.bounding_box()["height"] >= 32  # type: ignore[index]
+    # Nor under the canvas, which would take the click.
+    retry.click(trial=True, timeout=2000)

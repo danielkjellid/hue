@@ -156,9 +156,12 @@ class Chart(ChainableComponent):
                     .x_ref("retry")
                     .x_bind("aria-describedby", unsafe(_ERROR_ID))
                     .on_click(call("retry")),
+                    # In the spacer's grid cell rather than over it, so a
+                    # chart too short for the message grows to fit it.
+                    # Relative to paint above the canvas.
                     class_=(
-                        "absolute inset-0 flex flex-col items-center justify-center "
-                        "gap-2 text-sm text-fg-muted"
+                        "relative flex flex-col items-center justify-center gap-2 "
+                        "text-center text-sm text-fg-muted [grid-area:1/1]"
                     ),
                     # hidden rather than x-show, which only reveals an element on
                     # the next frame: too late for the loader to focus Retry.
@@ -168,8 +171,10 @@ class Chart(ChainableComponent):
                 # 5:2 as a padding, which is a share of the width, rather than
                 # an aspect ratio: with a min height, an aspect ratio sets a
                 # min width too, and holds a narrow grid cell open.
-                html.div(class_=classnames("pt-[40%]", self._MIN_HEIGHT)),
-                class_="relative w-full",
+                html.div(
+                    class_=classnames("pt-[40%] [grid-area:1/1]", self._MIN_HEIGHT)
+                ),
+                class_="relative grid w-full",
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
