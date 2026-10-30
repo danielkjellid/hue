@@ -152,7 +152,7 @@ PAGE = ComponentPage(
             own_error_wins,
             layout="stack",
         ),
-        panel("Empty", no_errors, layout="stack", hint="No errors() set"),
+        panel("Empty", no_errors, layout="stack", hint="No `errors()` set"),
     ],
     notes=[
         Note(

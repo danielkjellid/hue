@@ -211,6 +211,7 @@ PAGE = ComponentPage(
             filters,
             layout="center",
             min_height=520,
+            width="lg",
             hint="Open it, tab through it, press Escape",
         ),
         panel(
@@ -231,7 +232,7 @@ PAGE = ComponentPage(
             width="lg",
             hint="Wider than md only",
         ),
-        panel("States", must_be_answered, named_by_label, min_height=320),
+        panel("States", must_be_answered, named_by_label, min_height=320, width="lg"),
     ],
     notes=[
         Note(

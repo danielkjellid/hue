@@ -150,13 +150,15 @@ def _usage() -> ComponentType:
             "size and pressed state itself."
         ),
         pr.code(
-            "SegmentedControl()\n"
-            '.label("Date range")\n'
-            '.value("week")\n'
-            ".content(\n"
-            '    SegmentedOption().value("day").content("Day"),\n'
-            '    SegmentedOption().value("week").content("Week"),\n'
-            '    SegmentedOption().value("month").content("Month"),\n'
+            "(\n"
+            "    SegmentedControl()\n"
+            '    .label("Date range")\n'
+            '    .value("week")\n'
+            "    .content(\n"
+            '        SegmentedOption().value("day").content("Day"),\n'
+            '        SegmentedOption().value("week").content("Week"),\n'
+            '        SegmentedOption().value("month").content("Month"),\n'
+            "    )\n"
             ")"
         ),
         pr.h3("Where a SegmentedControl keeps its selection"),

@@ -15,7 +15,7 @@ def sign_ups() -> LineChart:
         LineChart()
         .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
         .series([212, 240, 198, 260, 251, 305, 330], label="This week")
-        .compare([190, 205, 201, 222, 230, 260, 270], label="Last week")
+        .compare([190, 205, 188, 222, 230, 260, 270], label="Last week")
         .description("Sign-ups rose from 212 to 330, above last week every day.")
     )
 
@@ -107,7 +107,7 @@ PAGE = ComponentPage(
             one_series,
             with_compare,
             layout="stack",
-            hint="The legend appears with compare()",
+            hint="The legend appears with `compare()`",
         ),
         panel(
             "Formats",
@@ -115,7 +115,7 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="y_format() writes the axis, the tooltip and the table",
+            hint="`y_format()` writes the axis, the tooltip and the table",
         ),
     ],
     notes=_charts.notes("LineChart"),

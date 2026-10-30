@@ -100,7 +100,10 @@ def _usage() -> ComponentType:
         pr.p(
             "The open state lives in Alpine on the page and is not submitted or "
             "remembered. A form field inside a closed `Disclosure` is hidden with "
-            "`display: none` but stays in the form, so it is still submitted."
+            "`display: none` but stays in the form, so its value is still "
+            "submitted. When a hidden field fails the browser's validation on "
+            "submit, such as a `required` field left empty, the `Disclosure` "
+            "opens and the browser moves focus to that field."
         ),
     )
 

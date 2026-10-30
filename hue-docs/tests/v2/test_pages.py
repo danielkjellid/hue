@@ -5,6 +5,7 @@ Every page and every frame renders, every example in it, and no id repeats.
 from __future__ import annotations
 
 import collections
+import html as html_module
 import inspect
 import os
 import re
@@ -70,6 +71,17 @@ def test_a_demo_route_answers(client: TestClient) -> None:
     assert 'id="send-status"' in response.text
     # The router carries the toast behind the fragment.
     assert "Invoice sent" in response.text
+
+
+@pytest.mark.parametrize(
+    "number,shown", [("abc", 1), ("0", 1), ("2", 2), ("99", 4), ("²", 1)]
+)
+def test_the_pagination_demo_clamps_any_page_it_is_given(
+    client: TestClient, number: str, shown: int
+) -> None:
+    response = client.get(f"/demos/pagination/{number}/")
+    assert response.status_code == 200
+    assert f"Orders, page {shown}" in response.text
 
 
 def test_the_worker_runs_the_demos_and_nothing_else() -> None:
@@ -147,3 +159,13 @@ def test_the_docs_icons_carry_no_title() -> None:
     icons = Path(hue_docs_v2.__file__).parent / "icons"
     titled = [p.name for p in icons.glob("*.svg") if "<title" in p.read_text()]
     assert titled == []
+
+
+def test_the_icon_page_imports_what_a_reader_binds(client: TestClient) -> None:
+    # hue's Icon raises when rendered, so the page's import line names the
+    # factory instead.
+    text = html_module.unescape(
+        re.sub(r"<[^>]+>", "", client.get("/components/icon/").text)
+    )
+    first = text[text.index("from hue.ui import") :].splitlines()[0]
+    assert first == "from hue.ui import create_icon_base"

@@ -109,9 +109,11 @@ def _usage() -> ComponentType:
         pr.p(
             "A `Command` is a search field over a list of things to go to or "
             "do, in a modal panel. The items are `CommandItem`, optionally in a "
-            "labelled `CommandGroup`. `hotkey()` opens and closes it from "
-            "anywhere on the page, and `trigger()` adds a control that opens it "
-            "as well."
+            "labelled `CommandGroup`. `hotkey()` opens it from anywhere on the "
+            "page, and `trigger()` adds a control that opens it as well. While "
+            "the palette is open, focus is in its search field, so only a hotkey "
+            "with Command or Control closes it again. A bare key such as `/` is "
+            "typed into the field."
         ),
         pr.code(
             "(\n"

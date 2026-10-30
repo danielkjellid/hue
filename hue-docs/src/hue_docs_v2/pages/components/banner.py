@@ -117,11 +117,14 @@ def _usage() -> ComponentType:
             "handling on dismiss are the same too."
         ),
         pr.code(
-            "Banner()\n"
-            '.variant("warning")\n'
-            '.title("Your trial ends on Friday")\n'
-            '.actions(Button().variant("outline").size("sm").content("Add billing"))\n'
-            ".dismissible()"
+            "(\n"
+            "    Banner()\n"
+            '    .variant("warning")\n'
+            '    .title("Your trial ends on Friday")\n'
+            '    .actions(Button().variant("outline").size("sm")'
+            '.content("Add billing"))\n'
+            "    .dismissible()\n"
+            ")"
         ),
         pr.h3("Placing a Banner"),
         pr.p(

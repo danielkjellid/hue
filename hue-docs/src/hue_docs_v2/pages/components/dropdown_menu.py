@@ -40,6 +40,10 @@ def project_actions() -> DropdownMenu:
     )
 
 
+def after_the_menu() -> Button:
+    return Button().variant("outline").content("Share")
+
+
 # Placements
 
 
@@ -193,7 +197,8 @@ def _usage() -> ComponentType:
             "goes to the first item. Up and Down move between items and wrap "
             "at the ends, Home and End jump to the first and last. Escape "
             "closes the menu and puts focus back on the trigger. Tab closes "
-            "it and moves on to whatever follows the trigger."
+            "it and moves on to whatever follows the trigger, the Share button "
+            "in the live example."
         ),
         pr.h3("Placement"),
         pr.p(
@@ -216,6 +221,7 @@ PAGE = ComponentPage(
         panel(
             "Live",
             project_actions,
+            after_the_menu,
             layout="center",
             min_height=480,
             hint="Open it with Down, walk it with the arrow keys",

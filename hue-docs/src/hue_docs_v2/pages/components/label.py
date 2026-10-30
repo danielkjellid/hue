@@ -71,6 +71,8 @@ def _usage() -> ComponentType:
             "the label focuses the control."
         ),
         pr.code(
+            "from hue import html\n"
+            "from hue.ui import Label\n\n"
             'Label("Company name").html_for("company")\n'
             'html.input_().input_type("text").name("company").id("company")'
         ),

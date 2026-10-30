@@ -168,10 +168,12 @@ def _usage() -> ComponentType:
             "other content keeps its room."
         ),
         pr.code(
-            "SidebarItem()\n"
-            '.href("/orders")\n'
-            '.icon(Icon("credit-card"))\n'
-            '.content(SidebarLabel().content("Orders"), Badge().content("3"))'
+            "(\n"
+            "    SidebarItem()\n"
+            '    .href("/orders")\n'
+            '    .icon(Icon("credit-card"))\n'
+            '    .content(SidebarLabel().content("Orders"), Badge().content("3"))\n'
+            ")"
         ),
         pr.h2("Marking the current page in a Sidebar"),
         pr.p(

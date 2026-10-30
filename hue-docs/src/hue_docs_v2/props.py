@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import inspect
 import textwrap
+import types
 import typing
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -40,19 +41,37 @@ class Prop:
 def _type(annotation: Any, raw: str) -> str:
     """
     A parameter's type as a reader wants it: the values of a Literal alias
-    spelled out, anything else as the source wrote it.
+    spelled out, on its own or in a union such as HeadingLevel | None,
+    anything else as the source wrote it.
     """
+    return _literal(annotation) or _union(annotation) or raw
+
+
+def _literal(annotation: Any) -> str | None:
     resolved = annotation
     while isinstance(resolved, typing.TypeAliasType):
         resolved = resolved.__value__
-    if typing.get_origin(resolved) is Literal:
-        values = [repr(value) for value in typing.get_args(resolved)]
-        if len(values) > _SHOWN_VALUES:
-            # Autocomplete's forty-odd tokens would bury the table.
-            more = len(values) - _SHOWN_VALUES
-            values = [*values[:_SHOWN_VALUES], f"... {more} more"]
-        return " | ".join(values)
-    return raw
+    if typing.get_origin(resolved) is not Literal:
+        return None
+    values = [repr(value) for value in typing.get_args(resolved)]
+    if len(values) > _SHOWN_VALUES:
+        # Autocomplete's forty-odd tokens would bury the table.
+        more = len(values) - _SHOWN_VALUES
+        values = [*values[:_SHOWN_VALUES], f"... {more} more"]
+    return " | ".join(values)
+
+
+def _union(annotation: Any) -> str | None:
+    if typing.get_origin(annotation) not in (typing.Union, types.UnionType):
+        return None
+    members = typing.get_args(annotation)
+    literals = [_literal(member) for member in members]
+    if not any(literals):
+        return None
+    return " | ".join(
+        literal or ("None" if member is type(None) else member.__name__)
+        for member, literal in zip(members, literals, strict=True)
+    )
 
 
 def _signature(func: Any) -> str:

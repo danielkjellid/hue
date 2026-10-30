@@ -70,6 +70,7 @@ def _usage() -> ComponentType:
             "back with `error()`, or by name through `Form.errors()`."
         ),
         pr.code(
+            "from hue.ui import EmailInput, Form\n\n"
             'Form().errors({"email": "That address is already invited."}).content(\n'
             '    EmailInput().name("email").label("Email"),\n'
             ")"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hue import toast
 from hue.js import call, close
 from hue.types.core import ComponentType
 from hue.ui import Button, Checkbox, Dialog, DropdownMenu, Popover, TextInput, Tooltip
@@ -28,7 +29,10 @@ def share() -> Popover:
                 Button()
                 .variant("outline")
                 .content("Copy")
-                .on_click(call("navigator.clipboard.writeText", "hue.app/p/9f2Kd8"))
+                .on_click(
+                    call("navigator.clipboard.writeText", "hue.app/p/9f2Kd8"),
+                    toast.js.success("Copied to clipboard"),
+                )
             ),
             Checkbox().name("allow_comments").label("Allow comments"),
         )

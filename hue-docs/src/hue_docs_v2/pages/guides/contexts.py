@@ -195,10 +195,11 @@ def _build() -> ComponentType:
         pr.p(
             "The request needs more care. It is already in the context, and a "
             "leaf that reaches for it can no longer be rendered without a "
-            "request built for it first. Hue reads it only in the table "
-            "declaration, whose job is to turn a request into rows. It reads "
-            "it once, at the top of the table, and everything under it reads "
-            "the bound table instead."
+            "request built for it first. Hue reads it in two places. The "
+            "table declaration turns a request into rows, once, at the top of "
+            "the table, and everything under it reads the bound table instead. "
+            "A shortcut shown in a `Command` or a menu row reads it to work "
+            "out where that shortcut goes on this request."
         ),
     )
 

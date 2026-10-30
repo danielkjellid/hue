@@ -112,7 +112,7 @@ PAGE = ComponentPage(
             percent,
             currency,
             layout="stack",
-            hint="value_format() writes the tooltip and the table",
+            hint="`value_format()` writes the tooltip and the table",
         ),
     ],
     notes=_charts.notes("DoughnutChart"),

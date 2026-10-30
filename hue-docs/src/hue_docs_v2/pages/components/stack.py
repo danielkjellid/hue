@@ -352,8 +352,10 @@ PAGE = ComponentPage(
         Note(
             "note",
             "`spacing()` is applied with Tailwind's `space-x` and `space-y` utilities, "
-            "which set margins on the children. A `Spacer` inside a `Stack` adds "
-            "its own margin on top of that gap.",
+            "which set margins on the children. A `Spacer` sets only a bottom "
+            "margin, so in a vertical `Stack` it adds that margin on top of the "
+            "gap. In a horizontal `Stack` it adds nothing of its own, and the "
+            "row gets one more gap.",
         ),
     ],
     related=[Spacer],

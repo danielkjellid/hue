@@ -95,14 +95,17 @@ def _usage() -> ComponentType:
     return pr.page(
         *_charts.point_data("ScatterChart", "`(x, y)`"),
         pr.code(
-            "ScatterChart()\n"
+            "(\n"
+            "    ScatterChart()\n"
             '    .series([(12, 0.18), (25, 0.22), (31, 0.35)], label="Online")\n'
             '    .series([(9, 0.12), (20, 0.15), (36, 0.21)], label="In store")\n'
             '    .x_label("Basket size")\n'
             '    .y_label("Margin")\n'
             '    .y_format("percent")\n'
-            '    .description("Margin grows with basket size, faster online.")'
+            '    .description("Margin grows with basket size, faster online.")\n'
+            ")"
         ),
+        *_charts.point_refusals("ScatterChart"),
         pr.p(
             "A `ScatterChart` raises a `ValueError` on a point with a third "
             "number, a size. A point with a size belongs on a `BubbleChart`."

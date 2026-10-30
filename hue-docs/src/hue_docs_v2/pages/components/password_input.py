@@ -82,11 +82,13 @@ def _usage() -> ComponentType:
             "to generate one."
         ),
         pr.code(
-            "PasswordInput()\n"
-            '.name("new_password")\n'
-            '.label("New password")\n'
-            '.autocomplete("new-password")\n'
-            ".revealable()"
+            "(\n"
+            "    PasswordInput()\n"
+            '    .name("new_password")\n'
+            '    .label("New password")\n'
+            '    .autocomplete("new-password")\n'
+            "    .revealable()\n"
+            ")"
         ),
     )
 

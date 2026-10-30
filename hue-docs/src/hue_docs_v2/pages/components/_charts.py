@@ -34,16 +34,18 @@ def formats(name: str, modifiers: str, *, axis: bool = True) -> list[ComponentTy
             f'{modifiers} {verb} one of three formats: `"number"` (the default), '
             '`"percent"` and `"currency"`. A percent is given as a fraction, so `0.42` '
             "is written 42%. `currency` is an ISO 4217 code, read only by the "
-            "currency format and upper-cased. A code that is not three letters "
-            "raises a `ValueError` when the modifier is called. Left to the "
-            "browser, it would leave the chart blank."
+            'currency format and upper-cased. With `"currency"`, a code that is '
+            "not three letters raises a `ValueError` when the modifier is called, "
+            "since the browser would leave the chart blank. With the other two "
+            "formats the code is ignored."
         ),
         pr.p(
             f"{where} get their text from Python, so both read exactly the "
             "same. A number has up to two decimals and no trailing zeros, with "
             "commas between thousands. A currency always has two decimals and "
             "ends in its code, as in 4,829.00 USD. A value that rounds to zero "
-            "is written `0`, never `-0`."
+            "is written `0`, or `0.00` and the code as a currency, never with a "
+            "minus sign."
             + (
                 " Axis ticks are written by the browser, since they are not "
                 "known until the chart is laid out, in compact notation "
@@ -132,9 +134,9 @@ def notes(name: str) -> list[Note]:
         ),
         Note(
             "a11y",
-            "The tooltip appears on pointer hover only. The table carries the "
-            "same text, so keyboard and screen reader users read the values "
-            "there.",
+            "The tooltip appears when a pointer hovers the chart or a finger "
+            "taps it, never from the keyboard. The table carries the same text, "
+            "so keyboard and screen reader users read the values there.",
         ),
         Note(
             "a11y",
@@ -167,11 +169,13 @@ def series_data(name: str) -> list[ComponentType]:
             "the tooltip and the table."
         ),
         pr.code(
-            f"{name}()\n"
+            "(\n"
+            f"    {name}()\n"
             '    .labels(["Q1", "Q2", "Q3", "Q4"])\n'
             '    .series([48, 52, 61, 70], label="2026")\n'
             '    .compare([41, 45, 50, 58], label="2025")\n'
-            '    .description("Every quarter of 2026 beat the same quarter of 2025.")'
+            '    .description("Every quarter of 2026 beat the same quarter of 2025.")\n'
+            ")"
         ),
         pr.p(
             "The legend only appears with `compare()`, since a single series has "
@@ -205,9 +209,11 @@ def slice_data(name: str) -> list[ComponentType]:
             "it draws with its swatch."
         ),
         pr.code(
-            f"{name}()\n"
+            "(\n"
+            f"    {name}()\n"
             '    .slices([("Card", 412), ("Invoice", 191), ("Transfer", 107)])\n'
-            '    .description("Card is the most used way to pay, at 58%.")'
+            '    .description("Card is the most used way to pay, at 58%.")\n'
+            ")"
         ),
         pr.p(
             "The tooltip gives each value with its share of the whole, as in "
@@ -263,6 +269,14 @@ def point_data(name: str, shape: str) -> list[ComponentType]:
             "and smallest values, so a point at the edge of the range is not "
             "cut in half. Neither axis is forced to start at zero."
         ),
+    ]
+
+
+def point_refusals(name: str) -> list[ComponentType]:
+    """
+    Follows point_data, after the page's own example of it.
+    """
+    return [
         pr.h3(f"What {name} refuses"),
         pr.bullets(
             [

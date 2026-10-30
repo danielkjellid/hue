@@ -143,7 +143,7 @@ def _build() -> ComponentType:
             "from django.test import Client\n\n"
             "client = Client()\n"
             "response = client.get(\n"
-            '    "/myview/comments/",\n'
+            '    "/api/comments/comments/",\n'
             '    HTTP_X_REQUESTED_WITH="XMLHttpRequest",\n'
             ")"
         ),

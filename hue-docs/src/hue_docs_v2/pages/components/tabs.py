@@ -191,12 +191,14 @@ def _usage() -> ComponentType:
             "no panels of its own."
         ),
         pr.code(
-            "Tabs()\n"
-            '.label("Settings")\n'
-            ".current(request.url.path)\n"
-            ".content(\n"
-            '    Tab().href("/settings/account/").content("Account"),\n'
-            '    Tab().href("/settings/team/").content("Team"),\n'
+            "(\n"
+            "    Tabs()\n"
+            '    .label("Settings")\n'
+            "    .current(request.url.path)\n"
+            "    .content(\n"
+            '        Tab().href("/settings/account/").content("Account"),\n'
+            '        Tab().href("/settings/team/").content("Team"),\n'
+            "    )\n"
             ")"
         ),
         pr.h2("Marking the current Tab"),
@@ -263,12 +265,14 @@ def _usage() -> ComponentType:
             "without an `id()` raises an error."
         ),
         pr.code(
-            "Tabs()\n"
-            '.id("settings-tabs")\n'
-            '.label("Settings")\n'
-            '.target("settings-panel")\n'
-            ".current(request.url.path)\n"
-            ".content(...)"
+            "(\n"
+            "    Tabs()\n"
+            '    .id("settings-tabs")\n'
+            '    .label("Settings")\n'
+            '    .target("settings-panel")\n'
+            "    .current(request.url.path)\n"
+            "    .content(...)\n"
+            ")"
         ),
         pr.p(
             "The route behind each tab can return the whole page, so a reload "

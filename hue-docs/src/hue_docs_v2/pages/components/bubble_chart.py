@@ -91,13 +91,16 @@ def _usage() -> ComponentType:
     return pr.page(
         *_charts.point_data("BubbleChart", "`(x, y, size)`"),
         pr.code(
-            "BubbleChart()\n"
+            "(\n"
+            "    BubbleChart()\n"
             '    .series([(2, 40, 120), (5, 55, 340), (8, 48, 90)], label="Teams")\n'
             '    .x_label("Engineers")\n'
             '    .y_label("Deploys per week")\n'
             '    .size_label("Incidents fixed")\n'
-            '    .description("Larger teams deploy more and fix more incidents.")'
+            '    .description("Larger teams deploy more and fix more incidents.")\n'
+            ")"
         ),
+        *_charts.point_refusals("BubbleChart"),
         pr.h2("How BubbleChart sizes its bubbles"),
         pr.p(
             "`size_label()` names what a bubble's size stands for. It is "

@@ -136,10 +136,12 @@ def _usage() -> ComponentType:
             "buttons below both."
         ),
         pr.code(
-            "Empty()\n"
-            '.title("No invoices yet")\n'
-            '.description("Invoices appear here once your first order is paid.")\n'
-            '.actions(Button().content("Create invoice"))'
+            "(\n"
+            "    Empty()\n"
+            '    .title("No invoices yet")\n'
+            '    .description("Invoices appear here once your first order is paid.")\n'
+            '    .actions(Button().content("Create invoice"))\n'
+            ")"
         ),
         pr.h3("Variant and icon"),
         pr.p(
@@ -195,7 +197,7 @@ PAGE = ComponentPage(
             "Layout",
             default_padding,
             compact,
-            hint="compact() for an Empty inside a card or a table",
+            hint="`compact()` for an `Empty` inside a card or a table",
         ),
         panel("Empty", first_use, no_results),
         panel("Error", could_not_load, layout="stack"),

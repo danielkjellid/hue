@@ -107,11 +107,13 @@ def _usage() -> ComponentType:
             "replacing the container with the loaded version."
         ),
         pr.code(
-            "Stack()\n"
-            '.aria_busy("true")\n'
-            ".content(\n"
-            '    Skeleton().shape("circle"),\n'
-            '    Skeleton().shape("text").lines(2),\n'
+            "(\n"
+            "    Stack()\n"
+            '    .aria_busy("true")\n'
+            "    .content(\n"
+            '        Skeleton().shape("circle"),\n'
+            '        Skeleton().shape("text").lines(2),\n'
+            "    )\n"
             ")"
         ),
         pr.p(

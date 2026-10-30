@@ -174,6 +174,7 @@ def _usage() -> ComponentType:
             "control itself takes precedence."
         ),
         pr.code(
+            "from hue.ui import Form, TextInput\n\n"
             'Form().errors({"email": "That address is already invited."}).content(\n'
             '    TextInput().name("email").label("Email"),\n'
             ")"

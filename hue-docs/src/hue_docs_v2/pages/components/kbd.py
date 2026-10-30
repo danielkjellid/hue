@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hue import html
 from hue.types.core import ComponentType
 from hue.ui import Kbd, Text
 
@@ -28,8 +29,8 @@ def named_key() -> Kbd:
     return Kbd("esc")
 
 
-def arrows() -> Kbd:
-    return Kbd("up", "down")
+def arrows() -> ComponentType:
+    return html.span(Kbd("up"), " or ", Kbd("down"))
 
 
 def enter() -> Kbd:

@@ -26,13 +26,15 @@ class PaginationDemo(HueFragmentsView):
 
     @router.page("{number}/")
     async def orders_page(
-        self, request: Request, context: HueContext[Request], number: int
+        self, request: Request, context: HueContext[Request], number: str
     ) -> ComponentType:
-        number = min(max(number, 1), _PAGES)
-        first = (number - 1) * _PAGE_SIZE + 1
-        last = min(number * _PAGE_SIZE, _ORDERS)
+        # Taken as text and clamped here, so a hand-edited URL still gets a
+        # page rather than a 422.
+        page = min(max(int(number), 1), _PAGES) if number.isdecimal() else 1
+        first = (page - 1) * _PAGE_SIZE + 1
+        last = min(page * _PAGE_SIZE, _ORDERS)
         return Page(
-            title=f"Orders, page {number}",
+            title=f"Orders, page {page}",
             body=Stack()
             .class_("p-6")
             .content(
@@ -44,11 +46,11 @@ class PaginationDemo(HueFragmentsView):
                 Pagination()
                 .id("orders-pages")
                 .target("orders")
-                .page(number)
+                .page(page)
                 .total_pages(_PAGES)
                 .total_records(_ORDERS)
                 .page_size(_PAGE_SIZE)
-                .href(lambda page: f"/demos/pagination/{page}/"),
+                .href(lambda step: f"/demos/pagination/{step}/"),
             ),
         )
 
@@ -161,11 +163,13 @@ def _usage() -> ComponentType:
             "it shows."
         ),
         pr.code(
-            "Pagination()\n"
+            "(\n"
+            "    Pagination()\n"
             "    .page(3)\n"
             "    .total_pages(15)\n"
             "    .total_records(148)\n"
-            '    .href(lambda page: f"/invoices/?page={page}")'
+            '    .href(lambda page: f"/invoices/?page={page}")\n'
+            ")"
         ),
         pr.p(
             "A `page()` below `1` or above `total_pages()` is clamped to the nearest "
@@ -271,8 +275,9 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            'The steps sit in a `nav` labelled "Pagination", and the current '
-            'page carries `aria-current="page"`.',
+            'The steps sit in a `nav` labelled "Pagination", or "Pagination, '
+            'single page" when there is only one, and the current page carries '
+            '`aria-current="page"`.',
         ),
         Note(
             "a11y",

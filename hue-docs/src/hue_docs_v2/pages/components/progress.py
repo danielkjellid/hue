@@ -95,8 +95,9 @@ def _usage() -> ComponentType:
         pr.h3("Values"),
         pr.p(
             "`value()` is clamped to the range `0` to `100`, so `120` renders as "
-            "`100` and `-5` as `0`. `NaN` raises a `ValueError`. The percentage prints "
-            "without trailing zeros: `37.5` shows as 37.5% and `40.0` as 40%."
+            "`100` and `-5` as `0`. `NaN` raises a `ValueError`. The percentage shown "
+            "is rounded down to a whole number, so `37.5` shows as 37% and `99.9` as "
+            "99%. Only a finished bar reads 100%."
         ),
         pr.h3("Unknown length"),
         pr.p(
@@ -137,7 +138,7 @@ PAGE = ComponentPage(
             indeterminate,
             indeterminate_without_label_text,
             layout="stack",
-            hint="indeterminate() for work of unknown length",
+            hint="`indeterminate()` for work of unknown length",
         ),
     ],
     notes=[

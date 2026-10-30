@@ -172,13 +172,16 @@ def _usage() -> ComponentType:
             "set."
         ),
         pr.code(
-            "Alert()\n"
-            '.variant("danger")\n'
-            '.title("We could not charge your card")\n'
-            '.content("The bank declined the payment.")\n'
-            ".actions(\n"
-            '    Button().variant("danger").size("sm").content("Try again"),\n'
-            '    Button().variant("ghost").size("sm").content("Use another card"),\n'
+            "(\n"
+            "    Alert()\n"
+            '    .variant("danger")\n'
+            '    .title("We could not charge your card")\n'
+            '    .content("The bank declined the payment.")\n'
+            "    .actions(\n"
+            '        Button().variant("danger").size("sm").content("Try again"),\n'
+            '        Button().variant("ghost").size("sm")'
+            '.content("Use another card"),\n'
+            "    )\n"
             ")"
         ),
         pr.p(

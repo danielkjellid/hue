@@ -80,7 +80,9 @@ def _usage() -> ComponentType:
         pr.h3("Dot, pill and numeric"),
         pr.p(
             "`dot()` puts a small dot before the label in the label's own "
-            "colour. `pill()` rounds the ends fully and widens the padding. "
+            "colour. `pill()` rounds the ends fully and pads the sides by 9px. "
+            '`size("lg")` pads them by 9px already, so a pill only widens at the '
+            "default size. "
             "`numeric()` switches the figures to tabular widths, so counts in a "
             "column line up digit for digit."
         ),
