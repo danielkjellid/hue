@@ -27,6 +27,12 @@ class TestText:
             context_args=context_args,
         )
         assert_selector(html, "h1")
+        assert "[font:inherit]" in html
+
+    @pytest.mark.asyncio
+    async def test_no_heading_reset_off_a_heading(self, context_args):
+        html = await render_tree(Text("Plain"), context_args=context_args)
+        assert "[font:inherit]" not in html
 
     # Colour: one semantic alias per state, destructive winning over muted.
     @pytest.mark.asyncio

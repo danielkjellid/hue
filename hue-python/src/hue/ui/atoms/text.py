@@ -33,6 +33,11 @@ type TextVariant = Literal[
     "body",
 ]
 
+# A heading tag says where the text sits in the outline, and the base
+# heading rule would also restyle it. These take the type a p would inherit
+# instead, at zero specificity so the variant and class_() still win.
+_HEADING_RESET = "[:where(&)]:[font:inherit] [:where(&)]:[letter-spacing:inherit]"
+
 # The values double as the Tailwind classes they apply.
 type TextAlign = Literal["text-left", "text-center", "text-right"]
 
@@ -95,6 +100,7 @@ class Text(ChainableComponent):
         tag: TextTag = self._get_prop("tag", "p")
 
         classes = classnames(
+            {_HEADING_RESET: tag.startswith("h")},
             _VARIANT_CLASSES[variant],
             align,
             {
