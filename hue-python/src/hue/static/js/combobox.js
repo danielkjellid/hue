@@ -77,11 +77,14 @@ export function registerComboboxData(Alpine) {
 			this.open = true;
 			this.filter();
 			if (which === "none") return;
-			this.$nextTick(() => {
-				const enabled = this.enabled();
-				const chosen = enabled.find((option) => this.chosen(option.dataset.value));
-				this.activate(which === "last" ? enabled.at(-1) : (chosen ?? enabled[0]));
-			});
+			// Now rather than a tick later, as in search(), so a key pressed
+			// in between finds the option active and an Escape that closes
+			// the list is not followed by an activation.
+			const enabled = this.enabled();
+			const chosen = enabled.find((option) => this.chosen(option.dataset.value));
+			this.activate(which === "last" ? enabled.at(-1) : (chosen ?? enabled[0]));
+			// The list shows a tick later, and only then can it scroll.
+			this.$nextTick(() => this.current()?.scrollIntoView({ block: "nearest" }));
 		},
 
 		hide() {

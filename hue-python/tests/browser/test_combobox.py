@@ -191,3 +191,31 @@ def test_enter_with_the_list_open_never_submits(show: Show, query: str) -> None:
     page.keyboard.press("Enter")
     assert page.evaluate("window.submits") is None
     expect(field).to_have_attribute("aria-expanded", "true")
+
+
+def test_down_then_enter_straight_away_chooses(show: Show) -> None:
+    page = show(_in_a_form(_fruit()))
+    _closed(page)
+    # Back to back, before anything waits a tick.
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    expect(page.locator("input[type=hidden][name=fruit]")).to_have_value("apple")
+    assert page.evaluate("window.submits") is None
+
+
+def test_escape_straight_after_focus_leaves_nothing_active(show: Show) -> None:
+    page = show(_fruit())
+    field = page.get_by_role("combobox", name="Fruit")
+    # In one task, so the Escape arrives before anything waits a tick.
+    field.evaluate(
+        """el => {
+            el.focus();
+            el.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+            );
+        }"""
+    )
+    expect(field).to_have_attribute("aria-expanded", "false")
+    page.keyboard.press("Alt+ArrowDown")
+    expect(field).to_have_attribute("aria-expanded", "true")
+    expect(field).not_to_have_attribute("aria-activedescendant", re.compile(".*"))
