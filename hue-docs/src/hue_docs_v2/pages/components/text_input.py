@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hue.js import call
 from hue.types.core import ComponentType
 from hue.ui import Button, EmailInput, Field, NumberInput, PasswordInput, TextInput
 
@@ -58,7 +59,14 @@ def action() -> TextInput:
         .label("Invite link")
         .value("https://hue.dev/join/4f2a")
         .readonly()
-        .action(Button().variant("outline").content("Copy"))
+        .action(
+            Button()
+            .variant("outline")
+            .content("Copy")
+            .on_click(
+                call("navigator.clipboard.writeText", "https://hue.dev/join/4f2a")
+            )
+        )
     )
 
 
@@ -142,45 +150,47 @@ def _usage() -> ComponentType:
     return pr.page(
         pr.h2("Usage"),
         pr.p(
-            "A TextInput renders its own label, hint and error around the "
-            "input, so one chain gives you the whole field. name() sets the "
-            "submitted name, and the input's id, the label's for and the ids "
+            "A `TextInput` renders its own label, hint and error around the "
+            "input, so one chain gives you the whole field. `name()` sets the "
+            "submitted name, and the input's id, the label's `for` and the ids "
             "the hint and error hang off are all built from it."
         ),
         pr.code(
             'TextInput().name("email").label("Email").placeholder("you@example.com")'
         ),
         pr.p(
-            "A TextInput without label() uses its name as the label, so the "
-            "field is never unnamed. hidden_label() keeps the label for screen "
+            "A `TextInput` without `label()` uses its name as the label, so the "
+            "field is never unnamed. `hidden_label()` keeps the label for screen "
             "readers and hides it visually, for a field whose purpose the "
             "layout already shows, such as a search box."
         ),
         pr.h3("Errors"),
         pr.p(
-            "error() marks the input invalid with aria-invalid, shows the "
+            "`error()` marks the input invalid with `aria-invalid`, shows the "
             "message in place of the hint, and adds the message to the "
-            "input's aria-describedby. A Form can hand errors to every "
-            "control inside it by name with errors(); an error set on the "
+            "input's `aria-describedby`. A `horizontal()` field keeps its hint "
+            "beside the label. A `Form` can hand errors to every "
+            "control inside it by name with `errors()`; an error set on the "
             "control itself takes precedence."
         ),
         pr.code(
+            "from hue.ui import Form, TextInput\n\n"
             'Form().errors({"email": "That address is already invited."}).content(\n'
             '    TextInput().name("email").label("Email"),\n'
             ")"
         ),
         pr.h3("Readonly and disabled"),
         pr.p(
-            "readonly() shows a value that cannot be edited but stays focusable "
-            "and copyable. disabled() takes the input out of the tab order and "
+            "`readonly()` shows a value that cannot be edited but stays focusable "
+            "and copyable. `disabled()` takes the input out of the tab order and "
             "out of the submitted form."
         ),
         pr.h3("Other kinds of input"),
         pr.p(
-            "EmailInput, PasswordInput and NumberInput share every modifier "
-            "here. EmailInput presets autocomplete to email and PasswordInput to "
-            "current-password; PasswordInput adds revealable(), and NumberInput "
-            "adds min(), max() and step()."
+            "`EmailInput`, `PasswordInput` and `NumberInput` share every modifier "
+            "here. `EmailInput` presets `autocomplete` to `email` and `PasswordInput` "
+            "to `current-password`; `PasswordInput` adds `revealable()`, and "
+            "`NumberInput` adds `min()`, `max()` and `step()`."
         ),
     )
 
@@ -211,6 +221,7 @@ PAGE = ComponentPage(
             "Layout",
             horizontal,
             layout="stack",
+            min_width=480,
             hint="The label takes a 180px column at every width",
         ),
         panel("Relatives", email, password, number, layout="stack"),
@@ -218,24 +229,24 @@ PAGE = ComponentPage(
     notes=[
         Note(
             "a11y",
-            "The label is a real label element pointing at the input, and the "
-            "hint and error are tied to it through aria-describedby.",
+            "The label is a real `label` element pointing at the input, and the "
+            "hint and error are tied to it through `aria-describedby`.",
         ),
         Note(
             "a11y",
-            "error() sets aria-invalid, which is also what draws the red border, "
+            "`error()` sets `aria-invalid`, which is also what draws the red border, "
             "so the colour never carries the meaning alone.",
         ),
         Note(
             "note",
-            "leading_icon() is decorative and names nothing. A TextInput without "
-            "label() shows its name as the label, so a search field that should "
-            "show only its icon uses hidden_label().",
+            "`leading_icon()` is decorative and names nothing. A `TextInput` without "
+            "`label()` shows its name as the label, so a search field that should "
+            "show only its icon uses `hidden_label()`.",
         ),
         Note(
             "warn",
             "Two inputs with the same name on one page get the same id. Give each "
-            "its own name, or set id() on one of them.",
+            "its own name, or set `id()` on one of them.",
         ),
     ],
     related=[Field, EmailInput, PasswordInput, NumberInput],

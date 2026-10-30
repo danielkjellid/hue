@@ -94,14 +94,17 @@ def component_main(page: ComponentPage, pages: list[ComponentPage]) -> Component
     names = ", ".join([page.title, *[part.__name__ for part in page.parts]])
     return html.div(
         html.header(
-            html.p(f"Hue · {page.category}").class_(
+            # Kept out of the index, or every excerpt starts with it.
+            html.p(f"Hue · {page.category}")
+            .class_(
                 "mb-2 font-ui text-2xs font-bold uppercase tracking-[0.08em] "
                 "text-accent-text"
-            ),
+            )
+            .data("pagefind-ignore", ""),
             pr.h1(page.title),
             pr.lead(page.lede).class_("mt-3"),
         ).class_("mb-10"),
-        code_block(f"from hue.ui import {names}"),
+        code_block(page.import_line or f"from hue.ui import {names}"),
         html.div(*[panel_section(page, panel) for panel in page.panels]).class_(
             "mt-10 flex flex-col gap-6"
         ),

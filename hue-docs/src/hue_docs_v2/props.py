@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import inspect
 import textwrap
+import types
 import typing
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -22,6 +23,8 @@ from hue.ui.base import (
     FormElementMixin,
 )
 
+# Public methods that are htmy's hooks rather than modifiers a reader calls.
+_HOOKS = frozenset({"htmy", "htmy_context"})
 _SKIPPED_CLASSES = (ChainableComponent, AlpineModelMixin, FormElementMixin, Clickable)
 _SHARED = frozenset(name for base in _SKIPPED_CLASSES for name in vars(base))
 _SHOWN_VALUES = 8
@@ -38,19 +41,37 @@ class Prop:
 def _type(annotation: Any, raw: str) -> str:
     """
     A parameter's type as a reader wants it: the values of a Literal alias
-    spelled out, anything else as the source wrote it.
+    spelled out, on its own or in a union such as HeadingLevel | None,
+    anything else as the source wrote it.
     """
+    return _literal(annotation) or _union(annotation) or raw
+
+
+def _literal(annotation: Any) -> str | None:
     resolved = annotation
     while isinstance(resolved, typing.TypeAliasType):
         resolved = resolved.__value__
-    if typing.get_origin(resolved) is Literal:
-        values = [repr(value) for value in typing.get_args(resolved)]
-        if len(values) > _SHOWN_VALUES:
-            # Autocomplete's forty-odd tokens would bury the table.
-            more = len(values) - _SHOWN_VALUES
-            values = [*values[:_SHOWN_VALUES], f"... {more} more"]
-        return " | ".join(values)
-    return raw
+    if typing.get_origin(resolved) is not Literal:
+        return None
+    values = [repr(value) for value in typing.get_args(resolved)]
+    if len(values) > _SHOWN_VALUES:
+        # Autocomplete's forty-odd tokens would bury the table.
+        more = len(values) - _SHOWN_VALUES
+        values = [*values[:_SHOWN_VALUES], f"... {more} more"]
+    return " | ".join(values)
+
+
+def _union(annotation: Any) -> str | None:
+    if typing.get_origin(annotation) not in (typing.Union, types.UnionType):
+        return None
+    members = typing.get_args(annotation)
+    literals = [_literal(member) for member in members]
+    if not any(literals):
+        return None
+    return " | ".join(
+        literal or ("None" if member is type(None) else member.__name__)
+        for member, literal in zip(members, literals, strict=True)
+    )
 
 
 def _signature(func: Any) -> str:
@@ -81,23 +102,28 @@ def _defaults(cls: type[ChainableComponent]) -> dict[str, Any]:
     """
     Read from the literal default of every _get_prop("name", literal) in
     _render, then whatever the constructor sets, which is how EmailInput gets
-    its autocomplete.
+    its autocomplete. Every _render in the class's bases is read too, base
+    first, since an override such as PasswordInput's hands the rest to super().
     """
     defaults: dict[str, Any] = {}
-    try:
-        source = textwrap.dedent(inspect.getsource(cls._render))
-    except (OSError, TypeError):
-        source = ""
-    for node in ast.walk(ast.parse(source)):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "_get_prop"
-            and len(node.args) == 2
-            and isinstance(node.args[0], ast.Constant)
-            and isinstance(node.args[1], ast.Constant)
-        ):
-            defaults[str(node.args[0].value)] = node.args[1].value
+    for base in reversed(cls.__mro__):
+        render = vars(base).get("_render")
+        if render is None:
+            continue
+        try:
+            source = textwrap.dedent(inspect.getsource(render))
+        except (OSError, TypeError):
+            continue
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "_get_prop"
+                and len(node.args) == 2
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[1], ast.Constant)
+            ):
+                defaults[str(node.args[0].value)] = node.args[1].value
     try:
         defaults.update(cls()._props)
     except TypeError:
@@ -126,6 +152,7 @@ def props_of(cls: type[ChainableComponent]) -> list[Prop]:
                 name.startswith("_")
                 or name in seen
                 or name in _SHARED
+                or name in _HOOKS
                 or name == "example"
                 or not inspect.isfunction(member)
             ):

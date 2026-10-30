@@ -60,6 +60,7 @@ def snippet(example: Example) -> str:
 
 # Names an example uses that hue.ui does not export, and where they come from.
 _ELSEWHERE = {
+    "date": "from datetime import date",
     "html": "from hue import html",
     "toast": "from hue import toast",
 }

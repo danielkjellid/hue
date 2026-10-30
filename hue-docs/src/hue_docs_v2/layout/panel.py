@@ -9,6 +9,7 @@ that opens inside it from covering the docs around it.
 
 from __future__ import annotations
 
+import inspect
 import json
 
 from htmy import html as h
@@ -20,6 +21,7 @@ from hue.utils import render_when
 from hue_fastapi import Page
 
 from hue_docs_v2.icons import Icon
+from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.layout.code import code_block
 from hue_docs_v2.model import ComponentPage, Panel, caption
 from hue_docs_v2.render import preview
@@ -34,11 +36,19 @@ FRAME_CONTENT = "frame"
 VIEWPORTS = {"sm": 640, "md": 768, "lg": 1024, "xl": 1280}
 
 
+class FramePage(Page):
+    # A ThemeSwitcher in a frame saves its choice here, not under the site's
+    # key, so trying it on a component page leaves the site's theme alone.
+    theme_storage_key = "hue-docs-frame-theme"
+
+
 def frame_href(page: ComponentPage, panel: Panel) -> str:
     return f"/_frame/{page.slug}/{panel.slug}/"
 
 
 def panel_code(panel: Panel) -> str:
+    if panel.source is not None:
+        return inspect.getsource(panel.source).strip()
     snippets = [snippet(example) for example in panel.examples]
     if len(snippets) == 1:
         body = snippets[0]
@@ -57,6 +67,9 @@ def _viewport_control() -> ComponentType:
         return (
             SegmentedOption()
             .content(name)
+            # Below md the frame can only be as wide as the panel, so the sizes
+            # are hidden, and Fill stays as the way back from a drag.
+            .class_("" if width is None else "max-md:hidden")
             .x_on("click", unsafe(f"width = {value}"))
             .x_bind("aria-pressed", unsafe(f"String(width === {value})"))
         )
@@ -65,7 +78,6 @@ def _viewport_control() -> ComponentType:
         SegmentedControl()
         .label("Preview width")
         .size("sm")
-        .class_("max-md:hidden")
         .content(
             option("Fill", None),
             *[option(name, width) for name, width in VIEWPORTS.items()],
@@ -112,7 +124,10 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
             ),
             render_when(
                 bool(panel.hint),
-                html.span(panel.hint).class_("truncate text-2xs text-fg-subtle"),
+                # Wrapped below md, where one line has room for a few words.
+                html.span(pr.rich(panel.hint)).class_(
+                    "text-2xs text-fg-subtle md:truncate"
+                ),
             ),
         ).class_("flex min-w-0 items-baseline gap-3"),
         html.div(
@@ -140,7 +155,8 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
         class_=(
             "group absolute inset-y-0 -end-3 flex w-3 cursor-ew-resize touch-none "
             "items-center justify-center rounded-sm outline-none "
-            "focus-visible:shadow-ring"
+            "focus-visible:ring-2 focus-visible:ring-accent "
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         ),
         **{
             ":aria-valuenow": "Math.round(shown)",
@@ -195,6 +211,8 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
                     "minHeight": panel.min_height,
                     "maxWidth": max(VIEWPORTS.values()),
                     "contentId": FRAME_CONTENT,
+                    "width": VIEWPORTS[panel.width] if panel.width else None,
+                    "minFill": panel.min_width,
                 }
             )
             + ")"
@@ -209,27 +227,34 @@ _LAYOUTS = {
 }
 
 
-async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page:
+async def frame_page(page: ComponentPage, panel: Panel, request: object) -> FramePage:
     captioned = panel.captions and len(panel.examples) > 1 and panel.layout != "center"
     cells = [
         html.div(
             render_when(
                 captioned,
                 html.span(caption(example)).class_(
-                    "font-mono text-[10px] uppercase tracking-[0.04em] text-fg-subtle"
+                    "block font-mono text-[10px] uppercase tracking-[0.04em] "
+                    "text-fg-subtle"
                 ),
             ),
             await preview(example, request),
-        ).class_("flex min-w-0 flex-col items-start gap-[7px]")
+            # Block flow, so a block component such as a Card fills the cell
+            # and an inline one such as a Button keeps its own width.
+        ).class_("min-w-0 space-y-[7px]")
         for example in panel.examples
     ]
     body = (
         html.div(
             html.div(*cells).class_(_LAYOUTS[panel.layout]),
-            # A toast raised in the frame lands in the frame, beside what raised it.
-            ToastRegion(),
+            # A toast raised in the frame lands in the frame, beside what raised
+            # it. Its stack keeps to the lower half, so it never grows over the
+            # triggers above it.
+            ToastRegion().class_("*:top-1/2"),
+            # The frame's own guard: specimen links point at made-up paths.
+            h.script(src=url("/static/docs.js")),
         )
         .id(FRAME_CONTENT)
         .class_("p-6")
     )
-    return Page(title=f"{page.title}: {panel.label}", body=body)
+    return FramePage(title=f"{page.title}: {panel.label}", body=body)

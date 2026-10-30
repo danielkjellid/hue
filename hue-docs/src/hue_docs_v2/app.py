@@ -33,7 +33,16 @@ FONTS = (
 )
 
 # Guides folded into a component's page, kept reachable at their old URLs.
-REDIRECTS = {"/toasts/": "/components/toast/"}
+REDIRECTS = {
+    "/toasts/": "/components/toast/",
+    "/icons/": "/components/icon/",
+    "/data-tables/": "/components/data-table/",
+}
+
+# The icon a browser asks for before it reads the page's own link. Always at
+# the domain's root, whatever the base path, since that is where it asks.
+FAVICON = "/favicon.ico"
+FAVICON_FILE = "/static/favicon.svg"
 
 type Endpoint = Callable[[Request], Awaitable[HTMLResponse]]
 
@@ -122,6 +131,7 @@ def create_app(*, static_dir: Path | None = None) -> FastAPI:
 
     for old, new in REDIRECTS.items():
         app.add_api_route(old, _redirect(url(new)), methods=["GET"])
+    app.add_api_route(FAVICON, _redirect(url(FAVICON_FILE)), methods=["GET"])
 
     app.mount("/static", StaticFiles(directory=STATIC), name="docs-static")
     if static_dir is not None:

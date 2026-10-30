@@ -69,6 +69,8 @@ def _build() -> ComponentType:
                 ),
                 pr.p(
                     "`hue-fastapi` for FastAPI: ",
+                    pr.link("Setup and CSRF", "/fastapi/setup/"),
+                    " and ",
                     pr.link("Views and Router", "/fastapi/views/"),
                     ".",
                 ),

@@ -200,15 +200,21 @@ def _build() -> ComponentType:
             "`--hue-*` ramps hold the raw palette, and semantic aliases such "
             "as `--color-accent` point at ramp steps. Redefine a ramp step in "
             "your stylesheet and everything built on it changes, in both "
-            "themes. The accent reads `--hue-blue-700` and `--hue-blue-800` "
-            "in light mode, and `--hue-blue-300` to `--hue-blue-500` in dark "
-            "mode."
+            "themes. "
+            "The accent reads `--hue-blue-700`, `-800` and `-900` for its fill, "
+            "hover and pressed state in light mode, and `-50`, `-100` and `-200` "
+            "for its subtle fills and border. Dark mode reads `--hue-blue-300` "
+            "to `--hue-blue-500`."
         ),
         pr.code(
             "/* static/overrides.css */\n"
             ":root {\n"
+            "  --hue-blue-50: #F5F3FF;\n"
+            "  --hue-blue-100: #EDE9FE;\n"
+            "  --hue-blue-200: #DDD6FE;\n"
             "  --hue-blue-700: #6D28D9;\n"
             "  --hue-blue-800: #5B21B6;\n"
+            "  --hue-blue-900: #4C1D95;\n"
             "}",
             language="css",
         ),

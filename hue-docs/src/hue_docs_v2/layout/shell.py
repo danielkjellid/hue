@@ -46,7 +46,11 @@ def _brand() -> ComponentType:
             ),
         )
         .href(url("/"))
-        .class_("flex items-center gap-3 rounded-md text-fg focus-visible:shadow-ring")
+        .class_(
+            "flex items-center gap-3 rounded-md text-fg outline-none "
+            "focus-visible:ring-2 focus-visible:ring-accent "
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+        )
     )
 
 
@@ -73,7 +77,12 @@ def _sidebar(nav: list[NavGroup], current: str) -> ComponentType:
             .current(url(current))
             .content(
                 SidebarHeader().content(_brand()),
-                SidebarBody().label("Documentation").class_("gap-5").content(*sections),
+                SidebarBody()
+                .label("Documentation")
+                .class_("gap-5")
+                # On load, and each time the drawer opens (docs.js).
+                .x_effect(unsafe("navOpen; $nextTick(() => docsShowCurrent($el))"))
+                .content(*sections),
             )
         )
         .id("docs-nav")
@@ -83,7 +92,11 @@ def _sidebar(nav: list[NavGroup], current: str) -> ComponentType:
         )
         # Off-canvas below lg, shown by the menu button.
         .x_bind("class", unsafe("navOpen ? '' : 'max-lg:hidden'"))
-        .x_on("keydown.escape", unsafe("navOpen = false; $refs.menu.focus()"))
+        # A modal drawer while open, as hue's Dialog is: the trap keeps Tab
+        # inside, hides the page behind from screen readers, stops it
+        # scrolling, and gives focus back to the menu button on close.
+        .x_trap(unsafe("navOpen"), inert=True, noscroll=True)
+        .x_on("keydown.escape", unsafe("navOpen = false"))
     )
 
 
@@ -92,7 +105,13 @@ def _search_trigger() -> ComponentType:
         Button()
         .variant("outline")
         .size("sm")
-        .aria_keyshortcuts("Meta+K Control+K")
+        .aria_keyshortcuts("Meta+K")
+        # mod is the command key on Apple platforms and control elsewhere,
+        # as hue's Kbd decides it.
+        .x_bind(
+            "aria-keyshortcuts",
+            unsafe("($store.shortcuts?.apple ?? true) ? 'Meta+K' : 'Control+K'"),
+        )
         .content(
             Icon("search"),
             html.span("Search").class_("text-fg-muted"),
@@ -111,7 +130,6 @@ def _topbar(title: str) -> ComponentType:
             .icon_only("Menu")
             .class_("lg:hidden")
             .aria_controls("docs-nav")
-            .x_ref("menu")
             .x_bind("aria-expanded", unsafe("String(navOpen)"))
             .x_on("click", unsafe("navOpen = !navOpen"))
             .content(Icon("menu")),
@@ -143,33 +161,45 @@ def shell(
         "sticky top-14 hidden max-h-[calc(100vh-3.5rem)] w-56 flex-none "
         "self-start overflow-y-auto py-10 xl:block"
     )
-    body = html.div(
-        skip,
+    body = (
         html.div(
-            # Behind the off-canvas navigation, so a tap beside it closes it.
-            html.div()
-            .class_("fixed inset-0 z-20 bg-scrim lg:hidden")
-            .x_show(unsafe("navOpen"))
-            .x_cloak()
-            .x_on("click", unsafe("navOpen = false")),
-            _sidebar(nav, current),
+            # The brand's tile as the tab's icon. hue's Page has no head of its own
+            # to add to, and the browser takes an icon link from the body too.
+            h.link(rel="icon", href=url("/static/favicon.svg")),
+            skip,
             html.div(
-                _topbar(title),
+                # Behind the off-canvas navigation, so a tap beside it closes it.
+                html.div()
+                .class_("fixed inset-0 z-20 bg-scrim lg:hidden")
+                .x_show(unsafe("navOpen"))
+                .x_cloak()
+                .x_on("click", unsafe("navOpen = false")),
+                _sidebar(nav, current),
                 html.div(
-                    html.main(main)
-                    .id("content")
-                    .data("pagefind-body", "")
-                    .class_("mx-auto min-w-0 max-w-3xl flex-1 pb-20 pt-10"),
-                    toc,
-                    # Centred as one block with the contents: the column, the
-                    # contents' 14rem, the gap and the padding.
-                ).class_("mx-auto flex max-w-[68rem] gap-8 px-5 lg:px-8"),
-            ).class_("min-w-0 flex-1"),
-        ).class_("flex min-h-screen"),
-        ToastRegion(),
-        search_dialog(),
-        # A classic script, so it runs before the bundle's module and its
-        # Alpine components are registered by the time Alpine starts.
-        h.script(src=url("/static/docs.js")),
-    ).x_data("{ navOpen: false }")
+                    _topbar(title),
+                    html.div(
+                        html.main(main)
+                        .id("content")
+                        .data("pagefind-body", "")
+                        .class_(
+                            "mx-auto min-w-0 max-w-3xl flex-1 scroll-mt-14 pb-20 pt-10"
+                        ),
+                        toc,
+                        # Centred as one block with the contents: the column, the
+                        # contents' 14rem, the gap and the padding.
+                    ).class_("mx-auto flex max-w-[68rem] gap-8 px-5 lg:px-8"),
+                ).class_("min-w-0 flex-1"),
+            ).class_("flex min-h-screen"),
+            ToastRegion(),
+            search_dialog(),
+            # A classic script, so it runs before the bundle's module and its
+            # Alpine components are registered by the time Alpine starts.
+            h.script(src=url("/static/docs.js")),
+        )
+        .x_data("{ navOpen: false }")
+        # Search closes the navigation first. Two inert traps at once each hide
+        # the other from screen readers, and the menu button is where focus
+        # comes back to when search closes.
+        .x_on("docs-search.window", unsafe("navOpen = false"))
+    )
     return Page(title=title, body=body)

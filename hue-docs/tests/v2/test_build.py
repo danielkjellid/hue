@@ -32,3 +32,9 @@ def test_redirects_are_written_for_the_host(frozen: Path, old: str, new: str) ->
 def test_the_scripts_the_pages_load_are_there(frozen: Path) -> None:
     for name in ("js/alpine-bundle.js", "static/docs.js", "pagefind/pagefind.js"):
         assert (frozen / name).exists(), name
+
+
+def test_the_favicon_redirect_is_at_the_domain_s_root(frozen: Path) -> None:
+    # Browsers ask for /favicon.ico whatever path the site is served under.
+    lines = (frozen / "_redirects").read_text().splitlines()
+    assert any(line.startswith("/favicon.ico ") for line in lines)

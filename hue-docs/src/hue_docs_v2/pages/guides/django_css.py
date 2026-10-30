@@ -40,15 +40,25 @@ def _build() -> ComponentType:
         pr.code('# settings.py\n\nHUE_EXTRA_CSS_URLS = ["/static/my-overrides.css"]'),
         pr.h2("Overriding colors"),
         pr.p(
-            "Hue's theme is driven by CSS variables, so a plain stylesheet "
-            "served through Django's staticfiles is enough to retheme it, with "
-            "no build pipeline:"
+            "Hue's colours are CSS custom properties in two layers. The "
+            "`--hue-*` ramps hold the raw palette, and semantic aliases such "
+            "as `--color-accent` point at ramp steps. Redefine a ramp step in "
+            "a plain stylesheet served through Django's staticfiles, with no "
+            "build pipeline, and everything built on it changes in both themes. "
+            "The accent reads `--hue-blue-700`, `-800` and `-900` for its fill, "
+            "hover and pressed state in light mode, and `-50`, `-100` and `-200` "
+            "for its subtle fills and border. Dark mode reads `--hue-blue-300` "
+            "to `--hue-blue-500`."
         ),
         pr.code(
             "/* static/my-overrides.css */\n"
             ":root {\n"
-            "  --color-primary-500: #8B5CF6;\n"
-            "  --color-primary-600: #7C3AED;\n"
+            "  --hue-blue-50: #F5F3FF;\n"
+            "  --hue-blue-100: #EDE9FE;\n"
+            "  --hue-blue-200: #DDD6FE;\n"
+            "  --hue-blue-700: #6D28D9;\n"
+            "  --hue-blue-800: #5B21B6;\n"
+            "  --hue-blue-900: #4C1D95;\n"
             "}",
             language="css",
         ),

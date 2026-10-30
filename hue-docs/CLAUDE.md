@@ -77,7 +77,28 @@ CSS, and the docs never change hue to suit themselves.
 
 Each panel renders in an iframe with its own width presets, drag handle and theme. An
 overlay that opens from a small trigger needs `min_height` so it has room inside the
-frame.
+frame. A component that only shows its layout above a breakpoint, such as a
+side drawer, starts the frame there with `width="lg"` (any key of `VIEWPORTS`).
+
+### Lessons from moving every component
+
+- A usage heading and a panel with the same name get the same id, which the id test
+  catches. Name usage headings after the component ("Sizes of a Badge") or the topic.
+- A demo that needs a page, such as a declared DataTable or Tabs swapping a region,
+  uses a `HueView` and returns a full `Page` from its routes. Alpine AJAX takes out the
+  target, and a reload of the URL the swap pushed still works.
+- Inside a frame, `mod+k` belongs to the docs' search. Give a Command example another
+  hotkey, such as "/", and show `mod+k` in the usage code only.
+- Frames render without the docs' shortcut registry, so `CommandShortcuts()` and
+  `MenuItem().shortcut()` go in usage code, not in an example.
+- A popover inside a Dialog's body is clipped by the body's scroll. Put a nested
+  overlay in the footer, or describe it in prose.
+- Shared prose for a family of pages (the charts) goes in a module whose name starts
+  with an underscore, such as `pages/components/_charts.py`, and is not registered.
+- Specimen links and forms can point anywhere: a frame ignores clicks on links
+  outside `/demos/` and the page's own anchors, and submits outside `/demos/`.
+  A swap inside a frame replaces the frame's history entry rather than adding
+  one, so Back still leaves the docs page.
 
 ## Writing rules
 

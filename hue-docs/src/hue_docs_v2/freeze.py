@@ -17,7 +17,15 @@ from fastapi.testclient import TestClient
 from hue.assets import chart_bundle_path, js_bundle_path
 from pagefind.index import IndexConfig, PagefindIndex
 
-from hue_docs_v2.app import REDIRECTS, STATIC, create_app, frame_paths, page_paths
+from hue_docs_v2.app import (
+    FAVICON,
+    FAVICON_FILE,
+    REDIRECTS,
+    STATIC,
+    create_app,
+    frame_paths,
+    page_paths,
+)
 from hue_docs_v2.highlight import highlight
 from hue_docs_v2.render import COULD_NOT_RENDER
 from hue_docs_v2.site import url
@@ -70,6 +78,7 @@ def freeze(out: Path = DIST) -> None:
     # Cloudflare's static assets read redirects from this file.
     (out / "_redirects").write_text(
         "".join(f"{url(old)} {url(new)} 301\n" for old, new in REDIRECTS.items())
+        + f"{FAVICON} {url(FAVICON_FILE)} 301\n"
     )
 
     shutil.rmtree(out / "pagefind", ignore_errors=True)
