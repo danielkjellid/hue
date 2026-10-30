@@ -109,7 +109,8 @@ class Avatar(ChainableComponent):
     def _render(self, context: Context) -> Component:
         size: AvatarSize = self._get_prop("size", "md")
         square: bool = self._get_prop("square", False)
-        name: str | None = self._get_prop("name")
+        # A blank name names nobody, so it is no name at all.
+        name: str | None = (self._get_prop("name") or "").strip() or None
         src: str | None = self._get_prop("src")
         status: AvatarStatus | None = self._get_prop("status")
 
@@ -148,9 +149,10 @@ class Avatar(ChainableComponent):
                 class_=classnames(
                     "grid size-full place-items-center overflow-hidden",
                     # An inset hairline, so a pale photo or a surface-coloured
-                    # circle still has an edge on a light page. Drawn as an
-                    # outline rather than a border because it costs no layout.
-                    "outline-1 -outline-offset-1 outline-border",
+                    # circle still has an edge on a light page. A step darker
+                    # than the fill, which border is not. Drawn as an outline
+                    # rather than a border because it costs no layout.
+                    "outline-1 -outline-offset-1 outline-border-strong",
                     "bg-surface-active text-fg-muted",
                     "font-ui font-semibold leading-none",
                     _TEXT_CLASSES[size],

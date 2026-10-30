@@ -173,6 +173,12 @@ class TestAvatarContent:
         assert_no_selector(html, '[role="img"]')
 
     @pytest.mark.asyncio
+    async def test_a_blank_name_is_no_name(self, context_args):
+        html = await render_tree(Avatar().name("   "), context_args=context_args)
+        assert_no_selector(html, '[role="img"]')
+        assert_no_selector(html, "[aria-label]")
+
+    @pytest.mark.asyncio
     async def test_members_are_separated_from_each_other(self, context_args):
         # The ring is what keeps overlapping circles apart. On a plain inline
         # span it was drawn around a line box rather than the avatar, so the
