@@ -167,6 +167,7 @@ export function registerTocData(Alpine) {
 		onMove: null,
 		onContent: null,
 		onSettle: null,
+		onHistory: null,
 		sizes: null,
 		content: null,
 
@@ -186,6 +187,8 @@ export function registerTocData(Alpine) {
 			// than the window is heard too. Scroll events do not bubble.
 			document.addEventListener("scroll", this.onMove, true);
 			window.addEventListener("resize", this.onMove);
+			this.onHistory = (event) => this.revisit(event.state);
+			window.addEventListener("popstate", this.onHistory);
 
 			// The nav's own width decides where the labels wrap, which is
 			// what the rail is drawn from. It fires once on observe too,
@@ -222,6 +225,7 @@ export function registerTocData(Alpine) {
 		destroy() {
 			document.removeEventListener("scroll", this.onMove, true);
 			window.removeEventListener("resize", this.onMove);
+			window.removeEventListener("popstate", this.onHistory);
 			window.removeEventListener("load", this.onSettle);
 			this.sizes?.disconnect();
 			this.content?.disconnect();
@@ -409,20 +413,69 @@ export function registerTocData(Alpine) {
 
 			const { target } = this.entries[index];
 			const scroller = scrollerOf(this.container);
-			const top = scroller ? scroller.getBoundingClientRect().top : 0;
 
 			if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
 			target.focus({ preventScroll: true });
-			// The page's own scroll-behavior still applies.
-			scrollState(scroller).page.scrollBy({ top: distanceToLine(target, top) });
 			// A history entry, as following the link would have made, unless
-			// the link is the one already in the address bar.
+			// the link is the one already in the address bar. Pushed before
+			// the scroll, because the browser files the page's scroll
+			// position under the entry being left, and Back returns to it.
+			// It files nothing for a container, so that goes in by hand.
 			if (decodeURIComponent(location.hash.slice(1)) !== target.id) {
-				history.pushState(history.state, "", `#${target.id}`);
+				if (scroller) {
+					history.replaceState({ ...history.state, hueTocScroll: scroller.scrollTop }, "");
+				}
+				// No state of its own: one copied from a swapped entry would
+				// carry __ajax, and Alpine AJAX reloads the page on Back to that.
+				history.pushState(null, "", `#${target.id}`);
 			}
+			this.reveal(target, scroller);
 
 			this.chosen = index;
 			this.select(index);
+		},
+
+		/**
+		 * Scroll what holds a heading so it sits at the top.
+		 *
+		 * A container that is itself off screen would scroll the heading to a
+		 * top nobody can see, so this document scrolls to bring the container
+		 * in, as a fragment link would. Ancestor documents stay put.
+		 */
+		reveal(target, scroller) {
+			const top = scroller ? scroller.getBoundingClientRect().top : 0;
+			// The page's own scroll-behavior still applies.
+			scrollState(scroller).page.scrollBy({ top: distanceToLine(target, top) });
+			if (!scroller) return;
+
+			const landing = top + (parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
+			if (landing < 0 || landing + target.offsetHeight > document.documentElement.clientHeight) {
+				document.scrollingElement.scrollBy({ top });
+			}
+		},
+
+		/**
+		 * Follow Back and Forward to the entry they land on.
+		 *
+		 * The browser restores the page's scroll, and the scroll moves the
+		 * mark, but when nothing scrolls only the address says where the
+		 * reader is. A container gets back the position follow saved for it,
+		 * or failing that the heading the address names.
+		 */
+		revisit(state) {
+			const id = decodeURIComponent(location.hash.slice(1));
+			const index = this.entries.findIndex((entry) => entry.target.id === id);
+			const scroller = scrollerOf(this.container);
+
+			if (scroller && state?.hueTocScroll !== undefined) {
+				scroller.scrollTop = state.hueTocScroll;
+			} else if (scroller && index !== -1) {
+				this.reveal(this.entries[index].target, scroller);
+			}
+
+			this.chosen = index === -1 ? null : index;
+			if (index === -1) this.read();
+			else this.select(index);
 		},
 
 		select(index) {
