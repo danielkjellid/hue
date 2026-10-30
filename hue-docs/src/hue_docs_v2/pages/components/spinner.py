@@ -59,23 +59,23 @@ def _usage() -> ComponentType:
         pr.code('Spinner().label("Loading payments")'),
         pr.h3("Labels"),
         pr.p(
-            "`label()` shows text beside the ring, sized to match the ring. A "
-            'labelled `Spinner` is a `span` with `role="status"` holding the ring '
-            "and the text; the ring is `aria-hidden`, so a screen reader reads "
-            "the label. A `Spinner` without a label is a single `span` with "
-            '`role="status"` and `aria-label="Loading"`.'
+            "`label()` shows text beside the ring, sized to match the ring. "
+            'Every `Spinner` is a `span` with `role="status"` holding an '
+            "`aria-hidden` ring and a line of text, and that text is what a screen "
+            "reader reads. Without a label the text is Loading, visually hidden."
         ),
         pr.p(
-            "`aria_label()` replaces that default name on a bare `Spinner`, for a "
-            "spinner whose purpose a screen reader should hear."
+            "`label(..., visible=False)` keeps the label for screen readers only, "
+            "for a spinner with no room for words beside it."
         ),
-        pr.code('Spinner().aria_label("Loading payments")'),
+        pr.code('Spinner().label("Loading payments", visible=False)'),
         pr.h3("When it is announced"),
         pr.p(
             '`role="status"` is a polite live region. A `Spinner` that is on the '
-            "page when the page loads is read in order, not announced. One "
-            "swapped in later, for example by Alpine AJAX, is announced at the "
-            "next pause."
+            "page when the page loads is read in order, not announced. Screen "
+            "readers announce a change to a live region that is already on the "
+            "page, and they do not reliably announce one that arrives with its "
+            "text, so a `Spinner` swapped in by Alpine AJAX may go unannounced."
         ),
         pr.h3("Inside a Button"),
         pr.p(
@@ -119,13 +119,14 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "With a label, the ring is `aria-hidden` and the label text is the "
-            'announcement. Without one, the accessible name is `"Loading"`.',
+            "The ring is `aria-hidden`. A screen reader announces the text inside "
+            "the region, which is the label, or a visually hidden Loading when "
+            "there is none.",
         ),
         Note(
             "note",
-            'The default name `"Loading"` is fixed English. Set `aria_label()` or '
-            "`label()` to change it.",
+            "The default text Loading is fixed English. Set `label()`, with "
+            "`visible=False` if it should not show, to change it.",
         ),
     ],
     related=[Skeleton, Progress, Button],
