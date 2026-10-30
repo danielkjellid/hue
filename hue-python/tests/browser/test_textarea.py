@@ -50,3 +50,14 @@ def test_autosize_leaves_a_dragged_height_alone(show: Show) -> None:
         "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
     )
     expect(field).to_have_css("height", "300px")
+
+
+def test_autosize_leaves_a_height_dragged_straight_away_alone(show: Show) -> None:
+    page = show(Textarea().name("bio").label("Bio").autosize())
+    field = page.get_by_label("Bio")
+    # Before the resize observer's first callback, which must not resize.
+    field.evaluate("el => { el.style.height = '300px' }")
+    page.evaluate(
+        "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    expect(field).to_have_css("height", "300px")

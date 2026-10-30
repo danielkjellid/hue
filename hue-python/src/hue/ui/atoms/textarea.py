@@ -47,14 +47,15 @@ _AUTOSIZE = (
 
 # A new width rewraps the text, so the height is worked out again. Only on a
 # width change, so a height dragged with the handle stays, and a frame later,
-# since resizing inside the observer would trip its loop error.
+# since resizing inside the observer would trip its loop error. The first
+# observation only records the width: the field was sized on init already.
 _AUTOSIZE_ON_RESIZE = (
     f"{_AUTOSIZE}; "
     "((width) => new ResizeObserver(([entry]) => { "
-    "if (entry.contentRect.width === width) return; "
+    "const changed = width !== null && entry.contentRect.width !== width; "
     "width = entry.contentRect.width; "
-    f"requestAnimationFrame(() => {{ {_AUTOSIZE} }}) "
-    "}).observe($el))()"
+    f"if (changed) requestAnimationFrame(() => {{ {_AUTOSIZE} }}) "
+    "}).observe($el))(null)"
 )
 
 # The counter as a sentence, for screen readers: "12 / 10" read aloud says
