@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from playwright.sync_api import Page, expect
 
 from hue.ui import DatePicker
@@ -100,3 +101,49 @@ def test_enter_starts_and_ends_a_range(show: Show) -> None:
         "aria-selected", "true"
     )
     assert _sent(page) == ["2026-10-12", "2026-10-14"]
+
+
+@pytest.mark.parametrize(
+    "picker",
+    [
+        _picker(date(2026, 10, 14)),
+        _picker(date(2026, 10, 14)).mode("multiple"),
+        _picker(date(2026, 10, 14), date(2026, 10, 16)).mode("range"),
+    ],
+    ids=["single", "multiple", "range"],
+)
+@pytest.mark.parametrize("key", ["Enter", " "], ids=["enter", "space"])
+def test_enter_and_space_on_a_blank_cell_pick_nothing(
+    show: Show, picker: DatePicker, key: str
+) -> None:
+    page = show(picker)
+    page.locator('td[data-date="2026-10-14"]').focus()
+    # The focused day moves on to the 15th, which nothing has picked.
+    page.keyboard.press("ArrowRight")
+    expect(page.locator('td[data-date="2026-10-15"]')).to_be_focused()
+    before = _sent(page)
+    page.locator("td:not([data-date])").last.click()
+    page.keyboard.press(key)
+    # The arrows still work from there, and show the key was handled.
+    page.keyboard.press("ArrowLeft")
+    expect(page.locator('td[data-date="2026-10-14"]')).to_be_focused()
+    assert _sent(page) == before
+
+
+def test_enter_before_focus_follows_paging_picks_the_new_day(show: Show) -> None:
+    # The 31st's cell is blank in April, so for a tick focus is on a blank.
+    page = show(_picker(date(2026, 3, 31)))
+    cell = page.locator('td[data-date="2026-03-31"]')
+    cell.focus()
+    cell.evaluate(
+        """el => new Promise(done => {
+            const press = (key) => el.dispatchEvent(
+                new KeyboardEvent("keydown", { key, bubbles: true })
+            );
+            press("PageDown");
+            // Ahead of the tick that moves focus, and after the redraw.
+            setTimeout(() => { press("Enter"); done(); });
+        })"""
+    )
+    expect(page.locator('td[data-date="2026-04-30"]')).to_be_focused()
+    assert _sent(page) == ["2026-04-30"]
