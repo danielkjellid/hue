@@ -74,8 +74,12 @@ _BAND_BOTTOM = (
 # it is in reach wherever the reader has scrolled. In the table's own flow,
 # it never covers the pager or the count, in a page, a scrolling column or a
 # clipping wrapper alike. Above the rows and the pager's focused step, below
-# the menus and dialogs that open over it.
+# the menus and dialogs that open over it. Sticky makes the bar a stacking
+# context that a confirmation inside it cannot rise out of, so while one is
+# open or leaving the bar rises to the dialog's own layer, or a sticky
+# header of the page's would paint over the scrim and stay clickable.
 _BULK_BAR = (
+    "has-[[aria-expanded=true]]:z-80 has-[.leaving]:z-80 "
     "sticky bottom-6 z-20 mx-auto my-2 flex w-fit max-w-[calc(100%-1rem)] "
     "flex-wrap items-center gap-1 rounded-lg border border-border "
     "bg-surface-raised p-1 shadow-overlay"

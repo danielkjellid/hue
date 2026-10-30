@@ -5,13 +5,14 @@ sized to it, and a Card or a Panel in a row or holding a long table.
 
 import pytest
 from htmy import html
+from playwright.sync_api import expect
 
 from hue.datatable import BulkAction, build_datatable_state
 from hue.ui import Card, CardBody, Column, DataTable, Panel, Stack
 from tests.browser.conftest import Show
 from tests.browser.test_data_navigation_promises import _coarse
 from tests.browser.test_datatable import _Router
-from tests.browser.test_layout_promises import _pager
+from tests.browser.test_layout_promises import _BAR, _confirmed, _pager
 from tests.browser.test_sticky_bar_promises import _in_reach, _long, _tick_first
 
 # Pagination.
@@ -134,3 +135,30 @@ def test_a_panel_beside_another_shrinks_around_a_wide_table(show: Show) -> None:
         width=390,
     )
     assert page.evaluate("document.documentElement.scrollWidth") <= 390
+
+
+# A bulk action's confirmation.
+
+
+@pytest.mark.parametrize("width", [390, 1440])
+def test_a_confirm_from_the_bar_covers_a_sticky_header(show: Show, width: int) -> None:
+    page = show(
+        html.header(
+            html.a("Home", href="/elsewhere"),
+            id="head",
+            class_="sticky top-0 z-30 h-14 bg-surface",
+        ),
+        _confirmed(),
+        width=width,
+    )
+    if width == 390:
+        _coarse(page)
+    _tick_first(page)
+    page.locator(_BAR).get_by_role("button", name="Delete").click()
+    expect(page.get_by_role("alertdialog")).to_be_visible()
+    assert page.evaluate(
+        "(() => { const box = document.getElementById('head').getBoundingClientRect();"
+        " const hit = document.elementFromPoint(box.left + 20, box.top + 20);"
+        " return document.querySelector('[role=alertdialog]').parentElement"
+        ".contains(hit) })()"
+    )
