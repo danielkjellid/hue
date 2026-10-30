@@ -162,3 +162,27 @@ def test_a_confirm_from_the_bar_covers_a_sticky_header(show: Show, width: int) -
         " return document.querySelector('[role=alertdialog]').parentElement"
         ".contains(hit) })()"
     )
+
+
+# Hidden columns.
+
+
+def test_the_columns_panel_keeps_the_last_column_showing(show: Show) -> None:
+    table = DataTable.from_state(
+        build_datatable_state(
+            _Router(),
+            key="invoices",
+            columns=[Column("invoice", "Invoice"), Column("amount", "Amount")],
+            rows=lambda request, asked: [{"invoice": "INV-1", "amount": "1"}],
+            hideable=["invoice", "amount"],
+        )
+    )
+    page = show(table)
+    page.get_by_role("button", name="Columns").click()
+    invoice = page.get_by_role("checkbox", name="Invoice")
+    amount = page.get_by_role("checkbox", name="Amount")
+    invoice.uncheck()
+    expect(amount).to_be_checked()
+    expect(amount).to_be_disabled()
+    invoice.check()
+    expect(amount).to_be_enabled()

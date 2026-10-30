@@ -309,12 +309,19 @@ export function registerTableFilters(Alpine) {
  * carries the answer.
  */
 export function registerTableColumns(Alpine) {
-	Alpine.data("hueTableColumns", (hidden = [], table = "") => ({
+	Alpine.data("hueTableColumns", (hidden = [], table = "", columns = 0) => ({
 		table,
 		hidden,
+		columns,
 
 		showing(key) {
 			return !this.hidden.includes(key);
+		},
+
+		// The only column still showing, which stays: a URL hiding every
+		// column is refused on the server too.
+		last(key) {
+			return this.showing(key) && this.hidden.length >= this.columns - 1;
 		},
 
 		toggle(key, shown) {

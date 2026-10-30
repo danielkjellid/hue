@@ -780,15 +780,20 @@ class _Declaration:
         except ValueError:
             page = 1
         hideable = set(self.hideable)
+        # Only columns that could have been hidden, so a key typed into the
+        # URL cannot take away a column nobody may hide, and each once.
+        hidden = tuple(dict.fromkeys(k for k in _many(asked, _HIDE) if k in hideable))
+        if len(hidden) >= len(self.columns):
+            # A table of no columns has nothing to show and no width for a
+            # section title, so the last column asked to go stays.
+            hidden = hidden[:-1]
         return TableState(
             sort=self._sort_in(asked),
             # Trimmed, so a space typed after a word still finds it.
             query=(_one(asked, _QUERY) or "").strip(),
             page=page,
             filters=self._filters_in(asked),
-            # Only columns that could have been hidden, so a key typed
-            # into the URL cannot take away a column nobody may hide.
-            hidden=tuple(key for key in _many(asked, _HIDE) if key in hideable),
+            hidden=hidden,
         )
 
     def _sort_in(self, asked: Mapping[str, list[str]]) -> str | None:
@@ -1507,7 +1512,11 @@ class _TableColumns(_ToolbarForm):
                 },
             ),
             class_="contents",
-            **{"x-data": call("hueTableColumns", sorted(hidden), bound.key)},
+            **{
+                "x-data": call(
+                    "hueTableColumns", sorted(hidden), bound.key, len(declared.columns)
+                )
+            },
         )
 
 
@@ -1544,9 +1553,14 @@ def _column_row(
     else:
         # Read from the scope rather than left to the attribute, which
         # stops meaning anything the moment somebody clicks the box.
-        box.x_effect(unsafe(f"$el.checked = {call('showing', key)}")).x_on(
-            "change", call("toggle", key, unsafe("$event.target.checked"))
-        )
+        # The last column showing cannot go: a table of no columns is
+        # nothing at all.
+        box.x_effect(
+            unsafe(
+                f"$el.checked = {call('showing', key)};"
+                f" $el.disabled = {call('last', key)}"
+            )
+        ).x_on("change", call("toggle", key, unsafe("$event.target.checked")))
     return html.div(
         box,
         render_when(
