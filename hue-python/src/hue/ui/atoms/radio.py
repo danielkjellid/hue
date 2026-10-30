@@ -208,6 +208,9 @@ class RadioGroup(FieldControl):
         fieldset_attrs = self._control_attrs(
             context,
             class_=classnames("flex flex-col gap-1.5", self._get_prop("class_")),
+            # aria-invalid is not supported on a group or on a single radio in
+            # ARIA 1.2, only on a radiogroup. The legend still names it.
+            role="radiogroup",
             # The legend names the group, so no aria-label as well.
             aria_describedby=self._describedby(context),
             aria_invalid="true" if error is not None else None,

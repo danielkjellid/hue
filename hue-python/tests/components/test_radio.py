@@ -94,6 +94,8 @@ class TestRadioGroup:
         html = await render_tree(
             _group().error("Pick a region."), context_args=context_args
         )
+        # A radiogroup, where ARIA 1.2 supports aria-invalid; a group does not.
+        assert_attr(html, "fieldset", "role", "radiogroup")
         assert_attr(html, "fieldset", "aria-invalid", "true")
         assert_attr(html, "fieldset", "aria-describedby", "region-error")
         assert_selector(html, '[role="alert"]#region-error')
