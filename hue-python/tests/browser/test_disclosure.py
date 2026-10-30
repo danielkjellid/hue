@@ -1,7 +1,7 @@
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Checkbox, Disclosure, TextInput
+from hue.ui import Accordion, AccordionItem, Checkbox, Disclosure, TextInput
 from tests.browser.conftest import ORIGIN, Show
 
 
@@ -105,3 +105,40 @@ def test_enter_in_a_field_of_a_form_without_a_button_opens_it(show: Show) -> Non
     )
     page.get_by_role("textbox", name="Search").press("Enter")
     expect(page.get_by_role("checkbox", name="Terms")).to_be_focused()
+
+
+def test_a_field_in_nested_closed_sections_opens_both(show: Show) -> None:
+    # Each section keeps its own state under the same names, so the inner
+    # one opening must not stand in for the outer.
+    deep = TextInput().name("deep").label("Deep").required()
+    inner = Disclosure().title("Inner").closed().content(deep)
+    page = show(_form(Disclosure().title("Outer").closed().content(inner)))
+    page.get_by_role("button", name="Save").click()
+    expect(page.get_by_role("textbox", name="Deep")).to_be_focused()
+    expect(page.get_by_role("button", name="Outer")).to_have_attribute(
+        "aria-expanded", "true"
+    )
+
+
+def test_an_accordion_inside_a_closed_section_opens_for_its_field(
+    show: Show,
+) -> None:
+    deep = TextInput().name("deep").label("Deep").required()
+    page = show(
+        _form(
+            Disclosure()
+            .title("Outer")
+            .closed()
+            .content(
+                Accordion().content(
+                    AccordionItem().title("S1").open().content("x"),
+                    AccordionItem().title("S2").content(deep),
+                )
+            )
+        )
+    )
+    page.get_by_role("button", name="Save").click()
+    expect(page.get_by_role("textbox", name="Deep")).to_be_focused()
+    expect(page.get_by_role("button", name="S2")).to_have_attribute(
+        "aria-expanded", "true"
+    )
