@@ -71,3 +71,27 @@ def test_open_valid_select_keeps_its_accent_halo(show: Show) -> None:
     expect(trigger).to_have_css("border-top-color", token(page, "accent"))
     ring = f"{token(page, 'accent-subtle')} 0px 0px 0px 3px"
     assert ring in css(trigger, "boxShadow")
+
+
+def test_escape_closes_without_choosing(show: Show) -> None:
+    page = show(_fruit())
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+    expect(page.locator("input[name=fruit]")).to_have_value("")
+    expect(trigger).to_be_focused()
+
+
+def test_enter_chooses_the_active_option_and_closes(show: Show) -> None:
+    page = show(_fruit())
+    page.get_by_role("combobox", name="Fruit").focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+    expect(page.locator("input[name=fruit]")).to_have_value("banana")

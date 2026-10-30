@@ -61,3 +61,13 @@ def test_autosize_leaves_a_height_dragged_straight_away_alone(show: Show) -> Non
         "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
     )
     expect(field).to_have_css("height", "300px")
+
+
+def test_autosize_shrinks_when_text_is_taken_out(show: Show) -> None:
+    page = show(Textarea().name("bio").label("Bio").autosize())
+    field = page.get_by_label("Bio")
+    start = field.evaluate("el => el.offsetHeight")
+    field.fill("\n".join(["line"] * 8))
+    assert field.evaluate("el => el.offsetHeight") > start
+    field.fill("short")
+    assert field.evaluate("el => el.offsetHeight") == start

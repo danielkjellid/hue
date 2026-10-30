@@ -1,13 +1,13 @@
 from datetime import date
 
-from playwright.sync_api import expect
+from playwright.sync_api import Page, expect
 
 from hue.ui import DatePicker
 from tests.browser.conftest import Show
 
 
-def _picker(day: date) -> DatePicker:
-    return DatePicker().name("day").label("Day").value(day)
+def _picker(*days: date) -> DatePicker:
+    return DatePicker().name("day").label("Day").value(*days)
 
 
 def test_keys_back_to_back_move_from_the_right_cell(show: Show) -> None:
@@ -57,3 +57,46 @@ def test_keys_still_work_after_clicking_a_blank_cell(show: Show) -> None:
     page.locator("td:not([data-date])").last.click()
     page.keyboard.press("ArrowLeft")
     expect(page.locator('td[data-date="2026-04-29"]')).to_be_focused()
+
+
+def _sent(page: Page) -> list[str]:
+    return page.evaluate(
+        "[...document.querySelectorAll('input[type=hidden][name=day]')]"
+        ".map(input => input.value)"
+    )
+
+
+def test_enter_picks_the_focused_day(show: Show) -> None:
+    page = show(_picker(date(2026, 10, 14)))
+    page.locator('td[data-date="2026-10-14"]').focus()
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("Enter")
+    expect(page.locator('td[data-date="2026-10-15"]')).to_have_attribute(
+        "aria-selected", "true"
+    )
+    assert _sent(page) == ["2026-10-15"]
+
+
+def test_space_adds_the_focused_day_to_several(show: Show) -> None:
+    page = show(_picker(date(2026, 10, 6)).mode("multiple"))
+    page.locator('td[data-date="2026-10-06"]').focus()
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press(" ")
+    expect(page.locator('td[data-date="2026-10-07"]')).to_have_attribute(
+        "aria-selected", "true"
+    )
+    assert _sent(page) == ["2026-10-06", "2026-10-07"]
+
+
+def test_enter_starts_and_ends_a_range(show: Show) -> None:
+    # A committed range, so the next Enter starts a new one.
+    page = show(_picker(date(2026, 10, 12), date(2026, 10, 16)).mode("range"))
+    page.locator('td[data-date="2026-10-12"]').focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("Enter")
+    expect(page.locator('td[data-date="2026-10-14"]')).to_have_attribute(
+        "aria-selected", "true"
+    )
+    assert _sent(page) == ["2026-10-12", "2026-10-14"]
