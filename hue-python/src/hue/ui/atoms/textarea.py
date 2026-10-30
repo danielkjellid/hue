@@ -39,10 +39,15 @@ class _Textarea(html.textarea):
         return "textarea"
 
 
-# scrollHeight leaves out the border, which a border-box height includes.
+# scrollHeight leaves out the border, which a border-box height includes. A
+# height that is not the last one set here was dragged with the handle, and
+# stays as a floor: the text can grow the field past it but not shrink it.
 _AUTOSIZE = (
+    "if ($el.style.height && $el.style.height !== $el._sized) "
+    "$el._floor = $el.offsetHeight; "
     "$el.style.height = 'auto'; "
-    "$el.style.height = $el.scrollHeight + $el.offsetHeight - $el.clientHeight + 'px'"
+    "$el.style.height = $el._sized = Math.max("
+    "$el.scrollHeight + $el.offsetHeight - $el.clientHeight, $el._floor ?? 0) + 'px'"
 )
 
 # A new width rewraps the text, so the height is worked out again. Only on a

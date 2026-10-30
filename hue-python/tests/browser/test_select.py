@@ -1,8 +1,9 @@
+import pytest
 from playwright.sync_api import expect
 
 from hue.ui import Select, SelectOption, TextInput
 from hue.ui.atoms.icon import HueIcon
-from tests.browser._fields import css, still, token
+from tests.browser._fields import contrast, css, still, token
 from tests.browser.conftest import Show
 
 
@@ -71,3 +72,84 @@ def test_open_valid_select_keeps_its_accent_halo(show: Show) -> None:
     expect(trigger).to_have_css("border-top-color", token(page, "accent"))
     ring = f"{token(page, 'accent-subtle')} 0px 0px 0px 3px"
     assert ring in css(trigger, "boxShadow")
+
+
+def test_escape_closes_without_choosing(show: Show) -> None:
+    page = show(_fruit())
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+    expect(page.locator("input[name=fruit]")).to_have_value("")
+    expect(trigger).to_be_focused()
+
+
+def test_enter_chooses_the_active_option_and_closes(show: Show) -> None:
+    page = show(_fruit())
+    page.get_by_role("combobox", name="Fruit").focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+    expect(page.locator("input[name=fruit]")).to_have_value("banana")
+
+
+def test_reopening_while_the_list_fades_out_raises_nothing(show: Show) -> None:
+    page = show(_fruit())
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    # Reopened once the fade out has begun and before Alpine's next tick,
+    # which cuts the fade short. The fixture fails the test on the console
+    # error an unhandled rejection from that would log.
+    trigger.evaluate(
+        """async el => {
+            const press = (key) => el.dispatchEvent(
+                new KeyboardEvent("keydown", { key, bubbles: true })
+            );
+            press("Escape");
+            await Promise.resolve();
+            press("Enter");
+        }"""
+    )
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+
+
+def _plans() -> Select:
+    return (
+        Select()
+        .name("plan")
+        .label("Plan")
+        .value("free")
+        .content(
+            SelectOption().value("free").label("Free").meta("$0"),
+            SelectOption()
+            .value("pro")
+            .label("Pro")
+            .description("For growing teams")
+            .meta("$12"),
+        )
+    )
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("text", ["$0", "$12", "For growing teams"])
+def test_option_text_is_legible_active_or_selected(
+    show: Show, theme: str, text: str
+) -> None:
+    page = still(show(_plans(), theme=theme))
+    page.get_by_role("combobox", name="Plan").focus()
+    page.keyboard.press("Enter")
+    # Free is selected; Pro becomes the active one.
+    page.keyboard.press("ArrowDown")
+    expect(page.get_by_role("option", name="Pro")).to_have_attribute(
+        "data-active", "true"
+    )
+    assert contrast(page.get_by_role("listbox").get_by_text(text)) >= 4.5

@@ -181,6 +181,7 @@ class Label(ChainableComponent):
         required: bool = self._get_prop("required", False)
         disabled: bool = self._get_prop("disabled", False)
         hidden_label: bool = self._get_prop("hidden_label", False)
+        html_for: str | None = self._get_prop("html_for")
 
         classes = classnames(
             "inline-flex items-center gap-[5px] text-start",
@@ -188,8 +189,10 @@ class Label(ChainableComponent):
             classes_if_else(
                 disabled,
                 ["pointer-events-none", "text-fg-disabled"],
-                ["cursor-pointer", "text-fg"],
+                ["text-fg"],
             ),
+            # Only a label tied to a control does anything when clicked.
+            {"cursor-pointer": not disabled and html_for is not None},
             {"sr-only": hidden_label},
             self._get_prop("class_"),
         )
@@ -198,6 +201,6 @@ class Label(ChainableComponent):
             html.span(self._text),
             render_when(required, required_marker()),
             class_=classes,
-            for_=self._get_prop("html_for"),
+            for_=html_for,
             **self._get_base_html_attrs(),
         )

@@ -63,9 +63,12 @@ export function registerCommandData(Alpine) {
 				this.$nextTick(() => this.activate(this.enabled()[0]));
 			},
 
+			// The first match is where Enter goes. Activated now rather than a
+			// tick later: filter() may have just hidden the active item, and an
+			// Enter typed straight after would find nothing to run.
 			search() {
 				this.filter();
-				this.$nextTick(() => this.activate(this.enabled()[0]));
+				this.activate(this.enabled()[0]);
 			},
 
 			// An item stays when its label or a keyword contains what was typed.

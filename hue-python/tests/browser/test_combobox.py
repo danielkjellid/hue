@@ -1,7 +1,11 @@
-from playwright.sync_api import Locator, expect
+import re
+
+import pytest
+from htmy import html
+from playwright.sync_api import Locator, Page, expect
 
 from hue.ui import Combobox, SelectOption
-from tests.browser._fields import css, still, token
+from tests.browser._fields import contrast, css, still, token
 from tests.browser.conftest import Show
 
 
@@ -110,3 +114,142 @@ def test_focused_invalid_combobox_draws_a_solid_danger_ring(show: Show) -> None:
     shell = page.locator("[x-ref=shell]")
     expect(shell).to_have_css("border-top-color", token(page, "danger"))
     assert f"{token(page, 'danger')} 0px 0px 0px 2px" in css(shell, "boxShadow")
+
+
+# Counts submits and keeps what was sent, without leaving the page.
+_COUNT_SUBMITS = (
+    "event.preventDefault(); window.submits = (window.submits || 0) + 1; "
+    "window.sent = new FormData(this).getAll('fruit')"
+)
+
+
+def _in_a_form(combobox: Combobox) -> html.form:
+    return html.form(combobox, onsubmit=_COUNT_SUBMITS)
+
+
+def _option_id(page: Page, name: str) -> str:
+    option_id = page.get_by_role("option", name=name).get_attribute("id")
+    assert option_id is not None
+    return option_id
+
+
+def _closed(page: Page) -> Locator:
+    field = page.get_by_role("combobox", name="Fruit")
+    field.focus()
+    page.keyboard.press("Escape")
+    expect(field).to_have_attribute("aria-expanded", "false")
+    return field
+
+
+def test_enter_with_the_list_closed_submits_the_form(show: Show) -> None:
+    page = show(_in_a_form(_fruit().value("apple")))
+    _closed(page)
+    page.keyboard.press("Enter")
+    page.wait_for_function("window.submits === 1")
+    assert page.evaluate("window.sent") == ["apple"]
+
+
+def test_down_opens_on_the_chosen_option(show: Show) -> None:
+    page = show(_fruit().value("banana"))
+    field = _closed(page)
+    page.keyboard.press("ArrowDown")
+    expect(field).to_have_attribute("aria-activedescendant", _option_id(page, "Banana"))
+
+
+def test_up_opens_on_the_last_option(show: Show) -> None:
+    page = show(_fruit())
+    field = _closed(page)
+    page.keyboard.press("ArrowUp")
+    expect(field).to_have_attribute("aria-activedescendant", _option_id(page, "Banana"))
+
+
+def test_alt_down_opens_with_nothing_active(show: Show) -> None:
+    page = show(_fruit())
+    field = _closed(page)
+    page.keyboard.press("Alt+ArrowDown")
+    expect(field).to_have_attribute("aria-expanded", "true")
+    expect(field).not_to_have_attribute("aria-activedescendant", re.compile(".*"))
+
+
+def test_escape_closes_the_list(show: Show) -> None:
+    page = show(_fruit())
+    field = page.get_by_role("combobox", name="Fruit")
+    field.focus()
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("listbox")).to_be_hidden()
+    expect(field).to_be_focused()
+
+
+@pytest.mark.parametrize("query", ["", "x"], ids=["cleared", "no match"])
+def test_enter_with_the_list_open_never_submits(show: Show, query: str) -> None:
+    page = show(_in_a_form(_fruit().value("apple")))
+    field = page.get_by_role("combobox", name="Fruit")
+    field.fill(query)
+    # Implicit submission is the Enter's default action, so it has happened
+    # by the time the press returns.
+    page.keyboard.press("Enter")
+    assert page.evaluate("window.submits") is None
+    expect(field).to_have_attribute("aria-expanded", "true")
+
+
+def test_down_then_enter_straight_away_chooses(show: Show) -> None:
+    page = show(_in_a_form(_fruit()))
+    _closed(page)
+    # Back to back, before anything waits a tick.
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    expect(page.locator("input[type=hidden][name=fruit]")).to_have_value("apple")
+    assert page.evaluate("window.submits") is None
+
+
+def test_escape_straight_after_focus_leaves_nothing_active(show: Show) -> None:
+    page = show(_fruit())
+    field = page.get_by_role("combobox", name="Fruit")
+    # In one task, so the Escape arrives before anything waits a tick.
+    field.evaluate(
+        """el => {
+            el.focus();
+            el.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+            );
+        }"""
+    )
+    expect(field).to_have_attribute("aria-expanded", "false")
+    page.keyboard.press("Alt+ArrowDown")
+    expect(field).to_have_attribute("aria-expanded", "true")
+    expect(field).not_to_have_attribute("aria-activedescendant", re.compile(".*"))
+
+
+def test_meta_on_the_active_option_is_legible_in_dark(show: Show) -> None:
+    combobox = (
+        Combobox()
+        .name("country")
+        .label("Country")
+        .content(SelectOption().value("no").label("Norway").meta("NO"))
+    )
+    page = still(show(combobox, theme="dark"))
+    page.get_by_role("combobox", name="Country").focus()
+    expect(page.get_by_role("option", name="Norway")).to_have_attribute(
+        "data-active", "true"
+    )
+    assert contrast(page.get_by_role("listbox").get_by_text("NO", exact=True)) >= 4.5
+
+
+def test_combobox_opens_scrolled_to_a_chosen_option_far_down(show: Show) -> None:
+    options = [SelectOption().value(f"v{i}").label(f"Option {i:02}") for i in range(40)]
+    page = show(Combobox().name("fruit").label("Fruit").value("v39").content(*options))
+    page.get_by_role("combobox", name="Fruit").focus()
+    option = page.get_by_role("option", name="Option 39")
+    listbox = page.get_by_role("listbox")
+    expect(option).to_be_visible()
+    page.wait_for_function(
+        """() => {
+            const o = document.querySelector('[role=option][data-value=v39]');
+            const l = document.querySelector('[role=listbox]');
+            const a = o.getBoundingClientRect(), b = l.getBoundingClientRect();
+            return a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+        }""",
+        timeout=3000,
+    )
+    assert listbox.evaluate("el => el.scrollTop") > 0

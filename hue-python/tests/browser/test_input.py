@@ -3,7 +3,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from hue.ui import Button, PasswordInput, Text, TextInput
 from hue.ui._styles import ControlSize
-from tests.browser._fields import css, still, token
+from tests.browser._fields import css, row_of_pixels, still, token
 from tests.browser.conftest import Show
 
 
@@ -137,3 +137,47 @@ def test_an_attached_button_fills_the_group(show: Show) -> None:
     group = _group(page, "key")
     button = page.get_by_role("button", name="Copy")
     assert _height(button) == _height(group) - 2
+
+
+def _pixel(page: Page, x: float, y: float) -> str:
+    return row_of_pixels(page, x, round(y), 1)[0]
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        PasswordInput().name("secret").label("Secret").revealable(),
+        TextInput().name("secret").label("Secret").prefix("https://"),
+    ],
+    ids=["input first", "input last"],
+)
+def test_a_fill_on_a_grouped_input_leaves_the_border_alone(
+    show: Show, field: TextInput
+) -> None:
+    page = still(show(field))
+    group = _group(page, "secret").bounding_box()
+    assert group is not None
+    top, bottom = group["y"], group["y"] + group["height"] - 1
+    # Just inside the group's top corners, outside their curve.
+    corners = [(group["x"] + 1, top), (group["x"] + group["width"] - 2, top)]
+    before = [_pixel(page, x, y) for x, y in corners]
+    control = page.get_by_label("Secret", exact=True)
+    # Chrome's autofill colour, painted the way autofill paints it.
+    control.evaluate("el => { el.style.background = 'rgb(232, 240, 254)' }")
+    box = control.bounding_box()
+    assert box is not None
+    middle = box["x"] + box["width"] / 2
+    border = token(page, "border-input")
+    assert _pixel(page, middle, top) == border
+    assert _pixel(page, middle, bottom) == border
+    assert [_pixel(page, x, y) for x, y in corners] == before
+
+
+# The group's height is a minimum, so a taller input grows it.
+def test_a_taller_grouped_input_stays_inside_its_group(show: Show) -> None:
+    page = show(TextInput().name("g").label("G").prefix("$").class_("h-12"))
+    group = page.locator("div:has(> input[name=g])").bounding_box()
+    control = page.locator("input[name=g]").bounding_box()
+    assert group is not None and control is not None
+    assert control["y"] >= group["y"]
+    assert control["y"] + control["height"] <= group["y"] + group["height"]
