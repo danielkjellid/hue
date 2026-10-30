@@ -38,24 +38,28 @@ _CHEVRON = (
 # submit control, which Enter in a field makes as well, or Enter in a field
 # of a form with none; it validates in the same task. A script calling
 # requestSubmit() or reportValidity() opens nothing.
+#
+# Every key hue puts in this x-data, and in the Accordion's, starts with hue:
+# the section holds the caller's markup, and a key of ours named like one of
+# theirs, such as a form's own submitting flag, would shadow it in there.
 SUBMIT_STATE = (
-    "submitting: false, "
-    "noteSubmit() { this.submitting = true; "
-    "setTimeout(() => { this.submitting = false }) }"
+    "hueSubmitting: false, "
+    "hueNoteSubmit() { this.hueSubmitting = true; "
+    "setTimeout(() => { this.hueSubmitting = false }) }"
 )
 SUBMIT_LISTENERS = {
     "x-on:click.capture.document": (
         "if ($event.target.closest?.('button:not([type]), button[type=submit], "
-        "input[type=submit], input[type=image]')?.form) noteSubmit()"
+        "input[type=submit], input[type=image]')?.form) hueNoteSubmit()"
     ),
     "x-on:keydown.capture.document": (
         "if ($event.key === 'Enter' && $event.target.form "
-        "&& $event.target.matches('input')) noteSubmit()"
+        "&& $event.target.matches('input')) hueNoteSubmit()"
     ),
 }
 _OPEN_NOW = unsafe(
-    "if ($event.type === 'invalid' && !submitting) return; "
-    "open = true; $el.style.removeProperty('display')"
+    "if ($event.type === 'invalid' && !hueSubmitting) return; "
+    "hueOpen = true; $el.style.removeProperty('display')"
 )
 _REVEAL = {"x-on:invalid.capture": _OPEN_NOW, "x-on:hue-reveal": _OPEN_NOW}
 
@@ -105,9 +109,9 @@ class Disclosure(ChainableComponent):
             class_=classnames(_HEADER, FOCUS_RING),
             **{
                 ":id": "$id('hue-disclosure-title')",
-                ":aria-expanded": unsafe("open"),
+                ":aria-expanded": unsafe("hueOpen"),
                 ":aria-controls": "$id('hue-disclosure-panel')",
-                "x-on:click": unsafe("open = !open"),
+                "x-on:click": unsafe("hueOpen = !hueOpen"),
             },
         )
 
@@ -124,7 +128,7 @@ class Disclosure(ChainableComponent):
                 **{
                     ":id": "$id('hue-disclosure-panel')",
                     ":aria-labelledby": "$id('hue-disclosure-title')",
-                    "x-show": unsafe("open"),
+                    "x-show": unsafe("hueOpen"),
                     "x-cloak": True,
                     **_REVEAL,
                 },
@@ -135,7 +139,7 @@ class Disclosure(ChainableComponent):
             # section and leave the panel hanging over whatever follows.
             class_=classnames("w-full", self._get_prop("class_")),
             **{
-                "x-data": f"{{ open: {str(starts_open).lower()}, {SUBMIT_STATE} }}",
+                "x-data": f"{{ hueOpen: {str(starts_open).lower()}, {SUBMIT_STATE} }}",
                 **SUBMIT_LISTENERS,
                 "x-id": "['hue-disclosure-title', 'hue-disclosure-panel']",
                 **self._get_base_html_attrs(),

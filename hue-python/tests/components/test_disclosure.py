@@ -1,7 +1,9 @@
+import re
+
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import Disclosure
+from hue.ui import Accordion, AccordionItem, Disclosure
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -23,9 +25,9 @@ class TestDisclosure:
             Disclosure().title("General").content("Fields"),
             context_args=context_args,
         )
-        assert_attr(html, "button", ":aria-expanded", "open")
+        assert_attr(html, "button", ":aria-expanded", "hueOpen")
         assert_attr(html, "button", ":aria-controls", "$id('hue-disclosure-panel')")
-        assert_attr(html, "button", "x-on:click", "open = !open")
+        assert_attr(html, "button", "x-on:click", "hueOpen = !hueOpen")
 
     @pytest.mark.asyncio
     async def test_the_panel_is_named_by_its_heading(self, context_args):
@@ -61,7 +63,7 @@ class TestDisclosure:
             Disclosure().title("General").content("Fields"),
             context_args=context_args,
         )
-        assert select(html, "[x-data]")[0]["x-data"].startswith("{ open: true,")
+        assert select(html, "[x-data]")[0]["x-data"].startswith("{ hueOpen: true,")
 
     @pytest.mark.asyncio
     async def test_it_can_start_folded_away(self, context_args):
@@ -69,4 +71,34 @@ class TestDisclosure:
             Disclosure().title("General").closed().content("Fields"),
             context_args=context_args,
         )
-        assert select(html, "[x-data]")[0]["x-data"].startswith("{ open: false,")
+        assert select(html, "[x-data]")[0]["x-data"].startswith("{ hueOpen: false,")
+
+
+def _top_level_keys(x_data: str) -> list[str]:
+    """
+    The keys of an x-data object literal: what is left at its top level once
+    every nested bracket and string is taken out.
+    """
+    body = x_data.strip()[1:-1]
+    body = re.sub(r"'[^']*'", "''", body)
+    while re.search(r"[({[][^(){}[\]]*[)}\]]", body):
+        body = re.sub(r"[({[][^(){}[\]]*[)}\]]", "", body)
+    return re.findall(r"(?:^|,)\s*(\w+)\s*[:(]?", body)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "component",
+    [
+        Disclosure().title("General").content("Fields"),
+        Accordion().content(AccordionItem().title("One").open().content("Fields")),
+    ],
+    ids=["disclosure", "accordion"],
+)
+async def test_every_key_in_its_state_is_hue_prefixed(component, context_args):
+    # The section holds the caller's markup, so an unprefixed key would shadow
+    # a name of theirs in there, such as a form's own submitting flag.
+    html = await render_tree(component, context_args=context_args)
+    keys = _top_level_keys(select(html, "[x-data]")[0]["x-data"])
+    assert keys
+    assert [key for key in keys if not key.startswith("hue")] == []

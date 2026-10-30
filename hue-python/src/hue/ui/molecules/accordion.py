@@ -98,11 +98,11 @@ class Accordion(ChainableComponent):
 
         single = str(not multiple).lower()
         state = (
-            f"{{ open: {opened}, single: {single}, "
-            "shown(index) { return this.open.includes(index) }, "
-            "toggle(index) { this.open = this.shown(index) "
-            "? this.open.filter((each) => each !== index) "
-            ": (this.single ? [index] : [...this.open, index]) }, "
+            f"{{ hueOpen: {opened}, hueSingle: {single}, "
+            "hueShown(index) { return this.hueOpen.includes(index) }, "
+            "hueToggle(index) { this.hueOpen = this.hueShown(index) "
+            "? this.hueOpen.filter((each) => each !== index) "
+            ": (this.hueSingle ? [index] : [...this.hueOpen, index]) }, "
             f"{_REVEAL_METHOD} }}"
         )
 
@@ -118,7 +118,7 @@ class Accordion(ChainableComponent):
             ),
             **{
                 "x-data": state,
-                "x-on:invalid.capture.document": "noteInvalid($event.target)",
+                "x-on:invalid.capture.document": "hueNoteInvalid($event.target)",
                 **SUBMIT_LISTENERS,
                 **self._get_base_html_attrs(),
             },
@@ -140,18 +140,19 @@ class Accordion(ChainableComponent):
 # document, before any panel does. Those left closed are also left
 # unreported, rather than logged as fields it could not focus. All of it on
 # a submit only, as for a Disclosure.
-_REPORTED = "($event.type !== 'invalid' || reportedField === $event.target)"
+_REPORTED = "($event.type !== 'invalid' || hueReportedField === $event.target)"
 _REVEAL_METHOD = (
-    "reportedField: null, "
+    "hueReportedField: null, "
     f"{SUBMIT_STATE}, "
-    "noteInvalid(field) { if (!this.submitting || this.reportedField) return; "
-    "this.reportedField = field; "
-    "setTimeout(() => { this.reportedField = null }) }, "
-    "revealSection(index, panel, event, reported) { "
-    "if (event.type === 'invalid' && !this.submitting) return; "
-    "if (this.single && !reported && this.open.length && !this.shown(index)) "
-    "return event.preventDefault(); "
-    "if (!this.shown(index)) this.toggle(index); "
+    "hueNoteInvalid(field) { "
+    "if (!this.hueSubmitting || this.hueReportedField) return; "
+    "this.hueReportedField = field; "
+    "setTimeout(() => { this.hueReportedField = null }) }, "
+    "hueRevealSection(index, panel, event, reported) { "
+    "if (event.type === 'invalid' && !this.hueSubmitting) return; "
+    "if (this.hueSingle && !reported && this.hueOpen.length "
+    "&& !this.hueShown(index)) return event.preventDefault(); "
+    "if (!this.hueShown(index)) this.hueToggle(index); "
     "panel.style.removeProperty('display') }"
 )
 
@@ -186,8 +187,8 @@ class AccordionItem(ChainableComponent):
     def _render(self, context: Context) -> Component:
         index: int = self._get_prop("index", 0)
         heading: HeadingLevel = self._get_prop("heading", "h3")
-        shown = unsafe(f"shown({index})")
-        reveal = unsafe(f"revealSection({index}, $el, $event, {_REPORTED})")
+        shown = unsafe(f"hueShown({index})")
+        reveal = unsafe(f"hueRevealSection({index}, $el, $event, {_REPORTED})")
 
         trigger = html.button(
             render_if(self._get_prop("title"), lambda text: text),
@@ -198,7 +199,7 @@ class AccordionItem(ChainableComponent):
                 ":id": "$id('hue-accordion-trigger')",
                 ":aria-expanded": shown,
                 ":aria-controls": "$id('hue-accordion-panel')",
-                "x-on:click": unsafe(f"toggle({index})"),
+                "x-on:click": unsafe(f"hueToggle({index})"),
             },
         )
 

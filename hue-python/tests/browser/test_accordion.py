@@ -1,8 +1,10 @@
+import pytest
 from htmy import html
 from playwright.sync_api import expect
 
 from hue.ui import Accordion, AccordionItem, TextInput
 from tests.browser.conftest import Show
+from tests.browser.test_disclosure import guarded_fields, guarded_form, submit_by
 
 
 def _faq(*, multiple: bool = False) -> Accordion:
@@ -93,3 +95,12 @@ def test_enter_in_a_field_opens_the_invalid_section(show: Show) -> None:
     )
     page.get_by_role("textbox", name="Card").press("Enter")
     expect(page.get_by_role("textbox", name="Plan")).to_be_focused()
+
+
+@pytest.mark.parametrize("how", ["click", "enter"])
+def test_a_form_keeps_its_own_submitting_state_inside_a_section(
+    show: Show, how: str
+) -> None:
+    item = AccordionItem().title("One").open().content(*guarded_fields())
+    page = show(guarded_form(Accordion().content(item)))
+    submit_by(page, how)

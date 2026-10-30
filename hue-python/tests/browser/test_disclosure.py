@@ -1,3 +1,4 @@
+import pytest
 from htmy import html
 from playwright.sync_api import Page, expect
 
@@ -142,3 +143,50 @@ def test_an_accordion_inside_a_closed_section_opens_for_its_field(
     expect(page.get_by_role("button", name="S2")).to_have_attribute(
         "aria-expanded", "true"
     )
+
+
+def guarded_form(section: object) -> object:
+    """
+    A form with its own double-submit guard: a submitting flag of its own,
+    and a Save inside the section that it disables.
+    """
+    return html.form(
+        TextInput().name("email").label("Email"),
+        section,
+        **{
+            "x-data": "{ submitting: false }",
+            "x-on:submit.prevent": "submitting = true; $el.dataset.sent = 'yes'",
+        },
+    )
+
+
+def guarded_fields() -> tuple[object, ...]:
+    return (
+        TextInput().name("a").label("A"),
+        html.button("Save", type="submit", **{":disabled": "submitting"}),
+        html.span(id="status", **{"x-text": "submitting ? 'Saving' : 'Idle'"}),
+    )
+
+
+def submit_by(page: Page, how: str) -> None:
+    """
+    Submit the guarded form, and see that it was sent and that its guard,
+    read from inside the section, now holds.
+    """
+    if how == "click":
+        page.get_by_role("button", name="Save").click()
+    else:
+        page.get_by_role("textbox", name="A", exact=True).press("Enter")
+    expect(page.locator("form")).to_have_attribute("data-sent", "yes")
+    expect(page.locator("#status")).to_have_text("Saving")
+    expect(page.get_by_role("button", name="Save")).to_be_disabled()
+
+
+@pytest.mark.parametrize("how", ["click", "enter"])
+def test_a_form_keeps_its_own_submitting_state_inside_a_section(
+    show: Show, how: str
+) -> None:
+    # The section's own state must not shadow a name the form uses, or the
+    # form's guard reads the section's flag and disables Save mid-click.
+    page = show(guarded_form(Disclosure().title("Details").content(*guarded_fields())))
+    submit_by(page, how)
