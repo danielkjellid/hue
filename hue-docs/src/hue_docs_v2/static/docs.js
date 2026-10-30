@@ -480,6 +480,11 @@ if (window.self === window.top) {
   window.docsEscape = (source) => {
     const win = hovered?.isConnected ? hovered.contentWindow : null;
     if (!win || win === source) return;
+    // A modal open on the docs page, such as the search, has the key. The
+    // pointer may still be over a frame it opened from, since the scrim
+    // drawn under a pointer that has not moved sends no mouseover.
+    const modals = document.querySelectorAll('[aria-modal="true"]');
+    if ([...modals].some((el) => el.checkVisibility())) return;
     const open = [...win.document.querySelectorAll(OPEN)].filter((el) => el.checkVisibility());
     if (!open.length) return;
     const active = win.document.activeElement;
