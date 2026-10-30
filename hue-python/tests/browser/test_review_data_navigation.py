@@ -136,8 +136,8 @@ _NAV_ROWS = (
     ("width", "number"),
     [
         *[(width, n) for width in (360, 390) for n in (1, 2, 7, 8, 14, 15)],
-        # 2 and 14 at 320 wrap: see test_review_failing.py.
-        *[(320, n) for n in (1, 7, 8, 15)],
+        # 3 and 13 fill a one-page gap, the widest a narrow row gets.
+        *[(320, n) for n in (1, 2, 3, 7, 8, 13, 14, 15)],
     ],
 )
 def test_a_touch_phone_shows_the_current_page_on_one_line(
@@ -565,3 +565,107 @@ def test_page_back_and_forward_file_nothing_for_a_page_scroll(show: Show) -> Non
     page.go_forward()
     expect(page).to_have_url(f"{ORIGIN}/#gamma")
     expect(_entry(page, "Gamma")).to_have_attribute("aria-current", "location")
+
+
+# Room for the bar on a page with its own padding, and in an app shell.
+
+
+def _with_html_padding(show: Show) -> Page:
+    page = show(_table("invoices"))
+    document = render_page(_table("invoices")).replace(
+        "<html", '<html style="padding-bottom: 40px"', 1
+    )
+    page.route(
+        f"{ORIGIN}/",
+        lambda route: route.fulfill(body=document, content_type="text/html"),
+    )
+    page.goto(f"{ORIGIN}/")
+    page.wait_for_function("() => window.Alpine && document.body._x_dataStack")
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    return page
+
+
+def test_a_pages_own_html_padding_survives_alpine_starting(show: Show) -> None:
+    # Nothing is selected, so the bar has made no room it could take back.
+    page = _with_html_padding(show)
+    assert page.evaluate("document.documentElement.style.paddingBottom") == "40px"
+
+
+def test_a_pages_own_html_padding_comes_back_after_the_bar(show: Show) -> None:
+    page = _with_html_padding(show)
+    page.get_by_role("checkbox", name="Select INV-2050").check()
+    page.wait_for_function(
+        "() => document.documentElement.style.paddingBottom !== '40px'"
+    )
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("group", name="Selected rows")).to_be_hidden()
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    assert page.evaluate("document.documentElement.style.paddingBottom") == "40px"
+
+
+def test_a_pager_in_a_scrolling_shell_scrolls_clear_of_the_bar(show: Show) -> None:
+    # An app shell: the page does not scroll, its main column does, so room
+    # under the html element is room nobody can scroll into.
+    page = show(
+        html.div(
+            html.div(style="height: 600px"),
+            _table("invoices"),
+            id="shell",
+            style="position: fixed; inset: 0; overflow-y: auto; padding: 16px",
+        ),
+        width=390,
+        height=600,
+    )
+    page.get_by_role("checkbox", name="Select INV-2050").check()
+    expect(page.get_by_role("group", name="Selected rows")).to_be_visible()
+    page.evaluate(
+        "(() => { const shell = document.getElementById('shell');"
+        " shell.scrollTop = shell.scrollHeight })()"
+    )
+    assert page.evaluate("document.getElementById('shell').scrollTop") > 0
+    # Where the bar's top rests, leaving out the slide it comes in with.
+    pager_bottom, bar_top = page.evaluate(
+        """() => {
+            const bar = document.querySelector('[aria-label="Selected rows"]');
+            const pager = document.querySelector('#invoices-rows-pagination-page-2');
+            return [pager.getBoundingClientRect().bottom,
+                innerHeight - parseFloat(getComputedStyle(bar).bottom)
+                    - bar.offsetHeight];
+        }"""
+    )
+    assert pager_bottom <= bar_top
+
+
+def test_a_field_reported_outside_the_accordion_leaves_its_open_section(
+    show: Show,
+) -> None:
+    # The browser reports the name above the accordion, so nothing in the
+    # accordion is shown to the reader, and the section they had open stays.
+    page = show(
+        html.form(
+            TextInput().name("name").label("Name").required(),
+            Accordion().content(
+                AccordionItem().title("Billing").open().content("Billing text"),
+                AccordionItem()
+                .title("Plans")
+                .content(TextInput().name("plan").label("Plan").required()),
+            ),
+            html.button("Save", type="submit"),
+            action="/saved",
+            method="get",
+        )
+    )
+    page.get_by_role("button", name="Save").click()
+    expect(page.get_by_role("textbox", name="Name")).to_be_focused()
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+    assert (
+        page.get_by_role("button", name="Plans").get_attribute("aria-expanded")
+        == "false"
+    )
+    assert page.get_by_text("Billing text").is_visible()
