@@ -159,8 +159,11 @@ class Tooltip(_overlay.WrapsTrigger):
                 # can move onto it and read it without the tooltip closing.
                 #
                 # Never over the popup the control opened, which is what the
-                # control is now about. A click drops a pending open, which a
-                # quick click would otherwise leave to fire over the popup.
+                # control is now about. A pointer click drops a pending open,
+                # which a quick click would otherwise leave to fire over the
+                # popup. Enter and Space click too, with detail 0, and keep a
+                # label the keyboard is reading, unless that click opened a
+                # popup; its state lands a tick after the click.
                 #
                 # Escape is heard on the window, because a tooltip opened by
                 # hover has to close while focus is somewhere else entirely. It
@@ -174,7 +177,9 @@ class Tooltip(_overlay.WrapsTrigger):
                 f"$el._t = setTimeout(() => shown = !{popup_open}, "
                 f"{_OPEN_DELAY_MS})",
                 "x-on:mouseleave": "clearTimeout($el._t); shown = false",
-                "x-on:click": "clearTimeout($el._t); shown = false",
+                "x-on:click": "clearTimeout($el._t); if ($event.detail) "
+                "shown = false; "
+                f"else $nextTick(() => shown = shown && !{popup_open})",
                 "x-on:focusin": "shown = "
                 f"$event.target.matches(':focus-visible') && !{popup_open}",
                 "x-on:focusout": "shown = false",

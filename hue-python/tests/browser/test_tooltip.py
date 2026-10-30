@@ -300,3 +300,14 @@ def test_a_click_puts_the_label_away(show: Show) -> None:
     trigger.click()
     expect(page.get_by_role("tooltip")).to_be_hidden()
     expect(trigger).to_be_focused()
+
+
+def test_keyboard_activation_keeps_the_label_shown(show: Show) -> None:
+    # Shown on keyboard focus, hidden when focus moves on: Enter is neither.
+    page = show(_tooltip())
+    page.keyboard.press("Tab")
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("button", name="Copy")).to_be_focused()
+    # The state rather than the bubble, which takes a moment to fade out.
+    assert page.evaluate("Alpine.$data(document.querySelector('[role=tooltip]')).shown")
