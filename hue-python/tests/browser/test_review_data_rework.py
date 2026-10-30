@@ -327,3 +327,49 @@ def test_multiple_opens_every_section_with_a_field_outside_first(show: Show) -> 
 
 def _field_plan() -> TextInput:
     return TextInput().name("plan").label("Plan").required()
+
+
+def test_a_focus_ring_beside_the_current_page_is_not_covered(show: Show) -> None:
+    # Page 2 of 15, narrow and touch: 1 sits 1px from the current page,
+    # which paints a background. The ring around 1 must still show on the
+    # side facing it.
+    page = show(html.div(_pager(2), class_="-mx-4"), width=320)
+    _coarse(page)
+    page.locator("#pages-page-2").focus()
+    page.keyboard.press("Shift+Tab")
+    expect(page.locator("#pages-page-1")).to_be_focused()
+    one = page.locator("#pages-page-1").bounding_box()
+    two = page.locator("#pages-page-2").bounding_box()
+    assert one and two
+    middle = one["y"] + one["height"] / 2
+    clip = {"x": one["x"] - 6, "y": middle - 1, "width": one["width"] + 12, "height": 2}
+    png = page.screenshot(clip=clip, scale="css")
+    width, channels, rows = _pixels(png)
+    accent = page.evaluate(
+        "(() => { const probe = document.createElement('i');"
+        " probe.style.color = 'var(--color-accent)'; document.body.append(probe);"
+        " const rgb = getComputedStyle(probe).color.match(/\\d+/g).map(Number);"
+        " probe.remove(); return rgb })()"
+    )
+
+    def ring_on(columns: range) -> bool:
+        for x in columns:
+            pixel = rows[0][x * channels : x * channels + 3]
+            if all(abs(pixel[i] - accent[i]) < 40 for i in range(3)):
+                return True
+        return False
+
+    # The ring on the left, where nothing is beside it, proves the sample.
+    assert ring_on(range(0, 6))
+    assert ring_on(range(width - 6, width))
+
+
+def test_report_validity_on_one_field_opens_its_section(show: Show) -> None:
+    # A step of a form checked on its own, by a script, while an earlier
+    # field of the same form is still empty.
+    page = show(_form(_name(), _plans()))
+    plan = page.get_by_role("textbox", name="Plan")
+    page.evaluate("document.querySelector('input[name=plan]').reportValidity()")
+    _frames(page)
+    expect(plan).to_be_visible()
+    expect(plan).to_be_focused()
