@@ -2,7 +2,7 @@ from htmy import html
 from playwright.sync_api import Page, expect
 
 from hue.js import unsafe
-from hue.ui import Button, Card, CardBody, CardFooter, CardHeader, CardMedia
+from hue.ui import Button, Card, CardBody, CardFooter, CardHeader, CardMedia, Checkbox
 from tests.browser.conftest import Show
 
 
@@ -83,3 +83,40 @@ def test_media_is_a_16_by_9_band(show: Show) -> None:
     box = page.locator("#m").bounding_box()
     assert box is not None
     assert round(box["width"] / box["height"], 2) == round(16 / 9, 2)
+
+
+def test_a_checkbox_label_in_a_linked_card_checks_the_box(show: Show) -> None:
+    page = show(
+        Card()
+        .href("#go")
+        .content(
+            CardHeader().title("Task"),
+            CardBody().content(Checkbox().name("done").label("Mark as done")),
+        )
+    )
+    # A real pointer, since the bug is what sits on top at that point.
+    box = page.get_by_text("Mark as done").bounding_box()
+    assert box is not None
+    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    expect(page.get_by_role("checkbox", name="Mark as done")).to_be_checked()
+    expect(page).to_have_url("http://hue.test/")
+
+
+def test_other_controls_in_a_linked_card_are_not_covered(show: Show) -> None:
+    page = show(
+        Card()
+        .href("#go")
+        .content(
+            CardHeader().title("Task"),
+            CardBody().content(
+                html.span("Focusable", tabindex="0", id="t"),
+                html.div("Acts", role="button", tabindex="0", id="b"),
+            ),
+        )
+    )
+    for selector in ("#t", "#b"):
+        hit = page.locator(selector).evaluate(
+            "el => { const r = el.getBoundingClientRect();"
+            " return document.elementFromPoint(r.x + 2, r.y + r.height / 2) === el }"
+        )
+        assert hit, selector

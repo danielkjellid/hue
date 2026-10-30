@@ -20,8 +20,8 @@ _VARIANT_CLASSES: dict[CardVariant, str] = {
 
 # The ring answers the title's own control only. A plain has-focus-visible
 # would also light the whole card up when one of its footer buttons is
-# focused. Every other control in the card is lifted above the title's
-# overlay, or the overlay would swallow its clicks.
+# focused. Every other control in the card, and a label that operates one,
+# is lifted above the title's overlay, or the overlay would swallow its clicks.
 _LINKED_CLASSES = classnames(
     "relative transition-[border-color,box-shadow]",
     "hover:border-border-hover hover:shadow-raised",
@@ -29,7 +29,7 @@ _LINKED_CLASSES = classnames(
     "has-[[data-card-link]:focus-visible]:ring-accent",
     "has-[[data-card-link]:focus-visible]:ring-offset-2",
     "has-[[data-card-link]:focus-visible]:ring-offset-canvas",
-    "[&_:is(a,button,input,select,textarea,summary):not([data-card-link])]:relative",
+    "[&_:is(a,button,input,select,textarea,summary,label,[tabindex],[role=button]):not([data-card-link])]:relative",
 )
 
 # The overlay is what makes the whole surface clickable while only the title
