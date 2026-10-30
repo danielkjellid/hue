@@ -1101,9 +1101,17 @@ def test_an_action_to_confirm_opens_a_dialog_first(urlpatterns_):
 
 
 def _bar(html: str) -> str:
-    found = re.search(r'<template x-teleport="body">(.*?)</template>', html, re.S)
+    """
+    The markup of the bar for picked rows: its div, up to the tag that closes it.
+    """
+    found = re.search(r'<div[^>]*aria-label="Selected rows"[^>]*>', html)
     assert found, "no bar for picked rows"
-    return found.group(1)
+    depth = 0
+    for tag in re.finditer(r"<(/?)div\b[^>]*>", html[found.start() :]):
+        depth += -1 if tag.group(1) else 1
+        if depth == 0:
+            return html[found.start() : found.start() + tag.end()]
+    raise AssertionError("the bar for picked rows is never closed")
 
 
 def test_an_action_with_nothing_to_confirm_posts_straight_away(mounted):
