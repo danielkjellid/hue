@@ -26,8 +26,8 @@ from hue.ui import (
     TextInput,
 )
 from tests.browser.conftest import Show
+from tests.browser.test_data_navigation_promises import _coarse, _form, _pager
 from tests.browser.test_datatable import _Router
-from tests.browser.test_review_data_navigation import _coarse, _form, _pager
 
 _BAR = '[aria-label="Selected rows"]'
 

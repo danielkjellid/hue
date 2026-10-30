@@ -14,12 +14,6 @@ const TYPEAHEAD_MS = 500;
 const PAGE = 10;
 
 export function registerSelectData(Alpine) {
-	// x-show rejects a promise when a fade out is cut short by reopening, and
-	// handles it only a tick later, so a list closed and opened again within
-	// that tick logs an uncaught rejection. Alpine ignores this one itself.
-	window.addEventListener("unhandledrejection", (event) => {
-		if (event.reason?.isFromCancelledTransition) event.preventDefault();
-	});
 	Alpine.data("hueSelect", (value, placeholder) => ({
 		...listbox,
 		open: false,
