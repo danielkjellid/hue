@@ -242,18 +242,15 @@ def _tick(page: Page) -> None:
     expect(_bar(page)).to_be_visible()
 
 
-def _end_of(page: Page, scroller: str) -> None:
-    # Once the bar has slid in, since it adds to what there is to scroll.
-    page.wait_for_function(
-        "bar => getComputedStyle(document.querySelector(bar)).transform === 'none'",
-        arg=_BAR,
-    )
-    page.evaluate(f"(() => {{ const s = {scroller}; s.scrollTop = s.scrollHeight }})()")
-
-
-def _clear_of_the_bar(page: Page) -> None:
-    page.wait_for_function(_APART, arg=[_PAGE_2, _BAR])
-    page.wait_for_function(_APART, arg=["#invoices-rows", _BAR])
+def _scrolled_clear_of_the_bar(page: Page, scroller: str) -> None:
+    # Scroll to the end on every check: the bar sliding in, and the room made
+    # for it, both add to what there is to scroll after the first try.
+    for target in (_PAGE_2, "#invoices-rows"):
+        page.wait_for_function(
+            f"([a, b]) => {{ const s = {scroller}; s.scrollTop = s.scrollHeight;"
+            f" return ({_APART})([a, b]) }}",
+            arg=[target, _BAR],
+        )
 
 
 def _at_the_foot(show: Show, *components: object) -> Page:
@@ -303,8 +300,7 @@ def test_a_focused_row_checkbox_is_not_under_the_bar(show: Show) -> None:
 def test_the_pager_scrolls_clear_of_the_bar_on_the_page(show: Show) -> None:
     page = _at_the_foot(show, _table("invoices"))
     _tick(page)
-    _end_of(page, "document.scrollingElement")
-    _clear_of_the_bar(page)
+    _scrolled_clear_of_the_bar(page, "document.scrollingElement")
 
 
 def test_the_pager_scrolls_clear_in_a_body_that_scrolls(show: Show) -> None:
@@ -318,8 +314,7 @@ def test_the_pager_scrolls_clear_in_a_body_that_scrolls(show: Show) -> None:
         height=600,
     )
     _tick(page)
-    _end_of(page, "document.body")
-    _clear_of_the_bar(page)
+    _scrolled_clear_of_the_bar(page, "document.body")
 
 
 def test_the_pager_scrolls_clear_in_an_app_shell(show: Show) -> None:
@@ -334,8 +329,7 @@ def test_the_pager_scrolls_clear_in_an_app_shell(show: Show) -> None:
         height=600,
     )
     _tick(page)
-    _end_of(page, "document.getElementById('shell')")
-    _clear_of_the_bar(page)
+    _scrolled_clear_of_the_bar(page, "document.getElementById('shell')")
 
 
 def test_the_page_and_its_padding_are_left_alone(show: Show) -> None:
