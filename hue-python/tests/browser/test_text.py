@@ -1,7 +1,7 @@
 import pytest
 from htmy import html
 
-from hue.ui import Accordion, AccordionItem, Text
+from hue.ui import Accordion, AccordionItem, Disclosure, Empty, Text
 from tests.browser.conftest import Show
 
 TYPE = ("fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing")
@@ -32,9 +32,28 @@ def test_a_plain_heading_keeps_the_heading_look(show: Show) -> None:
     assert _type(page, "#h") == [FIGTREE, "14px", "700", "17.5px", "-0.28px"]
 
 
-def test_an_accordion_heading_keeps_the_heading_look(show: Show) -> None:
-    page = show(Accordion().content(AccordionItem().title("Section").content("Body")))
-    assert _type(page, "h3 button") == [FIGTREE, "14px", "500", "21.7px", "-0.28px"]
+# A heading a component uses for structure says where it sits in the outline;
+# the display tracking is for headings that look like headings.
+def test_an_empty_title_reads_the_same_as_a_heading(show: Show) -> None:
+    page = show(
+        Empty().title("Nothing here").id("div"),
+        Empty().title("Nothing here", heading="h2").id("h2"),
+    )
+    assert _type(page, "#h2 h2") == _type(page, "#div >> text=Nothing here")
+
+
+def test_an_accordion_trigger_takes_body_tracking(show: Show) -> None:
+    page = show(
+        Accordion().content(AccordionItem().title("Section").content("Body")),
+        html.button("Plain", id="b"),
+    )
+    assert _type(page, "h3 button") == [FIGTREE, "14px", "500", "21.7px", "normal"]
+    assert _type(page, "#b")[4] == "normal"
+
+
+def test_a_disclosure_trigger_takes_body_tracking(show: Show) -> None:
+    page = show(Disclosure().title("More").content("Body"))
+    assert _type(page, "h3 button")[4] == "normal"
 
 
 def test_a_heading_text_still_takes_its_own_classes(show: Show) -> None:

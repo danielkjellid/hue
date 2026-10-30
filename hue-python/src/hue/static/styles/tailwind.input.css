@@ -586,6 +586,13 @@
     letter-spacing: var(--tracking-display);
   }
 
+  /* A button in a heading is a control that opens a section (Accordion,
+     Disclosure), whose label reads as one, while a link stays heading text.
+     Still base, so a class on the button wins. */
+  :where(h1, h2, h3, h4, h5, h6) button {
+    letter-spacing: normal;
+  }
+
   code, kbd, samp, pre {
     font-family: var(--font-mono);
   }

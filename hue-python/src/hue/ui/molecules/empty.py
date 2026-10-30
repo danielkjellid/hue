@@ -129,7 +129,9 @@ class Empty(ChainableComponent):
             )
 
         if title is not None:
-            title_classes = "font-ui text-md font-bold"
+            # A heading level is for the outline, so it inherits the tracking
+            # the div would rather than the base heading rule's.
+            title_classes = "font-ui text-md font-bold [letter-spacing:inherit]"
             children.append(
                 html.div(title, class_=title_classes)
                 if heading is None
