@@ -132,7 +132,7 @@ class Alert(ChainableComponent):
 
     def dismissible(self, value: bool = True) -> Self:
         """
-        Add a close button that removes the alert.
+        Add a close button that hides the alert in the browser.
         """
         self._props["dismissible"] = value
         return self
