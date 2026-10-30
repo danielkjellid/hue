@@ -25,7 +25,7 @@ SHOWCASES: list[Showcase] = [
                         [2900, 3000, 2800, 3300, 3100, 3600, 3700], label="Last week"
                     )
                     .y_format("currency", currency="USD")
-                    .description("Revenue rose from $3,100 to $4,829.")
+                    .description("Revenue rose from 3,100.00 USD to 4,829.00 USD.")
                 )
                 """,
             ),
