@@ -49,7 +49,7 @@ def render_page(*components: ComponentType, dir: str | None = None) -> str:
     # Playwright's sync API keeps an event loop running on this thread.
     with ThreadPoolExecutor(1) as pool:
         document = pool.submit(asyncio.run, coroutine).result()
-    return document if dir is None else document.replace("<html>", f'<html dir="{dir}">', 1)
+    return document if dir is None else document.replace("<html", f'<html dir="{dir}"', 1)
 
 
 @pytest.fixture(scope="session")
@@ -129,6 +129,8 @@ def show(browser: Browser) -> Iterator[Show]:
         page.route(f"{ORIGIN}/**", fulfil)
         page.goto(f"{ORIGIN}/")
         page.wait_for_function("() => window.Alpine && document.body._x_dataStack")
+        # The direction goes in by text replacement, so make sure it landed.
+        assert page.evaluate("document.dir") == (dir or "")
         pages.append(page)
         return page
 
