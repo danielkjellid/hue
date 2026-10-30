@@ -78,6 +78,12 @@ class TestTable:
         assert [group.get("span") for group in groups] == [None, "2"]
         assert select(html, "table > *")[2].name == "thead"
         assert_attr(html, "th", "scope", "colgroup")
+        assert all(group.get("class") is None for group in groups)
+
+    @pytest.mark.parametrize("span", [0, -1])
+    def test_a_column_group_covers_at_least_one_column(self, span):
+        with pytest.raises(ValueError, match="at least one"):
+            TableColumnGroup().span(span)
 
     @pytest.mark.asyncio
     async def test_cell_colspan_and_align(self, context_args):
