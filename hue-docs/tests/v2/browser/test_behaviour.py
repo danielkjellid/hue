@@ -208,23 +208,40 @@ def test_a_link_lands_on_its_panel_and_back_or_reload_keeps_the_reader_s_place(
     docs.wait_for_url("**/components/badge/")
     docs.go_back()
     _kept(docs, y)
-    # Once the reader scrolls away, the page growing, as a frame would, does
-    # not pull them back.
+    docs.reload()
+    _kept(docs, y)
+
+
+SETTLED = "() => new Promise((done) => requestAnimationFrame(() => setTimeout(done)))"
+
+GROW = """
+() => document.body.appendChild(
+  Object.assign(document.createElement("div"), { style: "height: 400px" })
+)
+"""
+
+
+def test_back_lets_the_reader_scroll_away_from_the_restored_place(
+    docs: Page, site: str
+) -> None:
+    docs.goto(site + "/components/tabs/")
+    docs.wait_for_load_state("networkidle")
+    docs.mouse.move(700, 400)
+    docs.mouse.wheel(0, 2000)
+    docs.wait_for_function("() => scrollY >= 1998")
+    docs.locator("#docs-nav").get_by_role("link", name="Badge", exact=True).click()
+    docs.wait_for_url("**/components/badge/")
+    docs.go_back()
+    docs.wait_for_load_state("networkidle")
+    docs.wait_for_function("() => Math.abs(scrollY - 2000) <= 2", timeout=3000)
     docs.mouse.move(700, 400)
     docs.mouse.wheel(0, -800)
-    docs.wait_for_function(f"() => scrollY <= {y - 798}")
-    left = docs.evaluate(WHERE)
-    docs.evaluate(
-        "() => document.body.appendChild(Object.assign("
-        "document.createElement('div'), { style: 'height: 400px' }))"
-    )
-    # A frame later than the growth, so a resize observer has had its turn.
-    docs.evaluate(
-        "() => new Promise((d) => requestAnimationFrame(() => setTimeout(d)))"
-    )
-    assert abs(docs.evaluate(WHERE) - left) <= 2
-    docs.reload()
-    _kept(docs, left)
+    docs.wait_for_function("() => scrollY <= 1202")
+    left = docs.evaluate("Math.round(scrollY)")
+    # Something on the page growing after the reader moved on, as a frame would.
+    docs.evaluate(GROW)
+    docs.evaluate(SETTLED)
+    assert abs(docs.evaluate("Math.round(scrollY)") - left) <= 2
 
 
 IN_VIEW = """
