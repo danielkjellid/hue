@@ -110,7 +110,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
         )
 
         menu = html.div(
-            *self._children,
+            *_labelled_runs(self._children),
             role="menu",
             aria_label=self._get_prop("label"),
             class_=classnames(
@@ -151,6 +151,37 @@ class DropdownMenu(_overlay.WrapsTrigger):
                 **self._get_base_html_attrs(),
             },
         )
+
+
+# Minted per group, so two labels in a menu, or two menus, never share one.
+_LABEL_ID = "$id('hue-menu-label')"
+
+
+def _labelled_runs(children: tuple[ComponentType, ...]) -> list[ComponentType]:
+    """
+    Put each MenuLabel and the items after it, up to the next label or
+    separator, in a group the label names. Otherwise a screen reader walking
+    the items never hears which run it is in.
+    """
+    runs: list[list[ComponentType]] = [[]]
+    for child in children:
+        if isinstance(child, (MenuLabel, MenuSeparator)):
+            runs.append([])
+        runs[-1].append(child)
+
+    out: list[ComponentType] = []
+    for run in runs:
+        if run and isinstance(run[0], MenuLabel):
+            out.append(
+                html.div(
+                    *run,
+                    role="group",
+                    **{"x-id": "['hue-menu-label']", ":aria-labelledby": _LABEL_ID},
+                )
+            )
+        else:
+            out.extend(run)
+    return out
 
 
 class MenuItem(Clickable):
@@ -305,7 +336,7 @@ class MenuItem(Clickable):
 
 class MenuLabel(ChainableComponent):
     """
-    A heading over a run of items.
+    A heading over a run of items, which names the group they are put in.
     """
 
     category = None
@@ -318,7 +349,7 @@ class MenuLabel(ChainableComponent):
                 "tracking-[0.04em] text-fg-subtle",
                 self._get_prop("class_"),
             ),
-            **self._get_base_html_attrs(),
+            **{":id": _LABEL_ID, **self._get_base_html_attrs()},
         )
 
 

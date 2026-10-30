@@ -94,3 +94,22 @@ def test_the_arrow_keys_walk_across_labelled_runs_and_wrap(show: Show) -> None:
     expect(page.get_by_role("menuitem", name="Open")).to_be_focused()
     page.keyboard.press("End")
     expect(page.get_by_role("menuitem", name="Invite")).to_be_focused()
+
+
+def test_a_label_names_the_run_of_items_under_it(show: Show) -> None:
+    # Twice on the page, so a label id shared between menus would show up.
+    page = show(_grouped(), _grouped())
+    page.get_by_role("button", name="Actions").first.click()
+    menu = page.get_by_role("menu").first
+    project = menu.get_by_role("group", name="Project")
+    sharing = menu.get_by_role("group", name="Sharing")
+    expect(project.get_by_role("menuitem")).to_have_text(["Rename", "Duplicate"])
+    expect(sharing.get_by_role("menuitem")).to_have_text(["Invite"])
+    # Before any label, an item belongs to no group.
+    grouped = menu.get_by_role("group").get_by_role("menuitem", name="Open")
+    expect(grouped).to_have_count(0)
+    ids = page.evaluate(
+        "[...document.querySelectorAll('[role=group]')]"
+        ".map(g => g.getAttribute('aria-labelledby'))"
+    )
+    assert len(set(ids)) == 4
