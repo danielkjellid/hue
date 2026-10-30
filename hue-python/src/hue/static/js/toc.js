@@ -122,6 +122,23 @@ function scrollerOf(element) {
 }
 
 /**
+ * The column the contents scroll in, apart from the page.
+ *
+ * The nearest ancestor of the contents that scrolls, unless it holds the
+ * headings as well: that is the content itself, which only the reader
+ * scrolls.
+ */
+function columnOf(nav, content) {
+	for (let node = nav; node; node = node.parentElement) {
+		if (content && node.contains(content)) return null;
+		const overflow = getComputedStyle(node).overflowY;
+		if (overflow !== "auto" && overflow !== "scroll") continue;
+		if (node.scrollHeight > node.clientHeight) return node;
+	}
+	return null;
+}
+
+/**
  * Where a heading sits relative to the line it is reached at.
  *
  * That line is the top of whatever the content scrolls inside, less the
@@ -168,6 +185,7 @@ export function registerTocData(Alpine) {
 		onContent: null,
 		onSettle: null,
 		onHistory: null,
+		onScrolled: null,
 		sizes: null,
 		content: null,
 
@@ -191,6 +209,16 @@ export function registerTocData(Alpine) {
 			// popstate, which would undo a container position put back here.
 			this.onHistory = (event) => requestAnimationFrame(() => this.revisit(event.state));
 			window.addEventListener("popstate", this.onHistory);
+			// The browser files no position for a container, so each scroll
+			// of it that comes to rest is filed on the entry by hand, and
+			// Back or Forward from any link, a plain #fragment one included,
+			// finds it there. On rest rather than on every frame, which
+			// would run into the browser's limit on replaceState.
+			this.onScrolled = (event) => {
+				if (event.target !== scrollerOf(this.container)) return;
+				history.replaceState({ ...history.state, hueTocScroll: event.target.scrollTop }, "");
+			};
+			document.addEventListener("scrollend", this.onScrolled, true);
 
 			// The nav's own width decides where the labels wrap, which is
 			// what the rail is drawn from. It fires once on observe too,
@@ -228,6 +256,7 @@ export function registerTocData(Alpine) {
 			document.removeEventListener("scroll", this.onMove, true);
 			window.removeEventListener("resize", this.onMove);
 			window.removeEventListener("popstate", this.onHistory);
+			document.removeEventListener("scrollend", this.onScrolled, true);
 			window.removeEventListener("load", this.onSettle);
 			this.sizes?.disconnect();
 			this.content?.disconnect();
@@ -413,6 +442,23 @@ export function registerTocData(Alpine) {
 			}
 			event.preventDefault();
 
+			// A heading in a closed section asks the section to open, which
+			// Disclosure and AccordionItem do there and then. It is gone to
+			// once Alpine has drawn the change, since opening one section of
+			// an accordion closes another and moves everything under it. A
+			// heading nothing opens is not followed, or its entry would be
+			// marked as the place the reader has got to without showing it.
+			const { element } = this.entries[index];
+			if (!element.getClientRects().length) {
+				element.dispatchEvent(new CustomEvent("hue-reveal", { bubbles: true }));
+				if (!element.getClientRects().length) return;
+				this.$nextTick(() => this.go(index));
+				return;
+			}
+			this.go(index);
+		},
+
+		go(index) {
 			const { target } = this.entries[index];
 			const scroller = scrollerOf(this.container);
 
@@ -484,6 +530,27 @@ export function registerTocData(Alpine) {
 			if (index === this.active) return;
 			this.active = index;
 			this.apply();
+			this.keepInView();
+		},
+
+		/**
+		 * Scroll the column the contents sit in, where that scrolls on its
+		 * own, so the marked entry is in it. Only the column: the page is
+		 * where the reader is reading, and the first entry takes the column
+		 * back to its top, title and all.
+		 */
+		keepInView() {
+			const column = columnOf(this.$root, this.container);
+			const link = this.entries[this.active]?.link;
+			if (!column || !link) return;
+			if (this.active === 0) {
+				column.scrollTop = 0;
+				return;
+			}
+			const box = column.getBoundingClientRect();
+			const row = link.getBoundingClientRect();
+			if (row.top < box.top) column.scrollTop -= box.top - row.top + SLACK;
+			else if (row.bottom > box.bottom) column.scrollTop += row.bottom - box.bottom + SLACK;
 		},
 
 		/**

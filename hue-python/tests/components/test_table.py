@@ -9,6 +9,7 @@ from hue.ui import (
     TableCaption,
     TableCell,
     TableColumnGroup,
+    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -80,10 +81,35 @@ class TestTable:
         assert_attr(html, "th", "scope", "colgroup")
         assert all(group.get("class") is None for group in groups)
 
-    @pytest.mark.parametrize("span", [0, -1])
+    # True is an int to Python and would render span="true".
+    @pytest.mark.parametrize("span", [0, -1, True, 1.5])
     def test_a_column_group_covers_at_least_one_column(self, span):
         with pytest.raises(ValueError, match="at least one"):
             TableColumnGroup().span(span)
+
+    @pytest.mark.parametrize("span", [0, -2, True, 1.5])
+    def test_a_cell_spans_at_least_one_column(self, span):
+        for spanned in (
+            lambda: TableHead().colspan(span),
+            lambda: TableCell().colspan(span),
+            lambda: TableBody().title("October", colspan=span),
+        ):
+            with pytest.raises(ValueError, match="at least one"):
+                spanned()
+
+    @pytest.mark.asyncio
+    async def test_no_part_writes_an_empty_class(self, context_args):
+        html = await render_tree(
+            Table().content(
+                TableCaption().content("Planets"),
+                TableColumnGroup(),
+                TableHeader().content(TableRow().content(TableHead().content("A"))),
+                TableBody().content(TableRow().content(TableCell().content("1"))),
+                TableFooter().content(TableRow().content(TableCell().content("1"))),
+            ),
+            context_args=context_args,
+        )
+        assert 'class=""' not in html
 
     @pytest.mark.asyncio
     async def test_cell_colspan_and_align(self, context_args):

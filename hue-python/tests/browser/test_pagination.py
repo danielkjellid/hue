@@ -1,3 +1,4 @@
+import pytest
 from htmy import html
 from playwright.sync_api import Page, Route, expect
 
@@ -24,6 +25,7 @@ def _serve(page: Page) -> None:
     def fulfil(route: Route) -> None:
         number = int(route.request.url.split("page=")[1])
         document = render_page(*_page(number))  # type: ignore[arg-type]
+        document = document.replace(">Test</title>", f">Page {number}</title>", 1)
         route.fulfill(body=document, content_type="text/html")
 
     page.route(f"{ORIGIN}/?page=*", fulfil)
@@ -52,3 +54,67 @@ def test_focus_goes_to_the_page_a_spent_step_led_to(show: Show) -> None:
 def test_many_pages_fit_a_phone(show: Show) -> None:
     page = show(_pagination(50, total=100).page_sizes([10, 25]), width=390)
     assert page.evaluate("document.documentElement.scrollWidth") <= 390
+
+
+@pytest.mark.parametrize(
+    "pagination",
+    [
+        _pagination(8, total=15),
+        _pagination(50, total=100),
+        _pagination(8, total=15).total_records(148),
+    ],
+)
+def test_the_steps_stay_on_one_line_at_320(show: Show, pagination: Pagination) -> None:
+    # A wrapped row leaves Next alone on a line under the numbers.
+    page = show(pagination, width=320)
+    tops = page.evaluate(
+        "[...document.querySelectorAll('nav > *')]"
+        ".filter(child => child.checkVisibility())"
+        ".map(child => child.getBoundingClientRect().top)"
+    )
+    assert len(set(tops)) == 1, tops
+    assert page.evaluate("document.documentElement.scrollWidth") <= 320
+
+
+@pytest.mark.parametrize(
+    ("number", "width", "seen"),
+    [
+        (8, 1280, ["1", "…", "7", "8", "9", "…", "15"]),
+        (8, 320, ["1", "…", "8", "…", "15"]),
+        # The wide row shows 2 and 3 where the narrow one folds them.
+        (4, 1280, ["1", "2", "3", "4", "5", "…", "15"]),
+        (4, 320, ["1", "…", "4", "…", "15"]),
+    ],
+)
+def test_a_narrow_row_folds_the_siblings(
+    show: Show, number: int, width: int, seen: list[str]
+) -> None:
+    page = show(_pagination(number, total=15), width=width)
+    shown = page.evaluate(
+        "[...document.querySelectorAll('nav > *')]"
+        ".filter(child => child.checkVisibility())"
+        ".map(child => child.textContent.trim()).filter(Boolean)"
+    )
+    assert shown == seen
+    expect(page.locator(f"#pages-page-{number}")).to_have_attribute(
+        "aria-current", "page"
+    )
+
+
+def test_a_push_swap_takes_the_title_of_the_page_it_lands_on(show: Show) -> None:
+    page = show(*_page(1))
+    _serve(page)
+    assert page.title() == "Test"
+    page.locator("#pages-page-2").click()
+    expect(page).to_have_title("Page 2")
+    page.locator("#pages-page-3").click()
+    expect(page).to_have_title("Page 3")
+    # Back reloads the entry, so the title it shows is the one it was saved
+    # with as well as the one the page carries.
+    page.go_back()
+    expect(page).to_have_url(f"{ORIGIN}/?page=2")
+    expect(page).to_have_title("Page 2")
+    page.go_back()
+    expect(page).to_have_title("Test")
+    page.go_forward()
+    expect(page).to_have_title("Page 2")

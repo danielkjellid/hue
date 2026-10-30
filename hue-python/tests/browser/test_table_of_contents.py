@@ -1,7 +1,7 @@
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import TableOfContents
+from hue.ui import Accordion, AccordionItem, Disclosure, TableOfContents
 from tests.browser.conftest import Show
 
 NAMES = ("Alpha", "Beta", "Gamma")
@@ -137,3 +137,160 @@ def test_forward_in_a_container_returns_to_the_later_click(show: Show) -> None:
         "() => Math.abs(document.getElementById('beta').getBoundingClientRect().top"
         " - document.getElementById('doc').getBoundingClientRect().top) < 2"
     )
+
+
+def _folded(section: object) -> tuple[object, ...]:
+    # The contents stay put, so clicking an entry never scrolls the page to
+    # reach it and moves the mark on its own.
+    return (
+        html.div(
+            TableOfContents().of("#doc"),
+            style="position: fixed; top: 0; right: 0; width: 200px",
+        ),
+        html.div(
+            *_sections(),
+            section,
+            html.div(style="height: 2000px"),
+            id="doc",
+        ),
+    )
+
+
+def _follows_into(page: Page, opened: str) -> None:
+    _entry(page, "Hidden").click()
+    expect(page.locator(opened)).to_be_visible()
+    heading = page.locator("#hidden")
+    expect(heading).to_be_focused()
+    expect(_entry(page, "Hidden")).to_have_attribute("aria-current", "location")
+    assert page.evaluate("location.hash") == "#hidden"
+    page.wait_for_function(
+        "() => Math.abs("
+        "document.getElementById('hidden').getBoundingClientRect().top) < 2"
+    )
+
+
+def test_following_an_entry_in_a_closed_disclosure_opens_it(show: Show) -> None:
+    page = show(
+        *_folded(
+            Disclosure()
+            .title("More")
+            .closed()
+            .content(html.h2("Hidden", id="hidden"), html.p("Folded text"))
+        )
+    )
+    _follows_into(page, "text=Folded text")
+
+
+def test_following_an_entry_in_a_closed_accordion_item_opens_it(show: Show) -> None:
+    # Opening it closes the open section above it, which moves the heading
+    # after the click; the scroll lands where the heading ends up.
+    page = show(
+        *_folded(
+            Accordion().content(
+                AccordionItem()
+                .title("First")
+                .open()
+                .content(html.div("Open text", style="height: 400px")),
+                AccordionItem()
+                .title("Second")
+                .content(html.h2("Hidden", id="hidden"), html.p("Folded text")),
+            )
+        )
+    )
+    _follows_into(page, "text=Folded text")
+    expect(page.get_by_text("Open text")).to_be_hidden()
+
+
+def test_a_heading_nothing_opens_is_not_marked(show: Show) -> None:
+    page = show(*_folded(html.div(html.h2("Hidden", id="hidden"), hidden=True)))
+    _entry(page, "Beta").click()
+    _entry(page, "Hidden").click()
+    expect(_entry(page, "Beta")).to_have_attribute("aria-current", "location")
+    assert page.evaluate("location.hash") == "#beta"
+
+
+def _long_page() -> tuple[object, ...]:
+    """
+    Twelve sections, and contents in a fixed column too short to show
+    every entry, which scrolls on its own.
+    """
+    return (
+        html.div(
+            TableOfContents().of("#doc"),
+            id="column",
+            style="position: fixed; top: 0; right: 0; width: 200px;"
+            " max-height: 120px; overflow-y: auto",
+        ),
+        html.div(
+            *[
+                html.section(html.h2(f"Part {n:02}"), html.div(style="height: 400px"))
+                for n in range(1, 13)
+            ],
+            id="doc",
+            style="margin-right: 220px",
+        ),
+    )
+
+
+def _in_column(page: Page, name: str) -> bool:
+    return page.evaluate(
+        """(name) => {
+            const column = document.getElementById('column').getBoundingClientRect();
+            const link = [...document.querySelectorAll('#column a')]
+                .find((a) => a.textContent.trim() === name).getBoundingClientRect();
+            return link.top >= column.top - 1 && link.bottom <= column.bottom + 1;
+        }""",
+        name,
+    )
+
+
+def test_the_active_entry_stays_inside_a_scrolling_column(show: Show) -> None:
+    page = show(*_long_page(), width=1000, height=600)
+    end = page.evaluate("document.documentElement.scrollHeight - innerHeight")
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    expect(_entry(page, "Part 12")).to_have_attribute("aria-current", "location")
+    page.wait_for_function(
+        "() => document.querySelector('#column a[aria-current]')"
+        ".getBoundingClientRect().bottom"
+        " <= document.getElementById('column').getBoundingClientRect().bottom + 1"
+    )
+    assert _in_column(page, "Part 12")
+    # The column scrolled, and the page stayed where the reader put it.
+    assert page.evaluate("window.scrollY") == end
+    page.evaluate("window.scrollTo(0, 0)")
+    expect(_entry(page, "Part 01")).to_have_attribute("aria-current", "location")
+    page.wait_for_function("() => document.getElementById('column').scrollTop === 0")
+
+
+def _two_frames(page: Page) -> None:
+    # So a fragment scroll the browser runs late has had its turn.
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+
+
+def test_back_across_a_plain_fragment_link_restores_a_hand_scroll(show: Show) -> None:
+    page = show(html.a("To gamma", href="#gamma"), *_in_container())
+    _entry(page, "Alpha").click()
+    page.evaluate("document.getElementById('doc').scrollTop = 500")
+    page.wait_for_function("history.state?.hueTocScroll === 500")
+    page.get_by_role("link", name="To gamma").click()
+    expect(page).to_have_url("http://hue.test/#gamma")
+    page.go_back()
+    expect(page).to_have_url("http://hue.test/#alpha")
+    _two_frames(page)
+    assert _doc_scroll(page) == 500
+
+
+def test_forward_restores_a_hand_scroll(show: Show) -> None:
+    page = show(*_in_container())
+    _entry(page, "Alpha").click()
+    _entry(page, "Beta").click()
+    page.evaluate("document.getElementById('doc').scrollTop = 1000")
+    page.wait_for_function("history.state?.hueTocScroll === 1000")
+    page.go_back()
+    expect(page).to_have_url("http://hue.test/#alpha")
+    page.go_forward()
+    expect(page).to_have_url("http://hue.test/#beta")
+    _two_frames(page)
+    assert _doc_scroll(page) == 1000

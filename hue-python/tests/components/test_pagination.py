@@ -3,6 +3,7 @@ import pytest
 from hue import html as hue_html
 from hue.renderer import render_tree
 from hue.ui import Pagination
+from hue.ui.molecules.pagination import record_range
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -289,3 +290,60 @@ class TestPagination:
             context_args=context_args,
         )
         assert "26\u201350" in str(html)
+
+    # One page is never folded into an ellipsis, which would take its room
+    @pytest.mark.parametrize("page", [1, 4])
+    @pytest.mark.asyncio
+    async def test_a_gap_of_one_page_shows_the_page(self, context_args, page):
+        html = await render_tree(
+            Pagination().page(page).total_pages(4), context_args=context_args
+        )
+        numbers = [b.get_text().strip() for b in select(html, "nav button")]
+        assert [n for n in numbers if n.isdigit()] == ["1", "2", "3", "4"]
+        assert_no_selector(html, 'nav span[aria-hidden="true"]')
+
+    @pytest.mark.parametrize(
+        "build",
+        [
+            lambda: Pagination().sibling_count(-1),
+            lambda: Pagination().page_size(0),
+            lambda: Pagination().page_size(-5),
+            lambda: Pagination().total_records(-4),
+        ],
+    )
+    def test_impossible_values_are_refused(self, build):
+        with pytest.raises(ValueError):
+            build()
+
+    @pytest.mark.asyncio
+    async def test_no_siblings_still_marks_the_current_page(self, context_args):
+        html = await render_tree(
+            Pagination().page(8).total_pages(15).sibling_count(0),
+            context_args=context_args,
+        )
+        assert select(html, '[aria-current="page"]')[0].get_text().strip() == "8"
+
+    @pytest.mark.asyncio
+    async def test_a_page_size_outside_the_choices_is_refused(self, context_args):
+        # The select would silently show its first option instead.
+        with pytest.raises(ValueError, match="page_sizes"):
+            await render_tree(
+                Pagination().id("p").page_size(15).page_sizes([10, 20]),
+                context_args=context_args,
+            )
+
+    @pytest.mark.asyncio
+    async def test_the_range_never_runs_backwards(self, context_args):
+        # Four pages of ten claimed over 18 records: page 4 holds nothing.
+        html = await render_tree(
+            Pagination().page(4).total_pages(4).total_records(18),
+            context_args=context_args,
+        )
+        assert "11\u201318" in str(html)
+
+    @pytest.mark.parametrize(
+        ("page", "size", "total", "expected"),
+        [(2, 10, 18, (11, 18)), (4, 10, 18, (11, 18)), (1, 10, 0, (0, 0))],
+    )
+    def test_record_range_never_inverts(self, page, size, total, expected):
+        assert record_range(page, size, total) == expected

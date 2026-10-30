@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from itertools import pairwise
+from math import ceil
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -16,13 +18,15 @@ from hue.utils import classnames, render_if
 # What every step is, minus anything its state decides. The three states
 # below each name a border colour, a text colour and a cursor, so no two
 # classes are left competing for the same property.
-_BAR = "flex w-full flex-wrap items-center justify-between gap-4"
+# A container, so the window of numbers narrows with the space the bar is
+# given rather than with the viewport.
+_BAR = "@container flex w-full flex-wrap items-center justify-between gap-4"
 _COUNT = "text-sm tabular-nums text-fg-muted"
 
 _ITEM = (
     "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
     "justify-center rounded-md border px-2 font-ui text-sm font-medium "
-    "tabular-nums no-underline"
+    "tabular-nums no-underline relative focus-visible:z-10"
 )
 
 _IDLE = (
@@ -42,8 +46,23 @@ _STEPS = {
     "next": ("Next page", "chevron-right"),
 }
 
-# Wraps rather than running out of a narrow container.
-_ROW = "flex min-w-0 flex-wrap items-center gap-1"
+# Wraps rather than running out of a narrow container. Narrow, the gaps
+# close to a pixel, which is what lets five 40px pages fit beside the steps;
+# a focused step is raised over its neighbours, so their backgrounds cannot
+# cover the ring it draws into that gap.
+_ROW = "flex min-w-0 flex-wrap items-center gap-1 @max-md:gap-px"
+
+# Below this width the numbers either side of the current page fold away,
+# so the row of steps stays on one line at 320px, even with a phone's 40px
+# targets.
+_WIDE_ONLY = "@max-md:hidden"
+_NARROW_ONLY = "@md:hidden"
+# A narrow row as a phone draws it: 288px, which is 320 less two 16px
+# gutters, less the two steps, holds pages at 40px and ellipses at 28px,
+# each with its 1px gap. A wide window that fits is kept narrow too.
+_NARROW_ROOM = 288 - 2 * 41
+_PAGE_WIDTH = 41
+_ELLIPSIS_WIDTH = 29
 
 
 class Pagination(SwapsTarget):
@@ -72,6 +91,8 @@ class Pagination(SwapsTarget):
         return self
 
     def total_records(self, value: int) -> Self:
+        if value < 0:
+            raise ValueError(f"Pagination counts no fewer than 0 records, not {value}.")
         self._props["total_records"] = value
         return self
 
@@ -80,14 +101,19 @@ class Pagination(SwapsTarget):
         How many rows a page holds, which is what turns a page number into
         "showing 21-30".
         """
+        if value < 1:
+            raise ValueError(f"A page holds at least one row, not {value}.")
         self._props["page_size"] = value
         return self
 
     def sibling_count(self, value: int) -> Self:
         """
         How many pages to show either side of the current one before the rest
-        fold into an ellipsis.
+        fold into an ellipsis. Where the row is narrower than 28rem they fold
+        too, so the steps stay on one line.
         """
+        if value < 0:
+            raise ValueError(f"Pagination shows 0 or more siblings, not {value}.")
         self._props["sibling_count"] = value
         return self
 
@@ -178,24 +204,45 @@ class Pagination(SwapsTarget):
         )
 
     def _numbers(self, page: int, total_pages: int) -> list[ComponentType]:
-        siblings: int = self._get_prop("sibling_count", 1)
-        # The first and the last are always reachable; the window walks.
-        window = range(max(2, page - siblings), min(total_pages, page + siblings) + 1)
-        shown = sorted({1, *window, total_pages})
+        wide = _window(page, total_pages, self._get_prop("sibling_count", 1))
+        narrow = _window(page, total_pages, 0)
+        gaps = sum(after - before > 1 for before, after in pairwise(wide))
+        if len(wide) * _PAGE_WIDTH + gaps * _ELLIPSIS_WIDTH <= _NARROW_ROOM:
+            narrow = wide
 
+        # Both windows in one row: the numbers only the wide one shows hide
+        # when narrow, and the narrow one adds an ellipsis of its own where
+        # it folds pages the wide one shows.
         items: list[ComponentType] = []
-        previous = 0
-        for number in shown:
+        previous = previous_narrow = 0
+        folded = False
+        for number in wide:
             if number - previous > 1:
                 items.append(_ellipsis())
-            items.append(self._number(number, current=number == page))
+                folded = True
+            elif number in narrow and number - previous_narrow > 1 and not folded:
+                items.append(_ellipsis(_NARROW_ONLY))
+            items.append(
+                self._number(
+                    number,
+                    current=number == page,
+                    class_=None if number in narrow else _WIDE_ONLY,
+                )
+            )
             previous = number
+            if number in narrow:
+                previous_narrow, folded = number, False
         return items
 
     def _number(
-        self, number: int, *, current: bool, inert: bool = False
+        self,
+        number: int,
+        *,
+        current: bool,
+        inert: bool = False,
+        class_: str | None = None,
     ) -> ComponentType:
-        classes = classnames(_ITEM, _CURRENT if current else _IDLE, FOCUS_RING)
+        classes = classnames(_ITEM, _CURRENT if current else _IDLE, FOCUS_RING, class_)
         href = self._get_prop("href")
         if inert:
             return html.span(str(number), aria_current="page", class_=classes)
@@ -238,12 +285,22 @@ class Pagination(SwapsTarget):
             select.label("Rows per page")
             .hidden_label()
             .size("sm")
-            .value(str(self._get_prop("page_size", 10)))
+            .value(str(self._chosen_size(options)))
             .options([(str(option), str(option)) for option in options]),
             # The select fills its box, so the box is what sets the width - a
             # w-auto on the control itself would just fight its own w-full.
             class_="flex items-center gap-2 [&_select]:w-20",
         )
+
+    def _chosen_size(self, options: list[int]) -> int:
+        size: int = self._get_prop("page_size", 10)
+        if size not in options:
+            # The select would show its first option and say nothing.
+            raise ValueError(
+                f"Pagination's page_size() of {size} is not one of its "
+                f"page_sizes() {options}."
+            )
+        return size
 
     def _step(self, number: int, way: str, enabled: bool) -> ComponentType:
         label, icon = _STEPS[way]
@@ -304,10 +361,31 @@ def _cursor_step(label: str, enabled: bool) -> ComponentType:
 
 def record_range(page: int, size: int, total: int) -> tuple[int, int]:
     """
-    The first and last record a page shows, counted from one.
+    The first and last record a page shows, counted from one. A page past
+    the last record, from a page count the records do not fill, shows the
+    last page's range rather than one that runs backwards, and no records
+    is the range from 0 to 0.
     """
+    if total == 0:
+        return 0, 0
+    page = min(page, ceil(total / size))
     first = (page - 1) * size + 1
     return first, min(page * size, total)
+
+
+def _window(page: int, total_pages: int, siblings: int) -> list[int]:
+    """
+    The page numbers shown: the first and the last, which are always
+    reachable, and the current page with its siblings. A gap of one page
+    shows that page, since an ellipsis would take the same room and hide it.
+    """
+    window = range(max(2, page - siblings), min(total_pages, page + siblings) + 1)
+    shown = sorted({1, *window, total_pages})
+    filled = [*shown]
+    for before, after in pairwise(shown):
+        if after - before == 2:
+            filled.append(before + 1)
+    return sorted(filled)
 
 
 def _status(page: int, size: int, total: int) -> list[ComponentType]:
@@ -324,13 +402,16 @@ def _status(page: int, size: int, total: int) -> list[ComponentType]:
     ]
 
 
-def _ellipsis() -> ComponentType:
+def _ellipsis(class_: str | None = None) -> ComponentType:
     """
     The pages nobody is asking about. Decoration, so it is not announced.
     """
     return html.span(
         "…",
         aria_hidden="true",
-        class_="inline-flex h-control-sm min-w-7 items-center justify-center "
-        "text-fg-disabled",
+        class_=classnames(
+            "inline-flex h-control-sm min-w-7 items-center justify-center "
+            "text-fg-disabled",
+            class_,
+        ),
     )
