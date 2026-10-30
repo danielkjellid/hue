@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Button, Kbd, Tooltip
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _tooltip():
@@ -55,31 +55,35 @@ class TestTooltip:
         assert "shown = true, 400)" in html
 
     @pytest.mark.parametrize(
-        ("placement", "side"),
-        [("top", "top"), ("bottom", "bottom"), ("start", "left"), ("end", "right")],
+        ("placement", "ltr", "rtl"),
+        [
+            ("top", "top", "top"),
+            ("bottom", "bottom", "bottom"),
+            ("start", "left", "right"),
+            ("end", "right", "left"),
+        ],
     )
     @pytest.mark.asyncio
     async def test_each_placement_puts_the_bubble_somewhere_else(
-        self, context_args, placement, side
+        self, context_args, placement, ltr, rtl
     ):
-        # noflip: the arrow is drawn for one side only.
+        # noflip: the arrow is drawn for one side only. Start and end swap
+        # sides with the direction, which only the browser knows.
         html = await render_tree(
             _tooltip().placement(placement), context_args=context_args
         )
-        assert_attr(
-            html,
-            '[role="tooltip"]',
-            f"x-anchor.fixed.noflip.{side}.offset.6",
-            "$el.parentElement",
-        )
+        bound = select(html, '[role="tooltip"]')[0]["x-bind"]
+        when_rtl, when_ltr = bound.split(" : ")
+        assert f'"x-anchor.fixed.noflip.{rtl}.offset.6"' in when_rtl
+        assert f'"x-anchor.fixed.noflip.{ltr}.offset.6"' in when_ltr
 
     @pytest.mark.parametrize(
         ("placement", "bridge"),
         [
             ("top", "before:top-full"),
             ("bottom", "before:bottom-full"),
-            ("start", "before:left-full"),
-            ("end", "before:right-full"),
+            ("start", "before:start-full"),
+            ("end", "before:end-full"),
         ],
     )
     @pytest.mark.asyncio

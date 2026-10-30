@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from htmy import Context, html
@@ -18,19 +19,27 @@ type TooltipPlacement = Literal["top", "bottom", "start", "end"]
 # makes the association legible: a bubble floating free of its trigger reads
 # as a stray chip. The before element spans the gap on the trigger side, so a
 # pointer on its way into the bubble never leaves the wrapper and closes it.
-_PLACEMENTS: dict[TooltipPlacement, tuple[str, str]] = {
-    "top": ("top", "before:top-full before:inset-x-0 before:h-1.5"),
-    "bottom": ("bottom", "before:bottom-full before:inset-x-0 before:h-1.5"),
-    "start": ("left", "before:left-full before:inset-y-0 before:w-1.5"),
-    "end": ("right", "before:right-full before:inset-y-0 before:w-1.5"),
+# The anchor only knows physical sides, so start and end name one for each
+# direction; the classes are logical and follow the direction on their own.
+_PLACEMENTS: dict[TooltipPlacement, tuple[str, str, str]] = {
+    "top": ("top", "top", "before:top-full before:inset-x-0 before:h-1.5"),
+    "bottom": ("bottom", "bottom", "before:bottom-full before:inset-x-0 before:h-1.5"),
+    "start": ("left", "right", "before:start-full before:inset-y-0 before:w-1.5"),
+    "end": ("right", "left", "before:end-full before:inset-y-0 before:w-1.5"),
 }
 
 _ARROWS: dict[TooltipPlacement, str] = {
-    "top": "top-full left-1/2 -ms-[5px] border-t-surface-inverse border-b-0",
-    "bottom": "bottom-full left-1/2 -ms-[5px] border-b-surface-inverse border-t-0",
-    "start": "left-full top-1/2 -mt-[5px] border-s-surface-inverse border-e-0",
-    "end": "right-full top-1/2 -mt-[5px] border-e-surface-inverse border-s-0",
+    "top": "top-full start-1/2 -ms-[5px] border-t-surface-inverse border-b-0",
+    "bottom": "bottom-full start-1/2 -ms-[5px] border-b-surface-inverse border-t-0",
+    "start": "start-full top-1/2 -mt-[5px] border-s-surface-inverse border-e-0",
+    "end": "end-full top-1/2 -mt-[5px] border-e-surface-inverse border-s-0",
 }
+
+
+def _anchored(side: str) -> str:
+    # The arrow points one way, so the bubble keeps its side.
+    return json.dumps(_overlay.anchor(side, "$el.parentElement", flip=False))
+
 
 # ~400ms to open so a pointer crossing the toolbar does not trail bubbles,
 # and nothing on the way out.
@@ -93,7 +102,7 @@ class Tooltip(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         placement: TooltipPlacement = self._get_prop("placement", "top")
-        side, bridge = _PLACEMENTS[placement]
+        ltr, rtl, bridge = _PLACEMENTS[placement]
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
         # Alpine mints the id, so two tooltips on a page cannot share one, and
@@ -129,8 +138,10 @@ class Tooltip(ChainableComponent):
                 "x-show": "shown",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                # The arrow points one way, so the bubble keeps its side.
-                **_overlay.anchor(side, "$el.parentElement", flip=False),
+                # Bound as an object, the one way to pick a directive by the
+                # direction the bubble ends up in.
+                "x-bind": "getComputedStyle($el).direction === 'rtl' ? "
+                f"{_anchored(rtl)} : {_anchored(ltr)}",
             },
         )
 
