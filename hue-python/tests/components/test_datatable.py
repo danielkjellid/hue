@@ -793,3 +793,31 @@ class TestHiddenColumns:
         # One column is left showing, and the section title spans it.
         assert len(select(html, "thead th")) == 1
         assert_attr(html, "tbody th", "colspan", "1")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("columns", "hideable", "hide", "showing"),
+        [
+            # A key no column has is dropped before the count.
+            ("ab", ["a", "b"], ["zzz,a"], ["B"]),
+            # A locked column stays, so every hideable one can go.
+            ("abc", ["a", "b"], ["a,b"], ["C"]),
+            # Repeated and unknown keys still leave the last asked showing.
+            ("abc", ["a", "b", "c"], ["a,zzz,b", "a", "c"], ["C"]),
+        ],
+    )
+    async def test_a_url_hides_only_what_it_may(self, columns, hideable, hide, showing):
+        declaration = build_datatable_state(
+            _QueryRouter(),
+            key="t",
+            columns=[Column(key, key.upper()) for key in columns],
+            rows=lambda request, asked: [{"a": "1", "b": "2", "c": "3"}],
+            hideable=hideable,
+        )
+        html = await render_tree(
+            DataTable.from_state(declaration),
+            context_args=HueContextArgs(
+                request=_AskingRequest({"t-hide": hide}), csrf_token="tok"
+            ),
+        )
+        assert [th.get_text(strip=True) for th in select(html, "thead th")] == showing
