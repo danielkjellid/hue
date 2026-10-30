@@ -26,3 +26,24 @@ def test_modifiers_are_words_off_apple(show: Show) -> None:
     page = _on_windows(show(Kbd("ctrl", "alt", "shift", "K")))
     expect(page.locator("kbd").first).to_have_text("Control")
     assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]
+
+
+def _spoken(page: Page) -> str:
+    return " ".join(
+        page.locator("kbd").evaluate_all(
+            "keys => keys.map(k => (k.querySelector('.sr-only') ?? k).textContent)"
+        )
+    )
+
+
+def test_modifiers_take_the_conventional_order_off_apple(show: Show) -> None:
+    page = _on_windows(show(Kbd("shift", "alt", "mod", "K")))
+    expect(page.locator("kbd").first).to_have_text("Control")
+    assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]
+    assert _spoken(page) == "Control Alt Shift K"
+
+
+def test_modifiers_keep_the_written_order_on_apple(show: Show) -> None:
+    page = show(Kbd("shift", "alt", "mod", "K"))
+    assert _drawn(page) == ["⇧", "⌥", "⌘", "K"]
+    assert _spoken(page) == "Shift Alt Command K"

@@ -19,7 +19,8 @@ _IS_APPLE = "($store.shortcuts?.apple ?? true)"
 _COMMAND = Key("⌘", "Command")
 
 # How each modifier is printed away from Apple platforms, whose keyboards
-# spell them out rather than drawing the glyphs.
+# spell them out rather than drawing the glyphs, in the order they are
+# conventionally written there: Ctrl+Alt+Shift.
 _OFF_APPLE = {
     "mod": Key("Ctrl", "Control"),
     "ctrl": Key("Ctrl", "Control"),
@@ -79,9 +80,9 @@ class Kbd(ChainableComponent):
         self._keys = values
         return self
 
-    def _modifier(self, name: str) -> ComponentType:
+    def _modifier(self, name: str, off_apple: str) -> ComponentType:
         apple = _COMMAND if name == "mod" else KEYS[name]
-        other = _OFF_APPLE[name]
+        other = _OFF_APPLE[off_apple]
         return html.kbd(
             _glyph(
                 apple.glyph,
@@ -99,9 +100,6 @@ class Kbd(ChainableComponent):
         )
 
     def _key(self, key: str) -> ComponentType:
-        if key.lower() in _OFF_APPLE:
-            return self._modifier(key.lower())
-
         named = KEYS.get(key.lower())
         if named is None:
             return html.kbd(self._printed(key), class_=_KEY_CLASSES)
@@ -130,10 +128,23 @@ class Kbd(ChainableComponent):
         return key
 
     def _render(self, context: Context) -> Component:
+        # Apple writes the modifiers in the order given and everyone else as
+        # Ctrl+Alt+Shift. Each modifier's place shows, off Apple, the one
+        # sorted into it, so the order is right in the markup a screen reader
+        # walks and not only on screen.
+        names = [key.lower() for key in self._keys]
+        off_apple = iter(
+            sorted((n for n in names if n in _OFF_APPLE), key=list(_OFF_APPLE).index)
+        )
         # Always wrapped, even for one key, so the caller's class_ and
         # attributes have a single predictable home.
         return html.span(
-            *(self._key(key) for key in self._keys),
+            *(
+                self._modifier(name, next(off_apple))
+                if name in _OFF_APPLE
+                else self._key(key)
+                for key, name in zip(self._keys, names, strict=True)
+            ),
             class_=classnames(
                 "inline-flex items-center gap-[3px]",
                 self._get_prop("class_"),
