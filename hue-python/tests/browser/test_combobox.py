@@ -1,5 +1,6 @@
 import re
 
+import pytest
 from htmy import html
 from playwright.sync_api import Locator, Page, expect
 
@@ -178,3 +179,15 @@ def test_escape_closes_the_list(show: Show) -> None:
     page.keyboard.press("Escape")
     expect(page.get_by_role("listbox")).to_be_hidden()
     expect(field).to_be_focused()
+
+
+@pytest.mark.parametrize("query", ["", "x"], ids=["cleared", "no match"])
+def test_enter_with_the_list_open_never_submits(show: Show, query: str) -> None:
+    page = show(_in_a_form(_fruit().value("apple")))
+    field = page.get_by_role("combobox", name="Fruit")
+    field.fill(query)
+    # Implicit submission is the Enter's default action, so it has happened
+    # by the time the press returns.
+    page.keyboard.press("Enter")
+    assert page.evaluate("window.submits") is None
+    expect(field).to_have_attribute("aria-expanded", "true")

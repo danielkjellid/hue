@@ -199,8 +199,10 @@ export function registerComboboxData(Alpine) {
 				else if (altKey) this.hide();
 				else this.move(-1);
 			} else if (key === "Enter") {
-				// Closed, Enter is left to submit the form the field is in.
-				if (this.open && this.current()) {
+				// Closed, Enter is left to submit the form the field is in. Open,
+				// it is the list's even with nothing active, so a cleared or
+				// unmatched field never submits the value it no longer shows.
+				if (this.open) {
 					event.preventDefault();
 					this.choose(this.current());
 				}
