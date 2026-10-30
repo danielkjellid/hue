@@ -226,6 +226,15 @@ Accessibility assertions parse the rendered HTML (helpers in `tests/_a11y.py`, b
 `beautifulsoup4`). The heavier `axe-playwright-python` WCAG engine needs a headless browser
 and is intentionally not used here.
 
+**Behaviour is tested in a browser.** `tests/browser/` renders components into a page in
+the installed Chrome and drives it with real keys and pointer moves through Playwright's
+sync API: the `show` fixture takes components (and `width`, `theme`, `dir`) and returns
+the page once Alpine has started, and fails the test on any console error. It runs with
+the rest of `uv run pytest tests`. Every fix to keyboard, focus, pointer, overlay or layout
+behaviour lands with a browser test that failed before the fix, and a fix is done only
+when the whole suite passes, not just its own test: the bugs a fix brings back are in the
+behaviour next to it.
+
 ## Component quality bar
 
 Every component must satisfy these — review against them before finishing:
@@ -314,8 +323,8 @@ against each of these.
 - **Clamp or drop input from a URL or a form where it enters:** a page past the last, a
   non-number in a numeric filter, NaN, a body that is not UTF-8.
 - **Check behaviour in a browser.** The tests read markup, and every keyboard and focus bug
-  above passed them. Anything with keyboard, focus or overlay behaviour gets a run in a
-  browser with real keys and pointer moves.
+  above passed them. Anything with keyboard, focus or overlay behaviour gets a test in
+  `tests/browser/` with real keys and pointer moves.
 
 ### Building from a React reference
 
