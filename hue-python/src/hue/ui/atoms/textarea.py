@@ -45,6 +45,18 @@ _AUTOSIZE = (
     "$el.style.height = $el.scrollHeight + $el.offsetHeight - $el.clientHeight + 'px'"
 )
 
+# A new width rewraps the text, so the height is worked out again. Only on a
+# width change, so a height dragged with the handle stays, and a frame later,
+# since resizing inside the observer would trip its loop error.
+_AUTOSIZE_ON_RESIZE = (
+    f"{_AUTOSIZE}; "
+    "((width) => new ResizeObserver(([entry]) => { "
+    "if (entry.contentRect.width === width) return; "
+    "width = entry.contentRect.width; "
+    f"requestAnimationFrame(() => {{ {_AUTOSIZE} }}) "
+    "}).observe($el))()"
+)
+
 # The counter as a sentence, for screen readers: "12 / 10" read aloud says
 # nothing about which number is the limit. It mirrors _count_message below.
 _COUNT_MESSAGE = (
@@ -172,7 +184,7 @@ class Textarea(FieldControl):
             aria_describedby=self._describedby(context, count_id),
             **counter,
             **({"x-on:input": on_input} if on_input else {}),
-            **({"x-init": _AUTOSIZE} if autosize else {}),
+            **({"x-init": _AUTOSIZE_ON_RESIZE} if autosize else {}),
         )
 
         # The parser drops a newline straight after the opening tag, so one
