@@ -41,7 +41,7 @@ class TestSwitch:
             context_args=context_args,
         )
         assert_attr(html, "input", "disabled")
-        assert_attr(html, '[role="status"]', "aria-label", "Saving")
+        assert select(html, '[role="status"] .sr-only')[0].text == "Saving"
 
     @pytest.mark.parametrize(
         ("state", "announced"), [("success", "Saved"), ("error", "Not saved")]

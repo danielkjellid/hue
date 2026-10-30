@@ -52,6 +52,8 @@ class TestPopover:
         handler = select(html, "[x-data]")[0]["x-on:focusout"]
         assert "!$el.contains($event.relatedTarget)" in handler
         assert "open = false" in handler
+        # Focus leaving the document has no relatedTarget either.
+        assert "!document.hasFocus()" in handler
 
     @pytest.mark.asyncio
     async def test_it_hangs_off_the_trigger(self, context_args):
@@ -59,7 +61,7 @@ class TestPopover:
             _popover().placement("top-end"), context_args=context_args
         )
         assert_attr(
-            html, '[role="dialog"]', "x-anchor.top-end.offset.6", _overlay.TRIGGER
+            html, '[role="dialog"]', "x-anchor.fixed.top-end.offset.6", _overlay.TRIGGER
         )
 
     @pytest.mark.asyncio
@@ -72,7 +74,9 @@ class TestPopover:
             .content(DropdownMenu().label("Sort").trigger(Button().content("Sort")))
         )
         html = await render_tree(popover, context_args=context_args)
-        assert_attr(html, '[role="dialog"]', "x-anchor.bottom-start.offset.6", "null")
+        assert_attr(
+            html, '[role="dialog"]', "x-anchor.fixed.bottom-start.offset.6", "null"
+        )
         assert "querySelector" not in select(html, "span[x-data]")[0]["x-data"]
 
     # title(): both branches

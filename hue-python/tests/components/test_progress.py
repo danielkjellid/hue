@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from hue.renderer import render_tree
@@ -154,6 +156,13 @@ class TestProgressRing:
         # A full ring has no gap left; an empty one is all gap.
         assert 'stroke-dashoffset="0.00"' in full
         assert 'stroke-dashoffset="131.95"' in empty
+
+    @pytest.mark.asyncio
+    async def test_short_of_full_leaves_a_gap_the_caps_cannot_close(self, context_args):
+        html = await render_tree(ProgressRing().value(99.9), context_args=context_args)
+        offset = float(re.search(r'stroke-dashoffset="([\d.]+)"', html)[1])
+        # 5px of round caps plus a gap that still shows.
+        assert offset > 5 + 2
 
     @pytest.mark.asyncio
     async def test_nan_is_refused_rather_than_reported_complete(self, context_args):

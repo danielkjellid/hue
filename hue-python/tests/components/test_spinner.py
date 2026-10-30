@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Spinner
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestSpinner:
@@ -10,9 +10,19 @@ class TestSpinner:
     # the text, so the two shapes differ in more than one class.
     @pytest.mark.asyncio
     async def test_unlabelled_spinner_announces_itself(self, context_args):
+        # A live region reads its text and ignores an aria-label.
         html = await render_tree(Spinner(), context_args=context_args)
-        assert_attr(html, 'span[role="status"]', "aria-label", "Loading")
-        assert_selector(html, "span.animate-spinner")
+        assert select(html, '[role="status"] .sr-only')[0].text == "Loading"
+        assert_attr(html, "span.animate-spinner", "aria-hidden", "true")
+        assert_no_selector(html, "span[aria-label]")
+
+    @pytest.mark.asyncio
+    async def test_a_hidden_label_is_only_announced(self, context_args):
+        html = await render_tree(
+            Spinner().label("Saving", visible=False), context_args=context_args
+        )
+        assert select(html, '[role="status"] .sr-only')[0].text == "Saving"
+        assert_no_selector(html, ".text-fg-muted")
 
     @pytest.mark.asyncio
     async def test_labelled_spinner_announces_the_label(self, context_args):
@@ -20,7 +30,10 @@ class TestSpinner:
             Spinner().label("Loading payments"), context_args=context_args
         )
         assert_selector(html, 'span[role="status"] > span.animate-spinner')
-        assert "Loading payments" in html
+        assert select(html, '[role="status"] .text-fg-muted')[0].text == (
+            "Loading payments"
+        )
+        assert_no_selector(html, ".sr-only")
         # The label says what is happening, so the ring is decoration.
         assert_attr(html, "span.animate-spinner", "aria-hidden", "true")
         assert_no_selector(html, "span[aria-label]")

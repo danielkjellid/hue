@@ -39,7 +39,11 @@ class _Textarea(html.textarea):
         return "textarea"
 
 
-_AUTOSIZE = "$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
+# scrollHeight leaves out the border, which a border-box height includes.
+_AUTOSIZE = (
+    "$el.style.height = 'auto'; "
+    "$el.style.height = $el.scrollHeight + $el.offsetHeight - $el.clientHeight + 'px'"
+)
 
 # The counter as a sentence, for screen readers: "12 / 10" read aloud says
 # nothing about which number is the limit. It mirrors _count_message below.
@@ -171,7 +175,9 @@ class Textarea(FieldControl):
             **({"x-init": _AUTOSIZE} if autosize else {}),
         )
 
-        field = self._field(context, _Textarea(value, **textarea_attrs))
+        # The parser drops a newline straight after the opening tag, so one
+        # goes in first and a value that starts with its own keeps it.
+        field = self._field(context, _Textarea("\n" + value, **textarea_attrs))
         if limit is not None:
             count = len(value)
             field.x_data({"count": count, "said": count, "limit": limit}).trailing(

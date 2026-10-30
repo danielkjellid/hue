@@ -5,12 +5,12 @@ from typing_extensions import Self
 
 from hue.js import call
 from hue.types.core import Component
-from hue.ui._styles import FOCUS_RING, ControlSize
+from hue.ui._styles import FOCUS_RING, GROUP_STATES, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import modelable
 from hue.ui.form import FieldControl
+from hue.ui.molecules import _overlay
 from hue.ui.molecules.select import (
-    _OFFSET,
     SelectOption,
     SelectState,
     _options,
@@ -30,11 +30,7 @@ _SIZES: dict[ControlSize, str] = {
 # and the toggle at the end.
 _SHELL = (
     "flex w-full cursor-text items-center gap-1 rounded-md border "
-    "border-border-input bg-surface py-[3px] shadow-field "
-    "transition-[border-color,box-shadow] duration-150 hover:border-border-hover "
-    "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
-    "has-[input:focus]:ring-accent-subtle has-[[aria-invalid=true]]:border-danger "
-    "has-[:disabled]:bg-surface-sunken"
+    f"border-border-input bg-surface py-[3px] shadow-field {GROUP_STATES}"
 )
 
 # Never narrower than a few letters, so there is always room to type after
@@ -60,8 +56,8 @@ _POPUP = (
 )
 
 _TOKEN = (
-    "inline-flex h-6 items-center gap-0.5 rounded-sm bg-surface-active ps-[9px] "
-    "pe-[3px] text-xs font-medium text-fg"
+    "inline-flex h-6 min-w-0 max-w-full items-center gap-0.5 rounded-sm "
+    "bg-surface-active ps-[9px] pe-[3px] text-xs font-medium text-fg"
 )
 
 _TOKEN_REMOVE = classnames(
@@ -302,7 +298,7 @@ class Combobox(FieldControl):
                 # Clicking an option would otherwise take focus from the field
                 # and close the list before the click arrived.
                 "x-on:mousedown.prevent": "",
-                f"x-anchor.bottom-start.offset.{_OFFSET}": "$refs.shell",
+                **_overlay.anchor("bottom-start", "$refs.shell"),
             },
         )
         root_attrs: dict[str, object] = {

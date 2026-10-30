@@ -14,15 +14,19 @@ __all__ = ["SYNC", "CurrentPage", "SwapsTarget", "swap"]
 SYNC = {"x-sync": ""}
 
 
-def swap(target: str | None) -> dict[str, str]:
+def swap(target: str | None, *, current: bool = False) -> dict[str, str]:
     """
     The attributes on a link or form that swaps target for what it leads to,
     or none, which leaves it a plain navigation.
 
     push, so the place it leads is in the address bar, to reload, to send to
-    somebody and to come back to.
+    somebody and to come back to. A link to the page already shown replaces
+    instead, so following it again adds no second entry for Back to step
+    through.
     """
-    return {"x-target.push": target} if target else {}
+    if not target:
+        return {}
+    return {"x-target.replace" if current else "x-target.push": target}
 
 
 class SwapsTarget(ChainableComponent):
@@ -44,11 +48,11 @@ class SwapsTarget(ChainableComponent):
         self._props["target"] = value
         return self
 
-    def _swap_attrs(self) -> dict[str, str]:
+    def _swap_attrs(self, *, current: bool = False) -> dict[str, str]:
         """
         What each of its links carries.
         """
-        return swap(self._get_prop("target"))
+        return swap(self._get_prop("target"), current=current)
 
     def _sync_attrs(self) -> dict[str, str]:
         """

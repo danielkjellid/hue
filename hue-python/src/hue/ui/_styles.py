@@ -52,7 +52,9 @@ FIELD_SHELL = (
     "w-full min-w-0 rounded-md border border-border-input bg-surface text-fg "
     "font-body shadow-field placeholder:text-fg-subtle "
     "transition-[border-color,box-shadow] duration-150 "
-    "enabled:hover:border-border-hover "
+    # Hover leaves an invalid border alone: it sorts after aria-invalid, so it
+    # would otherwise grey out the red under the pointer.
+    "enabled:not-aria-invalid:hover:border-border-hover "
     "focus:outline-none focus:border-accent focus:ring-3 focus:ring-accent-subtle "
     "aria-invalid:border-danger aria-invalid:focus:ring-danger-subtle "
     # The attribute, not :read-only, which every select and button matches.
@@ -68,14 +70,25 @@ FIELD_SHELL = (
 #: The halo answers the input rather than focus-within, so it means "you are
 #: typing here" and nothing else. An attached button is its own control and
 #: says it has focus the way every other button does, with its own ring.
+#: The states of a frame that answers the control inside it, shared by
+#: GROUP_SHELL and the combobox. Hover and the accent only apply to a valid
+#: control, so an invalid one keeps its danger border and halo the way an
+#: ungrouped field does. Left to the order the variants sort in, hover and
+#: focus would win.
+GROUP_STATES = (
+    "transition-[border-color,box-shadow] duration-150 "
+    "not-has-[[aria-invalid=true]]:hover:border-border-hover "
+    "has-[input:focus]:ring-3 "
+    "not-has-[[aria-invalid=true]]:has-[input:focus]:border-accent "
+    "not-has-[[aria-invalid=true]]:has-[input:focus]:ring-accent-subtle "
+    "has-[[aria-invalid=true]]:border-danger "
+    "has-[[aria-invalid=true]:focus]:ring-danger-subtle "
+    "has-[:disabled]:bg-surface-sunken"
+)
+
 GROUP_SHELL = (
     "flex w-full items-stretch rounded-md border border-border-input bg-surface "
-    "shadow-field transition-[border-color,box-shadow] duration-150 "
-    "hover:border-border-hover "
-    "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
-    "has-[input:focus]:ring-accent-subtle "
-    "has-[[aria-invalid=true]]:border-danger "
-    "has-[:disabled]:bg-surface-sunken has-[[readonly]]:bg-surface-sunken"
+    f"shadow-field {GROUP_STATES} has-[[readonly]]:bg-surface-sunken"
 )
 
 #: A control inside GROUP_SHELL: everything the group now owns, given up.

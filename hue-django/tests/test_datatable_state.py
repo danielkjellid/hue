@@ -526,6 +526,15 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
     assert "data-hue-table-search" in html
 
 
+def test_a_run_of_searches_is_one_history_entry(mounted):
+    # Each search replaces the entry, and the first of a run copies it
+    # first, so Back goes to the page as it was before searching.
+    form = _form(_table(mounted().invoices, _request()), 'id="invoices-q"')
+    assert 'x-target.replace="invoices-rows"' in form
+    assert 'x-on:ajax:before="keepPlace()"' in form
+    assert 'x-on:ajax:after="searched = location.href"' in form
+
+
 def test_the_search_box_shows_slash_only_where_slash_works(mounted):
     # Cloaked until the browser has counted the boxes, hidden by CSS while the
     # field has focus or text, and named on the input for a screen reader.

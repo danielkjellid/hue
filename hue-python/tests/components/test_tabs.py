@@ -84,11 +84,21 @@ class TestTabs:
         html = await render_tree(
             _tabs(target="panel", id="settings-tabs"), context_args=context_args
         )
-        # push, so a section is still a place the back button knows.
-        assert_attr(html, "nav a", "x-target.push", "panel")
+        # push, so a section is still a place the back button knows. The
+        # tab you are on replaces, so following it again adds no entry.
+        assert_attr(html, 'nav a[href="/settings/team"]', "x-target.push", "panel")
+        assert_attr(html, "nav a[aria-current]", "x-target.replace", "panel")
+        assert_no_selector(html, "nav a[aria-current][x-target\\.push]")
         # The row sits outside the panel and refreshes itself from the
         # response, so the mark moves to the tab you land on.
         assert_attr(html, "nav#settings-tabs", "x-sync")
+
+    @pytest.mark.asyncio
+    async def test_a_focused_tab_scrolls_fully_into_the_row(self, context_args):
+        # The row scrolls sideways, and Chrome leaves a half-hidden tab
+        # half hidden when it takes focus.
+        html = await render_tree(_tabs(), context_args=context_args)
+        assert "scrollIntoView" in select(html, "nav")[0]["x-on:focusin"]
 
     @pytest.mark.asyncio
     async def test_each_tab_takes_an_id_from_the_row(self, context_args):

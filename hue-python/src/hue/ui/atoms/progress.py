@@ -35,6 +35,10 @@ _RING_CLASSES: dict[ProgressVariant, str] = {
 _RING_SIZE = 52
 _RING_RADIUS = 21
 _RING_CIRCUMFERENCE = 2 * math.pi * _RING_RADIUS
+# The round caps reach half the 5px stroke past each end of the arc, which
+# closes a small gap. Short of 100 the arc is scaled into what is left after
+# both caps and a 3px gap, so 99% still looks unfinished.
+_RING_OPEN_ARC = _RING_CIRCUMFERENCE - 5 - 3
 
 
 def _clamp(value: float) -> float:
@@ -221,7 +225,8 @@ class ProgressRing(ChainableComponent):
         if label is not None:
             described = f"{label}, {described}"
 
-        offset = _RING_CIRCUMFERENCE * (1 - value / 100)
+        arc = _RING_CIRCUMFERENCE if value == 100 else _RING_OPEN_ARC * value / 100
+        offset = _RING_CIRCUMFERENCE - arc
         centre = _RING_SIZE / 2
         fill_classes = classnames(
             "transition-[stroke-dashoffset] duration-260 ease-out",

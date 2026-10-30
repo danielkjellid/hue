@@ -1692,8 +1692,11 @@ def _search_form(bound: BoundTable, form: str) -> ComponentType:
             # The rows and not the frame, so the box this was typed into
             # is not swapped out from under the caret. replace rather than
             # push: a word typed at speed would otherwise be a history
-            # entry per pause in it.
+            # entry per pause in it. keepPlace gives the run of searches
+            # one entry of its own.
             "x-target.replace": rows_id(bound.key) or bound.key,
             f"@input.debounce.{_SEARCH_DELAY}": "$el.requestSubmit()",
+            "x-on:ajax:before": "keepPlace()",
+            "x-on:ajax:after": "searched = location.href",
         },
     )

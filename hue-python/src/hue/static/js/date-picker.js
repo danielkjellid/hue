@@ -330,7 +330,7 @@ export function datePicker(config) {
 		},
 
 		key(event) {
-			const { key, shiftKey, target } = event;
+			const { key, shiftKey } = event;
 			if (key === "Escape" && this.level !== "days") {
 				// Back to the days, and no further: a dialog around the
 				// picker stays open.
@@ -338,8 +338,10 @@ export function datePicker(config) {
 				this.switchTo("days", () => this.focusedCell());
 				return;
 			}
-			const day = target.dataset?.date;
-			if (!day) return;
+			if (!pickedDay(this.$root, event)) return;
+			// The day comes from state: focus moves a tick later, so a second
+			// key in quick succession still arrives on the cell the first left.
+			const day = this.focus;
 			const at = parse(day);
 			const back = (weekday(at) - weekStart + 7) % 7;
 			const steps = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, Home: -back, End: 6 - back };

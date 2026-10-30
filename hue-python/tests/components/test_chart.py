@@ -527,3 +527,15 @@ async def test_charts_of_every_kind_share_one_page(context_args):
     )
     assert_selector(html, "figure[x-data]", count=8)
     assert_no_selector(html, "[id]")
+
+
+@pytest.mark.parametrize(
+    ("chart", "floored"),
+    [(LineChart.example(), False), (ScatterChart.example(), True)],
+)
+@pytest.mark.asyncio
+async def test_only_point_charts_stop_shrinking(context_args, chart, floored):
+    html = await render_tree(chart, context_args=context_args)
+    # Out of flow, so its pixel width cannot hold a flex or grid cell open.
+    assert_selector(html, "canvas.absolute.inset-0")
+    assert bool(select(html, "div.aspect-\\[5\\/2\\].min-h-48")) is floored
