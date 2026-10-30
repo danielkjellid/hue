@@ -1,6 +1,7 @@
 /**
- * What a swap needs from hue besides Alpine AJAX: focus that survives it, and
- * a first history entry that Back can return to.
+ * What a swap needs from hue besides Alpine AJAX: focus that survives it, a
+ * first history entry that Back can return to, and the title of the page it
+ * lands on.
  */
 
 /**
@@ -48,6 +49,8 @@ export function keepFocusThroughSwaps() {
 }
 
 /**
+ * Keep the history a swap makes true to the pages in it.
+ *
  * Let Back return to the page as it was before the first swap.
  *
  * Alpine AJAX reloads the page on Back only when the entry it lands on was
@@ -62,5 +65,17 @@ export function markFirstHistoryEntry() {
 		if (history.state?.__ajax) return;
 		if (!event.target.hasAttribute?.("x-target.push")) return;
 		history.replaceState({ ...history.state, __ajax: true }, "");
+	});
+
+	// Alpine AJAX merges the targets and leaves the head alone, so a swap
+	// that moved the address kept the old page's title, in the tab and on
+	// the history entry it made. Once the address is the response's own,
+	// the entry is that page, and so is its title.
+	window.addEventListener("ajax:after", (event) => {
+		const response = event.detail?.response;
+		const title = response?.html?.querySelector("title");
+		if (title && response.url === location.href) {
+			document.title = title.textContent;
+		}
 	});
 }

@@ -25,6 +25,7 @@ def _serve(page: Page) -> None:
     def fulfil(route: Route) -> None:
         number = int(route.request.url.split("page=")[1])
         document = render_page(*_page(number))  # type: ignore[arg-type]
+        document = document.replace(">Test</title>", f">Page {number}</title>", 1)
         route.fulfill(body=document, content_type="text/html")
 
     page.route(f"{ORIGIN}/?page=*", fulfil)
@@ -98,3 +99,22 @@ def test_a_narrow_row_folds_the_siblings(
     expect(page.locator(f"#pages-page-{number}")).to_have_attribute(
         "aria-current", "page"
     )
+
+
+def test_a_push_swap_takes_the_title_of_the_page_it_lands_on(show: Show) -> None:
+    page = show(*_page(1))
+    _serve(page)
+    assert page.title() == "Test"
+    page.locator("#pages-page-2").click()
+    expect(page).to_have_title("Page 2")
+    page.locator("#pages-page-3").click()
+    expect(page).to_have_title("Page 3")
+    # Back reloads the entry, so the title it shows is the one it was saved
+    # with as well as the one the page carries.
+    page.go_back()
+    expect(page).to_have_url(f"{ORIGIN}/?page=2")
+    expect(page).to_have_title("Page 2")
+    page.go_back()
+    expect(page).to_have_title("Test")
+    page.go_forward()
+    expect(page).to_have_title("Page 2")
