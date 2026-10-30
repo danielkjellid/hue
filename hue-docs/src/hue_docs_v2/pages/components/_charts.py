@@ -12,16 +12,26 @@ from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.model import Note
 
 
+def _a(name: str, *, start: bool = False) -> str:
+    """
+    The chart's name after its article: an AreaChart, a BarChart. start
+    capitalises the article to open a sentence.
+    """
+    article = "an" if name[0] in "AEIOU" else "a"
+    return f"{article.title() if start else article} `{name}`"
+
+
 def formats(name: str, modifiers: str, *, axis: bool = True) -> list[ComponentType]:
     where = (
         "The tooltip and the table of values"
         if axis
-        else f"A `{name}` has no axis, so the tooltip and the table of values"
+        else f"{_a(name, start=True)} has no axis. Its tooltip and its table of values"
     )
+    verb = "take" if " and " in modifiers else "takes"
     return [
         pr.h2(f"How {name} writes numbers"),
         pr.p(
-            f'{modifiers} take one of three formats: `"number"` (the default), '
+            f'{modifiers} {verb} one of three formats: `"number"` (the default), '
             '`"percent"` and `"currency"`. A percent is given as a fraction, so `0.42` '
             "is written 42%. `currency` is an ISO 4217 code, read only by the "
             "currency format and upper-cased. A code that is not three letters "
@@ -49,7 +59,8 @@ def loading(name: str) -> list[ComponentType]:
     return [
         pr.h2(f"How {name} loads Chart.js"),
         pr.p(
-            f"A `{name}` is drawn by Chart.js, which is larger than the rest of "
+            f"{_a(name, start=True)} is drawn by Chart.js, which is larger "
+            "than the rest of "
             "hue's JavaScript put together, so it is kept out of the Alpine "
             "bundle in a file of its own, `chart-bundle.js`. The first chart to "
             "appear on a page fetches it, and every other chart on that page "
@@ -78,7 +89,8 @@ def theme(name: str) -> list[ComponentType]:
     return [
         pr.h2(f"{name} in dark mode"),
         pr.p(
-            f"A `{name}` paints with the `chart-1` to `chart-6` tokens, read at the "
+            f"{_a(name, start=True)} paints with the `chart-1` to `chart-6` "
+            "tokens, read at the "
             "moment it is drawn. A canvas holds colours, not the tokens they "
             "came from, so the chart watches `data-theme` on the `html` element "
             "and draws itself again, without animation, when the value "
@@ -88,14 +100,23 @@ def theme(name: str) -> list[ComponentType]:
     ]
 
 
-def size(name: str) -> list[ComponentType]:
+def size(name: str, *, min_height: int | None = None) -> list[ComponentType]:
+    floor = (
+        f" The drawing area is never less than {min_height}px tall, so in a "
+        f"container narrower than {min_height * 5 // 2}px it stops getting "
+        "shorter and is taller than 5:2."
+        if min_height
+        else ""
+    )
     return [
         pr.h2(f"How big {name} draws"),
         pr.p(
-            f"The drawing area of a `{name}` fills the width of its container "
-            "at a 5:2 ratio, so its height follows its width. A legend, where "
-            "the chart has one, sits below it. `class_()` lands on the figure "
-            "around both, which is where a width constraint goes."
+            f"The drawing area of {_a(name)} fills the width of its container "
+            "at a 5:2 ratio, so its height follows its width."
+            + floor
+            + " A legend, where the chart has one, sits below it. `class_()` "
+            "lands on the figure around both, which is where a width "
+            "constraint goes."
         ),
     ]
 
@@ -106,7 +127,7 @@ def notes(name: str) -> list[Note]:
             "a11y",
             "The canvas is `aria-hidden`. A screen reader gets a visually hidden "
             "table of every value instead, captioned by `description()`, and "
-            f"the figure is named by that caption. Rendering a `{name}` without "
+            f"the figure is named by that caption. Rendering {_a(name)} without "
             "a `description()` raises a `ValueError`.",
         ),
         Note(
@@ -137,7 +158,8 @@ def series_data(name: str) -> list[ComponentType]:
     return [
         pr.h2(f"Giving {name} its data"),
         pr.p(
-            f"A `{name}` takes ordered labels along the bottom and one value per "
+            f"{_a(name, start=True)} takes ordered labels along the bottom and "
+            "one value per "
             "label. `labels()` names the points, `series()` gives the values the "
             "chart is about, drawn in the accent, and `compare()` adds a second "
             "series to read the first against, drawn in the muted grey of "
@@ -177,7 +199,7 @@ def slice_data(name: str) -> list[ComponentType]:
     return [
         pr.h2(f"Giving {name} its data"),
         pr.p(
-            f"`slices()` takes each part of a `{name}` as a label and a value, in "
+            f"`slices()` takes each part of {_a(name)} as a label and a value, in "
             "the order they go round. Each slice gets its own colour from the "
             "chart palette, and the legend below the chart names every slice "
             "it draws with its swatch."
@@ -194,7 +216,7 @@ def slice_data(name: str) -> list[ComponentType]:
             '`value_format("percent")` the values already are shares, so the '
             "tooltip and the table leave the share out."
         ),
-        pr.h3(f"More than six slices in a {name}"),
+        pr.h3(f"More than six slices in {_a(name).replace('`', '')}"),
         pr.p(
             "The chart palette has six colours. Past six slices, the five "
             "largest are drawn in place and the rest are added up into one "
@@ -225,7 +247,7 @@ def point_data(name: str, shape: str) -> list[ComponentType]:
     return [
         pr.h2(f"Giving {name} its data"),
         pr.p(
-            f"`series()` adds one set of {shape} points to a `{name}`, with a "
+            f"`series()` adds one set of {shape} points to {_a(name)}, with a "
             "label that names it in the tooltip and the table. Call it again "
             "for another set, drawn in the next colour of the chart palette, "
             "up to five. The sixth colour is the grey other charts mute a "

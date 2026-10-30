@@ -8,6 +8,7 @@ from hue.ui import (
     TableBody,
     TableCaption,
     TableCell,
+    TableColumnGroup,
     TableFooter,
     TableHead,
     TableHeader,
@@ -135,6 +136,9 @@ def row_headers() -> Table:
 
 def column_groups() -> Table:
     return Table().content(
+        TableColumnGroup(),
+        TableColumnGroup().span(2),
+        TableColumnGroup().span(2),
         TableHeader().content(
             TableRow().content(
                 TableCell(),
@@ -333,7 +337,11 @@ def _usage() -> ComponentType:
         pr.p(
             '`TableHead` is scoped to its column. `scope("row")` makes it the header '
             'of its row, and `scope("colgroup")` with `colspan()` heads a group of '
-            "columns."
+            "columns. The group itself is a `TableColumnGroup`, which renders a "
+            "`colgroup` element, with `span()` set to the number of columns it "
+            "covers. The groups go before the `TableHeader`, in column order, and "
+            "a column outside every group still takes a `TableColumnGroup` of "
+            "its own so the count stays right."
         ),
         pr.p(
             "A table can hold several `TableBody` groups. `title()` on each turns it "
@@ -420,6 +428,7 @@ PAGE = ComponentPage(
     ],
     parts=[
         TableCaption,
+        TableColumnGroup,
         TableHeader,
         TableBody,
         TableFooter,

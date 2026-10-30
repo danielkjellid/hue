@@ -117,7 +117,7 @@ def _usage() -> ComponentType:
             "The formats cover the two axes only. A `BubbleChart` always writes "
             "the size as a plain number, since it counts something of its own."
         ),
-        *_charts.size("BubbleChart"),
+        *_charts.size("BubbleChart", min_height=192),
         *_charts.loading("BubbleChart"),
         *_charts.theme("BubbleChart"),
     )

@@ -127,8 +127,10 @@ def must_be_answered() -> Drawer:
         .description("Keep editing, or throw the changes away.")
         .trigger(Button().variant("outline").content("Leave editor"))
         .footer(
-            Button().variant("ghost").content("Discard").on_click(close()),
+            # First, because the trap focuses the first control when the
+            # Drawer opens, and Enter there should keep the changes.
             Button().content("Keep editing").on_click(close()),
+            Button().variant("ghost").content("Discard").on_click(close()),
         )
     )
 
@@ -186,6 +188,11 @@ def _usage() -> ComponentType:
             "`dismissible(False)` removes the close button and the click on the "
             "dimmed page that would close the `Drawer`, so the footer actions "
             "are the way out. Escape still closes it."
+        ),
+        pr.p(
+            "When a `Drawer` opens, its focus trap moves focus to the first "
+            "control inside it. The States example puts Keep editing first in "
+            "the footer, so pressing Enter as soon as it opens keeps the changes."
         ),
     )
 

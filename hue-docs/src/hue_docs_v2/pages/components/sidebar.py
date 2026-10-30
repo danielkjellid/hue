@@ -90,7 +90,9 @@ def section_and_page() -> ComponentType:
         Sidebar()
         .current("/settings/billing")
         .content(
-            SidebarBody().content(
+            SidebarBody()
+            .label("Settings")
+            .content(
                 SidebarSection().content(
                     SidebarItem()
                     .href("/settings")
@@ -114,7 +116,9 @@ def section_and_page() -> ComponentType:
 def action_rows() -> ComponentType:
     return html.div(
         Sidebar().content(
-            SidebarBody().content(
+            SidebarBody()
+            .label("Account")
+            .content(
                 SidebarSection().content(
                     SidebarItem()
                     .icon(Icon("plus"))

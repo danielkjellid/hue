@@ -112,7 +112,7 @@ def _usage() -> ComponentType:
             "Each axis has its own format, so a `ScatterChart` can put money "
             "along the bottom and a percentage up the side."
         ),
-        *_charts.size("ScatterChart"),
+        *_charts.size("ScatterChart", min_height=192),
         *_charts.loading("ScatterChart"),
         *_charts.theme("ScatterChart"),
     )

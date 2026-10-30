@@ -212,7 +212,7 @@ def sticky() -> ScrollArea:
         .content(
             Stack()
             .position("sticky")
-            .class_("top-0 bg-surface py-1 font-semibold")
+            .class_("top-0 bg-canvas py-1 font-semibold")
             .content("Today"),
             html.p("Ada sent INV-2050."),
             html.p("Grace paid INV-2049."),

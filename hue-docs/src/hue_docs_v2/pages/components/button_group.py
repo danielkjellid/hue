@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hue.types.core import ComponentType
-from hue.ui import Button, ButtonGroup, SegmentedControl
+from hue.ui import Button, ButtonGroup, DropdownMenu, MenuItem, SegmentedControl
 
 from hue_docs_v2.icons import Icon
 from hue_docs_v2.layout import prose as pr
@@ -13,11 +13,21 @@ from hue_docs_v2.model import ComponentPage, Note, panel
 def split_button() -> ButtonGroup:
     return ButtonGroup().content(
         Button().variant("outline").size("sm").content("Export"),
-        Button()
-        .variant("outline")
-        .size("sm")
-        .icon_only("Export options")
-        .content(Icon("chevron-down")),
+        DropdownMenu()
+        .label("Export options")
+        .placement("bottom-end")
+        .trigger(
+            Button()
+            .variant("outline")
+            .size("sm")
+            .icon_only("Export options")
+            .class_("rounded-s-none")
+            .content(Icon("chevron-down"))
+        )
+        .content(
+            MenuItem().content("Export as CSV"),
+            MenuItem().content("Export as PDF"),
+        ),
     )
 
 
@@ -112,6 +122,15 @@ def _usage() -> ComponentType:
             '    Button().variant("outline").size("sm").content("Schedule"),\n'
             ")"
         ),
+        pr.h3("A split button in a ButtonGroup"),
+        pr.p(
+            "For a split button, put a `DropdownMenu` in the `ButtonGroup` and give "
+            "it the icon-only `Button` as its `trigger()`. The menu wraps its "
+            "trigger in a `span`, so the group squares off the corners of that "
+            "`span` and not of the `Button` inside it. Add "
+            '`class_("rounded-s-none")` to the trigger so its inner corners meet '
+            "the button beside it."
+        ),
         pr.h3("Naming a ButtonGroup"),
         pr.p(
             '`label()` adds `role="group"` and an `aria-label`, so a screen reader '
@@ -152,7 +171,13 @@ PAGE = ComponentPage(
     ),
     usage=_usage,
     panels=[
-        panel("Live", split_button, layout="center", hint="Tab through it"),
+        panel(
+            "Live",
+            split_button,
+            layout="center",
+            min_height=220,
+            hint="Tab through it, and open the options",
+        ),
         panel("Anatomy", two_actions, labelled, icon_only, layout="stack"),
         panel(
             "Variants",
