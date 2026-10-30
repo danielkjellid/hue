@@ -20,7 +20,7 @@
 
   /* Shiki's output, with both themes' colours on every token as variables. */
   .docs-code .shiki {
-    @apply overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 font-mono text-xs leading-[1.7] focus-visible:shadow-ring outline-none;
+    @apply overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 font-mono text-xs leading-[1.7] outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
   }
 
   .docs-code .shiki span {

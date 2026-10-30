@@ -143,7 +143,8 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
         class_=(
             "group absolute inset-y-0 -end-3 flex w-3 cursor-ew-resize touch-none "
             "items-center justify-center rounded-sm outline-none "
-            "focus-visible:shadow-ring"
+            "focus-visible:ring-2 focus-visible:ring-accent "
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         ),
         **{
             ":aria-valuenow": "Math.round(shown)",

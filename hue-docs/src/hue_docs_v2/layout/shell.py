@@ -56,7 +56,11 @@ def _brand() -> ComponentType:
             ),
         )
         .href(url("/"))
-        .class_("flex items-center gap-3 rounded-md text-fg focus-visible:shadow-ring")
+        .class_(
+            "flex items-center gap-3 rounded-md text-fg outline-none "
+            "focus-visible:ring-2 focus-visible:ring-accent "
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+        )
     )
 
 
