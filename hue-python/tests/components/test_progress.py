@@ -151,6 +151,36 @@ class TestProgress:
         assert_selector(html, "div.bg-danger")
         assert_selector(html, "div.h-2\\.5")
 
+    @pytest.mark.parametrize(
+        ("value", "now", "text"),
+        [
+            (0, "0", "0%"),
+            (0.5, "0.5", "0%"),
+            (100, "100", "100%"),
+            (150, "100", "100%"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_the_readout_is_given_as_valuetext(
+        self, context_args, value, now, text
+    ):
+        html = await render_tree(_bar().value(value), context_args=context_args)
+        assert_attr(html, '[role="progressbar"]', "aria-valuenow", now)
+        assert_attr(html, '[role="progressbar"]', "aria-valuetext", text)
+
+    @pytest.mark.asyncio
+    async def test_no_value_reports_no_position(self, context_args):
+        html = await render_tree(_bar(), context_args=context_args)
+        assert_no_selector(html, "[aria-valuenow]")
+        assert_no_selector(html, "[aria-valuetext]")
+
+    @pytest.mark.asyncio
+    async def test_a_label_with_spaces_round_it_is_trimmed(self, context_args):
+        html = await render_tree(
+            Progress().value(5).label("  Upload  "), context_args=context_args
+        )
+        assert_attr(html, '[role="progressbar"]', "aria-label", "Upload")
+
 
 class TestProgressRing:
     @pytest.mark.asyncio
