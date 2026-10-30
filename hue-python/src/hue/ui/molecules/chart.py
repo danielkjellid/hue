@@ -187,6 +187,7 @@ class Chart(ChainableComponent):
                 **self._get_base_html_attrs(),
                 "x-data": f"hueChart({json.dumps(spec)})",
                 "x-id": "['hue-chart-error', 'hue-chart-caption']",
+                "x-on:keydown.escape.window.capture": "hideTooltip($event)",
                 # Named, so focus landing here after a retry announces more
                 # than "figure".
                 ":aria-labelledby": _CAPTION_ID,
@@ -436,13 +437,11 @@ class PieChart(Chart):
 
         # Values already given as percentages would only say it twice.
         percent = format_.kind == "percent"
-        listed = _shares([number for _, number in slices])
-        shown = _shares([number for _, number in drawn])
 
-        def written(number: float, share: str) -> str:
+        def written(number: float) -> str:
             if percent:
                 return format_.write(number)
-            return f"{format_.write(number)} ({share})"
+            return f"{format_.write(number)} ({_share(number, total)})"
 
         return self._figure(
             {
@@ -451,17 +450,15 @@ class PieChart(Chart):
                 "series": [
                     {
                         "values": [number for _, number in drawn],
-                        "display": [
-                            written(number, share)
-                            for (_, number), share in zip(drawn, shown, strict=True)
-                        ],
+                        "display": [written(number) for _, number in drawn],
                     }
                 ],
             },
             headers=["", "Value"] if percent else ["", "Value", "Share"],
             rows=[
-                [label, format_.write(number)] + ([] if percent else [share])
-                for (label, number), share in zip(slices, listed, strict=True)
+                [label, format_.write(number)]
+                + ([] if percent else [_share(number, total)])
+                for label, number in slices
             ],
             legend=[
                 (label, swatch)
@@ -685,24 +682,17 @@ class BubbleChart(_PointChart):
         return [size_label]
 
 
-def _shares(numbers: list[float]) -> list[str]:
+def _share(number: float, total: float) -> str:
     """
-    Each number as a whole percent of their total, adding up to 100.
+    A number as its nearest whole percent of the total.
 
-    Rounded one by one, three thirds read 33% each. The largest remainder
-    method hands the points rounding lost to the numbers that lost most.
+    Each slice is rounded on its own, so the tooltip and the table always
+    agree and equal slices read equal, at the cost of shares that can add up
+    to 99 or 101.
     """
-    total = sum(numbers)
-    exact = [number * 100 / total for number in numbers]
-    whole = [math.floor(share) for share in exact]
-    by_remainder = sorted(range(len(exact)), key=lambda i: whole[i] - exact[i])
-    for i in by_remainder[: 100 - sum(whole)]:
-        whole[i] += 1
+    share = math.floor(number * 100 / total + 0.5)
     # A sliver written as "0%" would read as nothing at all.
-    return [
-        "<1%" if share == 0 and number > 0 else f"{share}%"
-        for share, number in zip(whole, numbers, strict=True)
-    ]
+    return "<1%" if share == 0 and number > 0 else f"{share}%"
 
 
 def _legend(items: list[tuple[str, str]]) -> ComponentType:

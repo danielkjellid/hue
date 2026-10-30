@@ -132,7 +132,7 @@ class Alert(ChainableComponent):
 
     def dismissible(self, value: bool = True) -> Self:
         """
-        Add a close button that removes the alert.
+        Add a close button that hides the alert in the browser.
         """
         self._props["dismissible"] = value
         return self
@@ -178,10 +178,19 @@ class Alert(ChainableComponent):
                 "hover:bg-black/6 dark:hover:bg-black/24",
                 FOCUS_RING,
             ),
-            **{"x-on:click": "dismiss()"},
+            # The state lives on the button rather than on a wrapper, which
+            # would be the flex item instead of the alert and keep a width
+            # given to the alert from applying. Focus moves off the button
+            # before the alert hides, or it would fall to the top of the page.
+            **{
+                "x-data": "{}",
+                "x-on:click": "const box = $el.parentElement; "
+                "if (box.contains(document.activeElement)) $handOff(box); "
+                "box.hidden = true",
+            },
         )
 
-        alert = html.div(
+        return html.div(
             render_if(
                 self._get_prop("icon", HueIcon(_ICONS[variant])),
                 lambda icon: html.span(
@@ -211,12 +220,6 @@ class Alert(ChainableComponent):
                 **self._get_base_html_attrs(),
             },
         )
-
-        if not dismissible:
-            return alert
-        # hueDismissible moves focus off the close button before hiding it,
-        # or it would fall to the top of the page with the button.
-        return html.div(alert, **{"x-data": "hueDismissible", "x-show": "shown"})
 
 
 class Banner(Alert):

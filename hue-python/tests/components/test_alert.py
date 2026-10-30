@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Alert, Button
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestAlert:
@@ -87,9 +87,11 @@ class TestAlert:
             Alert().title("T").dismissible(), context_args=context_args
         )
         assert_attr(html, "button", "aria-label", "Dismiss")
-        # Through hueDismissible, which moves focus off the button before the
-        # alert hides it; hiding it directly drops focus to the body.
-        assert_selector(html, '[x-data="hueDismissible"] [x-on\\:click="dismiss()"]')
+        # Focus is handed on before the alert hides; hiding it with focus
+        # inside drops focus to the body.
+        assert "$handOff(box)" in select(html, "button")[0]["x-on:click"]
+        # No wrapper, so the alert itself is the box a layout places.
+        assert_no_selector(html, 'div [role="status"]')
 
     @pytest.mark.asyncio
     async def test_not_dismissible_by_default(self, context_args):

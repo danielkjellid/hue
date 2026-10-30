@@ -116,7 +116,7 @@ class Progress(ChainableComponent):
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         size: ProgressSize = self._get_prop("size", "md")
-        label: str | None = self._get_prop("label")
+        label: str | None = (self._get_prop("label") or "").strip() or None
         hidden_label: bool = self._get_prop("hidden_label", False)
         raw: float | None = self._get_prop("value")
         indeterminate: bool = self._get_prop("indeterminate", False)
@@ -159,7 +159,10 @@ class Progress(ChainableComponent):
                 # Omitted entirely when indeterminate: aria-valuenow="0" would
                 # announce "0 percent", which reads as stalled rather than
                 # unknown.
-                "aria_valuenow": None if value is None else f"{value:g}",
+                "aria_valuenow": None if value is None else f"{value:.15g}",
+                # A screen reader rounds valuenow to the nearest percent, so
+                # it is given the readout, which never says 100 short of done.
+                "aria_valuetext": None if value is None else f"{_whole(value)}%",
                 "aria_label": label,
                 **self._get_base_html_attrs(),
             },
@@ -223,7 +226,7 @@ class ProgressRing(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
-        label: str | None = self._get_prop("label")
+        label: str | None = (self._get_prop("label") or "").strip() or None
         show_value: bool = self._get_prop("show_value", False)
         value = _clamp(self._get_prop("value", 0))
 
