@@ -114,25 +114,14 @@ class TestSeriesCharts:
             "Last week",
         ]
 
+    @pytest.mark.parametrize(("label", "index"), [("Tue", 1), (None, None)])
     @pytest.mark.asyncio
-    async def test_a_single_series_has_no_legend(self, context_args):
-        html = await render_tree(_chart(), context_args=context_args)
-        assert_no_selector(html, "figure > ul")
-
-    @pytest.mark.asyncio
-    async def test_highlight_names_a_bar_by_its_label(self, context_args):
-        chart = _chart(BarChart).highlight("Tue")
-        assert (
-            _spec(await render_tree(chart, context_args=context_args))["highlight"] == 1
-        )
-
-    @pytest.mark.asyncio
-    async def test_nothing_is_highlighted_by_default(self, context_args):
+    async def test_highlight_names_a_bar_by_its_label(self, context_args, label, index):
         chart = _chart(BarChart)
-        assert (
-            _spec(await render_tree(chart, context_args=context_args))["highlight"]
-            is None
-        )
+        if label is not None:
+            chart = chart.highlight(label)
+        spec = _spec(await render_tree(chart, context_args=context_args))
+        assert spec["highlight"] == index
 
     @pytest.mark.asyncio
     async def test_the_retry_overlay_waits_for_a_failure(self, context_args):
@@ -231,12 +220,11 @@ class TestPieChart:
         assert spec["labels"] == ["Paid", "Pending", "Draft"]
         assert spec["series"][0]["values"] == [92, 31, 14]
         assert spec["series"][0]["display"] == ["92 (67%)", "31 (23%)", "14 (10%)"]
-
-    @pytest.mark.asyncio
-    async def test_a_doughnut_draws_a_ring(self, context_args):
-        chart = DoughnutChart().slices(_SLICES).description("x")
-        spec = _spec(await render_tree(chart, context_args=context_args))
-        assert spec["kind"] == "doughnut"
+        doughnut = DoughnutChart().slices(_SLICES).description("x")
+        assert (
+            _spec(await render_tree(doughnut, context_args=context_args))["kind"]
+            == "doughnut"
+        )
 
     @pytest.mark.asyncio
     async def test_the_table_gives_each_slice_its_share(self, context_args):
@@ -343,29 +331,22 @@ class TestPieChart:
             if label != "Other":
                 assert text.split("(")[1].rstrip(")") == table[label]
 
+    @pytest.mark.parametrize(
+        ("numbers", "shares"),
+        [
+            ([1, 1, 1], ["33%"] * 3),
+            # Under half a percent reads under one, never as nothing.
+            ([1, 1, 1, 297], ["<1%", "<1%", "<1%", "99%"]),
+            ([999, 1], ["100%", "<1%"]),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_equal_slices_read_equal_shares(self, context_args):
-        chart = PieChart().slices([("a", 1), ("b", 1), ("c", 1)]).description("x")
-        html = await render_tree(chart, context_args=context_args)
-        assert [row.select("td")[1].text for row in select(html, "tbody tr")] == [
-            "33%"
-        ] * 3
-        assert _spec(html)["series"][0]["display"] == ["1 (33%)"] * 3
-
-    @pytest.mark.asyncio
-    async def test_a_share_under_half_a_percent_reads_under_one(self, context_args):
-        slices = [("a", 1), ("b", 1), ("c", 1), ("d", 297)]
+    async def test_each_slice_reads_its_share(self, context_args, numbers, shares):
+        slices = [(f"s{i}", n) for i, n in enumerate(numbers)]
         html = await render_tree(
             PieChart().slices(slices).description("x"), context_args=context_args
         )
-        shares = [row.select("td")[1].text for row in select(html, "tbody tr")]
-        assert shares == ["<1%", "<1%", "<1%", "99%"]
-
-    @pytest.mark.asyncio
-    async def test_a_sliver_is_not_written_as_nothing(self, context_args):
-        chart = PieChart().slices([("a", 999), ("b", 1)]).description("x")
-        html = await render_tree(chart, context_args=context_args)
-        assert select(html, "tbody tr:last-child td")[1].text == "<1%"
+        assert [row.select("td")[1].text for row in select(html, "tbody tr")] == shares
 
     @pytest.mark.asyncio
     async def test_a_slice_called_other_joins_the_grouped_one(self, context_args):
@@ -375,13 +356,13 @@ class TestPieChart:
         assert spec["labels"] == ["s0", "s1", "s2", "s3", "s4", "Other"]
         assert spec["series"][0]["values"][-1] == 105
 
-    def test_refuses_duplicate_slices(self):
-        with pytest.raises(ValueError, match="differ"):
-            PieChart().slices([("a", 1), ("a", 2)])
-
-    def test_refuses_a_negative_slice(self):
-        with pytest.raises(ValueError, match="negative"):
-            PieChart().slices([("a", -1)])
+    @pytest.mark.parametrize(
+        ("slices", "match"),
+        [([("a", 1), ("a", 2)], "differ"), ([("a", -1)], "negative")],
+    )
+    def test_refuses_slices_it_cannot_draw(self, slices, match):
+        with pytest.raises(ValueError, match=match):
+            PieChart().slices(slices)
 
 
 _POINTS = [(1, 2), (3, 4.5)]
@@ -476,11 +457,6 @@ class TestScatterChart:
             chart = chart.series(_POINTS, label=f"s{i}")
         spec = _spec(await render_tree(chart, context_args=context_args))
         assert len(spec["series"]) == 5
-
-    @pytest.mark.asyncio
-    async def test_one_series_has_no_legend(self, context_args):
-        html = await render_tree(_scatter(), context_args=context_args)
-        assert_no_selector(html, "figure > ul")
 
     @pytest.mark.parametrize(
         ("chart", "match"),

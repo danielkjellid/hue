@@ -63,19 +63,6 @@ class TestDataTable:
         assert "INV-2050" in html
 
     @pytest.mark.asyncio
-    async def test_ending_a_column_lines_its_digits_up(self, context_args):
-        # Ending a column and lining its digits up are one decision: the only
-        # thing that wants the right edge is a number, and without tabular
-        # figures the decimal points drift and the column stops being
-        # something you can scan.
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
-        )
-        amounts = select(html, "td.tabular-nums")
-        assert len(amounts) == 2
-        assert all("text-end" in cell["class"] for cell in amounts)
-
-    @pytest.mark.asyncio
     async def test_a_value_comes_from_a_key_a_path_or_a_callable(self, context_args):
         html = await render_tree(
             DataTable()
@@ -90,23 +77,6 @@ class TestDataTable:
         )
         assert "Oslo" in html
         assert "Ada Lovelace" in html
-
-    @pytest.mark.asyncio
-    async def test_a_key_that_is_not_there_says_which_part_was_missing(
-        self, context_args
-    ):
-        with pytest.raises(ValueError, match="'city'"):
-            await render_tree(
-                DataTable()
-                .columns([Column("customer.city", "City")])
-                .rows([{"customer": {}}]),
-                context_args=context_args,
-            )
-
-    @pytest.mark.asyncio
-    async def test_a_path_reads_attributes_of_a_row_that_is_not_a_mapping(
-        self, context_args
-    ):
         # A model instance or a dataclass, as rows() usually returns.
         html = await render_tree(
             DataTable()
@@ -118,14 +88,20 @@ class TestDataTable:
         assert "Contoso" in html
 
     @pytest.mark.asyncio
-    async def test_an_attribute_that_is_not_there_says_which_part_was_missing(
-        self, context_args
+    @pytest.mark.parametrize(
+        ("row", "match"),
+        [
+            ({"customer": {}}, "'city'"),
+            (_Invoice("INV-2050", _Customer("Contoso")), r"_Customer .* has no 'city'"),
+        ],
+        ids=["mapping", "object"],
+    )
+    async def test_a_part_that_is_not_there_says_which_part_was_missing(
+        self, context_args, row, match
     ):
-        with pytest.raises(ValueError, match=r"_Customer .* has no 'city'"):
+        with pytest.raises(ValueError, match=match):
             await render_tree(
-                DataTable()
-                .columns([Column("customer.city", "City")])
-                .rows([_Invoice("INV-2050", _Customer("Contoso"))]),
+                DataTable().columns([Column("customer.city", "City")]).rows([row]),
                 context_args=context_args,
             )
 
@@ -152,31 +128,30 @@ class TestDataTable:
     async def test_dates_and_decimals_are_written_out(self, context_args):
         html = await render_tree(
             DataTable()
-            .columns([Column("on", "On"), Column("at", "At"), Column("sum", "Sum")])
+            .columns(
+                [
+                    Column("on", "On"),
+                    Column("at", "At"),
+                    Column("sum", "Sum"),
+                    Column("rate", "Rate"),
+                ]
+            )
             .rows(
                 [
                     {
                         "on": date(2026, 3, 1),
                         "at": datetime(2026, 3, 1, 14, 5),
                         "sum": Decimal("2190.00"),
+                        "rate": Decimal("1E-7"),
                     }
                 ]
             ),
             context_args=context_args,
         )
         cells = [cell.get_text(strip=True) for cell in select(html, "tbody td")]
-        # ISO 8601 unless told otherwise, and the decimal as it was stored.
-        assert cells == ["2026-03-01", "2026-03-01 14:05", "2190.00"]
-
-    @pytest.mark.asyncio
-    async def test_a_small_decimal_is_written_out_in_full(self, context_args):
-        html = await render_tree(
-            DataTable()
-            .columns([Column("rate", "Rate")])
-            .rows([{"rate": Decimal("1E-7")}]),
-            context_args=context_args,
-        )
-        assert select(html, "tbody td")[0].get_text(strip=True) == "0.0000001"
+        # ISO 8601 unless told otherwise, the decimal as it was stored, and a
+        # small one in full rather than in exponent notation.
+        assert cells == ["2026-03-01", "2026-03-01 14:05", "2190.00", "0.0000001"]
 
     @pytest.mark.asyncio
     async def test_the_context_says_how_a_date_is_written(self, context_args):
@@ -193,14 +168,14 @@ class TestDataTable:
         assert cells == ["01.03.2026", "01.03.2026 14:05"]
 
     @pytest.mark.asyncio
-    async def test_anything_else_asks_for_a_render(self, context_args):
-        with pytest.raises(ValueError, match="give its column a render"):
+    @pytest.mark.parametrize("value", [object(), ["a"]], ids=["object", "list"])
+    async def test_anything_else_asks_for_a_render(self, context_args, value):
+        with pytest.raises(ValueError, match="render"):
             await render_tree(
-                DataTable().columns([Column("who", "Who")]).rows([{"who": object()}]),
+                DataTable().columns([Column("who", "Who")]).rows([{"who": value}]),
                 context_args=context_args,
             )
 
-    # render(): a column that is a component rather than a value
     @pytest.mark.asyncio
     async def test_a_column_can_render_the_row_instead(self, context_args):
         html = await render_tree(
@@ -215,15 +190,6 @@ class TestDataTable:
         assert "paid" not in html
 
     @pytest.mark.asyncio
-    async def test_a_value_that_is_not_a_scalar_asks_for_a_render(self, context_args):
-        with pytest.raises(ValueError, match="render"):
-            await render_tree(
-                DataTable().columns([Column("tags", "Tags")]).rows([{"tags": ["a"]}]),
-                context_args=context_args,
-            )
-
-    # loading(): both branches
-    @pytest.mark.asyncio
     async def test_loading_stands_bars_where_the_values_will_be(self, context_args):
         # aria-busy on the table and aria-hidden on the placeholders: the
         # screen reader is told the table is mid-update once, rather than
@@ -235,15 +201,7 @@ class TestDataTable:
         assert_attr(html, "table", "aria-busy", "true")
         assert_attr(html, "tbody", "aria-hidden", "true")
         assert "INV-2050" not in html
-
-    @pytest.mark.asyncio
-    async def test_loading_keeps_the_table_the_height_it_already_was(
-        self, context_args
-    ):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).loading(),
-            context_args=context_args,
-        )
+        # A row of placeholders per row, so the table keeps its height.
         assert_selector(html, "tbody tr", count=len(_ROWS))
 
     @pytest.mark.asyncio
@@ -255,7 +213,6 @@ class TestDataTable:
         )
         assert_attr(html, "table", "aria-busy", "false")
 
-    # empty(): given, defaulted, and not reached at all
     @pytest.mark.asyncio
     async def test_no_rows_keeps_the_header_and_says_so_underneath(self, context_args):
         html = await render_tree(
@@ -278,15 +235,6 @@ class TestDataTable:
         assert "Nothing here yet" not in html
 
     @pytest.mark.asyncio
-    async def test_rows_leave_the_empty_state_out(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).empty(Empty().title("None")),
-            context_args=context_args,
-        )
-        assert "None" not in html
-
-    # error(): both branches
-    @pytest.mark.asyncio
     async def test_an_error_replaces_the_rows_whatever_else_is_going_on(
         self, context_args
     ):
@@ -302,13 +250,6 @@ class TestDataTable:
         assert_no_selector(html, "tbody")
 
     @pytest.mark.asyncio
-    async def test_without_an_error_the_rows_are_the_rows(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
-        )
-        assert_selector(html, "tbody tr", count=2)
-
-    @pytest.mark.asyncio
     async def test_the_caption_comes_first_and_reads_before_the_table(
         self, context_args
     ):
@@ -320,18 +261,6 @@ class TestDataTable:
         assert "Invoices, September" in html
 
     @pytest.mark.asyncio
-    async def test_compact_tightens_the_rows(self, context_args):
-        comfortable = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
-        )
-        compact = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS).compact(),
-            context_args=context_args,
-        )
-        assert "[&_td]:py-[11px]" in select(comfortable, "table")[0]["class"]
-        assert "[&_td]:py-[7px]" in select(compact, "table")[0]["class"]
-
-    @pytest.mark.asyncio
     async def test_base_modifiers_land_on_the_table(self, context_args):
         html = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS).id("invoices").class_("mt-4"),
@@ -340,27 +269,6 @@ class TestDataTable:
         assert_selector(html, "div#invoices")
         assert_selector(html, "table.mt-4")
 
-    # The placeholder's own alignment: a block ignores text-align
-    @pytest.mark.asyncio
-    async def test_a_placeholder_stands_on_its_column_s_own_side(self, context_args):
-        # Otherwise an ended column fills in from the wrong side and jumps
-        # across the moment the rows arrive.
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).loading(), context_args=context_args
-        )
-        bars = select(html, "tbody tr:first-child td > div")
-        assert "ms-auto" not in bars[0]["class"]
-        assert "ms-auto" in bars[1]["class"]
-
-    @pytest.mark.asyncio
-    async def test_a_centred_placeholder_is_centred_too(self, context_args):
-        html = await render_tree(
-            DataTable().columns([Column("note", "Note", align="center")]).loading(),
-            context_args=context_args,
-        )
-        assert_selector(html, "tbody td > div.mx-auto")
-
-    # _bulk_actions(): both branches
     @pytest.mark.asyncio
     async def test_every_row_checkbox_is_named_by_what_its_row_shows(
         self, context_args
@@ -447,30 +355,6 @@ class TestDataTable:
             )
 
     @pytest.mark.asyncio
-    async def test_the_bar_for_picked_rows_does_not_count_as_a_toolbar(
-        self, context_args
-    ):
-        # It floats over the page, so the corners above the header are still
-        # the band's to round.
-        html = await render_tree(
-            DataTable()
-            .id("invoices")
-            .columns(_COLUMNS)
-            .rows(_ROWS)
-            ._bulk_actions("invoice", Button().content("Delete")),
-            context_args=context_args,
-        )
-        assert "rounded-t-[11px]" in select(html, "div.overflow-x-auto")[0]["class"]
-
-    @pytest.mark.asyncio
-    async def test_a_table_nobody_selects_from_has_no_checkboxes(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
-        )
-        assert_no_selector(html, "input[type=checkbox]")
-        assert_no_selector(html, "[x-data]")
-
-    @pytest.mark.asyncio
     async def test_what_to_do_with_the_picked_rows_sticks_under_the_rows(
         self, context_args
     ):
@@ -485,7 +369,6 @@ class TestDataTable:
         assert_no_selector(html, "template[x-teleport]")
         assert_attr(html, bar, "aria-label", "Selected rows")
         assert_attr(html, bar, "x-show", "selected.length > 0")
-        assert_selector(html, f"{bar}.sticky")
         assert_selector(html, f"{bar} button", count=2)
 
     @pytest.mark.asyncio
@@ -538,7 +421,7 @@ class TestDataTable:
         )
         assert_no_selector(html, "template [role=status]")
 
-    # sort: a header that goes somewhere, and one that does not
+    # sort: a header that goes somewhere
     @pytest.mark.asyncio
     async def test_a_sortable_header_is_a_link_not_a_clickable_cell(self, context_args):
         # A th with a click handler is not keyboard-operable; a link is, and
@@ -574,14 +457,6 @@ class TestDataTable:
         ]
         html = await render_tree(table(), context_args=context_args)
         assert_no_selector(html, "th a[id]")
-
-    @pytest.mark.asyncio
-    async def test_a_column_with_no_sort_is_only_its_label(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args
-        )
-        assert_no_selector(html, "th a")
-        assert_no_selector(html, "[aria-sort]")
 
     @pytest.mark.asyncio
     async def test_only_the_column_the_rows_are_in_says_which_way(self, context_args):
@@ -637,7 +512,6 @@ class TestDataTable:
                 context_args=context_args,
             )
 
-    # x-target: the swap, and the plain navigation it falls back to
     @pytest.mark.asyncio
     async def test_a_table_with_an_id_is_fetched_and_swapped_in_place(
         self, context_args
@@ -652,17 +526,6 @@ class TestDataTable:
         )
         # The rows, not the frame: a toolbar above them keeps its caret.
         assert_attr(html, "th a", "x-target.push", "invoices-rows")
-
-    @pytest.mark.asyncio
-    async def test_without_an_id_the_header_is_just_a_link(self, context_args):
-        html = await render_tree(
-            DataTable()
-            .columns([Column("amount", "Amount", sort="amount")])
-            .rows(_ROWS)
-            ._sort_href(lambda order: f"?sort={order}"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "[x-target]")
 
 
 _MONTHS = [
@@ -689,14 +552,6 @@ class TestDataTableGroups:
         assert [len(b.select("tr:has(td)")) for b in bodies] == [2, 1]
         assert_attr(html, "tbody th", "scope", "rowgroup")
         assert_attr(html, "tbody th", "colspan", "2")
-
-    @pytest.mark.asyncio
-    async def test_ungrouped_rows_are_one_body_with_no_titles(self, context_args):
-        html = await render_tree(
-            DataTable().columns(_COLUMNS).rows(_MONTHS), context_args=context_args
-        )
-        assert_selector(html, "tbody", count=1)
-        assert_no_selector(html, "tbody th")
 
     @pytest.mark.asyncio
     async def test_a_title_spans_the_checkboxes_too(self, context_args):

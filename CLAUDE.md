@@ -196,8 +196,9 @@ component shows up correctly:
 
 ## Testing
 
-Tests live in each package's `tests/`. In `hue-python`, there is **one test file per
-component** under `tests/components/`, shared fixtures in `tests/conftest.py`, and shared
+Tests live in each package's `tests/`. In `hue-python`, a component has **at most one test
+file per tier**, named after it, under `tests/components/` and `tests/browser/`. One with
+nothing worth testing has none. Shared fixtures are in `tests/conftest.py`, and shared
 accessibility helpers in `tests/_a11y.py`.
 
 There are two tiers, and almost all of CI's time goes to the second:

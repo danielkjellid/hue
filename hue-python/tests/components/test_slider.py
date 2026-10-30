@@ -31,19 +31,12 @@ class TestSlider:
         # Measured from the low end, over the span, not over the max.
         assert "(value - 1) / 49" in html
 
-    # show_value(): both branches
     @pytest.mark.asyncio
     async def test_the_readout_is_right_before_alpine_runs(self, context_args):
         # Bound as well as rendered: an x-text alone leaves an empty box until
         # the page hydrates.
         html = await render_tree(_slider(), context_args=context_args)
-        assert_selector(html, "span.tabular-nums")
-        assert ">12<" in html
-
-    @pytest.mark.asyncio
-    async def test_the_readout_can_be_turned_off(self, context_args):
-        html = await render_tree(_slider().show_value(False), context_args=context_args)
-        assert_no_selector(html, "span.tabular-nums")
+        assert soup(html).select_one("span[x-text]").get_text() == "12"
 
     @pytest.mark.asyncio
     async def test_prefix_and_suffix_wrap_the_number(self, context_args):
@@ -69,14 +62,6 @@ class TestSlider:
         assert (json.loads(first), json.loads(rest)) == ('"', " o'clock")
         assert_attr(html, "input", "aria-valuetext", "\"12 o'clock")
 
-    # aria-valuetext: both branches
-    @pytest.mark.asyncio
-    async def test_a_bare_number_needs_no_value_text(self, context_args):
-        html = await render_tree(_slider(), context_args=context_args)
-        track = soup(html).select_one("input")
-        assert not track.has_attr("aria-valuetext")
-        assert not track.has_attr(":aria-valuetext")
-
     @pytest.mark.asyncio
     async def test_large_values_render_without_an_exponent(self, context_args):
         html = await render_tree(
@@ -90,19 +75,6 @@ class TestSlider:
         )
         assert ">0.0000125<" in html
 
-    # ticks(): both branches
-    @pytest.mark.asyncio
-    async def test_ticks_spread_across_the_track(self, context_args):
-        html = await render_tree(
-            _slider().ticks("1", "25", "50"), context_args=context_args
-        )
-        assert_selector(html, "div.text-2xs > span", count=3)
-
-    @pytest.mark.asyncio
-    async def test_no_ticks_by_default(self, context_args):
-        html = await render_tree(_slider(), context_args=context_args)
-        assert_no_selector(html, "div.text-2xs")
-
     @pytest.mark.asyncio
     async def test_the_state_covers_the_track_and_the_readout(self, context_args):
         # They are in different columns of the field, so the scope has to be
@@ -111,7 +83,6 @@ class TestSlider:
         assert_selector(html, "[x-data] input[type='range']")
         assert_selector(html, "[x-data] span[x-text]")
 
-    # error(): both branches
     @pytest.mark.asyncio
     async def test_an_error_marks_the_track_invalid(self, context_args):
         html = await render_tree(

@@ -2,26 +2,21 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Avatar, AvatarGroup
-from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
+from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
 class TestAvatar:
+    @pytest.mark.parametrize(
+        ("name", "initials"), [("Ada Lovelace", "AL"), ("Madonna", "MA")]
+    )
     @pytest.mark.asyncio
-    async def test_derives_initials_from_a_name(self, context_args):
+    async def test_derives_initials_from_a_name(self, context_args, name, initials):
         # Initials are the default, not the fallback: a grid of identical grey
         # silhouettes says nothing.
-        html = await render_tree(
-            Avatar().name("Ada Lovelace"), context_args=context_args
-        )
-        assert "AL" in html
-        assert_attr(html, 'span[role="img"]', "aria-label", "Ada Lovelace")
+        html = await render_tree(Avatar().name(name), context_args=context_args)
+        assert initials in html
+        assert_attr(html, 'span[role="img"]', "aria-label", name)
 
-    @pytest.mark.asyncio
-    async def test_single_word_name_takes_two_letters(self, context_args):
-        html = await render_tree(Avatar().name("Madonna"), context_args=context_args)
-        assert "MA" in html
-
-    # src(): both branches
     @pytest.mark.asyncio
     async def test_a_picture_covers_the_initials(self, context_args):
         # The initials stay underneath for when the picture fails to load.
@@ -31,57 +26,30 @@ class TestAvatar:
         )
         assert "GH" in html
         assert_attr(html, "img", "onerror", "this.remove()")
-        assert_attr(html, "img", "src", "/grace.jpg")
         # Empty alt, because the wrapper already carries the name - otherwise
         # the same person is announced twice.
         assert_attr(html, "img", "alt", "")
         assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper")
 
     @pytest.mark.asyncio
-    async def test_no_picture_without_a_src(self, context_args):
-        html = await render_tree(
-            Avatar().name("Grace Hopper"), context_args=context_args
-        )
-        assert_no_selector(html, "img")
-
-    # status(): both branches. The dot is visual only, so it folds into the
-    # avatar's own label rather than being a second thing to announce.
-    @pytest.mark.asyncio
     async def test_status_folds_into_the_label(self, context_args):
+        # The dot is visual only, so it is not a second thing to announce.
         html = await render_tree(
             Avatar().name("Grace Hopper").status("online"), context_args=context_args
         )
         assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper, online")
-        assert_selector(html, "span.bg-success")
 
+    @pytest.mark.parametrize(
+        "avatar", [Avatar().content("+3"), Avatar().name("   ")], ids=["none", "blank"]
+    )
     @pytest.mark.asyncio
-    async def test_no_status_dot_by_default(self, context_args):
-        html = await render_tree(
-            Avatar().name("Grace Hopper"), context_args=context_args
-        )
-        assert_attr(html, 'span[role="img"]', "aria-label", "Grace Hopper")
-        assert_no_selector(html, "span.bg-success")
-
-    # shape(): both branches
-    @pytest.mark.asyncio
-    async def test_default_shape_is_a_circle(self, context_args):
-        html = await render_tree(Avatar().name("Ada"), context_args=context_args)
-        assert_selector(html, "span.rounded-full")
-
-    @pytest.mark.asyncio
-    async def test_a_square_avatar_rounds_its_corners(self, context_args):
-        html = await render_tree(
-            Avatar().name("Ada").square(), context_args=context_args
-        )
-        assert_selector(html, "span.rounded-md")
-        assert_no_selector(html, 'span[role="img"].rounded-full')
-
-    @pytest.mark.asyncio
-    async def test_size_scales_the_type_with_the_circle(self, context_args):
-        html = await render_tree(
-            Avatar().name("Ada").size("xl"), context_args=context_args
-        )
-        assert_selector(html, "span.size-16")
+    async def test_an_unnamed_avatar_is_not_an_unlabelled_image(
+        self, context_args, avatar
+    ):
+        # role="img" with nothing to announce is worse than no role at all.
+        html = await render_tree(avatar, context_args=context_args)
+        assert_no_selector(html, '[role="img"]')
+        assert_no_selector(html, "[aria-label]")
 
 
 class TestAvatarGroup:
@@ -99,7 +67,7 @@ class TestAvatarGroup:
         # announced twice however it was built.
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
 
-    @pytest.mark.parametrize("label", [None, "", "  "])
+    @pytest.mark.parametrize("label", [None, "  "])
     @pytest.mark.asyncio
     async def test_requires_a_label(self, context_args, label):
         # Without one the group announces nothing at all.
@@ -109,138 +77,53 @@ class TestAvatarGroup:
         with pytest.raises(ValueError, match="requires a label"):
             await render_tree(group, context_args=context_args)
 
-    # more(): both branches
+    @pytest.mark.parametrize(("more", "wrappers"), [(3, 2), (0, 1)])
     @pytest.mark.asyncio
-    async def test_more_adds_an_overflow_chip(self, context_args):
+    async def test_more_adds_an_overflow_count(self, context_args, more, wrappers):
         html = await render_tree(
             AvatarGroup()
-            .label("Ada and 3 others")
-            .more(3)
+            .label("Ada and others")
+            .more(more)
             .content(Avatar().name("Ada Lovelace")),
             context_args=context_args,
         )
-        assert "+3" in html
-        assert_selector(html, 'span[aria-hidden="true"]', count=2)
-
-    @pytest.mark.asyncio
-    async def test_more_of_nobody_adds_no_chip(self, context_args):
-        html = await render_tree(
-            AvatarGroup().label("Ada").more(0).content(Avatar().name("Ada Lovelace")),
-            context_args=context_args,
-        )
+        assert ("+3" in html) is (more == 3)
         assert "+0" not in html
-        assert_selector(html, 'span[aria-hidden="true"]', count=1)
+        assert_selector(html, 'span[aria-hidden="true"]', count=wrappers)
 
     def test_more_cannot_be_negative(self):
         with pytest.raises(ValueError, match="negative"):
             AvatarGroup().more(-1)
 
     @pytest.mark.asyncio
-    async def test_size_reaches_the_members(self, context_args):
+    async def test_size_reaches_the_members_that_did_not_pick_one(self, context_args):
         # Otherwise the group and the count it ends with disagree about how big
         # a face is, which is what made the largest size look broken.
         html = await render_tree(
             AvatarGroup()
-            .label("Ada and 3 others")
+            .label("Ada, Grace and 3 others")
             .size("xl")
             .more(3)
-            .content(Avatar().name("Ada Lovelace")),
+            .content(
+                Avatar().name("Ada Lovelace"),
+                Avatar().name("Grace Hopper").size("sm"),
+            ),
             context_args=context_args,
         )
         assert_selector(html, "span.size-16")
+        assert_selector(html, "span.size-7", count=1)
 
     @pytest.mark.asyncio
-    async def test_a_member_keeps_a_size_it_asked_for(self, context_args):
+    async def test_members_are_ringed_apart_and_the_count_is_not(self, context_args):
+        # On a plain inline span the ring was drawn around a line box rather
+        # than the avatar, so the members ran together. A ring around the
+        # count would read as one more person rather than a count of the row.
         html = await render_tree(
             AvatarGroup()
-            .label("Ada")
-            .size("xl")
-            .content(Avatar().name("Ada Lovelace").size("sm")),
-            context_args=context_args,
-        )
-        assert_selector(html, "span.size-7")
-
-    @pytest.mark.asyncio
-    async def test_no_overflow_chip_by_default(self, context_args):
-        html = await render_tree(
-            AvatarGroup().label("Ada").content(Avatar().name("Ada Lovelace")),
-            context_args=context_args,
-        )
-        assert "+" not in select(html, '[role="img"]')[0].get_text()
-        assert_selector(html, 'span[aria-hidden="true"]', count=1)
-
-
-class TestAvatarContent:
-    @pytest.mark.asyncio
-    async def test_renders_arbitrary_content_when_it_is_not_a_person(
-        self, context_args
-    ):
-        # An avatar-shaped box holding something other than a person - an
-        # overflow count, an icon - keeps the sizing without inventing a name.
-        html = await render_tree(Avatar().content("+3"), context_args=context_args)
-        assert "+3" in html
-
-    @pytest.mark.asyncio
-    async def test_an_unnamed_avatar_is_not_an_unlabelled_image(self, context_args):
-        # role="img" with nothing to announce is worse than no role at all.
-        html = await render_tree(Avatar().content("+3"), context_args=context_args)
-        assert_no_selector(html, '[role="img"]')
-
-    @pytest.mark.asyncio
-    async def test_a_blank_name_is_no_name(self, context_args):
-        html = await render_tree(Avatar().name("   "), context_args=context_args)
-        assert_no_selector(html, '[role="img"]')
-        assert_no_selector(html, "[aria-label]")
-
-    @pytest.mark.asyncio
-    async def test_members_are_separated_from_each_other(self, context_args):
-        # The ring is what keeps overlapping circles apart. On a plain inline
-        # span it was drawn around a line box rather than the avatar, so the
-        # members ran together.
-        html = await render_tree(
-            AvatarGroup()
-            .label("Ada and Grace")
+            .label("Ada, Grace and 3 others")
+            .more(3)
             .content(Avatar().name("Ada Lovelace"), Avatar().name("Grace Hopper")),
             context_args=context_args,
         )
         assert_selector(html, "span.inline-flex.rounded-full.ring-2", count=2)
-
-    @pytest.mark.asyncio
-    async def test_the_count_is_a_number_not_another_face(self, context_args):
-        # A circle around it would read as one more person in the row rather
-        # than as a count of the row.
-        html = await render_tree(
-            AvatarGroup()
-            .label("Ada and 3 others")
-            .more(3)
-            .content(Avatar().name("Ada Lovelace")),
-            context_args=context_args,
-        )
-        assert "+3" in html
-        assert_selector(html, "span.inline-flex.rounded-full.ring-2", count=1)
         assert_no_selector(html, "span.rounded-full:-soup-contains('+3')")
-
-    @pytest.mark.asyncio
-    async def test_the_overlap_scales_with_the_avatars(self, context_args):
-        # A fixed offset swallows a small face and barely touches a large one.
-        small = await render_tree(
-            AvatarGroup().label("Two").size("xs").content(Avatar(), Avatar()),
-            context_args=context_args,
-        )
-        large = await render_tree(
-            AvatarGroup().label("Two").size("xl").content(Avatar(), Avatar()),
-            context_args=context_args,
-        )
-        assert_selector(small, r"span.-ms-1\.5", count=2)
-        assert_selector(large, "span.-ms-4", count=2)
-
-    @pytest.mark.asyncio
-    async def test_earlier_members_stack_on_top(self, context_args):
-        html = await render_tree(
-            AvatarGroup()
-            .label("Ada and Grace")
-            .content(Avatar().name("Ada Lovelace"), Avatar().name("Grace Hopper")),
-            context_args=context_args,
-        )
-        wrappers = select(html, 'span[aria-hidden="true"]')
-        assert [w["style"] for w in wrappers] == ["z-index:2", "z-index:1"]

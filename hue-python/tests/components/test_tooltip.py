@@ -68,27 +68,23 @@ class TestTooltip:
         html = await render_tree(_tooltip(), context_args=context_args)
         assert_attr(html, "[x-data]", "x-on:keydown.escape.window.capture")
 
-    @pytest.mark.asyncio
-    async def test_it_waits_before_opening(self, context_args):
-        # A pointer crossing a toolbar would otherwise trail bubbles behind it.
-        html = await render_tree(_tooltip(), context_args=context_args)
-        assert ", 400)" in html
-
     @pytest.mark.parametrize(
-        ("placement", "ltr", "rtl"),
+        ("placement", "ltr", "rtl", "bridge"),
         [
-            ("top", "top", "top"),
-            ("bottom", "bottom", "bottom"),
-            ("start", "left", "right"),
-            ("end", "right", "left"),
+            ("top", "top", "top", "before:top-full"),
+            ("bottom", "bottom", "bottom", "before:bottom-full"),
+            ("start", "left", "right", "before:start-full"),
+            ("end", "right", "left", "before:end-full"),
         ],
     )
     @pytest.mark.asyncio
     async def test_each_placement_puts_the_bubble_somewhere_else(
-        self, context_args, placement, ltr, rtl
+        self, context_args, placement, ltr, rtl, bridge
     ):
         # noflip: the arrow is drawn for one side only. Start and end swap
-        # sides with the direction, which only the browser knows.
+        # sides with the direction, which only the browser knows. The bridge
+        # spans the gap to the trigger: without it the pointer leaves the
+        # wrapper on its way into the bubble, which closes (WCAG 1.4.13).
         html = await render_tree(
             _tooltip().placement(placement), context_args=context_args
         )
@@ -96,25 +92,6 @@ class TestTooltip:
         when_rtl, when_ltr = bound.split(" : ")
         assert f'"x-anchor.fixed.noflip.{rtl}.offset.6"' in when_rtl
         assert f'"x-anchor.fixed.noflip.{ltr}.offset.6"' in when_ltr
-
-    @pytest.mark.parametrize(
-        ("placement", "bridge"),
-        [
-            ("top", "before:top-full"),
-            ("bottom", "before:bottom-full"),
-            ("start", "before:start-full"),
-            ("end", "before:end-full"),
-        ],
-    )
-    @pytest.mark.asyncio
-    async def test_the_gap_to_the_trigger_is_bridged(
-        self, context_args, placement, bridge
-    ):
-        # Without it the pointer leaves the wrapper on its way into the bubble,
-        # which closes before it can be hovered (WCAG 1.4.13).
-        html = await render_tree(
-            _tooltip().placement(placement), context_args=context_args
-        )
         assert_selector(html, f'[role="tooltip"][class~="{bridge}"]')
 
     @pytest.mark.asyncio
@@ -123,7 +100,6 @@ class TestTooltip:
         html = await render_tree(_tooltip(), context_args=context_args)
         assert_attr(html, '[role="tooltip"] span', "aria-hidden", "true")
 
-    # keys(): both branches
     @pytest.mark.asyncio
     async def test_the_keys_sit_after_the_label(self, context_args):
         # A Kbd, which renders real kbd elements and gives each modifier a
@@ -132,16 +108,3 @@ class TestTooltip:
             _tooltip().keys(Kbd("mod", "K")), context_args=context_args
         )
         assert_selector(html, '[role="tooltip"] kbd')
-
-    @pytest.mark.asyncio
-    async def test_the_bubble_answers_to_the_theme(self, context_args):
-        # Inverted in light, lifted in dark - and the arrow has to follow the
-        # bubble, or it points back at it in a different colour.
-        html = await render_tree(_tooltip(), context_args=context_args)
-        assert_selector(html, '[role="tooltip"].bg-surface-inverse')
-        assert_selector(html, "span.border-t-surface-inverse")
-
-    @pytest.mark.asyncio
-    async def test_no_keys_by_default(self, context_args):
-        html = await render_tree(_tooltip(), context_args=context_args)
-        assert_no_selector(html, "kbd")

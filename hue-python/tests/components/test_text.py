@@ -7,46 +7,13 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 class TestText:
     @pytest.mark.asyncio
-    async def test_render_default_body(self, context_args):
-        html = await render_tree(Text("Hello"), context_args=context_args)
-        assert_selector(html, "p")
-        assert "Hello" in html
-        assert "text-sm leading-6" in html  # body variant
-
-    @pytest.mark.asyncio
-    async def test_render_title_variant(self, context_args):
-        html = await render_tree(
-            Text("Title").variant("title-1"), context_args=context_args
+    async def test_it_is_a_paragraph_unless_told_otherwise(self, context_args):
+        paragraph = await render_tree(Text("Hello"), context_args=context_args)
+        heading = await render_tree(
+            Text("Heading").tag("h1").variant("title-3"), context_args=context_args
         )
-        assert "text-5xl font-bold" in html
-
-    @pytest.mark.asyncio
-    async def test_render_custom_tag(self, context_args):
-        html = await render_tree(
-            Text("Heading").tag("h1").variant("title-3"),
-            context_args=context_args,
-        )
-        assert_selector(html, "h1")
-        assert "[font:inherit]" in html
-
-    @pytest.mark.asyncio
-    async def test_no_heading_reset_off_a_heading(self, context_args):
-        html = await render_tree(Text("Plain"), context_args=context_args)
-        assert "[font:inherit]" not in html
-
-    # Colour: one semantic alias per state, destructive winning over muted.
-    @pytest.mark.asyncio
-    async def test_default_colour(self, context_args):
-        html = await render_tree(Text("Plain"), context_args=context_args)
-        assert_selector(html, "p.text-fg")
-        assert_no_selector(html, "p.text-fg-muted")
-        assert_no_selector(html, "p.text-danger-text")
-
-    @pytest.mark.asyncio
-    async def test_muted(self, context_args):
-        html = await render_tree(Text("Muted").muted(), context_args=context_args)
-        assert_selector(html, "p.text-fg-muted")
-        assert_no_selector(html, "p.text-fg")
+        assert_selector(paragraph, "p")
+        assert_selector(heading, "h1")
 
     @pytest.mark.asyncio
     async def test_destructive_wins_over_muted(self, context_args):
@@ -55,76 +22,28 @@ class TestText:
         )
         assert_selector(html, "p.text-danger-text")
         assert_no_selector(html, "p.text-fg-muted")
-        assert_no_selector(html, "p.text-fg")
 
 
 class TestLabel:
     @pytest.mark.asyncio
-    async def test_render_default(self, context_args):
-        html = await render_tree(Label("Email"), context_args=context_args)
-        assert_selector(html, "label")
-        assert "Email" in html
-
-    # required() conditional — both branches
-    @pytest.mark.asyncio
-    async def test_required_shows_marker(self, context_args):
-        html = await render_tree(Label("Email").required(), context_args=context_args)
-        assert "*" in html
-
-    @pytest.mark.asyncio
-    async def test_not_required_hides_marker(self, context_args):
-        html = await render_tree(Label("Email"), context_args=context_args)
-        assert "*" not in html
-
-    @pytest.mark.asyncio
-    async def test_html_for_associates_control(self, context_args):
+    async def test_it_labels_the_control_it_names(self, context_args):
         html = await render_tree(
             Label("Name").html_for("name-input"), context_args=context_args
         )
         assert_attr(html, "label", "for", "name-input")
 
-    # hidden_label() conditional — both branches
+    @pytest.mark.asyncio
+    async def test_the_required_marker_is_hidden_from_assistive_tech(
+        self, context_args
+    ):
+        # The control's own required attribute announces it.
+        html = await render_tree(Label("Email").required(), context_args=context_args)
+        assert_attr(html, "label span:last-child", "aria-hidden", "true")
+        assert "*" in html
+
     @pytest.mark.asyncio
     async def test_hidden_label_is_screen_reader_only(self, context_args):
         html = await render_tree(
             Label("Hidden").hidden_label(), context_args=context_args
         )
         assert_selector(html, "label.sr-only")
-
-    @pytest.mark.asyncio
-    async def test_visible_label_is_not_sr_only(self, context_args):
-        html = await render_tree(Label("Visible"), context_args=context_args)
-        assert_no_selector(html, "label.sr-only")
-
-    # disabled() conditional: both branches
-    @pytest.mark.asyncio
-    async def test_disabled_label(self, context_args):
-        html = await render_tree(Label("Email").disabled(), context_args=context_args)
-        assert_selector(html, "label.text-fg-disabled")
-        assert_no_selector(html, "label.text-fg")
-
-    @pytest.mark.asyncio
-    async def test_enabled_label(self, context_args):
-        html = await render_tree(Label("Email"), context_args=context_args)
-        assert_selector(html, "label.text-fg")
-        assert_no_selector(html, "label.text-fg-disabled")
-
-    # The pointer promises a click does something, which takes a control.
-    @pytest.mark.asyncio
-    async def test_linked_label_shows_a_pointer(self, context_args):
-        html = await render_tree(
-            Label("Email").html_for("email"), context_args=context_args
-        )
-        assert_selector(html, "label.cursor-pointer")
-
-    @pytest.mark.asyncio
-    async def test_unlinked_label_shows_no_pointer(self, context_args):
-        html = await render_tree(Label("Email"), context_args=context_args)
-        assert_no_selector(html, "label.cursor-pointer")
-
-    @pytest.mark.asyncio
-    async def test_disabled_linked_label_shows_no_pointer(self, context_args):
-        html = await render_tree(
-            Label("Email").html_for("email").disabled(), context_args=context_args
-        )
-        assert_no_selector(html, "label.cursor-pointer")

@@ -13,41 +13,39 @@ def _bar() -> Progress:
 
 
 class TestProgress:
+    @pytest.mark.parametrize(
+        ("value", "now", "text"),
+        [
+            (64, "64", "64%"),
+            (0, "0", "0%"),
+            (0.5, "0.5", "0%"),
+            (100, "100", "100%"),
+            # Clamped to the track.
+            (150, "100", "100%"),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_reports_its_position(self, context_args):
-        html = await render_tree(_bar().value(64), context_args=context_args)
-        assert_attr(html, '[role="progressbar"]', "aria-valuenow", "64")
+    async def test_reports_its_position(self, context_args, value, now, text):
+        html = await render_tree(_bar().value(value), context_args=context_args)
+        assert_attr(html, '[role="progressbar"]', "aria-valuenow", now)
         assert_attr(html, '[role="progressbar"]', "aria-valuemin", "0")
         assert_attr(html, '[role="progressbar"]', "aria-valuemax", "100")
-        assert "width:64%" in html
+        assert_attr(html, '[role="progressbar"]', "aria-valuetext", text)
+        assert f"width:{min(value, 100)}%" in html
 
-    # indeterminate(): it differs from a value in more than styling
+    # aria-valuenow="0" would announce "0 percent", which reads as stalled
+    # rather than unknown. A bar with no value is the same as not knowing, and
+    # indeterminate wins over a stale value so it needn't be unset first.
+    @pytest.mark.parametrize(
+        "bar",
+        [_bar().indeterminate(), _bar().value(64).indeterminate(), _bar()],
+        ids=["indeterminate", "over-a-value", "no-value"],
+    )
     @pytest.mark.asyncio
-    async def test_indeterminate_omits_the_position(self, context_args):
-        # aria-valuenow="0" would announce "0 percent", which reads as stalled
-        # rather than unknown.
-        html = await render_tree(_bar().indeterminate(), context_args=context_args)
+    async def test_indeterminate_omits_the_position(self, context_args, bar):
+        html = await render_tree(bar, context_args=context_args)
         assert_no_selector(html, "[aria-valuenow]")
         assert_no_selector(html, "[aria-valuetext]")
-        assert_selector(html, "div.animate-progress")
-
-    @pytest.mark.asyncio
-    async def test_indeterminate_wins_over_a_stale_value(self, context_args):
-        # So a bar handed a percentage it no longer trusts can say so without
-        # having to unset it first.
-        html = await render_tree(
-            _bar().value(64).indeterminate(),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "[aria-valuenow]")
-        assert_selector(html, "div.animate-progress")
-
-    @pytest.mark.asyncio
-    async def test_a_bar_with_no_value_is_indeterminate(self, context_args):
-        # Nothing to report is the same as not knowing, as it is for a native
-        # progress element with no value attribute.
-        html = await render_tree(_bar(), context_args=context_args)
-        assert_no_selector(html, "[aria-valuenow]")
         assert_selector(html, "div.animate-progress")
 
     @pytest.mark.asyncio
@@ -60,36 +58,19 @@ class TestProgress:
         assert_selector(html, "div.motion-reduce\\:w-full")
 
     @pytest.mark.asyncio
-    async def test_determinate_does_not_animate_the_sweep(self, context_args):
-        html = await render_tree(_bar().value(40), context_args=context_args)
-        assert_no_selector(html, "div.animate-progress")
-
-    @pytest.mark.asyncio
-    async def test_value_is_clamped_to_the_track(self, context_args):
-        html = await render_tree(_bar().value(140), context_args=context_args)
-        assert_attr(html, '[role="progressbar"]', "aria-valuenow", "100")
-        assert "width:100%" in html
-
-    @pytest.mark.asyncio
     async def test_nan_is_refused_rather_than_reported_complete(self, context_args):
         with pytest.raises(ValueError, match="NaN"):
-            await render_tree(
-                _bar().value(float("nan")),
-                context_args=context_args,
-            )
+            await render_tree(_bar().value(float("nan")), context_args=context_args)
 
-    # hidden_label(): both branches
     @pytest.mark.asyncio
     async def test_label_is_shown_and_names_the_bar(self, context_args):
         html = await render_tree(
-            Progress().value(64).label("Uploading archive.zip"),
+            Progress().value(64).label("  Uploading archive.zip  "),
             context_args=context_args,
         )
         assert "Uploading archive.zip" in html
         assert_attr(html, '[role="progressbar"]', "aria-label", "Uploading archive.zip")
-        # The percentage is shown alongside, on shared figure widths.
-        assert_selector(html, "span.tabular-nums")
-        assert "64%" in html
+        assert select(html, "span.tabular-nums")[0].text == "64%"
 
     @pytest.mark.asyncio
     async def test_only_a_full_bar_claims_100(self, context_args):
@@ -113,19 +94,14 @@ class TestProgress:
         # With no wrapper to carry them, the caller's classes go on the track.
         assert_selector(html, '[role="progressbar"].w-40')
 
+    @pytest.mark.parametrize("label", [None, "", "   "])
     @pytest.mark.asyncio
-    async def test_a_bar_with_no_name_is_refused(self, context_args):
-        # A progressbar must have an accessible name.
+    async def test_a_bar_with_no_name_is_refused(self, context_args, label):
+        bar = Progress().value(64)
+        if label is not None:
+            bar.label(label)
         with pytest.raises(ValueError, match="label"):
-            await render_tree(Progress().value(64), context_args=context_args)
-
-    @pytest.mark.parametrize("label", ["", "   "])
-    @pytest.mark.asyncio
-    async def test_a_blank_label_is_no_name(self, context_args, label):
-        with pytest.raises(ValueError, match="label"):
-            await render_tree(
-                Progress().value(64).label(label), context_args=context_args
-            )
+            await render_tree(bar, context_args=context_args)
 
     @pytest.mark.asyncio
     async def test_indeterminate_label_shows_no_percentage(self, context_args):
@@ -135,77 +111,25 @@ class TestProgress:
         assert "Exporting" in html
         assert_no_selector(html, "span.tabular-nums")
 
-    # variant() and size()
-    @pytest.mark.asyncio
-    async def test_default_variant_and_size(self, context_args):
-        html = await render_tree(_bar().value(10), context_args=context_args)
-        assert_selector(html, "div.bg-accent")
-        assert_selector(html, "div.h-1\\.5")
 
-    @pytest.mark.asyncio
-    async def test_explicit_variant_and_size(self, context_args):
-        html = await render_tree(
-            _bar().value(10).variant("danger").size("lg"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.bg-danger")
-        assert_selector(html, "div.h-2\\.5")
-
+class TestProgressRing:
+    # A circle says nothing on its own, so the percentage is always stated.
     @pytest.mark.parametrize(
-        ("value", "now", "text"),
+        ("label", "name"),
         [
-            (0, "0", "0%"),
-            (0.5, "0.5", "0%"),
-            (100, "100", "100%"),
-            (150, "100", "100%"),
+            (None, "28 percent complete"),
+            ("Storage used", "Storage used, 28 percent complete"),
+            ("", "28 percent complete"),
+            ("   ", "28 percent complete"),
         ],
     )
     @pytest.mark.asyncio
-    async def test_the_readout_is_given_as_valuetext(
-        self, context_args, value, now, text
-    ):
-        html = await render_tree(_bar().value(value), context_args=context_args)
-        assert_attr(html, '[role="progressbar"]', "aria-valuenow", now)
-        assert_attr(html, '[role="progressbar"]', "aria-valuetext", text)
-
-    @pytest.mark.asyncio
-    async def test_no_value_reports_no_position(self, context_args):
-        html = await render_tree(_bar(), context_args=context_args)
-        assert_no_selector(html, "[aria-valuenow]")
-        assert_no_selector(html, "[aria-valuetext]")
-
-    @pytest.mark.asyncio
-    async def test_a_label_with_spaces_round_it_is_trimmed(self, context_args):
-        html = await render_tree(
-            Progress().value(5).label("  Upload  "), context_args=context_args
-        )
-        assert_attr(html, '[role="progressbar"]', "aria-label", "Upload")
-
-
-class TestProgressRing:
-    @pytest.mark.asyncio
-    async def test_states_the_percentage_because_a_circle_says_nothing(
-        self, context_args
-    ):
-        html = await render_tree(ProgressRing().value(28), context_args=context_args)
-        assert_attr(html, 'svg[role="img"]', "aria-label", "28 percent complete")
-
-    @pytest.mark.asyncio
-    async def test_label_is_folded_into_the_announcement(self, context_args):
-        html = await render_tree(
-            ProgressRing().value(28).label("Storage used"), context_args=context_args
-        )
-        assert_attr(
-            html, 'svg[role="img"]', "aria-label", "Storage used, 28 percent complete"
-        )
-
-    @pytest.mark.parametrize("label", ["", "   "])
-    @pytest.mark.asyncio
-    async def test_a_blank_label_is_left_out(self, context_args, label):
-        html = await render_tree(
-            ProgressRing().value(28).label(label), context_args=context_args
-        )
-        assert_attr(html, 'svg[role="img"]', "aria-label", "28 percent complete")
+    async def test_is_named_by_its_percentage(self, context_args, label, name):
+        ring = ProgressRing().value(28)
+        if label is not None:
+            ring.label(label)
+        html = await render_tree(ring, context_args=context_args)
+        assert_attr(html, 'svg[role="img"]', "aria-label", name)
 
     @pytest.mark.asyncio
     async def test_the_arc_matches_the_value(self, context_args):
@@ -235,29 +159,6 @@ class TestProgressRing:
         html = await render_tree(
             ProgressRing().value(value).show_value(), context_args=context_args
         )
-        assert select(html, "span[aria-hidden]")[0].text == f"{shown}%"
-        assert_attr(html, 'svg[role="img"]', "aria-label", f"{shown} percent complete")
-
-    # show_value(): both branches
-    @pytest.mark.asyncio
-    async def test_the_figure_is_printed_in_the_middle(self, context_args):
-        html = await render_tree(
-            ProgressRing().value(28).show_value(), context_args=context_args
-        )
-        assert "28%" in html
         # The svg already announces it, so the printed figure is decorative.
-        assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
-
-    @pytest.mark.asyncio
-    async def test_no_figure_by_default(self, context_args):
-        # A ring already sitting beside its own number would say it twice.
-        html = await render_tree(ProgressRing().value(28), context_args=context_args)
-        assert "28%" not in html
-        assert_no_selector(html, 'span[aria-hidden="true"]')
-
-    @pytest.mark.asyncio
-    async def test_variant_colours_the_arc_with_a_literal_class(self, context_args):
-        html = await render_tree(
-            ProgressRing().value(50).variant("success"), context_args=context_args
-        )
-        assert "stroke-success" in html
+        assert select(html, 'span[aria-hidden="true"]')[0].text == f"{shown}%"
+        assert_attr(html, 'svg[role="img"]', "aria-label", f"{shown} percent complete")

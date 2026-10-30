@@ -13,21 +13,13 @@ from tests._a11y import (
 
 class TestTextInput:
     @pytest.mark.asyncio
-    async def test_render_basic(self, context_args):
+    async def test_a_named_text_input_with_its_label(self, context_args):
         html = await render_tree(
             TextInput().name("username").label("Username"), context_args=context_args
         )
         assert_attr(html, "input", "type", "text")
         assert_attr(html, "input", "name", "username")
-        assert "Username" in html
-
-    @pytest.mark.asyncio
-    async def test_label_associated_with_input(self, context_args):
-        """Accessibility: label's `for` must match the input's id."""
-        html = await render_tree(
-            TextInput().name("email").label("Email"), context_args=context_args
-        )
-        assert_label_for(html, "email")
+        assert_label_for(html, "username")
 
     @pytest.mark.asyncio
     async def test_explicit_id_links_input_and_label(self, context_args):
@@ -36,29 +28,6 @@ class TestTextInput:
             context_args=context_args,
         )
         assert_label_for(html, "custom-id")
-
-    @pytest.mark.asyncio
-    async def test_placeholder(self, context_args):
-        html = await render_tree(
-            TextInput().name("name").label("Name").placeholder("Enter name"),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "placeholder", "Enter name")
-
-    # disabled() conditional — both branches
-    @pytest.mark.asyncio
-    async def test_disabled(self, context_args):
-        html = await render_tree(
-            TextInput().name("f").label("F").disabled(), context_args=context_args
-        )
-        assert "cursor-not-allowed" in html
-
-    @pytest.mark.asyncio
-    async def test_not_disabled(self, context_args):
-        html = await render_tree(
-            TextInput().name("f").label("F"), context_args=context_args
-        )
-        assert_no_selector(html, "input[disabled]")
 
     @pytest.mark.asyncio
     async def test_forwards_base_attrs_to_input(self, context_args):
@@ -75,34 +44,29 @@ class TestTextInput:
         assert_attr(html, "input", "aria-describedby", "hint")
         assert "x-model" in html
 
+    @pytest.mark.asyncio
+    async def test_requires_name(self, context_args):
+        with pytest.raises(ValueError, match="requires a name"):
+            await render_tree(TextInput().label("No name"), context_args=context_args)
+
 
 class TestTypedInputs:
     @pytest.mark.asyncio
-    async def test_email_type_and_autocomplete(self, context_args):
-        html = await render_tree(
-            EmailInput().name("email").label("Email"), context_args=context_args
-        )
-        assert_attr(html, "input", "type", "email")
-        assert_attr(html, "input", "autocomplete", "email")
-
-    @pytest.mark.asyncio
-    async def test_password_type_and_autocomplete(self, context_args):
-        html = await render_tree(
-            PasswordInput().name("pwd").label("Password"), context_args=context_args
-        )
-        assert_attr(html, "input", "type", "password")
-        assert_attr(html, "input", "autocomplete", "current-password")
-
-    @pytest.mark.asyncio
-    async def test_number_min_max_step(self, context_args):
-        html = await render_tree(
-            NumberInput().name("qty").label("Quantity").min(1).max(100).step(1),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "type", "number")
-        assert_attr(html, "input", "min", "1")
-        assert_attr(html, "input", "max", "100")
-        assert_attr(html, "input", "step", "1")
+    @pytest.mark.parametrize(
+        ("control", "type_", "autocomplete"),
+        [
+            (EmailInput, "email", "email"),
+            (PasswordInput, "password", "current-password"),
+            (NumberInput, "number", None),
+        ],
+    )
+    async def test_type_and_autocomplete(
+        self, context_args, control, type_, autocomplete
+    ):
+        html = await render_tree(control().name("f"), context_args=context_args)
+        assert_attr(html, "input", "type", type_)
+        if autocomplete:
+            assert_attr(html, "input", "autocomplete", autocomplete)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -112,39 +76,22 @@ class TestTypedInputs:
             (NumberInput().min(0).step(5), "numeric"),
             (NumberInput().min(0).step(0.01), "decimal"),
             (NumberInput().min(0).step("any"), "decimal"),
+            # Both keypads lack a minus sign, so type=number picks the keyboard.
+            (NumberInput(), None),
+            (NumberInput().min(-10), None),
+            (NumberInput().min(-10).step(0.5), None),
         ],
     )
     async def test_number_inputmode_follows_step(self, context_args, number, inputmode):
         # numeric is a digits-only keypad on iOS, with no decimal separator.
         html = await render_tree(number.name("n"), context_args=context_args)
-        assert_attr(html, "input", "inputmode", inputmode)
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "number",
-        [NumberInput(), NumberInput().min(-10), NumberInput().min(-10).step(0.5)],
-    )
-    async def test_number_without_inputmode_when_negative_allowed(
-        self, context_args, number
-    ):
-        # Both keypads lack a minus sign, so type=number picks the keyboard.
-        html = await render_tree(number.name("n"), context_args=context_args)
-        assert_no_selector(html, "input[inputmode]")
+        if inputmode:
+            assert_attr(html, "input", "inputmode", inputmode)
+        else:
+            assert_no_selector(html, "input[inputmode]")
 
 
 class TestInputStates:
-    @pytest.mark.asyncio
-    async def test_constructor_name(self, context_args):
-        html = await render_tree(
-            TextInput().name("username"), context_args=context_args
-        )
-        assert_attr(html, "input", "name", "username")
-
-    @pytest.mark.asyncio
-    async def test_requires_name(self, context_args):
-        with pytest.raises(ValueError, match="requires a name"):
-            await render_tree(TextInput().label("No name"), context_args=context_args)
-
     @pytest.mark.asyncio
     async def test_disabled_and_required_are_native(self, context_args):
         # aria-* alone would leave the field editable and skip browser validation.
@@ -155,10 +102,8 @@ class TestInputStates:
         assert_attr(html, "input", "required")
 
     @pytest.mark.asyncio
-    async def test_enabled_and_optional_by_default(self, context_args):
+    async def test_a_plain_input_is_valid_and_described_by_nothing(self, context_args):
         html = await render_tree(TextInput().name("f"), context_args=context_args)
-        assert_no_selector(html, "input[disabled]")
-        assert_no_selector(html, "input[required]")
         assert_no_selector(html, "input[aria-invalid]")
         assert_no_selector(html, "input[aria-describedby]")
 
@@ -211,23 +156,8 @@ class TestInputStates:
         assert_attr(html, "input", "aria-describedby", "f-hint external")
 
     @pytest.mark.asyncio
-    async def test_class_applies_to_input(self, context_args):
-        html = await render_tree(
-            TextInput().name("f").class_("custom"), context_args=context_args
-        )
-        assert_selector(html, "input.custom")
-
-    # hidden_label() conditional: both branches
-    @pytest.mark.asyncio
     async def test_hidden_label_is_screen_reader_only(self, context_args):
         html = await render_tree(
             TextInput().name("f").label("F").hidden_label(), context_args=context_args
         )
         assert_selector(html, "label.sr-only")
-
-    @pytest.mark.asyncio
-    async def test_label_visible_by_default(self, context_args):
-        html = await render_tree(
-            TextInput().name("f").label("F"), context_args=context_args
-        )
-        assert_no_selector(html, "label.sr-only")

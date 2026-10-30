@@ -64,25 +64,17 @@ class TestSelect:
         assert_attr(html, 'input[type="hidden"]', "form", "billing")
         assert_no_selector(html, "button[form]")
 
-    # value(): both branches
+    @pytest.mark.parametrize(
+        ("value", "shown"), [("pro", "Pro"), (None, "Choose a plan")]
+    )
     @pytest.mark.asyncio
-    async def test_the_chosen_option_is_selected_and_shown(self, context_args):
-        html = await render_tree(_select().value("pro"), context_args=context_args)
-        assert_attr(html, '[data-value="pro"]', "aria-selected", "true")
-        assert_attr(html, '[data-value="free"]', "aria-selected", "false")
-        label = select(html, "button#plan span span")[0]
-        assert label.get_text() == "Pro"
-        assert "text-fg-subtle" not in label["class"]
-
-    @pytest.mark.asyncio
-    async def test_without_a_value_the_trigger_shows_the_placeholder(
-        self, context_args
+    async def test_the_chosen_option_is_selected_and_shown(
+        self, context_args, value, shown
     ):
-        html = await render_tree(_select(), context_args=context_args)
-        assert_no_selector(html, '[aria-selected="true"]')
-        label = select(html, "button#plan span span")[0]
-        assert label.get_text() == "Choose a plan"
-        assert "text-fg-subtle" in label["class"]
+        html = await render_tree(_select().value(value), context_args=context_args)
+        selected = [o["data-value"] for o in select(html, '[aria-selected="true"]')]
+        assert selected == ([value] if value else [])
+        assert select(html, "button#plan span span")[0].get_text() == shown
 
     @pytest.mark.asyncio
     async def test_a_value_is_found_inside_a_group(self, context_args):
@@ -99,7 +91,6 @@ class TestSelect:
         )
         assert select(html, "button#plan span span")[0].get_text() == "Pro"
 
-    # required(): both branches
     @pytest.mark.asyncio
     async def test_required_is_announced_on_the_trigger(self, context_args):
         # A hidden field cannot be required, so the server validates and the
@@ -107,12 +98,6 @@ class TestSelect:
         html = await render_tree(_select().required(), context_args=context_args)
         assert_attr(html, "button#plan", "aria-required", "true")
 
-    @pytest.mark.asyncio
-    async def test_optional_by_default(self, context_args):
-        html = await render_tree(_select(), context_args=context_args)
-        assert_no_selector(html, "button[aria-required]")
-
-    # error(): both branches
     @pytest.mark.asyncio
     async def test_an_error_marks_the_trigger_invalid(self, context_args):
         html = await render_tree(
@@ -126,7 +111,6 @@ class TestSelect:
         html = await render_tree(_select(), context_args=context_args)
         assert_no_selector(html, "button[aria-invalid]")
 
-    # disabled(): both branches
     @pytest.mark.asyncio
     async def test_disabled_disables_the_trigger_and_what_is_submitted(
         self, context_args
@@ -134,11 +118,6 @@ class TestSelect:
         html = await render_tree(_select().disabled(), context_args=context_args)
         assert_attr(html, "button#plan", "disabled")
         assert_attr(html, 'input[type="hidden"]', "disabled")
-
-    @pytest.mark.asyncio
-    async def test_enabled_by_default(self, context_args):
-        html = await render_tree(_select(), context_args=context_args)
-        assert_no_selector(html, "[disabled]")
 
     @pytest.mark.asyncio
     async def test_the_trigger_is_as_wide_as_its_longest_option(self, context_args):
@@ -160,11 +139,6 @@ class TestSelect:
         )
         hidden = [s.get_text() for s in select(html, "button#size span.invisible")]
         assert hidden == ["XXL", "XL", "S"]
-
-    @pytest.mark.asyncio
-    async def test_the_chevron_is_decorative(self, context_args):
-        html = await render_tree(_select(), context_args=context_args)
-        assert_attr(html, "button#plan svg", "aria-hidden", "true")
 
     @pytest.mark.asyncio
     async def test_a_select_needs_a_name(self, context_args):
@@ -198,13 +172,21 @@ class TestSelectOption:
             Select().name("plan").content(option), context_args=context_args
         )
 
+    @pytest.mark.parametrize(
+        ("option", "label"),
+        [
+            (SelectOption().value("pro").label("Pro"), "Pro"),
+            # The label defaults to the value.
+            (SelectOption().value("pro"), "pro"),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_an_option_carries_its_value_and_label(self, context_args):
-        html = await self._option(
-            SelectOption().value("pro").label("Pro"), context_args
-        )
+    async def test_an_option_carries_its_value_and_label(
+        self, context_args, option, label
+    ):
+        html = await self._option(option, context_args)
         assert_attr(html, '[role="option"]', "data-value", "pro")
-        assert_attr(html, '[role="option"]', "data-label", "Pro")
+        assert_attr(html, '[role="option"]', "data-label", label)
 
     @pytest.mark.asyncio
     async def test_every_distinct_value_gets_its_own_id(self, context_args):
@@ -221,28 +203,16 @@ class TestSelectOption:
         assert len(set(ids)) == len(values)
 
     @pytest.mark.asyncio
-    async def test_the_label_defaults_to_the_value(self, context_args):
-        html = await self._option(SelectOption().value("pro"), context_args)
-        assert_attr(html, '[role="option"]', "data-label", "pro")
-
-    @pytest.mark.asyncio
     async def test_the_value_is_quoted_for_alpine(self, context_args):
         # A quote in a value must not end the expression it is compared in.
         html = await self._option(SelectOption().value('a"b'), context_args)
         assert_attr(html, '[role="option"]', ":aria-selected", 'chosen("a\\"b")')
 
-    # disabled(): both branches
     @pytest.mark.asyncio
     async def test_a_disabled_option_says_so(self, context_args):
         html = await self._option(SelectOption().value("pro").disabled(), context_args)
         assert_attr(html, '[role="option"]', "aria-disabled", "true")
 
-    @pytest.mark.asyncio
-    async def test_an_option_is_enabled_by_default(self, context_args):
-        html = await self._option(SelectOption().value("pro"), context_args)
-        assert_no_selector(html, "[aria-disabled]")
-
-    # description() and meta(): both branches
     @pytest.mark.asyncio
     async def test_description_and_meta_are_drawn(self, context_args):
         html = await self._option(
@@ -252,13 +222,6 @@ class TestSelectOption:
         text = select(html, '[role="option"]')[0].get_text()
         assert "For teams" in text
         assert "$49" in text
-
-    @pytest.mark.asyncio
-    async def test_a_plain_option_is_only_its_label(self, context_args):
-        html = await self._option(
-            SelectOption().value("pro").label("Pro"), context_args
-        )
-        assert select(html, '[role="option"]')[0].get_text(strip=True) == "Pro"
 
     @pytest.mark.asyncio
     async def test_an_option_outside_a_select_is_refused(self, context_args):

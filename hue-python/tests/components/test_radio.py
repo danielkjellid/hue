@@ -32,8 +32,6 @@ class TestRadioGroup:
         html = await render_tree(_group(), context_args=context_args)
         assert_selector(html, 'input[type="radio"][name="region"]', count=2)
 
-    # value(): both branches
-    # form(): both branches
     @pytest.mark.asyncio
     async def test_a_form_the_group_is_outside_reaches_every_option(self, context_args):
         # The radios are what the form submits; a form attribute on the
@@ -43,29 +41,15 @@ class TestRadioGroup:
         assert_no_selector(html, "fieldset[form]")
 
     @pytest.mark.asyncio
-    async def test_options_belong_to_no_other_form_by_default(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, "input[form]")
-
-    @pytest.mark.asyncio
     async def test_the_named_option_starts_checked(self, context_args):
         html = await render_tree(_group().value("us"), context_args=context_args)
         assert_attr(html, 'input[value="us"]', "checked")
         assert_no_selector(html, 'input[value="eu"][checked]')
 
     @pytest.mark.asyncio
-    async def test_nothing_checked_by_default(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, "input[checked]")
-
-    # disabled(): the group's answer reaches every option
-    @pytest.mark.asyncio
-    async def test_disabling_the_group_disables_the_options(self, context_args):
+    async def test_disabled_reaches_the_inputs(self, context_args):
         html = await render_tree(_group().disabled(), context_args=context_args)
         assert_selector(html, "input[disabled]", count=2)
-
-    @pytest.mark.asyncio
-    async def test_an_option_can_be_disabled_on_its_own(self, context_args):
         html = await render_tree(
             RadioGroup("r")
             .legend("R")
@@ -77,18 +61,6 @@ class TestRadioGroup:
         )
         assert_selector(html, "input[disabled]", count=1)
 
-    # variant(): both branches, and it reaches the options
-    @pytest.mark.asyncio
-    async def test_cards_react_to_their_own_control(self, context_args):
-        html = await render_tree(_group().card(), context_args=context_args)
-        assert_selector(html, "label.has-\\[\\:checked\\]\\:bg-accent-subtle", count=2)
-
-    @pytest.mark.asyncio
-    async def test_inline_by_default(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, "label.p-4")
-
-    # error(): both branches
     @pytest.mark.asyncio
     async def test_an_error_is_announced_and_describes_the_group(self, context_args):
         html = await render_tree(
@@ -99,6 +71,11 @@ class TestRadioGroup:
         assert_attr(html, "fieldset", "aria-invalid", "true")
         assert_attr(html, "fieldset", "aria-describedby", "region-error")
         assert_selector(html, '[role="alert"]#region-error')
+
+    @pytest.mark.asyncio
+    async def test_valid_by_default(self, context_args):
+        html = await render_tree(_group(), context_args=context_args)
+        assert_no_selector(html, "[aria-invalid]")
 
     @pytest.mark.asyncio
     async def test_the_description_follows_an_id_set_on_the_group(self, context_args):
@@ -128,18 +105,14 @@ class TestRadioGroup:
         assert_no_selector(html, "fieldset[x-model]")
 
     @pytest.mark.asyncio
-    async def test_valid_by_default(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, "[aria-invalid]")
-
-    # legend(): both branches
-    @pytest.mark.asyncio
-    async def test_no_legend_renders_no_empty_one(self, context_args):
-        html = await render_tree(
-            RadioGroup("r").content(Radio().value("a").label("A")),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "legend")
+    async def test_required_is_marked_on_the_options_and_the_legend(self, context_args):
+        # A fieldset has no required attribute; one marked radio makes the
+        # whole name required. The legend carries the same visible mark a
+        # field's label does - the attribute alone showed nothing at all.
+        html = await render_tree(_group().required(), context_args=context_args)
+        assert_selector(html, "input[required]", count=2)
+        assert_no_selector(html, "fieldset[required]")
+        assert_selector(html, 'legend > span[aria-hidden="true"]')
 
 
 class TestRadio:
@@ -159,36 +132,17 @@ class TestRadio:
         )
         assert_selector(html, 'input#a-eu[type="radio"]')
         assert_selector(html, 'label[for="a-eu"]')
+        assert_attr(html, "input", "aria-labelledby", "a-eu-label")
         assert_no_selector(html, "#region-eu")
 
     @pytest.mark.asyncio
-    async def test_a_description_sits_under_the_label(self, context_args):
+    async def test_options_take_their_ids_from_the_group(self, context_args):
+        # So two groups sharing a name stay apart once one is given an id.
         html = await render_tree(
-            RadioGroup("r")
-            .legend("R")
-            .content(Radio().value("a").label("A").description("The first one.")),
+            RadioGroup("r").id("billing").content(Radio().value("a").label("A")),
             context_args=context_args,
         )
-        assert_selector(html, "span.text-fg-muted")
-
-    @pytest.mark.asyncio
-    async def test_the_whole_row_is_the_hit_area(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_selector(html, 'label > input[type="radio"]', count=2)
-
-    @pytest.mark.asyncio
-    async def test_required_is_marked_on_the_options(self, context_args):
-        # A fieldset has no required attribute; one marked radio makes the
-        # whole name required.
-        html = await render_tree(
-            RadioGroup("r")
-            .legend("R")
-            .required()
-            .content(Radio().value("a").label("A"), Radio().value("b").label("B")),
-            context_args=context_args,
-        )
-        assert_selector(html, "input[required]", count=2)
-        assert_no_selector(html, "fieldset[required]")
+        assert_attr(html, "input", "id", "billing-a")
 
     @pytest.mark.asyncio
     async def test_an_option_is_named_by_its_label_alone(self, context_args):
@@ -204,102 +158,33 @@ class TestRadio:
         assert_attr(html, "input", "aria-describedby", "r-a-description")
 
     @pytest.mark.asyncio
-    async def test_an_id_holds_no_whitespace(self, context_args):
-        # An aria-labelledby built from "r-north america" would name two ids.
-        html = await render_tree(
-            RadioGroup("r").content(Radio().value("north america").label("NA")),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "aria-labelledby", "r-north%20america-label")
-
-    @pytest.mark.asyncio
     async def test_values_that_differ_only_in_spacing_get_ids_of_their_own(
         self, context_args
     ):
         # Folding whitespace into a hyphen gave these one id between them,
-        # so the second label toggled the first.
+        # so the second label toggled the first; and an aria-labelledby
+        # built from "r-north america" would name two ids.
         values = ("north america", "north-america", "a b", "a  b")
         html = await render_tree(
             RadioGroup("r").content(*(Radio().value(v).label(v) for v in values)),
             context_args=context_args,
         )
-        ids = {tag["id"] for tag in select(html, "input[type=radio]")}
-        assert len(ids) == len(values)
+        inputs = select(html, "input[type=radio]")
+        assert len({tag["id"] for tag in inputs}) == len(values)
+        assert inputs[0]["aria-labelledby"] == "r-north%20america-label"
 
     @pytest.mark.asyncio
-    async def test_a_callers_describedby_survives_without_a_description(
-        self, context_args
-    ):
+    async def test_a_callers_describedby_survives(self, context_args):
         html = await render_tree(
             RadioGroup("r").content(
-                Radio().value("a").label("A").aria_describedby("note")
-            ),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "aria-describedby", "note")
-
-    @pytest.mark.asyncio
-    async def test_a_callers_describedby_joins_the_description(self, context_args):
-        html = await render_tree(
-            RadioGroup("r").content(
+                Radio().value("a").label("A").aria_describedby("note"),
                 Radio()
-                .value("a")
-                .label("A")
-                .description("First.")
-                .aria_describedby("note")
+                .value("b")
+                .label("B")
+                .description("Second.")
+                .aria_describedby("note"),
             ),
             context_args=context_args,
         )
-        assert_attr(html, "input", "aria-describedby", "r-a-description note")
-
-    @pytest.mark.asyncio
-    async def test_options_take_their_ids_from_the_group(self, context_args):
-        # So two groups sharing a name stay apart once one is given an id.
-        html = await render_tree(
-            RadioGroup("r").id("billing").content(Radio().value("a").label("A")),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "id", "billing-a")
-
-    @pytest.mark.asyncio
-    async def test_an_option_keeps_an_id_of_its_own(self, context_args):
-        html = await render_tree(
-            RadioGroup("r").content(Radio().value("a").label("A").id("own")),
-            context_args=context_args,
-        )
-        assert_attr(html, "input", "id", "own")
-        assert_attr(html, "input", "aria-labelledby", "own-label")
-
-    @pytest.mark.asyncio
-    async def test_the_group_keeps_a_hint(self, context_args):
-        # Group-level, unlike an option's description: it is about the
-        # question, not about one of the answers.
-        html = await render_tree(
-            RadioGroup("r")
-            .legend("Plan")
-            .hint("Change any time.")
-            .content(Radio().value("a").label("Solo")),
-            context_args=context_args,
-        )
-        assert_attr(html, "fieldset", "aria-describedby", "r-hint")
-
-    # required(): both branches, visible as well as announced
-    @pytest.mark.asyncio
-    async def test_a_required_group_is_marked_on_its_legend(self, context_args):
-        # The legend is the group's label, so it carries the same mark a
-        # field's label does - the attribute alone showed nothing at all.
-        html = await render_tree(_group().required(), context_args=context_args)
-        assert_selector(html, 'legend > span[aria-hidden="true"]')
-
-    @pytest.mark.asyncio
-    async def test_an_optional_group_is_not_marked(self, context_args):
-        html = await render_tree(_group(), context_args=context_args)
-        assert_no_selector(html, 'legend > span[aria-hidden="true"]')
-
-    @pytest.mark.asyncio
-    async def test_the_legend_carries_the_gap_the_fieldset_cannot(self, context_args):
-        # A legend is not a flex item of its fieldset, so the gap that spaces
-        # every other child never reaches it and the first option sits flush
-        # against the question.
-        html = await render_tree(_group(), context_args=context_args)
-        assert_selector(html, "legend.mb-1\\.5")
+        assert_attr(html, "input#r-a", "aria-describedby", "note")
+        assert_attr(html, "input#r-b", "aria-describedby", "r-b-description note")

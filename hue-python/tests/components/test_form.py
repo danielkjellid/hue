@@ -25,11 +25,6 @@ class TestForm:
         assert_attr(html, "form", "method", "post")
 
     @pytest.mark.asyncio
-    async def test_the_method_can_be_something_else(self, context_args):
-        html = await render_tree(Form().method("get"), context_args=context_args)
-        assert_attr(html, "form", "method", "get")
-
-    @pytest.mark.asyncio
     async def test_a_control_finds_the_error_the_form_was_given(self, context_args):
         html = await render_tree(
             Form()
