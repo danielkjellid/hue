@@ -92,3 +92,25 @@ def test_point_charts_stay_readable_at_phone_width(show: Show) -> None:
     _drawn(page)
     assert _holder_size(page, 0)["height"] >= 192
     assert _holder_size(page, 1)["height"] >= 192
+
+
+def test_a_point_chart_shares_a_grid_row_evenly(show: Show) -> None:
+    # Below 480px wide a 5:2 box with a 192px floor used to hold its cell
+    # open, which squashed the cell beside it.
+    page = show(html.div(ScatterChart.example(), LineChart.example(), style=_GRID))
+    _drawn(page)
+    for width in (1280, 768, 390):
+        page.set_viewport_size({"width": width, "height": 800})
+        page.wait_for_function(f"() => window.innerWidth === {width}")
+        _settled(page)
+        assert not _overflows(page)
+        point, line = _holder_size(page, 0), _holder_size(page, 1)
+        assert abs(point["width"] - line["width"]) < 1
+
+
+def test_a_point_chart_is_five_by_two_when_that_is_tall_enough(show: Show) -> None:
+    page = show(ScatterChart.example(), LineChart.example())
+    _drawn(page)
+    for index in (0, 1):
+        box = _holder_size(page, index)
+        assert abs(box["height"] - box["width"] * 2 / 5) < 1

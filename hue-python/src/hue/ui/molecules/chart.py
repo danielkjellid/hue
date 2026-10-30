@@ -138,8 +138,8 @@ class Chart(ChainableComponent):
                 # description, so the drawing is kept from saying it twice.
                 # Out of flow, because Chart.js writes a pixel width on the
                 # canvas that would hold any flex or grid cell around the
-                # chart open at its widest. The box takes its size from its
-                # aspect ratio instead.
+                # chart open at its widest. The box takes its height from the
+                # spacer after it instead.
                 html.canvas(
                     aria_hidden="true",
                     class_="absolute inset-0",
@@ -165,7 +165,11 @@ class Chart(ChainableComponent):
                     hidden=True,
                     **{":hidden": "!failed"},
                 ),
-                class_=classnames("relative aspect-[5/2] w-full", self._MIN_HEIGHT),
+                # 5:2 as a padding, which is a share of the width, rather than
+                # an aspect ratio: with a min height, an aspect ratio sets a
+                # min width too, and holds a narrow grid cell open.
+                html.div(class_=classnames("pt-[40%]", self._MIN_HEIGHT)),
+                class_="relative w-full",
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
@@ -491,7 +495,8 @@ class _PointChart(Chart):
     _ARITY: ClassVar[int]
     _SHAPE: ClassVar[str]
     # Two titled axes and a bubble's headroom leave almost no plot in a 5:2
-    # box on a phone, so below about 480px wide the chart stops getting shorter.
+    # box on a phone, so below about 480px wide the chart stops getting
+    # shorter, though not narrower.
     _MIN_HEIGHT = "min-h-48"
 
     def series(self, points: Sequence[Sequence[float]], *, label: str) -> Self:

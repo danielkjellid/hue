@@ -538,4 +538,4 @@ async def test_only_point_charts_stop_shrinking(context_args, chart, floored):
     html = await render_tree(chart, context_args=context_args)
     # Out of flow, so its pixel width cannot hold a flex or grid cell open.
     assert_selector(html, "canvas.absolute.inset-0")
-    assert bool(select(html, "div.aspect-\\[5\\/2\\].min-h-48")) is floored
+    assert bool(select(html, "div.min-h-48")) is floored
