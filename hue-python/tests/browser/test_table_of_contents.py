@@ -140,8 +140,13 @@ def test_forward_in_a_container_returns_to_the_later_click(show: Show) -> None:
 
 
 def _folded(section: object) -> tuple[object, ...]:
+    # The contents stay put, so clicking an entry never scrolls the page to
+    # reach it and moves the mark on its own.
     return (
-        TableOfContents().of("#doc"),
+        html.div(
+            TableOfContents().of("#doc"),
+            style="position: fixed; top: 0; right: 0; width: 200px",
+        ),
         html.div(
             *_sections(),
             section,
