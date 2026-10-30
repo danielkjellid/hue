@@ -46,12 +46,6 @@ class Breadcrumbs(ChainableComponent):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().items(
-            [Crumb("/", "Home"), Crumb("/billing", "Billing"), Crumb(None, "INV-2048")]
-        )
-
     def items(self, value: list[Crumb] | list[tuple[str | None, str]]) -> Self:
         """
         The trail, root first. A step with no href is the current page.

@@ -91,7 +91,7 @@ canonical templates. The shape:
   `"Feedback"`). Set it to `None` for composition-only parts (e.g. `TableRow`) that are
   exported but should not get their own docs page.
 - **Write the chain, not the shortcut.** A named control takes its name either way, but
-  every docstring, `example()` and showcase spells it `TextInput().name("email")` rather
+  every docstring, docs page and example spells it `TextInput().name("email")` rather
   than `TextInput("email")` — one positional string is the only thing in the API whose
   meaning you have to already know, and it happens to set the submitted name, the `id`,
   the `for` on the label, and the ids the hint and error hang off. The constructor form

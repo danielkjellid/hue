@@ -11,7 +11,6 @@ from hue.ui.base import modelable
 from hue.ui.form import FieldControl
 from hue.ui.molecules import _overlay
 from hue.ui.molecules.select import (
-    SelectOption,
     SelectState,
     _options,
     _widest,
@@ -80,21 +79,6 @@ class Combobox(FieldControl):
     """
 
     category = "Inputs"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .name("country")
-            .label("Country")
-            .placeholder("Search countries")
-            .content(
-                SelectOption().value("no").label("Norway").meta("NO"),
-                SelectOption().value("se").label("Sweden").meta("SE"),
-                SelectOption().value("dk").label("Denmark").meta("DK"),
-                SelectOption().value("fi").label("Finland").meta("FI"),
-            )
-        )
 
     def value(self, *values: str) -> Self:
         """

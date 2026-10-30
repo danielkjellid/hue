@@ -31,15 +31,6 @@ class Panel(ChainableComponent):
 
     category = "Layout"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Interaction ladder")
-            .hint("Tab through these")
-            .content("Panel content")
-        )
-
     def label(self, value: str) -> Self:
         self._props["label"] = value
         return self

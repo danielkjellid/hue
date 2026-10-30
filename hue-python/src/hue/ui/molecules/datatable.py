@@ -248,25 +248,6 @@ class DataTable(ChainableComponent):
         table._props["declaration"] = declaration
         return table
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .columns(
-                [
-                    Column("invoice", "Invoice"),
-                    Column("customer", "Customer"),
-                    Column("amount", "Amount", align="end"),
-                ]
-            )
-            .rows(
-                [
-                    {"invoice": "INV-2050", "customer": "Contoso", "amount": "2190"},
-                    {"invoice": "INV-2048", "customer": "Northwind", "amount": "1200"},
-                ]
-            )
-        )
-
     def columns(self, value: list[Column]) -> Self:
         self._columns = value
         return self

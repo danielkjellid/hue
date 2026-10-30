@@ -93,10 +93,6 @@ class _BaseInput(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("example").label("Example").placeholder("Type here")
-
     def placeholder(self, value: str) -> Self:
         self._props["placeholder"] = value
         return self

@@ -53,14 +53,6 @@ class Empty(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .title("No invoices yet")
-            .description("Invoices appear here once your first order is paid.")
-        )
-
     def variant(self, value: EmptyVariant) -> Self:
         self._props["variant"] = value
         return self

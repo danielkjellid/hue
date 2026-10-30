@@ -20,9 +20,8 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 2. **Create the component** at `hue-python/src/hue/ui/{atoms,molecules}/<name>.py` with:
    `from __future__ import annotations`; `Literal` type aliases for variant/size axes;
-   the class with `category`, an `example()` classmethod (single simple expression),
-   chainable modifier methods returning `Self`, and `_render` reading props via
-   `_get_prop` and splatting `_get_base_html_attrs()`.
+   the class with `category`, chainable modifier methods returning `Self`, and `_render`
+   reading props via `_get_prop` and splatting `_get_base_html_attrs()`.
 
 3. **Export it** in `hue-python/src/hue/ui/__init__.py` — add the import and the
    alphabetized `__all__` entry.

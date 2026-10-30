@@ -78,10 +78,6 @@ class Pagination(SwapsTarget):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().page(3).total_pages(15).total_records(148)
-
     def page(self, value: int) -> Self:
         self._props["page"] = value
         return self

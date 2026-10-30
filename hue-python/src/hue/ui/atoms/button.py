@@ -107,10 +107,6 @@ class Button(FormElementMixin, Clickable):
 
     category = "Actions"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content("Button")
-
     def variant(self, value: ButtonVariant) -> Self:
         self._props["variant"] = value
         return self

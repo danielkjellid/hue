@@ -51,10 +51,6 @@ class Checkbox(FormControl):
 
     category: ClassVar[str | None] = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("accept").label("I accept the terms")
-
     def value(self, value: str) -> Self:
         self._props["value"] = value
         return self

@@ -177,10 +177,6 @@ class Icon(ChainableComponent):
         super().__init__()
         self._name: str = name
 
-    @classmethod
-    def example(cls) -> "Icon":
-        return HueIcon("circle-info").class_("size-6")
-
     @property
     def resolver(self) -> IconResolver:
         raise NotImplementedError(

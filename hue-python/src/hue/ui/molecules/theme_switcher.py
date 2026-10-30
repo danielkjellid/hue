@@ -41,10 +41,6 @@ class ThemeSwitcher(ChainableComponent):
 
     category = "Utility"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().labelled()
-
     def labelled(self, value: bool = True) -> Self:
         """
         Write the name of each theme beside its icon, for a switcher with

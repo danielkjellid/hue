@@ -68,10 +68,6 @@ class Progress(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().value(64).label("Uploading archive.zip")
-
     def value(self, value: float) -> Self:
         """
         Percent complete.
@@ -197,10 +193,6 @@ class ProgressRing(ChainableComponent):
     """
 
     category = "Feedback"
-
-    @classmethod
-    def example(cls) -> Self:
-        return cls().value(64).show_value().label("Storage used")
 
     def value(self, value: float) -> Self:
         self._props["value"] = value
