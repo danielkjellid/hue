@@ -320,6 +320,22 @@ class TestPieChart:
         assert [li.text for li in select(html, "figure > ul li")] == ["a"]
         assert len(select(html, "tbody tr")) == 2
 
+    @pytest.mark.parametrize("count", [3, 6, 7])
+    @pytest.mark.asyncio
+    async def test_the_shares_add_up_to_a_whole(self, context_args, count):
+        # Rounded one by one, three thirds read 33% each and six sixths 17%.
+        # Seven slices group the last two as Other, which is drawn on its own.
+        slices = [(f"s{i}", 1) for i in range(count)]
+        chart = PieChart().slices(slices).description("x")
+        html = await render_tree(chart, context_args=context_args)
+        table = [row.select("td")[1].text for row in select(html, "tbody tr")]
+        drawn = [
+            text.split("(")[1].rstrip(")")
+            for text in _spec(html)["series"][0]["display"]
+        ]
+        for shares in (table, drawn):
+            assert sum(int(share.rstrip("%")) for share in shares) == 100
+
     @pytest.mark.asyncio
     async def test_a_sliver_is_not_written_as_nothing(self, context_args):
         chart = PieChart().slices([("a", 999), ("b", 1)]).description("x")
@@ -538,4 +554,4 @@ async def test_only_point_charts_stop_shrinking(context_args, chart, floored):
     html = await render_tree(chart, context_args=context_args)
     # Out of flow, so its pixel width cannot hold a flex or grid cell open.
     assert_selector(html, "canvas.absolute.inset-0")
-    assert bool(select(html, "div.aspect-\\[5\\/2\\].min-h-48")) is floored
+    assert bool(select(html, "div.min-h-48")) is floored

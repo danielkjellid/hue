@@ -108,7 +108,9 @@ export function registerComboboxData(Alpine) {
 			// The first match is where Enter goes, so a word and Enter picks it.
 			// filter() has just cleared the active option, so waiting a tick
 			// would leave an Enter that arrives in between with nothing to pick.
-			this.activate(this.enabled()[0]);
+			// An empty field matches nothing, so Enter there picks nothing.
+			if (this.query.trim()) this.activate(this.enabled()[0]);
+			else this.active = null;
 		},
 
 		filter() {

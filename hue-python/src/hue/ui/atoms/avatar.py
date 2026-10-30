@@ -232,8 +232,10 @@ class AvatarGroup(ChainableComponent):
 
     def more(self, value: int) -> Self:
         """
-        Add a "+N" for the people not shown.
+        Add a "+N" for the people not shown. Zero adds nothing.
         """
+        if value < 0:
+            raise ValueError(f"AvatarGroup.more() cannot be negative, not {value}.")
         self._props["more"] = value
         return self
 
@@ -242,7 +244,8 @@ class AvatarGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        label: str | None = self._get_prop("label")
+        # A blank label names nothing, so it is no label at all.
+        label: str | None = (self._get_prop("label") or "").strip() or None
         if label is None:
             raise ValueError(
                 "AvatarGroup requires a label; call .label() with a summary of "
@@ -273,7 +276,7 @@ class AvatarGroup(ChainableComponent):
                 )
             )
 
-        if more is not None:
+        if more:
             # Just the number: a circle around it would read as one more face
             # in the row rather than as a count of the row.
             members.append(

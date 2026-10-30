@@ -99,14 +99,15 @@ class TestAvatarGroup:
         # announced twice however it was built.
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
 
+    @pytest.mark.parametrize("label", [None, "", "  "])
     @pytest.mark.asyncio
-    async def test_requires_a_label(self, context_args):
+    async def test_requires_a_label(self, context_args, label):
         # Without one the group announces nothing at all.
+        group = AvatarGroup().content(Avatar().name("Ada"))
+        if label is not None:
+            group.label(label)
         with pytest.raises(ValueError, match="requires a label"):
-            await render_tree(
-                AvatarGroup().content(Avatar().name("Ada")),
-                context_args=context_args,
-            )
+            await render_tree(group, context_args=context_args)
 
     # more(): both branches
     @pytest.mark.asyncio
@@ -120,6 +121,19 @@ class TestAvatarGroup:
         )
         assert "+3" in html
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
+
+    @pytest.mark.asyncio
+    async def test_more_of_nobody_adds_no_chip(self, context_args):
+        html = await render_tree(
+            AvatarGroup().label("Ada").more(0).content(Avatar().name("Ada Lovelace")),
+            context_args=context_args,
+        )
+        assert "+0" not in html
+        assert_selector(html, 'span[aria-hidden="true"]', count=1)
+
+    def test_more_cannot_be_negative(self):
+        with pytest.raises(ValueError, match="negative"):
+            AvatarGroup().more(-1)
 
     @pytest.mark.asyncio
     async def test_size_reaches_the_members(self, context_args):

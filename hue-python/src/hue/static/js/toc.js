@@ -187,7 +187,9 @@ export function registerTocData(Alpine) {
 			// than the window is heard too. Scroll events do not bubble.
 			document.addEventListener("scroll", this.onMove, true);
 			window.addEventListener("resize", this.onMove);
-			this.onHistory = (event) => this.revisit(event.state);
+			// A frame later: the browser scrolls to the fragment after
+			// popstate, which would undo a container position put back here.
+			this.onHistory = (event) => requestAnimationFrame(() => this.revisit(event.state));
 			window.addEventListener("popstate", this.onHistory);
 
 			// The nav's own width decides where the labels wrap, which is

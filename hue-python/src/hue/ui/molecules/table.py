@@ -241,13 +241,17 @@ class TableColumnGroup(ChainableComponent):
     category: ClassVar[str | None] = None
 
     def span(self, value: int) -> Self:
+        if value < 1:
+            raise ValueError(
+                f"TableColumnGroup covers at least one column, not {value}."
+            )
         self._props["span"] = value
         return self
 
     def _render(self, context: Context) -> Component:
         return html.colgroup(
             span=self._get_prop("span"),
-            class_=classnames(self._get_prop("class_")),
+            class_=classnames(self._get_prop("class_")) or None,
             **self._get_base_html_attrs(),
         )
 

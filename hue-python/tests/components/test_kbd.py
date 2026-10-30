@@ -85,7 +85,7 @@ class TestKbd:
         assert_attr(
             html,
             "kbd > span[aria-hidden]",
-            "x-text",
+            ":data-glyph",
             f"($store.shortcuts?.apple ?? true) ? '{glyph}' : '{word}'",
         )
 

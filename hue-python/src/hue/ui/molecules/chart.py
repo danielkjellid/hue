@@ -138,8 +138,8 @@ class Chart(ChainableComponent):
                 # description, so the drawing is kept from saying it twice.
                 # Out of flow, because Chart.js writes a pixel width on the
                 # canvas that would hold any flex or grid cell around the
-                # chart open at its widest. The box takes its size from its
-                # aspect ratio instead.
+                # chart open at its widest. The box takes its height from the
+                # spacer after it instead.
                 html.canvas(
                     aria_hidden="true",
                     class_="absolute inset-0",
@@ -156,16 +156,25 @@ class Chart(ChainableComponent):
                     .x_ref("retry")
                     .x_bind("aria-describedby", unsafe(_ERROR_ID))
                     .on_click(call("retry")),
+                    # In the spacer's grid cell rather than over it, so a
+                    # chart too short for the message grows to fit it.
+                    # Relative to paint above the canvas.
                     class_=(
-                        "absolute inset-0 flex flex-col items-center justify-center "
-                        "gap-2 text-sm text-fg-muted"
+                        "relative flex flex-col items-center justify-center gap-2 "
+                        "text-center text-sm text-fg-muted [grid-area:1/1]"
                     ),
                     # hidden rather than x-show, which only reveals an element on
                     # the next frame: too late for the loader to focus Retry.
                     hidden=True,
                     **{":hidden": "!failed"},
                 ),
-                class_=classnames("relative aspect-[5/2] w-full", self._MIN_HEIGHT),
+                # 5:2 as a padding, which is a share of the width, rather than
+                # an aspect ratio: with a min height, an aspect ratio sets a
+                # min width too, and holds a narrow grid cell open.
+                html.div(
+                    class_=classnames("pt-[40%] [grid-area:1/1]", self._MIN_HEIGHT)
+                ),
+                class_="relative grid w-full",
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
@@ -425,19 +434,15 @@ class PieChart(Chart):
             rest = sum(n for i, (_, n) in enumerate(drawn) if i not in largest)
             drawn = [*(drawn[i] for i in sorted(largest)), ("Other", rest)]
 
-        def share(number: float) -> str:
-            # Rounding a sliver down to "0%" would read as nothing at all.
-            if 0 < number / total < 0.005:
-                return "<1%"
-            return f"{number / total:.0%}"
-
         # Values already given as percentages would only say it twice.
         percent = format_.kind == "percent"
+        listed = _shares([number for _, number in slices])
+        shown = _shares([number for _, number in drawn])
 
-        def written(number: float) -> str:
+        def written(number: float, share: str) -> str:
             if percent:
                 return format_.write(number)
-            return f"{format_.write(number)} ({share(number)})"
+            return f"{format_.write(number)} ({share})"
 
         return self._figure(
             {
@@ -446,14 +451,17 @@ class PieChart(Chart):
                 "series": [
                     {
                         "values": [number for _, number in drawn],
-                        "display": [written(number) for _, number in drawn],
+                        "display": [
+                            written(number, share)
+                            for (_, number), share in zip(drawn, shown, strict=True)
+                        ],
                     }
                 ],
             },
             headers=["", "Value"] if percent else ["", "Value", "Share"],
             rows=[
-                [label, format_.write(number)] + ([] if percent else [share(number)])
-                for label, number in slices
+                [label, format_.write(number)] + ([] if percent else [share])
+                for (label, number), share in zip(slices, listed, strict=True)
             ],
             legend=[
                 (label, swatch)
@@ -491,7 +499,8 @@ class _PointChart(Chart):
     _ARITY: ClassVar[int]
     _SHAPE: ClassVar[str]
     # Two titled axes and a bubble's headroom leave almost no plot in a 5:2
-    # box on a phone, so below about 480px wide the chart stops getting shorter.
+    # box on a phone, so below about 480px wide the chart stops getting
+    # shorter, though not narrower.
     _MIN_HEIGHT = "min-h-48"
 
     def series(self, points: Sequence[Sequence[float]], *, label: str) -> Self:
@@ -674,6 +683,26 @@ class BubbleChart(_PointChart):
         if size_label is None:
             raise ValueError("BubbleChart needs size_label().")
         return [size_label]
+
+
+def _shares(numbers: list[float]) -> list[str]:
+    """
+    Each number as a whole percent of their total, adding up to 100.
+
+    Rounded one by one, three thirds read 33% each. The largest remainder
+    method hands the points rounding lost to the numbers that lost most.
+    """
+    total = sum(numbers)
+    exact = [number * 100 / total for number in numbers]
+    whole = [math.floor(share) for share in exact]
+    by_remainder = sorted(range(len(exact)), key=lambda i: whole[i] - exact[i])
+    for i in by_remainder[: 100 - sum(whole)]:
+        whole[i] += 1
+    # A sliver written as "0%" would read as nothing at all.
+    return [
+        "<1%" if share == 0 and number > 0 else f"{share}%"
+        for share, number in zip(whole, numbers, strict=True)
+    ]
 
 
 def _legend(items: list[tuple[str, str]]) -> ComponentType:

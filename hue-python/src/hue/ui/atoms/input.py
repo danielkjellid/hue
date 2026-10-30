@@ -373,6 +373,8 @@ class PasswordInput(_BaseInput):
                 .size("sm")
                 .icon_only("Show password")
                 .aria_pressed("false")
+                # Disabled with the input, so a disabled field stays inert.
+                .disabled(self._get_prop("disabled", False))
                 .x_on("click", unsafe("shown = !shown"))
                 .x_bind("aria-pressed", unsafe("shown"))
                 .content(

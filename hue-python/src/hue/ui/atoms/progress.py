@@ -41,6 +41,12 @@ _RING_CIRCUMFERENCE = 2 * math.pi * _RING_RADIUS
 _RING_OPEN_ARC = _RING_CIRCUMFERENCE - 5 - 3
 
 
+def _whole(value: float) -> str:
+    # Rounded down, so nothing short of done reads as 100, and short enough
+    # to fit inside a ring.
+    return f"{math.floor(value)}"
+
+
 def _clamp(value: float) -> float:
     # min(100, nan) is 100, so a NaN would otherwise report itself complete.
     if math.isnan(value):
@@ -166,7 +172,7 @@ class Progress(ChainableComponent):
             html.div(
                 html.span(label),
                 render_if(
-                    None if value is None else f"{value:g}%",
+                    None if value is None else f"{_whole(value)}%",
                     lambda text: html.span(text, class_="tabular-nums text-fg-muted"),
                 ),
                 class_="flex items-baseline justify-between gap-3 text-sm",
@@ -221,7 +227,7 @@ class ProgressRing(ChainableComponent):
         show_value: bool = self._get_prop("show_value", False)
         value = _clamp(self._get_prop("value", 0))
 
-        described = f"{value:g} percent complete"
+        described = f"{_whole(value)} percent complete"
         if label is not None:
             described = f"{label}, {described}"
 
@@ -262,7 +268,7 @@ class ProgressRing(ChainableComponent):
             render_when(
                 show_value,
                 html.span(
-                    f"{value:g}%",
+                    f"{_whole(value)}%",
                     class_=classnames(
                         "absolute inset-0 flex items-center justify-center",
                         "font-ui text-2xs font-semibold tabular-nums text-fg",

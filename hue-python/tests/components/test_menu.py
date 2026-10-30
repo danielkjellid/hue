@@ -137,7 +137,7 @@ class TestMenuItem:
             html,
             '[role="menuitem"]',
             "x-on:mouseenter",
-            "$el.focus({ preventScroll: true })",
+            "open && $el.focus({ preventScroll: true })",
         )
 
     @pytest.mark.asyncio
