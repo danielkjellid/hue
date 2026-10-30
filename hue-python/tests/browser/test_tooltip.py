@@ -18,8 +18,6 @@ def _tooltip(placement: TooltipPlacement = "top") -> Tooltip:
 
 def _centred(placement: TooltipPlacement, dir: str) -> html.div:
     # Room on every side, so the bubble never has to shift onto the trigger.
-    # The direction is set here rather than through show(dir=), which does not
-    # reach the page's html element.
     return html.div(_tooltip(placement), dir=dir, class_="flex justify-center py-16")
 
 
@@ -154,6 +152,18 @@ def test_escape_closes_a_hovered_tooltip_while_focus_is_elsewhere(show: Show) ->
     page.get_by_role("button", name="Copy").hover()
     expect(page.get_by_role("tooltip")).to_be_visible()
     page.keyboard.press("Escape")
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+
+
+def test_escape_sent_to_the_window_closes_a_hovered_tooltip(show: Show) -> None:
+    # A key event's target need not be an element: a page that passes
+    # Escape on to a frame dispatches it on the frame's window.
+    page = show(_tooltip())
+    page.get_by_role("button", name="Copy").hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.evaluate(
+        "() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))"
+    )
     expect(page.get_by_role("tooltip")).to_be_hidden()
 
 

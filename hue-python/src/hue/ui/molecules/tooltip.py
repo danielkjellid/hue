@@ -173,7 +173,8 @@ class Tooltip(ChainableComponent):
                 "x-on:focusin": "shown = true",
                 "x-on:focusout": "shown = false",
                 "x-on:keydown.escape.window.capture": "clearTimeout($el._t); "
-                "if (shown && $event.target.getAttribute('aria-expanded') !== 'true') "
+                "if (shown && "
+                "$event.target.getAttribute?.('aria-expanded') !== 'true') "
                 "{ $event.stopPropagation(); shown = false }",
                 **self._get_base_html_attrs(),
             },
