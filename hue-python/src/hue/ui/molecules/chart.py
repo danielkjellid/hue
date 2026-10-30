@@ -100,6 +100,8 @@ class Chart(ChainableComponent):
     """
 
     category = "Charts"
+    # A floor under the 5:2 box, for charts that cannot be read when short.
+    _MIN_HEIGHT: ClassVar[str | None] = None
 
     def description(self, value: str) -> Self:
         """
@@ -134,7 +136,15 @@ class Chart(ChainableComponent):
             html.div(
                 # The table below is the text alternative, captioned by the
                 # description, so the drawing is kept from saying it twice.
-                html.canvas(aria_hidden="true", **{"x-ref": "canvas"}),
+                # Out of flow, because Chart.js writes a pixel width on the
+                # canvas that would hold any flex or grid cell around the
+                # chart open at its widest. The box takes its size from its
+                # aspect ratio instead.
+                html.canvas(
+                    aria_hidden="true",
+                    class_="absolute inset-0",
+                    **{"x-ref": "canvas"},
+                ),
                 html.div(
                     html.p("Unable to load chart.", **{":id": _ERROR_ID}),
                     # Focus comes back here when a retry fails as well, so the
@@ -155,9 +165,7 @@ class Chart(ChainableComponent):
                     hidden=True,
                     **{":hidden": "!failed"},
                 ),
-                # min-h-0, or the drawn canvas holds the box open at its old
-                # height and the ratio only ever grows.
-                class_="relative aspect-[5/2] min-h-0 w-full",
+                class_=classnames("relative aspect-[5/2] w-full", self._MIN_HEIGHT),
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
@@ -481,6 +489,9 @@ class _PointChart(Chart):
     # How many numbers make a point, and how to say so when one does not.
     _ARITY: ClassVar[int]
     _SHAPE: ClassVar[str]
+    # Two titled axes and a bubble's headroom leave almost no plot in a 5:2
+    # box on a phone, so below about 480px wide the chart stops getting shorter.
+    _MIN_HEIGHT = "min-h-48"
 
     def series(self, points: Sequence[Sequence[float]], *, label: str) -> Self:
         """
