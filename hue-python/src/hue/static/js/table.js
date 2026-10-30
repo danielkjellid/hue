@@ -105,6 +105,10 @@ export function registerTableSelection(Alpine) {
  * pattern promises: slash to get to it from anywhere on the page, and
  * escape to empty it without reaching for the mouse.
  */
+const TYPED =
+	"textarea, select, input:not([type=checkbox], [type=radio], [type=button], " +
+	"[type=submit], [type=reset], [type=image], [type=file], [type=range], [type=color])";
+
 export function registerTableSearch(Alpine) {
 	Alpine.data("hueTableSearch", () => ({
 		// A page-wide key can only belong to one thing. With two tables on
@@ -119,15 +123,10 @@ export function registerTableSearch(Alpine) {
 				return;
 			}
 			// Ignored while focus is in a field, or slash would be
-			// untypeable everywhere else on the page.
+			// untypeable everywhere else on the page. A checkbox or a
+			// button is an input too, but nothing is typed into it.
 			const target = event.target;
-			const tag = (target.tagName || "").toLowerCase();
-			if (
-				tag === "input" ||
-				tag === "textarea" ||
-				tag === "select" ||
-				target.isContentEditable
-			) {
+			if (target.matches?.(TYPED) || target.isContentEditable) {
 				return;
 			}
 			event.preventDefault();
