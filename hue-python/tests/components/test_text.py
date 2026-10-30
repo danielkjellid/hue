@@ -106,5 +106,25 @@ class TestLabel:
     @pytest.mark.asyncio
     async def test_enabled_label(self, context_args):
         html = await render_tree(Label("Email"), context_args=context_args)
-        assert_selector(html, "label.text-fg.cursor-pointer")
+        assert_selector(html, "label.text-fg")
         assert_no_selector(html, "label.text-fg-disabled")
+
+    # The pointer promises a click does something, which takes a control.
+    @pytest.mark.asyncio
+    async def test_linked_label_shows_a_pointer(self, context_args):
+        html = await render_tree(
+            Label("Email").html_for("email"), context_args=context_args
+        )
+        assert_selector(html, "label.cursor-pointer")
+
+    @pytest.mark.asyncio
+    async def test_unlinked_label_shows_no_pointer(self, context_args):
+        html = await render_tree(Label("Email"), context_args=context_args)
+        assert_no_selector(html, "label.cursor-pointer")
+
+    @pytest.mark.asyncio
+    async def test_disabled_linked_label_shows_no_pointer(self, context_args):
+        html = await render_tree(
+            Label("Email").html_for("email").disabled(), context_args=context_args
+        )
+        assert_no_selector(html, "label.cursor-pointer")
