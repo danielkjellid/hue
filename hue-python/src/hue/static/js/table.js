@@ -15,26 +15,58 @@
  * one bar would cover another while its rows stayed ticked, and Escape would
  * clear both.
  */
-// The bar floats over the foot of the window, so while one shows the page
-// gets room under its end to scroll the pager clear of it, and the same
-// scroll padding keeps a focused element from landing under it. Measured
-// rather than fixed, because the bar wraps onto more lines on a phone.
-const floating = new Set();
+// The bar floats over the foot of the window, so while one shows, what the
+// table scrolls in gets room under its end to scroll the pager clear of it,
+// and the same scroll padding keeps a focused element from landing under
+// it. Measured rather than fixed, because the bar wraps onto more lines on
+// a phone. Room is only ever added on top of what the scroller had, and
+// what it had is put back exactly once the bar goes.
+const floating = new Map(); // bar -> the scroller its table is in
+const padded = new Map(); // scroller -> its own inline values and base
 const room = new ResizeObserver(() => {
-	let needed = 0;
-	for (const bar of floating) {
+	const needs = new Map();
+	for (const [bar, scroller] of floating) {
 		if (!bar.isConnected) {
 			floating.delete(bar);
 			room.unobserve(bar);
 		} else if (bar.offsetHeight) {
 			const offset = parseFloat(getComputedStyle(bar).bottom) || 0;
 			// 8px clear of its top edge, so a focus ring is not cut by it.
-			needed = Math.max(needed, bar.offsetHeight + offset + 8);
+			const needed = bar.offsetHeight + offset + 8;
+			needs.set(scroller, Math.max(needs.get(scroller) ?? 0, needed));
 		}
 	}
-	const style = document.documentElement.style;
-	style.paddingBottom = style.scrollPaddingBottom = needed ? `${needed}px` : "";
+	for (const [scroller, own] of padded) {
+		if (needs.has(scroller)) continue;
+		scroller.style.paddingBottom = own.paddingBottom;
+		scroller.style.scrollPaddingBottom = own.scrollPaddingBottom;
+		padded.delete(scroller);
+	}
+	for (const [scroller, needed] of needs) {
+		if (!padded.has(scroller)) {
+			const computed = getComputedStyle(scroller);
+			padded.set(scroller, {
+				paddingBottom: scroller.style.paddingBottom,
+				scrollPaddingBottom: scroller.style.scrollPaddingBottom,
+				padding: parseFloat(computed.paddingBottom) || 0,
+				scrollPadding: parseFloat(computed.scrollPaddingBottom) || 0,
+			});
+		}
+		const own = padded.get(scroller);
+		scroller.style.paddingBottom = `${own.padding + needed}px`;
+		scroller.style.scrollPaddingBottom = `${own.scrollPadding + needed}px`;
+	}
 });
+
+// The nearest ancestor that scrolls, such as an app shell's main column,
+// or the page.
+function scrollerOf(element) {
+	for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+		const overflow = getComputedStyle(node).overflowY;
+		if (overflow === "auto" || overflow === "scroll") return node;
+	}
+	return document.scrollingElement;
+}
 
 export function registerTableSelection(Alpine) {
 	Alpine.data("hueTableSelection", () => ({
@@ -74,7 +106,7 @@ export function registerTableSelection(Alpine) {
 		},
 
 		keepClear(bar) {
-			floating.add(bar);
+			floating.set(bar, scrollerOf(this.frame));
 			room.observe(bar);
 		},
 
