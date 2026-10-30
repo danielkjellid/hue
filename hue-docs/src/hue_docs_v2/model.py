@@ -47,7 +47,9 @@ class Panel:
     the canvas. min_height keeps room for an overlay that opens out of a small
     trigger, since the frame only grows with what is laid out in it. width
     starts the frame at a breakpoint instead of filling the panel, for a
-    component that looks different above it.
+    component that looks different above it. min_width keeps a filling frame
+    at least that wide, scrolling sideways in a narrower panel, for an
+    example with a fixed column that would leave the rest no room on a phone.
     """
 
     label: str
@@ -57,6 +59,7 @@ class Panel:
     min_height: int = 0
     captions: bool = True
     width: Viewport | None = None
+    min_width: int = 0
 
     @property
     def slug(self) -> str:
@@ -71,6 +74,7 @@ def panel(
     min_height: int = 0,
     captions: bool = True,
     width: Viewport | None = None,
+    min_width: int = 0,
 ) -> Panel:
     """
     captions=False drops the name above each example, for examples that
@@ -86,6 +90,7 @@ def panel(
         min_height=min_height,
         captions=captions,
         width=width,
+        min_width=min_width,
     )
 
 

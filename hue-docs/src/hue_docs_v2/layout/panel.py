@@ -35,6 +35,12 @@ FRAME_CONTENT = "frame"
 VIEWPORTS = {"sm": 640, "md": 768, "lg": 1024, "xl": 1280}
 
 
+class FramePage(Page):
+    # A ThemeSwitcher in a frame saves its choice here, not under the site's
+    # key, so trying it on a component page leaves the site's theme alone.
+    theme_storage_key = "hue-docs-frame-theme"
+
+
 def frame_href(page: ComponentPage, panel: Panel) -> str:
     return f"/_frame/{page.slug}/{panel.slug}/"
 
@@ -200,6 +206,7 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
                     "maxWidth": max(VIEWPORTS.values()),
                     "contentId": FRAME_CONTENT,
                     "width": VIEWPORTS[panel.width] if panel.width else None,
+                    "minFill": panel.min_width,
                 }
             )
             + ")"
@@ -214,7 +221,7 @@ _LAYOUTS = {
 }
 
 
-async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page:
+async def frame_page(page: ComponentPage, panel: Panel, request: object) -> FramePage:
     captioned = panel.captions and len(panel.examples) > 1 and panel.layout != "center"
     cells = [
         html.div(
@@ -244,4 +251,4 @@ async def frame_page(page: ComponentPage, panel: Panel, request: object) -> Page
         .id(FRAME_CONTENT)
         .class_("p-6")
     )
-    return Page(title=f"{page.title}: {panel.label}", body=body)
+    return FramePage(title=f"{page.title}: {panel.label}", body=body)

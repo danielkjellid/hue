@@ -186,6 +186,7 @@ PAGE = ComponentPage(
             "Layout",
             horizontal,
             layout="stack",
+            min_width=480,
             hint="The label takes a 180px column at every width",
         ),
     ],

@@ -13,7 +13,7 @@ document.addEventListener("alpine:init", () => {
 
   // A panel's frame: how wide it is drawn, which theme it is drawn in, and a
   // height that follows what is inside it.
-  Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId, width = null } = {}) => ({
+  Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId, width = null, minFill = 0 } = {}) => ({
     // A start width only where the presets are shown to leave it. On a
     // narrower screen it would be drawn at a third of its size.
     width: window.matchMedia("(min-width: 768px)").matches ? width : null, // null fills
@@ -52,9 +52,10 @@ document.addEventListener("alpine:init", () => {
       return os.dark ? "dark" : "light";
     },
 
-    // The viewport the example sees, which can be wider than the panel.
+    // The viewport the example sees, which can be wider than the panel. A
+    // panel that fills is still drawn at least minFill wide, and scrolls.
     get shown() {
-      return this.width ?? this.room;
+      return this.width ?? Math.max(this.room, minFill);
     },
 
     // A viewport wider than the panel is drawn at full width and scaled
@@ -66,7 +67,7 @@ document.addEventListener("alpine:init", () => {
     // Objects rather than strings: Alpine sets a string as the whole style
     // attribute, which would drop the height the frame is given below.
     holderStyle() {
-      if (this.width === null) return { width: "100%" };
+      if (this.width === null) return { width: "100%", minWidth: `${minFill}px` };
       if (this.scale === 1) return { width: `${this.width}px` };
       return {
         width: `${this.room}px`,
@@ -235,6 +236,9 @@ document.addEventListener("alpine:init", () => {
       // The box changed while this search ran, cleared or closed, so its
       // results answer a question nobody is asking any more.
       if (this.query.trim() !== query) return;
+      // An exact title first: "button" finds Button before ButtonGroup.
+      const exact = (page) => page.meta.title.toLowerCase() === query.toLowerCase();
+      pages.sort((a, b) => exact(b) - exact(a));
       this.results = pages.flatMap((page) => {
         const sections = page.sub_results
           .filter((sub) => sub.url !== page.url)
@@ -343,11 +347,28 @@ if (window.self !== window.top) {
   // A demo's swaps would otherwise push entries onto the docs page's history,
   // so Back would walk the demo before it left the page.
   history.pushState = history.replaceState.bind(history);
+  // Keys the docs page listens for, which a focused frame would otherwise
+  // keep: mod+k opens the site's search, and Escape also goes to the frame
+  // under the pointer.
+  const apple = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  document.addEventListener("keydown", (event) => {
+    const top = window.top;
+    if (event.key === "Escape") {
+      top.docsEscape?.(window);
+      return;
+    }
+    const mod = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+    if (event.key.toLowerCase() !== "k" || !mod || event.altKey || event.shiftKey) return;
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    top.dispatchEvent(new top.CustomEvent("docs-search"));
+  });
 }
 
-// Escape goes to the docs page while the pointer rests on a frame, where a
-// tooltip opened by hovering waits to hear it. Passed on to that frame.
 if (window.self === window.top) {
+  // Escape goes to the document with focus, while a tooltip opened by
+  // hovering waits in the frame under the pointer. Passed on to that frame,
+  // from the docs page or from another frame, unless it already heard it.
   let hovered = null;
   document.addEventListener("mouseover", (event) => {
     hovered = event.target instanceof HTMLIFrameElement ? event.target : null;
@@ -355,9 +376,53 @@ if (window.self === window.top) {
   document.addEventListener("mouseout", (event) => {
     if (!event.relatedTarget) hovered = null;
   });
+  window.docsEscape = (source) => {
+    const win = hovered?.isConnected ? hovered.contentWindow : null;
+    if (!win || win === source) return;
+    win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  };
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !hovered?.isConnected) return;
-    const win = hovered.contentWindow;
-    win?.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    if (event.key === "Escape") window.docsEscape(window);
   });
+
+  // Frames paint first in the theme saved under their own key (FramePage in
+  // panel.py), so it follows the site's choice, and a ThemeSwitcher demo
+  // changes it only until the site's theme next changes.
+  document.addEventListener("alpine:initialized", () => {
+    window.Alpine.effect(() => {
+      const choice = window.Alpine.store("theme").choice;
+      try {
+        localStorage.setItem("hue-docs-frame-theme", choice);
+      } catch {
+        // Without storage a frame paints the system theme first.
+      }
+    });
+  });
+
+  // A link to a panel lands before the frames above it have loaded, and
+  // each one that grows pushes the panel down. Keep scrolling back to it
+  // until the reader scrolls, clicks or types, or focus moves into a frame.
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) {
+    let landed = null;
+    const settle = new ResizeObserver(() => {
+      target.scrollIntoView({ block: "start", behavior: "instant" });
+      landed = window.scrollY;
+    });
+    const stop = () => {
+      settle.disconnect();
+      for (const type of ["pointerdown", "keydown", "wheel", "touchstart", "blur"]) {
+        window.removeEventListener(type, stop, true);
+      }
+      window.removeEventListener("scroll", moved);
+    };
+    const moved = () => {
+      if (landed !== null && Math.abs(window.scrollY - landed) > 1) stop();
+    };
+    settle.observe(document.body);
+    for (const type of ["pointerdown", "keydown", "wheel", "touchstart", "blur"]) {
+      window.addEventListener(type, stop, { capture: true, passive: true });
+    }
+    window.addEventListener("scroll", moved, { passive: true });
+  }
 }

@@ -60,8 +60,8 @@ def _usage() -> ComponentType:
             "`ThemeSwitcher` in an iframe changes the theme of that frame only. "
             "The panels on this page are iframes: pressing dark in one turns "
             "that frame dark and leaves the rest of the page as it was. The "
-            "frames share an origin and a storage key with this site, so the "
-            "choice is also remembered for the site's next page load."
+            "frames on this site save their choice under a storage key of their "
+            "own, so the site's theme stays as it was on the next page load."
         ),
     )
 
@@ -81,7 +81,7 @@ PAGE = ComponentPage(
             layout="center",
             hint="Switches this frame's own theme",
         ),
-        panel("Anatomy", icons, labelled),
+        panel("Anatomy", icons, labelled, layout="stack"),
     ],
     notes=[
         Note(
