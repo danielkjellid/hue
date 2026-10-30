@@ -40,3 +40,26 @@ def _shadows(show: Show, theme: str) -> dict[str, str]:
 
 def test_light_shadows_are_the_light_tokens(show: Show) -> None:
     assert _shadows(show, "light") == LIGHT
+
+
+def test_dark_shadows_are_the_dark_tokens(show: Show) -> None:
+    assert _shadows(show, "dark") == {
+        "field": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "raised": "rgba(0, 0, 0, 0.3) 0px 0px 0px 1px, "
+        "rgba(0, 0, 0, 0.36) 0px 2px 6px 0px, "
+        "rgba(0, 0, 0, 0.46) 0px 4px 10px 0px",
+        "overlay": "rgba(0, 0, 0, 0.34) 0px 0px 0px 1px, "
+        "rgba(0, 0, 0, 0.46) 0px 8px 20px -4px, "
+        "rgba(0, 0, 0, 0.58) 0px 20px 40px -8px",
+    }
+
+
+def test_a_ring_survives_the_dark_field_shadow(show: Show) -> None:
+    # A none in the field token would void the whole box-shadow list, ring
+    # included.
+    page = show(
+        html.div("Ringed", id="r", class_="shadow-field ring-2 ring-accent"),
+        theme="dark",
+    )
+    shadow = page.locator("#r").evaluate("el => getComputedStyle(el).boxShadow")
+    assert "0px 0px 0px 2px" in shadow
