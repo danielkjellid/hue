@@ -7,11 +7,12 @@ import pytest
 from htmy import html
 
 from hue.datatable import BulkAction, build_datatable_state
-from hue.ui import Card, CardBody, Column, DataTable, Stack
+from hue.ui import Card, CardBody, Column, DataTable, Panel, Stack
 from tests.browser.conftest import Show
 from tests.browser.test_data_navigation_promises import _coarse
 from tests.browser.test_datatable import _Router
 from tests.browser.test_layout_promises import _pager
+from tests.browser.test_sticky_bar_promises import _in_reach, _long, _tick_first
 
 # Pagination.
 
@@ -97,3 +98,39 @@ def test_cards_beside_each_other_shrink_around_a_wide_table(
         "(() => { const band = document.querySelector('#invoices table')"
         ".parentElement; return band.scrollWidth > band.clientWidth })()"
     )
+
+
+# Panel.
+
+
+@pytest.mark.parametrize(
+    ("width", "theme"), [(1440, "light"), (390, "dark")], ids=["desk", "phone"]
+)
+def test_a_long_tables_bar_is_in_reach_in_a_panel(
+    show: Show, width: int, theme: str
+) -> None:
+    page = show(
+        Panel().label("Invoices").padding("none").content(_long()),
+        width=width,
+        height=700,
+        theme=theme,
+    )
+    if width == 390:
+        _coarse(page)
+    _tick_first(page)
+    page.mouse.wheel(0, 600)
+    page.wait_for_function("() => scrollY >= 600")
+    assert _in_reach(page)
+
+
+def test_a_panel_beside_another_shrinks_around_a_wide_table(show: Show) -> None:
+    page = show(
+        Stack()
+        .horizontal()
+        .content(
+            Panel().id("one").class_("flex-1").padding("none").content(_wide()),
+            Panel().id("two").class_("flex-1").content("Two"),
+        ),
+        width=390,
+    )
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390
