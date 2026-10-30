@@ -234,3 +234,22 @@ def test_meta_on_the_active_option_is_legible_in_dark(show: Show) -> None:
         "data-active", "true"
     )
     assert contrast(page.get_by_role("listbox").get_by_text("NO", exact=True)) >= 4.5
+
+
+def test_combobox_opens_scrolled_to_a_chosen_option_far_down(show: Show) -> None:
+    options = [SelectOption().value(f"v{i}").label(f"Option {i:02}") for i in range(40)]
+    page = show(Combobox().name("fruit").label("Fruit").value("v39").content(*options))
+    page.get_by_role("combobox", name="Fruit").focus()
+    option = page.get_by_role("option", name="Option 39")
+    listbox = page.get_by_role("listbox")
+    expect(option).to_be_visible()
+    page.wait_for_function(
+        """() => {
+            const o = document.querySelector('[role=option][data-value=v39]');
+            const l = document.querySelector('[role=listbox]');
+            const a = o.getBoundingClientRect(), b = l.getBoundingClientRect();
+            return a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+        }""",
+        timeout=3000,
+    )
+    assert listbox.evaluate("el => el.scrollTop") > 0

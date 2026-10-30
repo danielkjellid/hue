@@ -33,6 +33,12 @@ export function registerComboboxData(Alpine) {
 		values: selected.map((item) => item.value),
 
 		init() {
+			// A hidden list cannot scroll, and x-show reveals it some ticks
+			// after show() asks, so the active option is brought into view
+			// once the list has a size: on being shown, and as it is filtered.
+			new ResizeObserver(() => {
+				if (this.open) this.current()?.scrollIntoView({ block: "nearest" });
+			}).observe(this.$refs.listbox);
 			// A parent changing the bound value arrives here.
 			this.$watch("value", (value) => {
 				if (!this.multiple && value !== (this.selected[0]?.value ?? "")) {
@@ -83,8 +89,6 @@ export function registerComboboxData(Alpine) {
 			const enabled = this.enabled();
 			const chosen = enabled.find((option) => this.chosen(option.dataset.value));
 			this.activate(which === "last" ? enabled.at(-1) : (chosen ?? enabled[0]));
-			// The list shows a tick later, and only then can it scroll.
-			this.$nextTick(() => this.current()?.scrollIntoView({ block: "nearest" }));
 		},
 
 		hide() {
