@@ -57,6 +57,16 @@ _TONES: dict[ToastVariant, str] = {
 # message has to be stoppable by whoever is still reading it.
 _TIMER = (
     "{ ms: 0, timer: null, hovered: false, focused: false, "
+    # A toast that arrives while the stack is scrolled back up would land out
+    # of sight and time out unread, so the stack returns to the newest end,
+    # which is scrollTop 0 because the stack is reversed. It stays put while a
+    # pointer or focus is in it, since moving it would shift what someone is
+    # reading or about to click, and the toast they are on is paused anyway.
+    "init() { const region = this.$el.parentElement; "
+    f"if (region?.id !== '{REGION_ID}') return; "
+    "const stack = region.parentElement; "
+    "if (!stack.matches(':hover') && !stack.contains(document.activeElement)) "
+    "stack.scrollTo({ top: 0 }) }, "
     "start(ms) { this.stop(); "
     "if (ms) this.timer = setTimeout(() => this.dismiss(), ms) }, "
     "stop() { clearTimeout(this.timer); this.timer = null }, "
