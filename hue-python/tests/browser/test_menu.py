@@ -34,3 +34,28 @@ def test_escape_in_a_dialog_closes_the_menu_first(show: Show) -> None:
     expect(page.get_by_role("dialog", name="Holder")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog", name="Holder")).to_be_hidden()
+
+
+def test_the_pointer_cannot_take_focus_while_it_fades(show: Show) -> None:
+    page = show(Dialog().title("Holder").open().content(_menu()))
+    _open(page)
+    item = page.get_by_role("menuitem", name="Delete").bounding_box()
+    assert item is not None
+    page.keyboard.press("Escape")
+    # Focus is back on the trigger, and then the pointer lands on an item
+    # while the menu is still fading out.
+    expect(page.get_by_role("button", name="Actions")).to_be_focused()
+    page.mouse.move(item["x"] + 10, item["y"] + item["height"] / 2)
+    expect(page.get_by_role("menu")).to_be_hidden()
+    expect(page.get_by_role("button", name="Actions")).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog", name="Holder")).to_be_hidden()
+
+
+def test_hovering_an_open_menu_moves_focus(show: Show) -> None:
+    page = show(_menu())
+    _open(page)
+    page.get_by_role("menuitem", name="Delete").hover()
+    expect(page.get_by_role("menuitem", name="Delete")).to_be_focused()
+    page.keyboard.press("ArrowUp")
+    expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()

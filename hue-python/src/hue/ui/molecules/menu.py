@@ -259,8 +259,9 @@ class MenuItem(Clickable):
             # one active item instead of lighting two rows at once. The ring
             # is focus-visible, so it stays out of the way until the keyboard
             # asks for it. preventScroll, because a menu that jumps under the
-            # pointer is a menu you cannot aim at.
-            "x-on:mouseenter": "$el.focus({ preventScroll: true })",
+            # pointer is a menu you cannot aim at. Only while open: an item
+            # focused as the menu fades out takes focus with it into hiding.
+            "x-on:mouseenter": "open && $el.focus({ preventScroll: true })",
             "aria_disabled": "true" if disabled else None,
             "class_": classnames(
                 _ITEM,
