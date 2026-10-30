@@ -1,7 +1,7 @@
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import TableOfContents
+from hue.ui import Accordion, AccordionItem, Disclosure, TableOfContents
 from tests.browser.conftest import Show
 
 NAMES = ("Alpha", "Beta", "Gamma")
@@ -137,3 +137,68 @@ def test_forward_in_a_container_returns_to_the_later_click(show: Show) -> None:
         "() => Math.abs(document.getElementById('beta').getBoundingClientRect().top"
         " - document.getElementById('doc').getBoundingClientRect().top) < 2"
     )
+
+
+def _folded(section: object) -> tuple[object, ...]:
+    return (
+        TableOfContents().of("#doc"),
+        html.div(
+            *_sections(),
+            section,
+            html.div(style="height: 2000px"),
+            id="doc",
+        ),
+    )
+
+
+def _follows_into(page: Page, opened: str) -> None:
+    _entry(page, "Hidden").click()
+    expect(page.locator(opened)).to_be_visible()
+    heading = page.locator("#hidden")
+    expect(heading).to_be_focused()
+    expect(_entry(page, "Hidden")).to_have_attribute("aria-current", "location")
+    assert page.evaluate("location.hash") == "#hidden"
+    page.wait_for_function(
+        "() => Math.abs("
+        "document.getElementById('hidden').getBoundingClientRect().top) < 2"
+    )
+
+
+def test_following_an_entry_in_a_closed_disclosure_opens_it(show: Show) -> None:
+    page = show(
+        *_folded(
+            Disclosure()
+            .title("More")
+            .closed()
+            .content(html.h2("Hidden", id="hidden"), html.p("Folded text"))
+        )
+    )
+    _follows_into(page, "text=Folded text")
+
+
+def test_following_an_entry_in_a_closed_accordion_item_opens_it(show: Show) -> None:
+    # Opening it closes the open section above it, which moves the heading
+    # after the click; the scroll lands where the heading ends up.
+    page = show(
+        *_folded(
+            Accordion().content(
+                AccordionItem()
+                .title("First")
+                .open()
+                .content(html.div("Open text", style="height: 400px")),
+                AccordionItem()
+                .title("Second")
+                .content(html.h2("Hidden", id="hidden"), html.p("Folded text")),
+            )
+        )
+    )
+    _follows_into(page, "text=Folded text")
+    expect(page.get_by_text("Open text")).to_be_hidden()
+
+
+def test_a_heading_nothing_opens_is_not_marked(show: Show) -> None:
+    page = show(*_folded(html.div(html.h2("Hidden", id="hidden"), hidden=True)))
+    _entry(page, "Beta").click()
+    _entry(page, "Hidden").click()
+    expect(_entry(page, "Beta")).to_have_attribute("aria-current", "location")
+    assert page.evaluate("location.hash") == "#beta"

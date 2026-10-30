@@ -413,6 +413,23 @@ export function registerTocData(Alpine) {
 			}
 			event.preventDefault();
 
+			// A heading in a closed section asks the section to open, which
+			// Disclosure and AccordionItem do there and then. It is gone to
+			// once Alpine has drawn the change, since opening one section of
+			// an accordion closes another and moves everything under it. A
+			// heading nothing opens is not followed, or its entry would be
+			// marked as the place the reader has got to without showing it.
+			const { element } = this.entries[index];
+			if (!element.getClientRects().length) {
+				element.dispatchEvent(new CustomEvent("hue-reveal", { bubbles: true }));
+				if (!element.getClientRects().length) return;
+				this.$nextTick(() => this.go(index));
+				return;
+			}
+			this.go(index);
+		},
+
+		go(index) {
 			const { target } = this.entries[index];
 			const scroller = scrollerOf(this.container);
 
