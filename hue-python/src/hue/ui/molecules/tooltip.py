@@ -95,6 +95,7 @@ class Tooltip(_overlay.WrapsTrigger):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         placement: TooltipPlacement = self._get_prop("placement", "top")
         ltr, rtl, bridge = _PLACEMENTS[placement]
         trigger: ChainableComponent | None = self._get_prop("trigger")

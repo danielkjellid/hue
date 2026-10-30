@@ -208,6 +208,7 @@ class DatePicker(FieldControl):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         name = self._require_name()
         label: str | None = self._get_prop("label")
         mode: DatePickerMode = self._get_prop("mode", "single")

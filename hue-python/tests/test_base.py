@@ -9,6 +9,7 @@ import re
 import pytest
 from htmy import Renderer
 
+from hue import ui
 from hue.exceptions import MissingHueContextError
 from hue.js import unsafe
 from hue.renderer import render_tree
@@ -184,3 +185,51 @@ async def test_awaited_renders_what_its_coroutine_returns(context_args):
     html = await render_tree(Awaited(draw), context_args=context_args)
     assert "Drawn" in html
     assert "<button" in html
+
+
+# A component whose root holds hue's own Alpine scope: x_data() on it would
+# replace that scope or be dropped, either way without a word.
+_OWNS_A_SCOPE = {
+    "Accordion": lambda: ui.Accordion.example(),
+    "BarChart": lambda: ui.BarChart.example(),
+    "Command": lambda: ui.Command.example(),
+    "DatePicker": lambda: ui.DatePicker.example(),
+    "Dialog": lambda: ui.Dialog.example(),
+    "Disclosure": lambda: ui.Disclosure.example(),
+    "Drawer": lambda: ui.Drawer.example(),
+    "DropdownMenu": lambda: ui.DropdownMenu.example(),
+    "checkable MenuItem": lambda: ui.MenuItem().content("Wrap").checkable(),
+    "Popover": lambda: ui.Popover.example(),
+    "PieChart": lambda: ui.PieChart.example(),
+    "ScatterChart": lambda: ui.ScatterChart.example(),
+    "SegmentedControl": lambda: ui.SegmentedControl.example(),
+    "TableOfContents": lambda: ui.TableOfContents.example(),
+    "Toast": lambda: ui.Toast.example(),
+    "ToastRegion": lambda: ui.ToastRegion(),
+    "Tooltip": lambda: ui.Tooltip.example(),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("make", _OWNS_A_SCOPE.values(), ids=_OWNS_A_SCOPE.keys())
+async def test_x_data_raises_on_a_component_with_a_scope_of_its_own(make, context_args):
+    with pytest.raises(ValueError, match="around it, or inside it"):
+        await render_tree(make().x_data("{ mine: 1 }"), context_args=context_args)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: ui.MenuItem().content("Wrap"),
+        lambda: ui.SegmentedControl()
+        .label("Range")
+        .content(ui.SegmentedOption().value("week").content("Week")),
+    ],
+    ids=["plain MenuItem", "SegmentedControl without a value"],
+)
+async def test_x_data_is_kept_where_the_component_has_no_scope_of_its_own(
+    make, context_args
+):
+    html = await render_tree(make().x_data("{ mine: 1 }"), context_args=context_args)
+    assert 'x-data="{ mine: 1 }"' in html

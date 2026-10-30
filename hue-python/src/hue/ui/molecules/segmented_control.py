@@ -184,6 +184,8 @@ class SegmentedControl(ChainableComponent):
                 )
             options.append(child)
 
+        if selected is not None:
+            self._refuse_x_data()
         attrs = {
             "role": "group",
             "aria_label": label,
