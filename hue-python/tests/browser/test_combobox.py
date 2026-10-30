@@ -20,4 +20,3 @@ def test_typing_activates_the_first_match(show: Show) -> None:
     field.fill("ban")
     page.keyboard.press("Enter")
     assert page.locator("input[type=hidden][name=fruit]").input_value() == "banana"
-
