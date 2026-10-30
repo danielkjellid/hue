@@ -98,8 +98,11 @@ GROUP_SHELL = (
 )
 
 #: A control inside GROUP_SHELL: everything the group now owns, given up.
+#: It keeps its control height but runs over the group's 1px border at top
+#: and bottom, so a group is exactly as tall as a plain field.
 GROUPED_CONTROL = (
-    "min-w-0 flex-1 rounded-none border-none bg-transparent text-fg shadow-none "
+    "-my-px min-w-0 flex-1 rounded-none border-none bg-transparent text-fg "
+    "shadow-none "
     "outline-none placeholder:text-fg-subtle focus:outline-none "
     "disabled:cursor-not-allowed disabled:text-fg-disabled"
 )

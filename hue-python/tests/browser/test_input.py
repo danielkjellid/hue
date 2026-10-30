@@ -1,6 +1,8 @@
+import pytest
 from playwright.sync_api import Locator, Page, expect
 
-from hue.ui import PasswordInput, TextInput
+from hue.ui import Button, PasswordInput, Text, TextInput
+from hue.ui._styles import ControlSize
 from tests.browser._fields import css, still, token
 from tests.browser.conftest import Show
 
@@ -104,3 +106,26 @@ def test_disabled_group_ignores_hover(show: Show) -> None:
     expect(_group(page, "site")).to_have_css(
         "border-top-color", token(page, "border-input")
     )
+
+
+def _height(locator: Locator) -> float:
+    box = locator.bounding_box()
+    assert box is not None
+    return box["height"]
+
+
+@pytest.mark.parametrize("size", ["sm", "md", "lg"])
+def test_a_group_is_as_tall_as_a_plain_field(show: Show, size: ControlSize) -> None:
+    page = show(
+        TextInput().name("plain").label("Plain").size(size),
+        TextInput().name("site").label("Site").size(size).prefix("https://"),
+    )
+    assert _height(_group(page, "site")) == _height(page.get_by_label("Plain"))
+
+
+def test_an_attached_button_fills_the_group(show: Show) -> None:
+    action = Button().content(Text("Copy"))
+    page = show(TextInput().name("key").label("Key").action(action))
+    group = _group(page, "key")
+    button = page.get_by_role("button", name="Copy")
+    assert _height(button) == _height(group) - 2
