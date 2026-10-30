@@ -178,7 +178,9 @@ export function datePicker(config) {
 
 		cell(m, i) {
 			const day = this.dayAt(m, i);
-			if (!day) return { selected: "false" };
+			// A blank cell stays focusable: paging can leave focus on one for
+			// a tick, and a cell that lost its tabindex would drop it to the body.
+			if (!day) return { selected: "false", tab: disabled ? null : -1 };
 			const value = this.days();
 			const band = this.band();
 			const pending = mode === "range" && value.length === 1;
@@ -338,7 +340,9 @@ export function datePicker(config) {
 				this.switchTo("days", () => this.focusedCell());
 				return;
 			}
-			if (!pickedDay(this.$root, event)) return;
+			// Any cell, blank ones too: a click can leave focus on one.
+			const cell = event.target.closest("td");
+			if (!cell || !this.$root.contains(cell)) return;
 			// The day comes from state: focus moves a tick later, so a second
 			// key in quick succession still arrives on the cell the first left.
 			const day = this.focus;
