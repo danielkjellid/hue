@@ -19,7 +19,7 @@ from hue.ui import (
     Tooltip,
 )
 from hue.ui.molecules.tooltip import TooltipPlacement
-from tests.browser.conftest import ORIGIN, Show, render_page
+from tests.browser.conftest import ORIGIN, TRAPPED, Show, render_page
 
 
 def _tooltip(placement: TooltipPlacement = "top") -> Tooltip:
@@ -245,6 +245,7 @@ def test_what_a_tooltipped_control_opens_puts_the_label_away(
         page.wait_for_function(
             "document.querySelector('[role=dialog]').contains(document.activeElement)"
         )
+        page.wait_for_function(TRAPPED)
     page.wait_for_function(f"!{SHOWN}")
     page.keyboard.press("Escape")
     expect(opened).to_be_hidden()

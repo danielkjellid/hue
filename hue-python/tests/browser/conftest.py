@@ -27,6 +27,11 @@ from hue.types.core import ComponentType
 
 ORIGIN = "http://hue.test"
 
+# A modal's trap hides the rest of the page a tick after it takes focus, and
+# Alpine never undoes a hide that lands after the modal closed. Wait for it
+# before closing one: the page would stay hidden from a screen reader for good.
+TRAPPED = "!!document.querySelector('body > [aria-hidden=true]')"
+
 _Page = create_page_base(
     css_url=assets.CSS_URL,
     js_url=assets.JS_URL,
