@@ -79,6 +79,7 @@ class Accordion(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         boxed: bool = self._get_prop("boxed", False)
         multiple: bool = self._get_prop("multiple", False)
 
@@ -136,7 +137,7 @@ class Accordion(ChainableComponent):
 # in, or the one just opened for the field that is reported. The browser
 # reports the first field it fires invalid at in a task: a submit fires at
 # every invalid field at once, in order, and reportValidity() on one field
-# at that field alone. noteInvalid hears every one of them, on the
+# at that field alone. hueNoteInvalid hears every one of them, on the
 # document, before any panel does. Those left closed are also left
 # unreported, rather than logged as fields it could not focus. All of it on
 # a submit only, as for a Disclosure.

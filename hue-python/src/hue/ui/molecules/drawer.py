@@ -141,6 +141,7 @@ class Drawer(_overlay.WrapsTrigger):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         side: DrawerSide = self._get_prop("side", "end")
         size: DrawerSize = self._get_prop("size", "md")
         title: str | None = self._get_prop("title")

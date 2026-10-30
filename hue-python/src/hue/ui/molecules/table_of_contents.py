@@ -72,6 +72,7 @@ class TableOfContents(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         title: str = self._get_prop("title", "On this page")
         title_id = "$id('hue-toc-title')"
         options = json.dumps(

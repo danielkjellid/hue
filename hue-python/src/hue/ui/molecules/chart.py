@@ -132,6 +132,7 @@ class Chart(ChainableComponent):
         The chart's markup. headers and rows make the table, each row led by
         a header cell; legend pairs each name with its swatch class.
         """
+        self._refuse_x_data()
         return html.figure(
             html.div(
                 # The table below is the text alternative, captioned by the

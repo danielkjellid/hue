@@ -80,6 +80,7 @@ class Popover(_overlay.WrapsTrigger):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         placement: PopoverPlacement = self._get_prop("placement", "bottom-start")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")

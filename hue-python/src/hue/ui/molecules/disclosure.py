@@ -100,6 +100,7 @@ class Disclosure(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         starts_open = not self._get_prop("closed", False)
 
         trigger = html.button(

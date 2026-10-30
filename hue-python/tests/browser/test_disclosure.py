@@ -190,3 +190,27 @@ def test_a_form_keeps_its_own_submitting_state_inside_a_section(
     # form's guard reads the section's flag and disables Save mid-click.
     page = show(guarded_form(Disclosure().title("Details").content(*guarded_fields())))
     submit_by(page, how)
+
+
+@pytest.mark.parametrize("section", ["disclosure", "accordion"])
+def test_a_scope_around_the_section_still_reaches_inside(
+    show: Show, section: str
+) -> None:
+    # x_data() on the section raises, so this is where a caller's state goes.
+    note = html.span(**{"x-text": "note"})
+    page = show(
+        html.div(
+            Disclosure().title("Details").content(note)
+            if section == "disclosure"
+            else Accordion().content(
+                AccordionItem().title("Details").open().content(note)
+            ),
+            **{"x-data": "{ note: 'mine' }"},
+        )
+    )
+    trigger = page.get_by_role("button", name="Details")
+    expect(page.get_by_text("mine")).to_be_visible()
+    trigger.click()
+    expect(trigger).to_have_attribute("aria-expanded", "false")
+    trigger.click()
+    expect(page.get_by_text("mine")).to_be_visible()

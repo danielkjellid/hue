@@ -117,6 +117,7 @@ class Command(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         label: str = self._get_prop("label", "Command palette")
         hotkey: Steps | None = self._get_prop("hotkey")
         registry = HueContext.from_context(context).shortcuts
