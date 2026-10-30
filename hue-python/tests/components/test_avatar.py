@@ -123,6 +123,19 @@ class TestAvatarGroup:
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
 
     @pytest.mark.asyncio
+    async def test_more_of_nobody_adds_no_chip(self, context_args):
+        html = await render_tree(
+            AvatarGroup().label("Ada").more(0).content(Avatar().name("Ada Lovelace")),
+            context_args=context_args,
+        )
+        assert "+0" not in html
+        assert_selector(html, 'span[aria-hidden="true"]', count=1)
+
+    def test_more_cannot_be_negative(self):
+        with pytest.raises(ValueError, match="negative"):
+            AvatarGroup().more(-1)
+
+    @pytest.mark.asyncio
     async def test_size_reaches_the_members(self, context_args):
         # Otherwise the group and the count it ends with disagree about how big
         # a face is, which is what made the largest size look broken.
