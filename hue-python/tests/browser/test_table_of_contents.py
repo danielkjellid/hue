@@ -260,3 +260,37 @@ def test_the_active_entry_stays_inside_a_scrolling_column(show: Show) -> None:
     page.evaluate("window.scrollTo(0, 0)")
     expect(_entry(page, "Part 01")).to_have_attribute("aria-current", "location")
     page.wait_for_function("() => document.getElementById('column').scrollTop === 0")
+
+
+def _two_frames(page: Page) -> None:
+    # So a fragment scroll the browser runs late has had its turn.
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+
+
+def test_back_across_a_plain_fragment_link_restores_a_hand_scroll(show: Show) -> None:
+    page = show(html.a("To gamma", href="#gamma"), *_in_container())
+    _entry(page, "Alpha").click()
+    page.evaluate("document.getElementById('doc').scrollTop = 500")
+    page.wait_for_function("history.state?.hueTocScroll === 500")
+    page.get_by_role("link", name="To gamma").click()
+    expect(page).to_have_url("http://hue.test/#gamma")
+    page.go_back()
+    expect(page).to_have_url("http://hue.test/#alpha")
+    _two_frames(page)
+    assert _doc_scroll(page) == 500
+
+
+def test_forward_restores_a_hand_scroll(show: Show) -> None:
+    page = show(*_in_container())
+    _entry(page, "Alpha").click()
+    _entry(page, "Beta").click()
+    page.evaluate("document.getElementById('doc').scrollTop = 1000")
+    page.wait_for_function("history.state?.hueTocScroll === 1000")
+    page.go_back()
+    expect(page).to_have_url("http://hue.test/#alpha")
+    page.go_forward()
+    expect(page).to_have_url("http://hue.test/#beta")
+    _two_frames(page)
+    assert _doc_scroll(page) == 1000

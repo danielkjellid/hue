@@ -185,6 +185,7 @@ export function registerTocData(Alpine) {
 		onContent: null,
 		onSettle: null,
 		onHistory: null,
+		onScrolled: null,
 		sizes: null,
 		content: null,
 
@@ -208,6 +209,16 @@ export function registerTocData(Alpine) {
 			// popstate, which would undo a container position put back here.
 			this.onHistory = (event) => requestAnimationFrame(() => this.revisit(event.state));
 			window.addEventListener("popstate", this.onHistory);
+			// The browser files no position for a container, so each scroll
+			// of it that comes to rest is filed on the entry by hand, and
+			// Back or Forward from any link, a plain #fragment one included,
+			// finds it there. On rest rather than on every frame, which
+			// would run into the browser's limit on replaceState.
+			this.onScrolled = (event) => {
+				if (event.target !== scrollerOf(this.container)) return;
+				history.replaceState({ ...history.state, hueTocScroll: event.target.scrollTop }, "");
+			};
+			document.addEventListener("scrollend", this.onScrolled, true);
 
 			// The nav's own width decides where the labels wrap, which is
 			// what the rail is drawn from. It fires once on observe too,
@@ -245,6 +256,7 @@ export function registerTocData(Alpine) {
 			document.removeEventListener("scroll", this.onMove, true);
 			window.removeEventListener("resize", this.onMove);
 			window.removeEventListener("popstate", this.onHistory);
+			document.removeEventListener("scrollend", this.onScrolled, true);
 			window.removeEventListener("load", this.onSettle);
 			this.sizes?.disconnect();
 			this.content?.disconnect();
