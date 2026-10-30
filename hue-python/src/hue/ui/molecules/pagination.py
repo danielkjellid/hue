@@ -46,16 +46,21 @@ _STEPS = {
     "next": ("Next page", "chevron-right"),
 }
 
-# Wraps rather than running out of a narrow container.
-_ROW = "flex min-w-0 flex-wrap items-center gap-1"
+# Wraps rather than running out of a narrow container. Narrow, the gaps
+# close to a pixel, which is what lets five 40px pages fit beside the steps.
+_ROW = "flex min-w-0 flex-wrap items-center gap-1 @max-md:gap-px"
 
 # Below this width the numbers either side of the current page fold away,
 # so the row of steps stays on one line at 320px, even with a phone's 40px
 # targets.
 _WIDE_ONLY = "@max-md:hidden"
 _NARROW_ONLY = "@md:hidden"
-# The most slots between the steps that still fit a narrow row.
-_NARROW_SLOTS = 5
+# A narrow row as a phone draws it: 288px, which is 320 less two 16px
+# gutters, less the two steps, holds pages at 40px and ellipses at 28px,
+# each with its 1px gap. A wide window that fits is kept narrow too.
+_NARROW_ROOM = 288 - 2 * 41
+_PAGE_WIDTH = 41
+_ELLIPSIS_WIDTH = 29
 
 
 class Pagination(SwapsTarget):
@@ -199,9 +204,8 @@ class Pagination(SwapsTarget):
     def _numbers(self, page: int, total_pages: int) -> list[ComponentType]:
         wide = _window(page, total_pages, self._get_prop("sibling_count", 1))
         narrow = _window(page, total_pages, 0)
-        # Each ellipsis takes a slot too.
         gaps = sum(after - before > 1 for before, after in pairwise(wide))
-        if len(wide) + gaps <= _NARROW_SLOTS:
+        if len(wide) * _PAGE_WIDTH + gaps * _ELLIPSIS_WIDTH <= _NARROW_ROOM:
             narrow = wide
 
         # Both windows in one row: the numbers only the wide one shows hide
