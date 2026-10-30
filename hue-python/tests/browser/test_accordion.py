@@ -76,3 +76,20 @@ def test_the_first_invalid_section_stays_open_with_focus(show: Show) -> None:
     expect(card).to_be_focused()
     expect(card).to_be_visible()
     expect(page.get_by_role("textbox", name="Plan")).to_be_hidden()
+
+
+def test_enter_in_a_field_opens_the_invalid_section(show: Show) -> None:
+    # Enter in a field submits the form, as a click on Save does.
+    page = show(
+        _form(
+            AccordionItem()
+            .title("Billing")
+            .open()
+            .content(TextInput().name("card").label("Card")),
+            AccordionItem()
+            .title("Plans")
+            .content(TextInput().name("plan").label("Plan").required()),
+        )
+    )
+    page.get_by_role("textbox", name="Card").press("Enter")
+    expect(page.get_by_role("textbox", name="Plan")).to_be_focused()

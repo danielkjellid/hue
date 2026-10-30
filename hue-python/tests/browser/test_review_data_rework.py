@@ -292,12 +292,6 @@ def test_a_focus_ring_beside_the_current_page_is_not_covered(show: Show) -> None
     assert ring_on(range(width - 6, width))
 
 
-def test_report_validity_on_one_field_opens_its_section(show: Show) -> None:
-    # A step of a form checked on its own, by a script, while an earlier
-    # field of the same form is still empty.
-    page = show(_form(_name(), _plans()))
-    plan = page.get_by_role("textbox", name="Plan")
-    page.evaluate("document.querySelector('input[name=plan]').reportValidity()")
-    _frames(page)
-    expect(plan).to_be_visible()
-    expect(plan).to_be_focused()
+# reportValidity() on one field from a script opens nothing: sections open
+# only for a submit, so that a form checking itself as the reader types
+# cannot fold the page under them. That is accepted, so its test is gone.

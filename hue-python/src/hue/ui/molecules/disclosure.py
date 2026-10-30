@@ -31,7 +31,32 @@ _CHEVRON = (
 # is display: none, or a heading the contents is going to. The panel is
 # shown there and then, since x-show only gets to it after the browser has
 # looked. Capturing, because invalid does not bubble.
-_OPEN_NOW = unsafe("open = true; $el.style.removeProperty('display')")
+#
+# Only on a submit, which is when the browser reports a field: a form that
+# calls checkValidity() as the reader types fires invalid too, and opening a
+# section then would move the page under them. A submit is a click on a
+# submit control, which Enter in a field makes as well, or Enter in a field
+# of a form with none; it validates in the same task. A script calling
+# requestSubmit() or reportValidity() opens nothing.
+SUBMIT_STATE = (
+    "submitting: false, "
+    "noteSubmit() { this.submitting = true; "
+    "setTimeout(() => { this.submitting = false }) }"
+)
+SUBMIT_LISTENERS = {
+    "x-on:click.capture.document": (
+        "if ($event.target.closest?.('button:not([type]), button[type=submit], "
+        "input[type=submit], input[type=image]')?.form) noteSubmit()"
+    ),
+    "x-on:keydown.capture.document": (
+        "if ($event.key === 'Enter' && $event.target.form "
+        "&& $event.target.matches('input')) noteSubmit()"
+    ),
+}
+_OPEN_NOW = unsafe(
+    "if ($event.type === 'invalid' && !submitting) return; "
+    "open = true; $el.style.removeProperty('display')"
+)
 _REVEAL = {"x-on:invalid.capture": _OPEN_NOW, "x-on:hue-reveal": _OPEN_NOW}
 
 
@@ -110,7 +135,8 @@ class Disclosure(ChainableComponent):
             # section and leave the panel hanging over whatever follows.
             class_=classnames("w-full", self._get_prop("class_")),
             **{
-                "x-data": f"{{ open: {str(starts_open).lower()} }}",
+                "x-data": f"{{ open: {str(starts_open).lower()}, {SUBMIT_STATE} }}",
+                **SUBMIT_LISTENERS,
                 "x-id": "['hue-disclosure-title', 'hue-disclosure-panel']",
                 **self._get_base_html_attrs(),
             },

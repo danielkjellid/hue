@@ -10,6 +10,7 @@ from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.disclosure import SUBMIT_LISTENERS, SUBMIT_STATE
 from hue.utils import classnames, render_if
 
 type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
@@ -118,6 +119,7 @@ class Accordion(ChainableComponent):
             **{
                 "x-data": state,
                 "x-on:invalid.capture.document": "noteInvalid($event.target)",
+                **SUBMIT_LISTENERS,
                 **self._get_base_html_attrs(),
             },
         )
@@ -136,14 +138,17 @@ class Accordion(ChainableComponent):
 # every invalid field at once, in order, and reportValidity() on one field
 # at that field alone. noteInvalid hears every one of them, on the
 # document, before any panel does. Those left closed are also left
-# unreported, rather than logged as fields it could not focus.
+# unreported, rather than logged as fields it could not focus. All of it on
+# a submit only, as for a Disclosure.
 _REPORTED = "($event.type !== 'invalid' || reportedField === $event.target)"
 _REVEAL_METHOD = (
     "reportedField: null, "
-    "noteInvalid(field) { if (this.reportedField) return; "
+    f"{SUBMIT_STATE}, "
+    "noteInvalid(field) { if (!this.submitting || this.reportedField) return; "
     "this.reportedField = field; "
     "setTimeout(() => { this.reportedField = null }) }, "
     "revealSection(index, panel, event, reported) { "
+    "if (event.type === 'invalid' && !this.submitting) return; "
     "if (this.single && !reported && this.open.length && !this.shown(index)) "
     "return event.preventDefault(); "
     "if (!this.shown(index)) this.toggle(index); "

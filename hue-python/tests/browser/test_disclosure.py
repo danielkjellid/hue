@@ -1,7 +1,7 @@
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Disclosure, TextInput
+from hue.ui import Checkbox, Disclosure, TextInput
 from tests.browser.conftest import ORIGIN, Show
 
 
@@ -87,3 +87,21 @@ def test_a_valid_form_leaves_a_closed_section_closed(show: Show) -> None:
     expect(page.get_by_role("button", name="General")).to_have_attribute(
         "aria-expanded", "false"
     )
+
+
+def test_enter_in_a_field_of_a_form_without_a_button_opens_it(show: Show) -> None:
+    # A form whose one text field submits on Enter, with no button to click.
+    # A checkbox does not stop that, so it can be the invalid one.
+    page = show(
+        html.form(
+            TextInput().name("q").label("Search"),
+            Disclosure()
+            .title("General")
+            .closed()
+            .content(Checkbox().name("terms").label("Terms").required()),
+            action="/saved",
+            method="get",
+        )
+    )
+    page.get_by_role("textbox", name="Search").press("Enter")
+    expect(page.get_by_role("checkbox", name="Terms")).to_be_focused()
