@@ -10,7 +10,7 @@ dependencies = [
     # removed APIs that hue imports (e.g. htmy.core.Tag).
     "htmy==0.8.2",
     "pytailwindcss>=0.3.0",
-    # docs v2: served live by FastAPI, frozen with its TestClient, searched
+    # Served live by FastAPI, frozen with its TestClient, searched
     # through Pagefind's index.
     "fastapi>=0.115",
     "hue-fastapi>=0.1.0",
@@ -49,7 +49,7 @@ extend = "../ruff.toml"
 ##########
 
 [tool.deptry]
-known_first_party = ["hue_docs_v2"]
+known_first_party = ["hue_docs"]
 extend_exclude = ["tests", "test_.*\\.py", "worker"]
 
 [tool.deptry.per_rule_ignores]
@@ -59,7 +59,7 @@ DEP002 = [
     "pytailwindcss",
     # The TestClient freeze.py uses imports httpx itself.
     "httpx",
-    # Run as a command by make serve-v2.
+    # Run as a command by make serve.
     "uvicorn",
 ]
 

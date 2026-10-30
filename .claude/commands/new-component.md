@@ -34,7 +34,7 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. If the
    component has keyboard, focus or overlay behaviour, give it a docs page (see
-   `hue-docs/CLAUDE.md`), run `make serve-v2` from `hue-docs/` and drive the page in a
+   `hue-docs/CLAUDE.md`), run `make serve` from `hue-docs/` and drive the page in a
    browser with real keys and pointer moves: Tab, the arrow keys, Escape, and where focus
    lands when anything closes.
 

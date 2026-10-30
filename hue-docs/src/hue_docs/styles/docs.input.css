@@ -1,0 +1,38 @@
+/*
+ * Tailwind entry point for the docs. hue's own input brings the tokens, the
+ * dark variant and Tailwind itself; the sources are hue's components and
+ * this package, whose class names are string literals in its .py files.
+ */
+
+@import "../../../../hue-python/src/hue/static/styles/tailwind.input.css";
+
+@source "../../../../hue-python/src/hue";
+@source "../";
+
+@layer components {
+  .docs-inline-code {
+    @apply rounded-xs border border-border bg-surface-sunken px-[5px] py-px font-mono text-[0.9em] text-fg;
+  }
+
+  .docs-excerpt mark {
+    @apply bg-transparent font-semibold text-accent-text;
+  }
+
+  /* Shiki's output, with both themes' colours on every token as variables. */
+  .docs-code .shiki {
+    @apply overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 font-mono text-xs leading-[1.7] outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
+  }
+
+  .docs-code .shiki span {
+    color: var(--shiki-light);
+  }
+
+  [data-theme="dark"] .docs-code .shiki span {
+    color: var(--shiki-dark);
+  }
+
+  /* A block inside something that already has an edge and corners. */
+  .docs-code-flush .shiki {
+    @apply rounded-none border-0;
+  }
+}

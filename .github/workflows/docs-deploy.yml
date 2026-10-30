@@ -24,7 +24,7 @@ permissions:
 jobs:
   # The frozen site as static assets, with a Python Worker for the live
   # demos under /demos/.
-  deploy-v2:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
 
       - name: Build the site and the Worker
         working-directory: hue-docs
-        run: make build-v2 worker-v2
+        run: make build worker
 
       - name: Ship it
         id: ship
@@ -104,8 +104,8 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          marker='<!-- hue-docs-v2-preview -->'
-          body=$(printf '%s\n### Docs v2 preview\n\n%s\n\nBuilt from `%s` on `%s`.' \
+          marker='<!-- hue-docs-preview -->'
+          body=$(printf '%s\n### Docs preview\n\n%s\n\nBuilt from `%s` on `%s`.' \
             "$marker" "$URL" "${GITHUB_SHA:0:7}" "$BRANCH")
           repo='${{ github.repository }}'
           existing=$(gh api "repos/$repo/issues/$PR/comments" --paginate \

@@ -1,16 +1,16 @@
 # hue-docs: writing the documentation
 
-The site lives in `src/hue_docs_v2/`. The v2 name stays until the rename.
+The site lives in `src/hue_docs/`.
 
-## How v2 is built
+## How it is built
 
-- A FastAPI app (`app.py`) renders every page. `make serve-v2` runs it live on
+- A FastAPI app (`app.py`) renders every page. `make serve` runs it live on
   port 8001.
-- `make build-v2` freezes every page and frame to `dist-v2/` with the app's own
+- `make build` freezes every page and frame to `dist/` with the app's own
   TestClient, highlights code with Shiki, builds Tailwind and indexes the pages with
   Pagefind.
-- Cloudflare serves `dist-v2/` as static assets. A Python Worker (`worker/`) runs only
-  the routes under `/demos/`, which are the live demos. `make preview-v2` runs both
+- Cloudflare serves `dist/` as static assets. A Python Worker (`worker/`) runs only
+  the routes under `/demos/`, which are the live demos. `make preview` runs both
   locally the way Cloudflare does.
 
 ## Pages are declared, not discovered
@@ -50,7 +50,7 @@ the cell shows (`danger`, `icon_only`, `field_error`). Use `captions=False` on a
 whose examples already label themselves. Give every form control in a frame its own
 `name()`, because a frame with two controls of one name has two elements with one id.
 
-Use `Icon` from `hue_docs_v2.icons`. It stands in for the icon set a reader binds with
+Use `Icon` from `hue_docs.icons`. It stands in for the icon set a reader binds with
 `create_icon_base`, and the copied code says so.
 
 ### Panels
@@ -138,7 +138,7 @@ UI do not.
 
 ## Checks
 
-- `make lint` and `make test` from `hue-docs/`. The v2 suite is in `tests/v2/`. It
+- `make lint` and `make test` from `hue-docs/`. The suite is in `tests/`. It
   renders every page and frame, checks ids, checks that every class exists in the built
   stylesheet, and freezes and indexes the whole site.
 - Anything with keyboard, focus or overlay behaviour also gets a run in a real browser

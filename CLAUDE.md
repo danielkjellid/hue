@@ -51,8 +51,8 @@ uv run pytest tests          # hue-python, hue-django and hue-fastapi (no make t
 make test                    # hue-docs only
 
 # Docs (from hue-docs/)
-make build-v2                              # freeze the site → writes dist-v2/
-make serve-v2                              # live on http://localhost:8001
+make build                                 # freeze the site → writes dist/
+make serve                                 # live on http://localhost:8001
 
 # Assets (from hue-python/)
 make build        # build CSS + the Alpine JS bundle (hue-django serves them from the hue package)
@@ -168,7 +168,7 @@ and is deleted with the last of them.
 To restyle Hue, redefine a `--hue-*` ramp step and everything built on it moves with it, in
 both themes; to change one role only, redefine that alias.
 
-## Docs (`hue-docs/src/hue_docs_v2/`)
+## Docs (`hue-docs/src/hue_docs/`)
 
 The docs declare their pages in Python rather than discovering components; the rules for
 writing them are in `hue-docs/CLAUDE.md`. `hue-docs` pins `htmy==0.8.2` (APIs removed in
