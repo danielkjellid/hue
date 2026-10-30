@@ -1140,7 +1140,9 @@ class _TableSearch(_ToolbarForm):
             class_="min-w-0 flex-1 basis-64 sm:max-w-[340px]",
             **{
                 "data-hue-table-search": "",
-                "x-data": "hueTableSearch",
+                # The box's name, from here rather than off the box, which
+                # goes without it while an empty search is submitted.
+                "x-data": call("hueTableSearch", bound.declaration.param(_QUERY)),
                 "x-on:keydown.window.slash": "focusField($event)",
             },
         )

@@ -217,3 +217,40 @@ def test_enter_in_a_cleared_search_sends_no_query(show: Show) -> None:
     # A search typed next is still sent under its name.
     field.fill("2048")
     page.wait_for_url("**invoices-q=2048**")
+
+
+# Two submits closer than the timer that gives the box its name back: each
+# must leave the name as it was.
+def test_enter_pressed_twice_in_an_empty_search_keeps_its_name(show: Show) -> None:
+    page = show(_table("invoices"))
+    field = page.get_by_role("searchbox")
+    field.focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    expect(field).to_have_attribute("name", "invoices-q")
+    # A name lost for good is a search box that never searches again.
+    with page.expect_request(lambda r: "invoices-q=2050" in r.url, timeout=3000):
+        field.press_sequentially("2050")
+        field.press("Enter")
+
+
+def test_escape_then_enter_keeps_the_name(show: Show) -> None:
+    page = show(_table("invoices"))
+    field = page.get_by_role("searchbox")
+    field.fill("2050")
+    page.wait_for_url("**invoices-q=2050**")
+    field.press("Escape")
+    field.press("Enter")
+    expect(field).to_have_attribute("name", "invoices-q")
+    field.press_sequentially("2048")
+    field.press("Enter")
+    page.wait_for_url("**invoices-q=2048**")
+
+
+def test_two_submits_in_one_task_keep_the_name(show: Show) -> None:
+    page = show(_table("invoices"))
+    page.evaluate(
+        "(() => { const f = document.querySelector('[type=search]').form;"
+        " f.requestSubmit(); f.requestSubmit(); })()"
+    )
+    expect(page.get_by_role("searchbox")).to_have_attribute("name", "invoices-q")

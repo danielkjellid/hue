@@ -110,9 +110,10 @@ const TYPED =
 	"[type=submit], [type=reset], [type=image], [type=file], [type=range], [type=color])";
 
 export function registerTableSearch(Alpine) {
-	Alpine.data("hueTableSearch", () => ({
+	Alpine.data("hueTableSearch", (searchName = "") => ({
 		// The address the last search left in the bar.
 		searched: null,
+		searchName,
 
 		// A page-wide key can only belong to one thing. With two tables on
 		// the page there is no answer to which one slash means, so it means
@@ -159,18 +160,20 @@ export function registerTableSearch(Alpine) {
 		// An empty search leaves no trace in the URL, as an empty filter
 		// leaves none. Unnamed rather than disabled for the length of the
 		// submit, since disabling the box would take focus out of it.
+		// The name comes from the scope, never off the box: a second submit
+		// before the first one's timer would read it already gone.
 		dropEmpty() {
 			const field = this.$refs.field;
 			if (field.value) {
+				field.name = this.searchName;
 				return;
 			}
-			const name = field.name;
 			field.removeAttribute("name");
 			// A task rather than a microtask: after a real key press,
 			// microtasks run between submit listeners, before Alpine AJAX
 			// reads the form in its own.
 			setTimeout(() => {
-				field.name = name;
+				field.name = this.searchName;
 			});
 		},
 
