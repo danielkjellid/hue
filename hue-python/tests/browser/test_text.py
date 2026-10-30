@@ -1,7 +1,7 @@
 import pytest
 from htmy import html
 
-from hue.ui import Accordion, AccordionItem, Disclosure, Empty, Text
+from hue.ui import Accordion, AccordionItem, Disclosure, Empty, Label, Text
 from tests.browser.conftest import Show
 
 TYPE = ("fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing")
@@ -86,3 +86,35 @@ def test_the_variants_take_the_documented_type(
 ) -> None:
     page = show(Text("Words").variant(variant).id("t"))  # type: ignore[arg-type]
     assert _type(page, "#t")[1:3] == [size, weight]
+
+
+def _edges(page, selector: str) -> tuple[float, float]:  # type: ignore[no-untyped-def]
+    # Where the words sit inside their box, measured from each side.
+    return page.locator(selector).evaluate(
+        """el => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const words = range.getBoundingClientRect();
+            const box = el.getBoundingClientRect();
+            return [words.left - box.left, box.right - words.right];
+        }"""
+    )
+
+
+@pytest.mark.parametrize("dir", ["ltr", "rtl"])
+def test_text_starts_at_the_start_of_the_line(show: Show, dir: str) -> None:
+    page = show(
+        Text("שלום עולם").id("t"),
+        Label("שלום").id("l").class_("w-full"),
+        dir=dir,
+    )
+    for selector in ("#t", "#l"):
+        left, right = _edges(page, selector)
+        assert (left if dir == "ltr" else right) < 1, selector
+
+
+@pytest.mark.parametrize("dir", ["ltr", "rtl"])
+def test_text_aligned_to_the_end_sits_at_the_end(show: Show, dir: str) -> None:
+    page = show(Text("שלום עולם").align("end").id("t"), dir=dir)
+    left, right = _edges(page, "#t")
+    assert (right if dir == "ltr" else left) < 1

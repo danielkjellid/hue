@@ -38,8 +38,15 @@ type TextVariant = Literal[
 # instead, at zero specificity so the variant and class_() still win.
 _HEADING_RESET = "[:where(&)]:[font:inherit] [:where(&)]:[letter-spacing:inherit]"
 
-# The values double as the Tailwind classes they apply.
-type TextAlign = Literal["text-left", "text-center", "text-right"]
+# Logical sides, so a right-to-left page starts its lines on the right.
+type TextAlign = Literal["start", "center", "end", "justify"]
+
+_ALIGN_CLASSES: dict[TextAlign, str] = {
+    "start": "text-start",
+    "center": "text-center",
+    "end": "text-end",
+    "justify": "text-justify",
+}
 
 _VARIANT_CLASSES: dict[TextVariant, str] = {
     "title-1": "text-5xl font-bold",
@@ -59,7 +66,7 @@ class Text(ChainableComponent):
     label) using one of the design system's type scales via variant(). align()
     controls alignment and muted() / destructive() set the colour.
 
-        Text("Section title").variant("title-3").tag("h2").align("text-center")
+        Text("Section title").variant("title-3").tag("h2").align("center")
     """
 
     category = "Typography"
@@ -94,7 +101,7 @@ class Text(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         variant: TextVariant = self._get_prop("variant", "body")
-        align: TextAlign = self._get_prop("align", "text-left")
+        align: TextAlign = self._get_prop("align", "start")
         muted: bool = self._get_prop("muted", False)
         destructive: bool = self._get_prop("destructive", False)
         tag: TextTag = self._get_prop("tag", "p")
@@ -102,7 +109,7 @@ class Text(ChainableComponent):
         classes = classnames(
             {_HEADING_RESET: tag.startswith("h")},
             _VARIANT_CLASSES[variant],
-            align,
+            _ALIGN_CLASSES[align],
             {
                 # Destructive wins over muted when both are set.
                 "text-danger-text": destructive,
@@ -174,7 +181,7 @@ class Label(ChainableComponent):
         hidden_label: bool = self._get_prop("hidden_label", False)
 
         classes = classnames(
-            "inline-flex items-center gap-[5px] text-left",
+            "inline-flex items-center gap-[5px] text-start",
             "font-ui text-sm font-medium leading-[1.4]",
             classes_if_else(
                 disabled,
