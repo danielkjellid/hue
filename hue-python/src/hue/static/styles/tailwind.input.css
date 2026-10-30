@@ -728,12 +728,18 @@
     outline: none;
   }
 
+  /* FOCUS_RING drawn by the thumb, in the slider's tone, so an invalid
+     slider's ring is red like the rest of it. */
   &:focus-visible::-webkit-slider-thumb {
-    box-shadow: var(--shadow-ring);
+    box-shadow:
+      0 0 0 2px var(--color-canvas),
+      0 0 0 4px var(--slider-tone);
   }
 
   &:focus-visible::-moz-range-thumb {
-    box-shadow: var(--shadow-ring);
+    box-shadow:
+      0 0 0 2px var(--color-canvas),
+      0 0 0 4px var(--slider-tone);
   }
 
   &:disabled {
