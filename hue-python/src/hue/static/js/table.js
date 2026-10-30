@@ -111,6 +111,9 @@ const TYPED =
 
 export function registerTableSearch(Alpine) {
 	Alpine.data("hueTableSearch", () => ({
+		// The address the last search left in the bar.
+		searched: null,
+
 		// A page-wide key can only belong to one thing. With two tables on
 		// the page there is no answer to which one slash means, so it means
 		// neither and stays a slash, and neither box shows the hint for it.
@@ -132,6 +135,25 @@ export function registerTableSearch(Alpine) {
 			event.preventDefault();
 			this.$refs.field.focus();
 			this.$refs.field.select();
+		},
+
+		/**
+		 * Give a run of searches one history entry of its own.
+		 *
+		 * The form replaces the entry, or every pause in typing would be a
+		 * step for Back. The first search after anything else copies the
+		 * entry first, so the replace lands on the copy and Back still
+		 * reaches the page as it was. The original is marked __ajax so that
+		 * Alpine AJAX reloads it on the way back.
+		 */
+		keepPlace() {
+			if (location.href !== this.searched) {
+				history.replaceState({ ...history.state, __ajax: true }, "");
+				history.pushState(history.state, "", location.href);
+			}
+			// Before the response lands too, so a search typed while one is
+			// in flight does not copy the entry a second time.
+			this.searched = location.href;
 		},
 
 		clearField(event) {
