@@ -4,7 +4,7 @@ A props table lists what is particular to its component, read off the class.
 
 from __future__ import annotations
 
-from hue.ui import Button, TextInput
+from hue.ui import Button, PasswordInput, TextInput
 
 from hue_docs_v2.props import props_of
 
@@ -25,6 +25,14 @@ def test_a_literal_alias_is_spelled_out() -> None:
 
 def test_the_default_is_read_from_render() -> None:
     assert _by_name(Button)["variant"].default == "'primary'"
+
+
+def test_a_default_is_read_from_the_render_a_subclass_overrides() -> None:
+    # PasswordInput's own _render reads only revealable; size is read in the
+    # base's _render, which it calls through super().
+    names = _by_name(PasswordInput)
+    assert names["size"].default == "'md'"
+    assert names["revealable"].default == "False"
 
 
 def test_a_long_literal_is_cut_short() -> None:

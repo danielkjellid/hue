@@ -83,23 +83,28 @@ def _defaults(cls: type[ChainableComponent]) -> dict[str, Any]:
     """
     Read from the literal default of every _get_prop("name", literal) in
     _render, then whatever the constructor sets, which is how EmailInput gets
-    its autocomplete.
+    its autocomplete. Every _render in the class's bases is read too, base
+    first, since an override such as PasswordInput's hands the rest to super().
     """
     defaults: dict[str, Any] = {}
-    try:
-        source = textwrap.dedent(inspect.getsource(cls._render))
-    except (OSError, TypeError):
-        source = ""
-    for node in ast.walk(ast.parse(source)):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "_get_prop"
-            and len(node.args) == 2
-            and isinstance(node.args[0], ast.Constant)
-            and isinstance(node.args[1], ast.Constant)
-        ):
-            defaults[str(node.args[0].value)] = node.args[1].value
+    for base in reversed(cls.__mro__):
+        render = vars(base).get("_render")
+        if render is None:
+            continue
+        try:
+            source = textwrap.dedent(inspect.getsource(render))
+        except (OSError, TypeError):
+            continue
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "_get_prop"
+                and len(node.args) == 2
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[1], ast.Constant)
+            ):
+                defaults[str(node.args[0].value)] = node.args[1].value
     try:
         defaults.update(cls()._props)
     except TypeError:
