@@ -119,6 +119,14 @@ class TestProgress:
         with pytest.raises(ValueError, match="label"):
             await render_tree(Progress().value(64), context_args=context_args)
 
+    @pytest.mark.parametrize("label", ["", "   "])
+    @pytest.mark.asyncio
+    async def test_a_blank_label_is_no_name(self, context_args, label):
+        with pytest.raises(ValueError, match="label"):
+            await render_tree(
+                Progress().value(64).label(label), context_args=context_args
+            )
+
     @pytest.mark.asyncio
     async def test_indeterminate_label_shows_no_percentage(self, context_args):
         html = await render_tree(
@@ -160,6 +168,14 @@ class TestProgressRing:
         assert_attr(
             html, 'svg[role="img"]', "aria-label", "Storage used, 28 percent complete"
         )
+
+    @pytest.mark.parametrize("label", ["", "   "])
+    @pytest.mark.asyncio
+    async def test_a_blank_label_is_left_out(self, context_args, label):
+        html = await render_tree(
+            ProgressRing().value(28).label(label), context_args=context_args
+        )
+        assert_attr(html, 'svg[role="img"]', "aria-label", "28 percent complete")
 
     @pytest.mark.asyncio
     async def test_the_arc_matches_the_value(self, context_args):

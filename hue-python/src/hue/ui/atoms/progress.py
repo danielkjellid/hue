@@ -116,7 +116,7 @@ class Progress(ChainableComponent):
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
         size: ProgressSize = self._get_prop("size", "md")
-        label: str | None = self._get_prop("label")
+        label: str | None = (self._get_prop("label") or "").strip() or None
         hidden_label: bool = self._get_prop("hidden_label", False)
         raw: float | None = self._get_prop("value")
         indeterminate: bool = self._get_prop("indeterminate", False)
@@ -226,7 +226,7 @@ class ProgressRing(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         variant: ProgressVariant = self._get_prop("variant", "accent")
-        label: str | None = self._get_prop("label")
+        label: str | None = (self._get_prop("label") or "").strip() or None
         show_value: bool = self._get_prop("show_value", False)
         value = _clamp(self._get_prop("value", 0))
 
