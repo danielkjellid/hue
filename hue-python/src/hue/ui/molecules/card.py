@@ -131,7 +131,7 @@ class Card(ChainableComponent):
         linked = href is not None or self._get_prop("interactive", False)
 
         classes = classnames(
-            "flex flex-col overflow-hidden rounded-lg border",
+            "flex flex-col overflow-clip rounded-lg border",
             _VARIANT_CLASSES[variant],
             _LINKED_CLASSES if linked else "",
             self._get_prop("class_"),

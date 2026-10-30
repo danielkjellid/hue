@@ -220,7 +220,10 @@ class DataTable(ChainableComponent):
     empty() and error() replace the rows with a message, compact()
     tightens the rows, and group_by() splits them into sections. Sorting,
     searching and acting on picked rows need the server, so they come with
-    a table drawn from a declaration: DataTable.from_state().
+    a table drawn from a declaration: DataTable.from_state(). It scrolls
+    its own rows sideways, so do not wrap it in an element that sets
+    overflow: that element would hold the bar for picked rows, which sticks
+    to the foot of what the table scrolls in.
     """
 
     category = "Data"
