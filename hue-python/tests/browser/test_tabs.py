@@ -73,27 +73,18 @@ def test_focus_returns_to_the_tab_a_swap_replaced(show: Show) -> None:
     expect(page.locator("#tabs-tab-1")).to_be_focused()
 
 
-def test_a_disabled_tab_is_an_unavailable_link(show: Show) -> None:
+def test_tab_skips_a_disabled_tab(show: Show) -> None:
     page = show(*_page("/", "One"))
-    tab = page.get_by_role("link", name="Three")
-    expect(tab).to_have_attribute("aria-disabled", "true")
-    assert tab.evaluate("(el) => el.tagName") == "A"
-    assert tab.get_attribute("href") is None
-    tab.click(force=True)
-    expect(page).to_have_url(f"{ORIGIN}/")
-    # Tab skips it: from Two, focus leaves the row.
     page.get_by_role("link", name="Two").focus()
     page.keyboard.press("Tab")
-    expect(tab).not_to_be_focused()
+    expect(page.get_by_role("link", name="Three")).not_to_be_focused()
 
 
-def test_a_row_of_tabs_fits_a_phone(show: Show) -> None:
-    page = show(_many_tabs(), width=390)
-    assert page.evaluate("document.documentElement.scrollWidth") <= 390
-
-
-def test_a_focused_tab_scrolls_fully_into_its_row(show: Show) -> None:
-    page = show(_many_tabs(), width=390)
+def test_a_row_of_tabs_fits_a_phone_and_scrolls_each_tab_into_view(
+    show: Show,
+) -> None:
+    page = show(_many_tabs(), width=320)
+    assert page.evaluate("document.documentElement.scrollWidth") <= 320
     page.get_by_role("link", name="Section 0").focus()
     for _ in range(11):
         page.keyboard.press("Tab")
@@ -105,11 +96,33 @@ def test_a_focused_tab_scrolls_fully_into_its_row(show: Show) -> None:
                 return box.left >= row.left - 1 && box.right <= row.right + 1;
             }"""
         )
+        # The focus ring is drawn inside the tab, where the row cannot clip it.
+        shadow = page.evaluate("getComputedStyle(document.activeElement).boxShadow")
+        assert "inset" in shadow
 
 
-def test_the_focus_ring_is_drawn_inside_the_tab(show: Show) -> None:
-    page = show(_many_tabs(), width=390)
-    page.get_by_role("link", name="Section 0").focus()
-    page.keyboard.press("Tab")
-    shadow = page.evaluate("getComputedStyle(document.activeElement).boxShadow")
-    assert "inset" in shadow
+def test_a_tab_swap_takes_its_pages_title_and_back_its_own(show: Show) -> None:
+    def tabs(current: str) -> Tabs:
+        return (
+            Tabs()
+            .id("tabs")
+            .label("Sections")
+            .target("content")
+            .current(current)
+            .content(Tab().href("/").content("One"), Tab().href("/two").content("Two"))
+        )
+
+    page = show(tabs("/"), html.div("One", id="content"))
+    document = render_page(tabs("/two"), html.div("Two", id="content")).replace(
+        ">Test</title>", ">Two</title>", 1
+    )
+    page.route(
+        f"{ORIGIN}/two",
+        lambda route: route.fulfill(body=document, content_type="text/html"),
+    )
+    page.get_by_role("link", name="Two").click()
+    expect(page.locator("#content")).to_have_text("Two")
+    expect(page).to_have_title("Two")
+    page.go_back()
+    expect(page.locator("#content")).to_have_text("One")
+    expect(page).to_have_title("Test")

@@ -1,5 +1,5 @@
 import pytest
-from playwright.sync_api import expect
+from playwright.sync_api import Locator, Page, expect
 
 from hue.ui import Select, SelectOption, TextInput
 from hue.ui.atoms.icon import HueIcon
@@ -47,22 +47,15 @@ def test_fast_typing_from_closed_keeps_letters_in_order(show: Show) -> None:
     expect(page.locator("input[name=fruit]")).to_have_value("bravo")
 
 
-def test_open_invalid_select_stays_red(show: Show) -> None:
+def test_open_invalid_select_stays_red_with_a_solid_ring(show: Show) -> None:
     page = still(show(_fruit().error("Pick one")))
     trigger = page.get_by_role("combobox", name="Fruit")
     trigger.click()
     expect(trigger).to_have_attribute("aria-expanded", "true")
     expect(trigger).to_have_css("border-top-color", token(page, "danger"))
-    assert token(page, "accent-subtle") not in css(trigger, "boxShadow")
-
-
-def test_open_invalid_select_draws_a_solid_danger_ring(show: Show) -> None:
-    page = still(show(_fruit().error("Pick one")))
-    trigger = page.get_by_role("combobox", name="Fruit")
-    trigger.click()
-    expect(trigger).to_have_attribute("aria-expanded", "true")
-    ring = f"{token(page, 'danger')} 0px 0px 0px 2px"
-    assert ring in css(trigger, "boxShadow")
+    shadow = css(trigger, "boxShadow")
+    assert f"{token(page, 'danger')} 0px 0px 0px 2px" in shadow
+    assert token(page, "accent-subtle") not in shadow
 
 
 def test_open_valid_select_keeps_its_accent_halo(show: Show) -> None:
@@ -122,6 +115,70 @@ def test_reopening_while_the_list_fades_out_raises_nothing(show: Show) -> None:
     expect(page.get_by_role("listbox")).to_be_hidden()
 
 
+_RECORD_REJECTION = """reason => new Promise(done => {
+    window.addEventListener("unhandledrejection", (event) => {
+        // Read after every listener before this one has had its say, then
+        // handled here so the test's own fixture does not see it.
+        const prevented = event.defaultPrevented;
+        event.preventDefault();
+        done(prevented);
+    }, { once: true });
+    Promise.reject(reason === "cancelled" ? { isFromCancelledTransition: true }
+        : new Error("real"));
+})"""
+
+
+def test_only_a_cancelled_transition_rejection_is_handled(show: Show) -> None:
+    page = show(_fruit())
+    assert page.evaluate(_RECORD_REJECTION, "cancelled") is True
+    assert page.evaluate(_RECORD_REJECTION, "real") is False
+
+
+def _tiers() -> Select:
+    return (
+        Select()
+        .name("plan")
+        .label("Plan")
+        .content(
+            SelectOption().value("free").label("Free"),
+            SelectOption().value("team").label("Team").disabled(),
+            SelectOption().value("pro").label("Pro"),
+            SelectOption().value("max").label("Max"),
+        )
+    )
+
+
+def _active(page: Page) -> Locator:
+    return page.locator("[role=option][data-active]")
+
+
+def test_home_end_paging_skip_disabled_options(show: Show) -> None:
+    page = show(_tiers())
+    page.get_by_role("combobox", name="Plan").focus()
+    page.keyboard.press("End")
+    expect(_active(page)).to_have_attribute("data-value", "max")
+    page.keyboard.press("Home")
+    expect(_active(page)).to_have_attribute("data-value", "free")
+    page.keyboard.press("ArrowDown")
+    expect(_active(page)).to_have_attribute("data-value", "pro")
+    page.keyboard.press("PageDown")
+    expect(_active(page)).to_have_attribute("data-value", "max")
+    page.keyboard.press("PageUp")
+    expect(_active(page)).to_have_attribute("data-value", "free")
+    page.keyboard.press("Enter")
+    expect(page.locator("input[name=plan]")).to_have_value("free")
+
+
+def test_typeahead_moves_to_the_match_and_tab_chooses_it(show: Show) -> None:
+    page = show(_tiers())
+    page.get_by_role("combobox", name="Plan").focus()
+    page.keyboard.press("Enter")
+    page.keyboard.type("ma")
+    expect(_active(page)).to_have_attribute("data-value", "max")
+    page.keyboard.press("Tab")
+    expect(page.locator("input[name=plan]")).to_have_value("max")
+
+
 def _plans() -> Select:
     return (
         Select()
@@ -140,10 +197,7 @@ def _plans() -> Select:
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-@pytest.mark.parametrize("text", ["$0", "$12", "For growing teams"])
-def test_option_text_is_legible_active_or_selected(
-    show: Show, theme: str, text: str
-) -> None:
+def test_option_text_is_legible_active_or_selected(show: Show, theme: str) -> None:
     page = still(show(_plans(), theme=theme))
     page.get_by_role("combobox", name="Plan").focus()
     page.keyboard.press("Enter")
@@ -152,4 +206,6 @@ def test_option_text_is_legible_active_or_selected(
     expect(page.get_by_role("option", name="Pro")).to_have_attribute(
         "data-active", "true"
     )
-    assert contrast(page.get_by_role("listbox").get_by_text(text)) >= 4.5
+    listbox = page.get_by_role("listbox")
+    for text in ["$0", "$12", "For growing teams"]:
+        assert contrast(listbox.get_by_text(text)) >= 4.5, text

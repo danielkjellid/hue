@@ -1,15 +1,17 @@
-import pytest
-
 from hue.ui import ProgressRing
 from tests.browser.conftest import Show
 
 
-def test_a_ring_short_of_complete_shows_a_gap(show: Show) -> None:
-    page = show(ProgressRing().value(97).label("Upload"))
+def test_a_ring_keeps_its_gap_and_its_readout_inside(show: Show) -> None:
+    page = show(
+        ProgressRing().value(97).label("Upload").id("gap"),
+        ProgressRing().value(33.33333).show_value(),
+        ProgressRing().value(100).show_value(),
+    )
     # The drawn arc plus a round cap at each end, half the stroke each, has
-    # to leave part of the circle bare.
+    # to leave part of the circle bare short of complete.
     bare = (
-        page.locator("circle")
+        page.locator("#gap circle")
         .nth(1)
         .evaluate(
             "circle => { const style = getComputedStyle(circle); return"
@@ -17,14 +19,11 @@ def test_a_ring_short_of_complete_shows_a_gap(show: Show) -> None:
         )
     )
     assert bare >= 2
-
-
-@pytest.mark.parametrize("value", [33.33333, 100])
-def test_the_readout_fits_inside_the_ring(show: Show, value: float) -> None:
-    page = show(ProgressRing().value(value).show_value())
     # The text itself, measured against the hole the 5px stroke leaves.
-    width = page.get_by_text("%").evaluate(
-        "span => { const range = document.createRange();"
-        " range.selectNodeContents(span); return range.getBoundingClientRect().width }"
-    )
-    assert width < 2 * (21 - 2.5) - 4
+    for readout in page.get_by_text("%").all():
+        width = readout.evaluate(
+            "span => { const range = document.createRange();"
+            " range.selectNodeContents(span);"
+            " return range.getBoundingClientRect().width }"
+        )
+        assert width < 2 * (21 - 2.5) - 4

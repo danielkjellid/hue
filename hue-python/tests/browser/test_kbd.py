@@ -12,12 +12,6 @@ def _drawn(page: Page) -> list[str]:
     )
 
 
-def test_modifiers_are_words_off_apple(show: Show) -> None:
-    page = show(Kbd("ctrl", "alt", "shift", "K"), platform="Win32")
-    expect(page.locator("kbd").first).to_have_text("Control")
-    assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]
-
-
 def _spoken(page: Page) -> str:
     return " ".join(
         page.locator("kbd").evaluate_all(

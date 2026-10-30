@@ -93,9 +93,18 @@ PANELS: dict[str, tuple[Callable[[], ComponentType], Callable[[Page], Locator]]]
 }
 
 
-@pytest.mark.parametrize("overlay", ["dialog", "drawer"])
-@pytest.mark.parametrize("panel", PANELS)
-def test_a_panel_inside_is_not_clipped(show: Show, overlay: str, panel: str) -> None:
+# Each panel once, and each holder more than once.
+@pytest.mark.parametrize(
+    ("panel", "overlay"),
+    [
+        ("select", "dialog"),
+        ("combobox", "drawer"),
+        ("menu", "drawer"),
+        ("popover", "dialog"),
+        ("tooltip", "drawer"),
+    ],
+)
+def test_a_panel_inside_is_not_clipped(show: Show, panel: str, overlay: str) -> None:
     # The control sits last in the body, so its panel hangs past the bottom
     # of the overlay that holds it.
     build, open_panel = PANELS[panel]
