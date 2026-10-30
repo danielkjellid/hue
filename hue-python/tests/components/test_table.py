@@ -8,6 +8,7 @@ from hue.ui import (
     TableBody,
     TableCaption,
     TableCell,
+    TableColumnGroup,
     TableHead,
     TableHeader,
     TableRow,
@@ -55,6 +56,28 @@ class TestTable:
             TableHead().scope("row").content("Total"), context_args=context_args
         )
         assert_attr(html, "th", "scope", "row")
+
+    @pytest.mark.asyncio
+    async def test_column_groups_give_a_colgroup_header_its_columns(self, context_args):
+        # The W3C multi-level headers pattern: scope="colgroup" names a
+        # colgroup, so each group heading has one to stand over.
+        html = await render_tree(
+            Table().content(
+                TableColumnGroup(),
+                TableColumnGroup().span(2),
+                TableHeader().content(
+                    TableRow().content(
+                        TableCell(),
+                        TableHead().scope("colgroup").colspan(2).content("Mars"),
+                    ),
+                ),
+            ),
+            context_args=context_args,
+        )
+        groups = select(html, "table > colgroup")
+        assert [group.get("span") for group in groups] == [None, "2"]
+        assert select(html, "table > *")[2].name == "thead"
+        assert_attr(html, "th", "scope", "colgroup")
 
     @pytest.mark.asyncio
     async def test_cell_colspan_and_align(self, context_args):

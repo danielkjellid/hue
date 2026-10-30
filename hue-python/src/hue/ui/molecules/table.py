@@ -61,12 +61,12 @@ class Table(ChainableComponent):
     """
     A table, built from the parts a table is made of.
 
-    TableCaption, TableHeader, TableBody, TableFooter, TableRow, TableHead
-    and TableCell mirror the HTML elements one for one. compact() sets the
-    padding for every cell at once, and footer() is where an empty or error
-    state goes - inside the frame, under the header. A table whose rows are
-    on their way says so with aria_busy("true"), and stands in for them
-    with whatever placeholder rows it likes.
+    TableCaption, TableColumnGroup, TableHeader, TableBody, TableFooter,
+    TableRow, TableHead and TableCell mirror the HTML elements one for one.
+    compact() sets the padding for every cell at once, and footer() is where
+    an empty or error state goes - inside the frame, under the header. A
+    table whose rows are on their way says so with aria_busy("true"), and
+    stands in for them with whatever placeholder rows it likes.
 
     For a list of records, reach for DataTable, which builds all of this from
     a column definition and your rows.
@@ -226,6 +226,29 @@ class Table(ChainableComponent):
             id=frame_id,
             class_=classnames(_FRAME, _LOADING),
             **({"x-data": scope} if scope is not None else {}),
+        )
+
+
+class TableColumnGroup(ChainableComponent):
+    """
+    A colgroup: the columns a TableHead with scope("colgroup") heads.
+
+    span() is how many columns it covers, one by default. Groups go after
+    the caption and before the header, in column order, and a column
+    outside every group still takes a group of one to keep the count right.
+    """
+
+    category: ClassVar[str | None] = None
+
+    def span(self, value: int) -> Self:
+        self._props["span"] = value
+        return self
+
+    def _render(self, context: Context) -> Component:
+        return html.colgroup(
+            span=self._get_prop("span"),
+            class_=classnames(self._get_prop("class_")),
+            **self._get_base_html_attrs(),
         )
 
 
