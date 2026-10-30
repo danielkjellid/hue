@@ -115,7 +115,11 @@ class Accordion(ChainableComponent):
                 _BOXED if boxed else _PLAIN,
                 self._get_prop("class_"),
             ),
-            **{"x-data": state, **self._get_base_html_attrs()},
+            **{
+                "x-data": state,
+                "x-on:invalid.capture.document": "noteInvalid($event.target)",
+                **self._get_base_html_attrs(),
+            },
         )
 
 
@@ -128,14 +132,17 @@ class Accordion(ChainableComponent):
 # One at a time, a field the browser does not report opens its section only
 # while none is open, since opening it would close the section the reader is
 # in, or the one just opened for the field that is reported. The browser
-# reports the first invalid field in its form. Those left closed are also
-# left unreported, rather than logged as fields it could not focus.
-_REPORTED = (
-    "($event.type !== 'invalid' || !$event.target.form || "
-    "[...$event.target.form.elements].find("
-    "(el) => el.willValidate && !el.validity.valid) === $event.target)"
-)
+# reports the first field it fires invalid at in a task: a submit fires at
+# every invalid field at once, in order, and reportValidity() on one field
+# at that field alone. noteInvalid hears every one of them, on the
+# document, before any panel does. Those left closed are also left
+# unreported, rather than logged as fields it could not focus.
+_REPORTED = "($event.type !== 'invalid' || reportedField === $event.target)"
 _REVEAL_METHOD = (
+    "reportedField: null, "
+    "noteInvalid(field) { if (this.reportedField) return; "
+    "this.reportedField = field; "
+    "setTimeout(() => { this.reportedField = null }) }, "
     "revealSection(index, panel, event, reported) { "
     "if (this.single && !reported && this.open.length && !this.shown(index)) "
     "return event.preventDefault(); "
