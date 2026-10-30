@@ -15,15 +15,23 @@
  * in, if it is still on the page. Failing that `fallback`, made focusable for
  * the purpose, which stays where `root` was.
  *
+ * Both default to the dialog around `root`, if there is one: a modal's focus
+ * trap refuses anything outside it, which would leave focus on the element
+ * that is hiding.
+ *
  * Anything inert is passed over, so an element on its way out is not chosen.
  */
+const DIALOG = "[role=dialog], [role=alertdialog]";
+
 function handOff(
 	focus,
 	root,
 	{
-		within = document.body,
+		within = root.parentElement?.closest(DIALOG) ?? document.body,
 		returnTo = null,
-		fallback = root.parentElement ?? document.body,
+		fallback = root.parentElement?.closest(DIALOG) ??
+			root.parentElement ??
+			document.body,
 	} = {},
 ) {
 	const reachable = focus
@@ -51,24 +59,11 @@ function handOff(
 }
 
 export function registerDismissibleData(Alpine) {
-	// $handOff(root, options): for an inline expression, such as a Toast's,
-	// which cannot import this module.
+	// $handOff(root, options): for an inline expression, such as an Alert's
+	// or a Toast's, which cannot import this module.
 	Alpine.magic(
 		"handOff",
 		(el) => (root, options) =>
 			handOff(Alpine.evaluate(el, "$focus"), root, options),
 	);
-
-	// hueDismissible: a box with a close button inside it.
-	Alpine.data("hueDismissible", () => ({
-		shown: true,
-
-		dismiss() {
-			// Focus that is somewhere else already is left where it is.
-			if (this.$root.contains(document.activeElement)) {
-				this.$handOff(this.$root);
-			}
-			this.shown = false;
-		},
-	}));
 }

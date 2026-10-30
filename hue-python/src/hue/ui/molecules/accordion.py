@@ -10,6 +10,7 @@ from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
+from hue.ui.molecules.disclosure import SUBMIT_LISTENERS, SUBMIT_STATE
 from hue.utils import classnames, render_if
 
 type HeadingLevel = Literal["h2", "h3", "h4", "h5", "h6"]
@@ -101,7 +102,8 @@ class Accordion(ChainableComponent):
             "shown(index) { return this.open.includes(index) }, "
             "toggle(index) { this.open = this.shown(index) "
             "? this.open.filter((each) => each !== index) "
-            ": (this.single ? [index] : [...this.open, index]) } }"
+            ": (this.single ? [index] : [...this.open, index]) }, "
+            f"{_REVEAL_METHOD} }}"
         )
 
         return html.div(
@@ -114,8 +116,44 @@ class Accordion(ChainableComponent):
                 _BOXED if boxed else _PLAIN,
                 self._get_prop("class_"),
             ),
-            **{"x-data": state, **self._get_base_html_attrs()},
+            **{
+                "x-data": state,
+                "x-on:invalid.capture.document": "noteInvalid($event.target)",
+                **SUBMIT_LISTENERS,
+                **self._get_base_html_attrs(),
+            },
         )
+
+
+# Opens a section for something inside it that has to be seen, as a
+# Disclosure does: an invalid field the browser is about to focus, which it
+# gives up on while the panel is display: none, or a heading the contents is
+# going to. The panel is shown there and then, since x-show only gets to it
+# after the browser has looked.
+#
+# One at a time, a field the browser does not report opens its section only
+# while none is open, since opening it would close the section the reader is
+# in, or the one just opened for the field that is reported. The browser
+# reports the first field it fires invalid at in a task: a submit fires at
+# every invalid field at once, in order, and reportValidity() on one field
+# at that field alone. noteInvalid hears every one of them, on the
+# document, before any panel does. Those left closed are also left
+# unreported, rather than logged as fields it could not focus. All of it on
+# a submit only, as for a Disclosure.
+_REPORTED = "($event.type !== 'invalid' || reportedField === $event.target)"
+_REVEAL_METHOD = (
+    "reportedField: null, "
+    f"{SUBMIT_STATE}, "
+    "noteInvalid(field) { if (!this.submitting || this.reportedField) return; "
+    "this.reportedField = field; "
+    "setTimeout(() => { this.reportedField = null }) }, "
+    "revealSection(index, panel, event, reported) { "
+    "if (event.type === 'invalid' && !this.submitting) return; "
+    "if (this.single && !reported && this.open.length && !this.shown(index)) "
+    "return event.preventDefault(); "
+    "if (!this.shown(index)) this.toggle(index); "
+    "panel.style.removeProperty('display') }"
+)
 
 
 class AccordionItem(ChainableComponent):
@@ -149,6 +187,7 @@ class AccordionItem(ChainableComponent):
         index: int = self._get_prop("index", 0)
         heading: HeadingLevel = self._get_prop("heading", "h3")
         shown = unsafe(f"shown({index})")
+        reveal = unsafe(f"revealSection({index}, $el, $event, {_REPORTED})")
 
         trigger = html.button(
             render_if(self._get_prop("title"), lambda text: text),
@@ -176,6 +215,8 @@ class AccordionItem(ChainableComponent):
                     ":aria-labelledby": "$id('hue-accordion-trigger')",
                     "x-show": shown,
                     "x-cloak": True,
+                    "x-on:invalid.capture": reveal,
+                    "x-on:hue-reveal": reveal,
                 },
             ),
             class_=self._get_prop("class_"),

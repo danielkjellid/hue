@@ -48,6 +48,12 @@ export function configureAlpine({ csrfToken, themeStorageKey }) {
 		},
 	});
 
+	// x-show rejects a promise when a fade out is cut short by reopening, and
+	// handles it only a tick later, so an overlay closed and opened again within
+	// that tick logs an uncaught rejection. Alpine ignores this one itself.
+	window.addEventListener("unhandledrejection", (event) => {
+		if (event.reason?.isFromCancelledTransition) event.preventDefault();
+	});
 	clearStaleBusyMarks();
 	keepFocusThroughSwaps();
 	markFirstHistoryEntry();

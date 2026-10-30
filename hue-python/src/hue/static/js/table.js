@@ -10,10 +10,10 @@
  * in once, because a sort, a page or a search replaces the rows without
  * replacing this scope.
  *
- * There is one selection per page. Each table's bar floats in the same spot,
- * so starting a selection in one table clears it in every other. Otherwise
- * one bar would cover another while its rows stayed ticked, and Escape would
- * clear both.
+ * There is one selection per page. Each table's bar sticks to the same
+ * foot of the window, so starting a selection in one table clears it in
+ * every other. Otherwise one bar would cover another while its rows stayed
+ * ticked, and Escape would clear both.
  */
 export function registerTableSelection(Alpine) {
 	Alpine.data("hueTableSelection", () => ({
@@ -154,6 +154,21 @@ export function registerTableSearch(Alpine) {
 			// Before the response lands too, so a search typed while one is
 			// in flight does not copy the entry a second time.
 			this.searched = location.href;
+		},
+
+		// An empty search leaves no trace in the URL, as an empty filter
+		// leaves none. Unnamed rather than disabled for the length of the
+		// submit, since disabling the box would take focus out of it.
+		dropEmpty() {
+			const field = this.$refs.field;
+			if (field.value) {
+				return;
+			}
+			const name = field.name;
+			field.removeAttribute("name");
+			queueMicrotask(() => {
+				field.name = name;
+			});
 		},
 
 		clearField(event) {

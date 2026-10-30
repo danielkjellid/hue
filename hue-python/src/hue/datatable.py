@@ -1696,6 +1696,7 @@ def _search_form(bound: BoundTable, form: str) -> ComponentType:
             # one entry of its own.
             "x-target.replace": rows_id(bound.key) or bound.key,
             f"@input.debounce.{_SEARCH_DELAY}": "$el.requestSubmit()",
+            "x-on:submit": "dropEmpty()",
             "x-on:ajax:before": "keepPlace()",
             "x-on:ajax:after": "searched = location.href",
         },

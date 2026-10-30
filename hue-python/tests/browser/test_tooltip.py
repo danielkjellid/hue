@@ -2,7 +2,7 @@ import pytest
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Button, Dialog, Kbd, Popover, Tooltip
+from hue.ui import Button, Dialog, DropdownMenu, Kbd, MenuItem, Popover, Tooltip
 from hue.ui.molecules.tooltip import TooltipPlacement
 from tests.browser.conftest import Show
 
@@ -177,11 +177,15 @@ def test_escape_closes_a_focused_tooltip(show: Show) -> None:
 
 def test_escape_closes_what_the_trigger_opened_before_its_tooltip(show: Show) -> None:
     page = show(Popover().title("Sharing").trigger(_tooltip()))
-    page.get_by_role("button", name="Copy").click()
-    expect(page.get_by_role("dialog", name="Sharing")).to_be_visible()
+    page.keyboard.press("Tab")
     expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog", name="Sharing")).to_be_visible()
+    # The popup is what the control is about now, so the label steps aside.
+    expect(page.get_by_role("tooltip")).to_be_hidden()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog", name="Sharing")).to_be_hidden()
+    expect(page.get_by_role("button", name="Copy")).to_be_focused()
 
 
 def _description(page: Page) -> str:
@@ -203,3 +207,107 @@ def test_the_keys_are_described_once_while_shown(show: Show) -> None:
     page = show(_tooltip().keys(Kbd("shift", "mod", "K")))
     _shown(page)
     assert _description(page) == "Copy to clipboard Shift Command K"
+
+
+def _menu_with_a_tooltip() -> DropdownMenu:
+    return (
+        DropdownMenu()
+        .label("Actions")
+        .trigger(Tooltip().content("More actions").trigger(Button().icon_only("More")))
+        .content(MenuItem().content("Rename"), MenuItem().content("Delete"))
+    )
+
+
+def test_a_menu_opened_after_its_tooltip_closes_on_the_first_escape(
+    show: Show,
+) -> None:
+    page = show(_menu_with_a_tooltip())
+    trigger = page.get_by_role("button", name="More")
+    trigger.hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    trigger.click()
+    expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("menu")).to_be_hidden()
+    expect(trigger).to_be_focused()
+
+
+def test_a_menu_opened_from_the_keyboard_hides_the_tooltip(show: Show) -> None:
+    page = show(_menu_with_a_tooltip())
+    page.keyboard.press("Tab")
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    expect(page.get_by_role("menuitem", name="Rename")).to_be_focused()
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("menu")).to_be_hidden()
+
+
+def _labelled(text: str) -> Tooltip:
+    return Tooltip().content("More actions").trigger(Button().content(text))
+
+
+# Each overlay opened from a control in a Tooltip, wrapped either way round,
+# with what shows once it is open.
+OPENED_BY_A_TOOLTIPPED_CONTROL = {
+    "menu": lambda wrap: wrap(
+        DropdownMenu().label("Actions").content(MenuItem().content("Rename")),
+        "menu",
+    ),
+    "popover": lambda wrap: wrap(Popover().title("Sharing"), "dialog"),
+    "dialog": lambda wrap: wrap(Dialog().title("Settings"), "dialog"),
+}
+
+
+def _control_in_tooltip(overlay, role):  # type: ignore[no-untyped-def]
+    return overlay.trigger(_labelled("Open")), role
+
+
+def _tooltip_around(overlay, role):  # type: ignore[no-untyped-def]
+    overlay.trigger(Button().content("Open"))
+    return Tooltip().content("More actions").trigger(overlay), role
+
+
+@pytest.mark.parametrize("wrap", [_control_in_tooltip, _tooltip_around])
+@pytest.mark.parametrize("overlay", OPENED_BY_A_TOOLTIPPED_CONTROL)
+def test_a_quick_click_never_shows_the_tooltip_over_what_it_opened(
+    show: Show,
+    overlay: str,
+    wrap,  # type: ignore[no-untyped-def]
+) -> None:
+    component, role = OPENED_BY_A_TOOLTIPPED_CONTROL[overlay](wrap)
+    page = show(component)
+    page.clock.install()
+    # Pointer on and pressed at once, so the hover's open is still pending.
+    page.get_by_role("button", name="Open").click()
+    popup = page.get_by_role(role)
+    expect(popup).to_be_visible()
+    page.clock.run_for(1000)
+    assert not page.evaluate(
+        "Alpine.$data(document.querySelector('[role=tooltip]')).shown"
+    )
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    page.keyboard.press("Escape")
+    expect(popup).to_be_hidden()
+
+
+def test_a_click_puts_the_label_away(show: Show) -> None:
+    page = show(_tooltip())
+    trigger = page.get_by_role("button", name="Copy")
+    trigger.hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    trigger.click()
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    expect(trigger).to_be_focused()
+
+
+def test_keyboard_activation_keeps_the_label_shown(show: Show) -> None:
+    # Shown on keyboard focus, hidden when focus moves on: Enter is neither.
+    page = show(_tooltip())
+    page.keyboard.press("Tab")
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("button", name="Copy")).to_be_focused()
+    # The state rather than the bubble, which takes a moment to fade out.
+    assert page.evaluate("Alpine.$data(document.querySelector('[role=tooltip]')).shown")

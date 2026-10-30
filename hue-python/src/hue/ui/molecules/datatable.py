@@ -69,10 +69,14 @@ _BAND_BOTTOM = (
     "pe-[calc(1rem_-_(var(--spacing-control-sm)_-_0.875rem)_/_2)]"
 )
 
-# The picked-rows bar floats at the foot of the viewport, over the page, so
-# it is in reach wherever the reader has scrolled and never pushes a row.
+# The picked-rows bar sits under the pager inside the table, and sticks to
+# the foot of whatever the table scrolls in while the table runs past it, so
+# it is in reach wherever the reader has scrolled. In the table's own flow,
+# it never covers the pager or the count, in a page, a scrolling column or a
+# clipping wrapper alike. Above the rows and the pager's focused step, below
+# the menus and dialogs that open over it.
 _BULK_BAR = (
-    "fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] "
+    "sticky bottom-6 z-20 mx-auto my-2 flex w-fit max-w-[calc(100%-1rem)] "
     "flex-wrap items-center gap-1 rounded-lg border border-border "
     "bg-surface-raised p-1 shadow-overlay"
 )
@@ -216,7 +220,10 @@ class DataTable(ChainableComponent):
     empty() and error() replace the rows with a message, compact()
     tightens the rows, and group_by() splits them into sections. Sorting,
     searching and acting on picked rows need the server, so they come with
-    a table drawn from a declaration: DataTable.from_state().
+    a table drawn from a declaration: DataTable.from_state(). It scrolls
+    its own rows sideways, so do not wrap it in an element that sets
+    overflow: that element would hold the bar for picked rows, which sticks
+    to the foot of what the table scrolls in.
     """
 
     category = "Data"
@@ -434,16 +441,14 @@ class DataTable(ChainableComponent):
 
     def _frame(self, table: Table) -> None:
         """
-        The bands around the rows: a toolbar above, the bar for picked rows
-        that floats over the page, and a band along the bottom.
+        The bands around the rows: a toolbar above, a band along the
+        bottom, and under it the bar for picked rows.
         """
         if toolbar := self._get_prop("toolbar", ()):
             table.toolbar(html.div(*toolbar, class_=_BAND))
         if self._get_prop("selectable") is not None:
             table.x_data("hueTableSelection")
-            # The bar floats over the page instead of taking a band in the
-            # frame, so picking rows never moves them.
-            table._floating(*self._bulk_bar())
+            table._sticky_bar(*self._bulk_bar())
 
         if under := self._get_prop("under", ()):
             table.under(html.div(*under, class_=_BAND_BOTTOM))
@@ -512,9 +517,8 @@ class DataTable(ChainableComponent):
         The bar for picked rows: how many there are, a way to clear them,
         and what can be done with them.
 
-        It is moved to the end of the body so it floats over the page, and
-        it keeps the table's Alpine scope when it moves. Escape clears the
-        selection too. The count is also announced from a live region that
+        It sticks to the foot of what the table scrolls in. Escape clears
+        the selection too. The count is also announced from a live region that
         stays displayed, because a region shown at the moment it has
         something to say is not read out, and the bar itself is hidden until
         a row is picked.
@@ -562,7 +566,7 @@ class DataTable(ChainableComponent):
             },
         )
         return (
-            html.template(bar, **{"x-teleport": "body"}),
+            bar,
             html.span(
                 role="status",
                 class_="sr-only",

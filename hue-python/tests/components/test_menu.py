@@ -334,3 +334,31 @@ class TestMenuParts:
             _menu(MenuLabel().content("Sharing")), context_args=context_args
         )
         assert_selector(html, '[role="menu"] div.uppercase')
+
+    @pytest.mark.asyncio
+    async def test_a_label_groups_the_items_up_to_the_next_separator(
+        self, context_args
+    ):
+        html = await render_tree(
+            _menu(
+                MenuItem().content("Open"),
+                MenuLabel().content("Sharing"),
+                MenuItem().content("Invite"),
+                MenuSeparator(),
+                MenuItem().content("Delete"),
+            ),
+            context_args=context_args,
+        )
+        (group,) = select(html, '[role="group"]')
+        assert group["x-id"] == "['hue-menu-label']"
+        assert group[":aria-labelledby"] == group.select_one(".uppercase")[":id"]
+        items = [item.get_text(strip=True) for item in group.select("button")]
+        assert items == ["Invite"]
+
+    @pytest.mark.asyncio
+    async def test_items_with_no_label_are_not_grouped(self, context_args):
+        html = await render_tree(
+            _menu(MenuItem().content("Open"), MenuSeparator()),
+            context_args=context_args,
+        )
+        assert_no_selector(html, '[role="group"]')

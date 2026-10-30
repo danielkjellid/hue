@@ -25,13 +25,17 @@ _SIDES: dict[DrawerSide, str] = {
 
 # The corners that face the page are rounded; the ones against the edge of
 # the screen are not, since there is nothing behind them to round away from.
+# A transform only knows left and right, so in a right-to-left page each side
+# moves the way the other one does in a left-to-right page.
 _PANELS: dict[DrawerSide, str] = {
     "end": "md:h-full md:max-h-full md:rounded-s-xl md:rounded-e-none "
     "md:border-t-0 md:border-s md:animate-drawer-end "
-    "md:group-[.leaving]:animate-drawer-end-out",
+    "md:group-[.leaving]:animate-drawer-end-out "
+    "md:rtl:animate-drawer-start md:rtl:group-[.leaving]:animate-drawer-start-out",
     "start": "md:h-full md:max-h-full md:rounded-e-xl md:rounded-s-none "
     "md:border-t-0 md:border-e md:animate-drawer-start "
-    "md:group-[.leaving]:animate-drawer-start-out",
+    "md:group-[.leaving]:animate-drawer-start-out "
+    "md:rtl:animate-drawer-end md:rtl:group-[.leaving]:animate-drawer-end-out",
     "bottom": "",
 }
 
@@ -43,7 +47,7 @@ _SIZES: dict[DrawerSize, str] = {
 }
 
 
-class Drawer(ChainableComponent):
+class Drawer(_overlay.WrapsTrigger):
     """
     A dialog that slides in from an edge, for a list or a form long enough
     that a centred box would be cramped.

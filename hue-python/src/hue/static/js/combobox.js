@@ -33,6 +33,12 @@ export function registerComboboxData(Alpine) {
 		values: selected.map((item) => item.value),
 
 		init() {
+			// A hidden list cannot scroll, and x-show reveals it some ticks
+			// after show() asks, so the active option is brought into view
+			// once the list has a size: on being shown, and as it is filtered.
+			new ResizeObserver(() => {
+				if (this.open) this.current()?.scrollIntoView({ block: "nearest" });
+			}).observe(this.$refs.listbox);
 			// A parent changing the bound value arrives here.
 			this.$watch("value", (value) => {
 				if (!this.multiple && value !== (this.selected[0]?.value ?? "")) {
@@ -77,11 +83,12 @@ export function registerComboboxData(Alpine) {
 			this.open = true;
 			this.filter();
 			if (which === "none") return;
-			this.$nextTick(() => {
-				const enabled = this.enabled();
-				const chosen = enabled.find((option) => this.chosen(option.dataset.value));
-				this.activate(which === "last" ? enabled.at(-1) : (chosen ?? enabled[0]));
-			});
+			// Now rather than a tick later, as in search(), so a key pressed
+			// in between finds the option active and an Escape that closes
+			// the list is not followed by an activation.
+			const enabled = this.enabled();
+			const chosen = enabled.find((option) => this.chosen(option.dataset.value));
+			this.activate(which === "last" ? enabled.at(-1) : (chosen ?? enabled[0]));
 		},
 
 		hide() {
@@ -199,8 +206,10 @@ export function registerComboboxData(Alpine) {
 				else if (altKey) this.hide();
 				else this.move(-1);
 			} else if (key === "Enter") {
-				// Closed, Enter is left to submit the form the field is in.
-				if (this.open && this.current()) {
+				// Closed, Enter is left to submit the form the field is in. Open,
+				// it is the list's even with nothing active, so a cleared or
+				// unmatched field never submits the value it no longer shows.
+				if (this.open) {
 					event.preventDefault();
 					this.choose(this.current());
 				}

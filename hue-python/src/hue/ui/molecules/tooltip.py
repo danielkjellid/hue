@@ -46,11 +46,11 @@ def _anchored(side: str) -> str:
 _OPEN_DELAY_MS = 400
 
 
-class Tooltip(ChainableComponent):
+class Tooltip(_overlay.WrapsTrigger):
     """
     A short label for the control it wraps.
 
-    Shown on hover and on focus, because a keyboard never hovers. Never put a
+    Shown on hover and on keyboard focus, because a keyboard never hovers. Never put a
     link or a button inside one: there is no way to reach it, and on a touch
     device the tooltip does not open at all - so what it says can never be the
     only place that information lives.
@@ -79,12 +79,6 @@ class Tooltip(ChainableComponent):
         self._props["trigger"] = value
         return self
 
-    def _trigger_control(self) -> ChainableComponent | None:
-        # The span this draws only holds the bubble; the control it wraps
-        # takes the click, the focus and the announcement.
-        trigger: ChainableComponent | None = self._get_prop("trigger")
-        return trigger._trigger_control() if trigger is not None else None
-
     def placement(self, value: TooltipPlacement) -> Self:
         self._props["placement"] = value
         return self
@@ -109,8 +103,9 @@ class Tooltip(ChainableComponent):
         # the description lands on the control rather than on the wrapper
         # around it - the only element a screen reader will read it from.
         bubble_id = "$id('hue-tooltip')"
-        if trigger is not None:
-            trigger.x_bind("aria-describedby", unsafe(bubble_id))
+        control = self._trigger_control()
+        if control is not None:
+            control.x_bind("aria-describedby", unsafe(bubble_id))
 
         bubble = html.div(
             *self._children,
@@ -145,6 +140,9 @@ class Tooltip(ChainableComponent):
             },
         )
 
+        # The control's own mark, which renders before anything it opens.
+        popup_open = f"({_overlay.TRIGGER}?.getAttribute('aria-expanded') === 'true')"
+
         return html.span(
             render_if(trigger, lambda control: control),
             bubble,
@@ -155,9 +153,17 @@ class Tooltip(ChainableComponent):
                 # scope, where the nearer name would win.
                 "x-data": "{ shown: false }",
                 "x-id": "['hue-tooltip']",
-                # Focus as well as hover, because a keyboard never hovers. The
-                # bubble sits inside the wrapper, so the pointer can move onto
-                # it and read it without the tooltip closing.
+                # Keyboard focus as well as hover, because a keyboard never
+                # hovers; a press focuses too, and the pointer is already
+                # covered. The bubble sits inside the wrapper, so the pointer
+                # can move onto it and read it without the tooltip closing.
+                #
+                # Never over the popup the control opened, which is what the
+                # control is now about. A pointer click drops a pending open,
+                # which a quick click would otherwise leave to fire over the
+                # popup. Enter and Space click too, with detail 0, and keep a
+                # label the keyboard is reading, unless that click opened a
+                # popup; its state lands a tick after the click.
                 #
                 # Escape is heard on the window, because a tooltip opened by
                 # hover has to close while focus is somewhere else entirely. It
@@ -165,15 +171,20 @@ class Tooltip(ChainableComponent):
                 # the capture phase, before a dialog around it hears the key
                 # and stops it: an open tooltip takes the first Escape, and
                 # only one that was open, so the next press reaches the dialog.
-                # A control with its own popup open is the exception: that
-                # popup opened last, so it closes first.
+                # An open popup is the exception, focus on its control or
+                # inside it: it opened last, so it closes first.
                 "x-on:mouseenter": f"clearTimeout($el._t); "
-                f"$el._t = setTimeout(() => shown = true, {_OPEN_DELAY_MS})",
+                f"$el._t = setTimeout(() => shown = !{popup_open}, "
+                f"{_OPEN_DELAY_MS})",
                 "x-on:mouseleave": "clearTimeout($el._t); shown = false",
-                "x-on:focusin": "shown = true",
+                "x-on:click": "clearTimeout($el._t); if ($event.detail) "
+                "shown = false; "
+                f"else $nextTick(() => shown = shown && !{popup_open})",
+                "x-on:focusin": "shown = "
+                f"$event.target.matches(':focus-visible') && !{popup_open}",
                 "x-on:focusout": "shown = false",
                 "x-on:keydown.escape.window.capture": "clearTimeout($el._t); "
-                "if (shown && "
+                f"if (shown && !{popup_open} && "
                 "$event.target.getAttribute?.('aria-expanded') !== 'true') "
                 "{ $event.stopPropagation(); shown = false }",
                 **self._get_base_html_attrs(),

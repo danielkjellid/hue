@@ -34,7 +34,7 @@ _SHEET = (
 )
 
 
-class Dialog(ChainableComponent):
+class Dialog(_overlay.WrapsTrigger):
     """
     A window over the page that has to be dealt with before anything else.
 

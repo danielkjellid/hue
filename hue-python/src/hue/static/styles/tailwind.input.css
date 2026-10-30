@@ -126,6 +126,20 @@
   --hue-white-900: #FFFFFF;
 }
 
+/* Three low-opacity layers read as one cohesive lift and give the shadow a
+   clean anti-aliased perimeter. A single drop shadow looks cheap. */
+:root {
+  --hue-shadow-field: 0 1px 2px 0 rgb(18 18 23 / 0.04);
+  --hue-shadow-raised:
+    0 0 0 1px rgb(18 18 23 / 0.02),
+    0 2px 6px 0 rgb(18 18 23 / 0.04),
+    0 4px 8px 0 rgb(18 18 23 / 0.1);
+  --hue-shadow-overlay:
+    0 0 0 1px rgb(18 18 23 / 0.03),
+    0 8px 16px -4px rgb(18 18 23 / 0.06),
+    0 16px 32px -8px rgb(18 18 23 / 0.12);
+}
+
 @theme static {
   /* ------------------------------------------------------------- surfaces */
   /* The canvas is the page. Surfaces step up with tint, never with shadow -
@@ -279,10 +293,10 @@
   --spacing-control-lg: 44px;
 
   /* ------------------------------------------------------------ elevation */
-  /* Three low-opacity layers read as one cohesive lift and give the shadow a
-     clean anti-aliased perimeter. A single drop shadow looks cheap. */
+  /* Tailwind copies a shadow token's value into its utility, so these point
+     at the --hue-shadow-* values below, which each theme can redefine. */
 
-  --shadow-field: 0 1px 2px 0 rgb(18 18 23 / 0.04);
+  --shadow-field: var(--hue-shadow-field);
 
   /* The native select's chevron. A token rather than a class, because an
      arbitrary value holding a data URI cannot survive a class attribute: it
@@ -293,14 +307,8 @@
      button group. A raised shadow would be far too much at that size. */
   --shadow-segment: 0 1px 2px 0 rgb(18 18 23 / 0.1);
   --shadow-ring: 0 0 0 1px var(--color-border);
-  --shadow-raised:
-    0 0 0 1px rgb(18 18 23 / 0.02),
-    0 2px 6px 0 rgb(18 18 23 / 0.04),
-    0 4px 8px 0 rgb(18 18 23 / 0.1);
-  --shadow-overlay:
-    0 0 0 1px rgb(18 18 23 / 0.03),
-    0 8px 16px -4px rgb(18 18 23 / 0.06),
-    0 16px 32px -8px rgb(18 18 23 / 0.12);
+  --shadow-raised: var(--hue-shadow-raised);
+  --shadow-overlay: var(--hue-shadow-overlay);
 
   /* --------------------------------------------------------------- motion */
   /* Motion confirms a state change, it never performs. One curve, three
@@ -507,13 +515,15 @@
   --color-chart-3: var(--hue-orange-400);
   --color-chart-5: var(--hue-yellow-300);
 
-  --shadow-field: none;
+  /* A blank layer rather than none: the utility lists it beside the focus
+     ring, and a none inside a list voids the whole box-shadow. */
+  --hue-shadow-field: 0 0 #0000;
   --background-image-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8AA8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  --shadow-raised:
+  --hue-shadow-raised:
     0 0 0 1px rgb(0 0 0 / 0.3),
     0 2px 6px 0 rgb(0 0 0 / 0.36),
     0 4px 10px 0 rgb(0 0 0 / 0.46);
-  --shadow-overlay:
+  --hue-shadow-overlay:
     0 0 0 1px rgb(0 0 0 / 0.34),
     0 8px 20px -4px rgb(0 0 0 / 0.46),
     0 20px 40px -8px rgb(0 0 0 / 0.58);
@@ -574,6 +584,13 @@
     font-weight: 700;
     line-height: 1.25;
     letter-spacing: var(--tracking-display);
+  }
+
+  /* A button in a heading is a control that opens a section (Accordion,
+     Disclosure), whose label reads as one, while a link stays heading text.
+     Still base, so a class on the button wins. */
+  :where(h1, h2, h3, h4, h5, h6) button {
+    letter-spacing: normal;
   }
 
   code, kbd, samp, pre {
@@ -816,8 +833,10 @@
     --hue-fade-bottom: 20px;
   }
 
-  /* A mask clips everything outside the box, the focus ring included. */
-  &:focus-visible {
+  /* A mask clips everything outside the box, the focus ring included, and
+     fades a focused control inside it that the browser scrolled to the edge. */
+  &:focus-visible,
+  &:has(:focus-visible) {
     mask-image: none;
   }
 }

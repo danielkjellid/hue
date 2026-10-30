@@ -68,3 +68,19 @@ class TestScrollArea:
         )
         assert_no_selector(html, ".scroll-fade")
         assert_no_selector(html, "[x-data]")
+
+    # A faded area's x-data is hue's own, so a caller's would replace it or
+    # be replaced: both branches.
+    @pytest.mark.asyncio
+    async def test_a_faded_area_refuses_a_scope_of_its_own(self, context_args):
+        area = ScrollArea().label("Release notes").fade().x_data("{n: 1}")
+        with pytest.raises(ValueError, match="x_data"):
+            await render_tree(area, context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_an_unfaded_area_keeps_a_callers_scope(self, context_args):
+        html = await render_tree(
+            ScrollArea().label("Release notes").x_data("{n: 1}").content("4.2.0"),
+            context_args=context_args,
+        )
+        assert_attr(html, "div", "x-data", "{n: 1}")

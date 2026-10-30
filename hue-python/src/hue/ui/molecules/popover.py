@@ -14,7 +14,7 @@ from hue.utils import classnames, render_if, render_when
 type PopoverPlacement = Literal["bottom-start", "bottom-end", "top-start", "top-end"]
 
 
-class Popover(ChainableComponent):
+class Popover(_overlay.WrapsTrigger):
     """
     A panel anchored to a control, for content that can be interacted with.
 

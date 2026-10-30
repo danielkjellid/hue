@@ -20,8 +20,8 @@ _VARIANT_CLASSES: dict[CardVariant, str] = {
 
 # The ring answers the title's own control only. A plain has-focus-visible
 # would also light the whole card up when one of its footer buttons is
-# focused. Every other control in the card is lifted above the title's
-# overlay, or the overlay would swallow its clicks.
+# focused. Every other control in the card, and a label that operates one,
+# is lifted above the title's overlay, or the overlay would swallow its clicks.
 _LINKED_CLASSES = classnames(
     "relative transition-[border-color,box-shadow]",
     "hover:border-border-hover hover:shadow-raised",
@@ -29,7 +29,10 @@ _LINKED_CLASSES = classnames(
     "has-[[data-card-link]:focus-visible]:ring-accent",
     "has-[[data-card-link]:focus-visible]:ring-offset-2",
     "has-[[data-card-link]:focus-visible]:ring-offset-canvas",
-    "[&_:is(a,button,input,select,textarea,summary):not([data-card-link])]:relative",
+    # At zero specificity, so a lifted element's own fixed, absolute or
+    # sr-only still wins. A tabindex of -1 is a focus target, not a control,
+    # and a dialog's scrim is one.
+    "[:where(&_:is(a,button,input,select,textarea,summary,label,[tabindex]:not([tabindex='-1']),[role=button]):not([data-card-link]))]:relative",
 )
 
 # The overlay is what makes the whole surface clickable while only the title
@@ -131,7 +134,7 @@ class Card(ChainableComponent):
         linked = href is not None or self._get_prop("interactive", False)
 
         classes = classnames(
-            "flex flex-col overflow-hidden rounded-lg border",
+            "flex flex-col overflow-clip rounded-lg border",
             _VARIANT_CLASSES[variant],
             _LINKED_CLASSES if linked else "",
             self._get_prop("class_"),
@@ -195,6 +198,8 @@ class CardMedia(ChainableComponent):
     def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
+            # What a CardBody below it finds it by.
+            data_card_media="",
             class_=classnames(
                 "aspect-video overflow-hidden bg-surface-sunken",
                 "[&_img]:block [&_img]:size-full [&_img]:object-cover",
@@ -282,8 +287,8 @@ class CardBody(ChainableComponent):
     """
     A card's content.
 
-    Takes its top spacing from whatever sits above it, and pads itself when it
-    stands alone.
+    Takes its top spacing from a header above it, and pads itself when it
+    comes first or straight after media.
     """
 
     category = None
@@ -296,7 +301,7 @@ class CardBody(ChainableComponent):
         return html.div(
             *self._children,
             class_=classnames(
-                "px-5 pt-0 pb-5 first:pt-5 text-base",
+                "px-5 pt-0 pb-5 first:pt-5 [[data-card-media]+&]:pt-5 text-base",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),

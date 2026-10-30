@@ -95,6 +95,9 @@ export function datePicker(config) {
 	// The selection as the picker last saw it, so a change from outside,
 	// through x-model, can be told from a pick.
 	let seen = config.value.join();
+	// Whether keys have moved the focused day and focus has yet to follow,
+	// which can leave it on a blank cell for a tick.
+	let moving = false;
 
 	return {
 		value: [...config.value],
@@ -306,7 +309,11 @@ export function datePicker(config) {
 			if (day < FIRST_DAY || day > LAST_DAY) return;
 			this.show(day);
 			if (mode === "range" && this.days().length === 1) this.hover = day;
-			this.$nextTick(() => this.focusedCell()?.focus());
+			moving = true;
+			this.$nextTick(() => {
+				moving = false;
+				this.focusedCell()?.focus();
+			});
 		},
 
 		// Returns whether the pick is complete, for a field that closes
@@ -354,7 +361,8 @@ export function datePicker(config) {
 			} else if (key === "PageUp" || key === "PageDown") {
 				this.move(addMonths(day, (key === "PageUp" ? -1 : 1) * (shiftKey ? 12 : 1)));
 			} else if (key === "Enter" || key === " ") {
-				this.select(day);
+				// A blank cell a click left focus on stands for no day.
+				if (cell.dataset.date || moving) this.select(day);
 			} else {
 				return;
 			}

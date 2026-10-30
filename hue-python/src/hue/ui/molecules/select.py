@@ -392,7 +392,12 @@ class SelectOption(ChainableComponent):
             ),
             render_if(
                 self._get_prop("meta"),
-                lambda text: html.span(text, class_="flex-none text-xs text-fg-subtle"),
+                lambda text: html.span(
+                    text,
+                    # Subtle fails contrast on a lit row's fill in dark.
+                    class_="flex-none text-xs text-fg-subtle "
+                    "in-data-active:text-fg-muted in-aria-selected:text-fg-muted",
+                ),
             ),
             id=option_id,
             role="option",

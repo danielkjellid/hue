@@ -320,21 +320,46 @@ class TestPieChart:
         assert [li.text for li in select(html, "figure > ul li")] == ["a"]
         assert len(select(html, "tbody tr")) == 2
 
-    @pytest.mark.parametrize("count", [3, 6, 7])
+    @pytest.mark.parametrize(
+        "numbers",
+        # Seven slices group two as Other, which once rounded the rest anew.
+        [[1, 1, 1], [2] * 7],
+    )
     @pytest.mark.asyncio
-    async def test_the_shares_add_up_to_a_whole(self, context_args, count):
-        # Rounded one by one, three thirds read 33% each and six sixths 17%.
-        # Seven slices group the last two as Other, which is drawn on its own.
-        slices = [(f"s{i}", 1) for i in range(count)]
+    async def test_the_tooltip_and_the_table_give_a_slice_the_same_share(
+        self, context_args, numbers
+    ):
+        slices = [(f"s{i}", n) for i, n in enumerate(numbers)]
         chart = PieChart().slices(slices).description("x")
         html = await render_tree(chart, context_args=context_args)
-        table = [row.select("td")[1].text for row in select(html, "tbody tr")]
-        drawn = [
-            text.split("(")[1].rstrip(")")
-            for text in _spec(html)["series"][0]["display"]
-        ]
-        for shares in (table, drawn):
-            assert sum(int(share.rstrip("%")) for share in shares) == 100
+        table = {
+            row.select("th")[0].text: row.select("td")[1].text
+            for row in select(html, "tbody tr")
+        }
+        series = _spec(html)
+        for label, text in zip(
+            series["labels"], series["series"][0]["display"], strict=True
+        ):
+            if label != "Other":
+                assert text.split("(")[1].rstrip(")") == table[label]
+
+    @pytest.mark.asyncio
+    async def test_equal_slices_read_equal_shares(self, context_args):
+        chart = PieChart().slices([("a", 1), ("b", 1), ("c", 1)]).description("x")
+        html = await render_tree(chart, context_args=context_args)
+        assert [row.select("td")[1].text for row in select(html, "tbody tr")] == [
+            "33%"
+        ] * 3
+        assert _spec(html)["series"][0]["display"] == ["1 (33%)"] * 3
+
+    @pytest.mark.asyncio
+    async def test_a_share_under_half_a_percent_reads_under_one(self, context_args):
+        slices = [("a", 1), ("b", 1), ("c", 1), ("d", 297)]
+        html = await render_tree(
+            PieChart().slices(slices).description("x"), context_args=context_args
+        )
+        shares = [row.select("td")[1].text for row in select(html, "tbody tr")]
+        assert shares == ["<1%", "<1%", "<1%", "99%"]
 
     @pytest.mark.asyncio
     async def test_a_sliver_is_not_written_as_nothing(self, context_args):

@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Disclosure
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestDisclosure:
@@ -61,7 +61,7 @@ class TestDisclosure:
             Disclosure().title("General").content("Fields"),
             context_args=context_args,
         )
-        assert_attr(html, "[x-data]", "x-data", "{ open: true }")
+        assert select(html, "[x-data]")[0]["x-data"].startswith("{ open: true,")
 
     @pytest.mark.asyncio
     async def test_it_can_start_folded_away(self, context_args):
@@ -69,4 +69,4 @@ class TestDisclosure:
             Disclosure().title("General").closed().content("Fields"),
             context_args=context_args,
         )
-        assert_attr(html, "[x-data]", "x-data", "{ open: false }")
+        assert select(html, "[x-data]")[0]["x-data"].startswith("{ open: false,")

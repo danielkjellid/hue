@@ -12,6 +12,9 @@
  * from.
  */
 
+// What a focused element can sit inside that Escape should close.
+const POPUP = "[role=menu], [role=listbox], [role=dialog], [role=alertdialog]";
+
 const CHART_BUNDLE = new URL("./chart-bundle.js", import.meta.url).href;
 
 // One request however many charts the page draws, and the request that
@@ -26,13 +29,12 @@ let attempt = 0;
 const stranded = new Set();
 
 function library() {
-	loading ??= import(
-		attempt ? `${CHART_BUNDLE}?attempt=${attempt}` : CHART_BUNDLE
-	).catch((error) => {
+	const url = attempt ? `${CHART_BUNDLE}?attempt=${attempt}` : CHART_BUNDLE;
+	loading ??= import(url).catch((error) => {
 		// Logged here rather than per chart: one request failed, however
 		// many charts were waiting on it.
 		console.error(
-			`hue could not load ${CHART_BUNDLE}, which charts are drawn with. ` +
+			`hue could not load ${url}, which charts are drawn with. ` +
 				"Serve it from the same directory as hue's main bundle.",
 			error,
 		);
@@ -120,6 +122,24 @@ export function registerChartData(Alpine) {
 						return chart.init();
 					}),
 				);
+			},
+
+			// Escape dismisses the hover tooltip, which can cover the points
+			// beside it. Heard on the window in the capture phase, as hue's
+			// Tooltip is: the pointer, not focus, put it there, and a showing
+			// tooltip takes the first Escape before a dialog or a table around
+			// it hears the key. An open popup elsewhere keeps it, with focus on
+			// its control or inside it: it opened last, so it closes first.
+			hideTooltip(event) {
+				if (!chart?.tooltip.getActiveElements().length) return;
+				const target = event.target;
+				if (target.getAttribute?.("aria-expanded") === "true") return;
+				const popup = target.closest?.(POPUP);
+				if (popup && !popup.contains(this.$root)) return;
+				event.stopPropagation();
+				chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+				chart.setActiveElements([]);
+				chart.update();
 			},
 
 			destroy() {
