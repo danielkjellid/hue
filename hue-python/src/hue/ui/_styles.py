@@ -33,14 +33,28 @@ FOCUS_RING_INSET = (
 
 type ControlSize = Literal["sm", "md", "lg"]
 
-#: Height, inline padding, type size and the flat leading that keeps a
-#: one-line control one line. For the box-shaped controls - inputs,
-#: native selects, the select trigger. The heights come from the control-*
-#: spacing tokens, which grow on coarse pointers so a touch target stays one.
+#: The heights of the box-shaped controls - inputs, native selects, the
+#: select trigger - from the control-* spacing tokens, which grow on coarse
+#: pointers so a touch target stays one.
+CONTROL_HEIGHTS: dict[ControlSize, str] = {
+    "sm": "h-control-sm",
+    "md": "h-control-md",
+    "lg": "h-control-lg",
+}
+
+#: Inline padding, type size and the flat leading that keeps a one-line
+#: control one line: a control's size without its height. A control inside
+#: a group takes only this, since the group carries the height and the
+#: control stretches to fill the inside of its border.
+CONTROL_TEXT: dict[ControlSize, str] = {
+    "sm": "px-[9px] text-sm leading-none",
+    "md": "px-[11px] text-base leading-none",
+    "lg": "px-[14px] text-md leading-none",
+}
+
+#: Height and text together, for a control that stands on its own.
 CONTROL_SIZES: dict[ControlSize, str] = {
-    "sm": "h-control-sm px-[9px] text-sm leading-none",
-    "md": "h-control-md px-[11px] text-base leading-none",
-    "lg": "h-control-lg px-[14px] text-md leading-none",
+    size: f"{CONTROL_HEIGHTS[size]} {CONTROL_TEXT[size]}" for size in CONTROL_TEXT
 }
 
 #: Everything a field-shaped control looks like across all of its states.
@@ -98,10 +112,12 @@ GROUP_SHELL = (
 )
 
 #: A control inside GROUP_SHELL: everything the group now owns, given up.
-#: It keeps its control height but runs over the group's 1px border at top
-#: and bottom, so a group is exactly as tall as a plain field.
+#: It sits inside the group's border, and at either end follows the group's
+#: 7px inner curve, so a fill the browser paints on it (autofill) leaves the
+#: border and the corners alone.
 GROUPED_CONTROL = (
-    "-my-px min-w-0 flex-1 rounded-none border-none bg-transparent text-fg "
+    "min-w-0 flex-1 rounded-none first:rounded-s-[7px] last:rounded-e-[7px] "
+    "border-none bg-transparent text-fg "
     "shadow-none "
     "outline-none placeholder:text-fg-subtle focus:outline-none "
     "disabled:cursor-not-allowed disabled:text-fg-disabled"

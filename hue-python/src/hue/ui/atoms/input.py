@@ -8,7 +8,9 @@ from typing_extensions import Self
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
+    CONTROL_HEIGHTS,
     CONTROL_SIZES,
+    CONTROL_TEXT,
     FIELD_SHELL,
     GROUP_ACTION,
     GROUP_ADDON,
@@ -258,7 +260,7 @@ class _BaseInput(FieldControl):
 
         return html.div(
             *segments,
-            class_=classnames(GROUP_SHELL, GROUP_ACTION),
+            class_=classnames(GROUP_SHELL, GROUP_ACTION, CONTROL_HEIGHTS[size]),
             **self._get_group_attrs(),
         )
 
@@ -281,8 +283,11 @@ class _BaseInput(FieldControl):
             name=name,
             id=input_id,
             class_=classnames(
-                GROUPED_CONTROL if self._is_grouped() else FIELD_SHELL,
-                CONTROL_SIZES[size],
+                (
+                    f"{GROUPED_CONTROL} {CONTROL_TEXT[size]}"
+                    if self._is_grouped()
+                    else f"{FIELD_SHELL} {CONTROL_SIZES[size]}"
+                ),
                 self._get_extra_classes(),
                 self._get_prop("class_"),
             ),
