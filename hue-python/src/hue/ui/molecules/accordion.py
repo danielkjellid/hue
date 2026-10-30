@@ -119,22 +119,26 @@ class Accordion(ChainableComponent):
         )
 
 
-# Opens a section for something inside it that has to be seen: an invalid
-# field the browser is about to focus, which it gives up on while the panel
-# is display: none, or a heading the contents is going to. The panel is
-# shown there and then, since x-show only gets to it after the browser has
-# looked. One at a time, only the first section asked in a task opens: a
-# form checks every field at once, and opening the next invalid one would
-# close the section of the first, which is where the browser puts focus. A
-# task rather than a microtask, which runs between one field's invalid
-# event and the next. The fields after the first are left unreported, as the
-# browser would only report the first anyway, rather than logged as ones it
-# could not focus.
+# Opens a section for something inside it that has to be seen, as a
+# Disclosure does: an invalid field the browser is about to focus, which it
+# gives up on while the panel is display: none, or a heading the contents is
+# going to. The panel is shown there and then, since x-show only gets to it
+# after the browser has looked.
+#
+# One at a time, a field the browser does not report opens its section only
+# while none is open, since opening it would close the section the reader is
+# in, or the one just opened for the field that is reported. The browser
+# reports the first invalid field in its form. Those left closed are also
+# left unreported, rather than logged as fields it could not focus.
+_REPORTED = (
+    "($event.type !== 'invalid' || !$event.target.form || "
+    "[...$event.target.form.elements].find("
+    "(el) => el.willValidate && !el.validity.valid) === $event.target)"
+)
 _REVEAL_METHOD = (
-    "revealing: false, "
-    "revealSection(index, panel, event) { "
-    "if (this.single && this.revealing) return event.preventDefault(); "
-    "this.revealing = true; setTimeout(() => { this.revealing = false }); "
+    "revealSection(index, panel, event, reported) { "
+    "if (this.single && !reported && this.open.length && !this.shown(index)) "
+    "return event.preventDefault(); "
     "if (!this.shown(index)) this.toggle(index); "
     "panel.style.removeProperty('display') }"
 )
@@ -171,7 +175,7 @@ class AccordionItem(ChainableComponent):
         index: int = self._get_prop("index", 0)
         heading: HeadingLevel = self._get_prop("heading", "h3")
         shown = unsafe(f"shown({index})")
-        reveal = unsafe(f"revealSection({index}, $el, $event)")
+        reveal = unsafe(f"revealSection({index}, $el, $event, {_REPORTED})")
 
         trigger = html.button(
             render_if(self._get_prop("title"), lambda text: text),
