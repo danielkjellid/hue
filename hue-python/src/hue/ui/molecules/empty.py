@@ -147,7 +147,9 @@ class Empty(ChainableComponent):
             )
 
         if actions:
-            children.append(html.div(*actions, class_="mt-4 flex gap-2"))
+            children.append(
+                html.div(*actions, class_="mt-4 flex flex-wrap justify-center gap-2")
+            )
 
         return html.div(
             *children,
