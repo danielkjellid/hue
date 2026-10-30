@@ -3,7 +3,7 @@ from htmy import html
 from playwright.sync_api import expect
 
 from hue.js import unsafe
-from hue.ui import Alert, Banner, Button, Dialog, Stack, TextInput
+from hue.ui import Alert, Banner, Button, Dialog, Drawer, Popover, Stack, TextInput
 from tests.browser.conftest import Show
 
 
@@ -170,3 +170,51 @@ def test_dismissing_inside_a_dialog_keeps_focus_in_the_dialog(show: Show) -> Non
         " && el.getClientRects().length > 0 }",
         timeout=3000,
     )
+
+
+def test_dismissing_in_a_drawer_keeps_focus_in_the_drawer(show: Show) -> None:
+    page = show(
+        Drawer().title("Holder").open().content(Alert().title("Saved").dismissible()),
+        Button().content("Outside"),
+    )
+    panel = page.get_by_role("dialog", name="Holder")
+    expect(panel).to_be_visible()
+    page.get_by_role("button", name="Dismiss").last.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_text("Saved")).to_be_hidden()
+    expect(panel).to_be_visible()
+    page.wait_for_function(
+        "() => { const el = document.activeElement;"
+        " return document.querySelector('[role=dialog]').contains(el)"
+        " && el.getClientRects().length > 0 }",
+        timeout=3000,
+    )
+
+
+def test_dismissing_in_a_popover_stays_in_the_popover(show: Show) -> None:
+    popover = (
+        Popover()
+        .title("Notes")
+        .trigger(Button().content("Notes"))
+        .content(Alert().title("Saved").dismissible(), Button().content("Inside"))
+    )
+    page = show(popover, Button().content("After"))
+    page.get_by_role("button", name="Notes").click()
+    expect(page.get_by_role("dialog", name="Notes")).to_be_visible()
+    page.get_by_role("button", name="Dismiss").focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_text("Saved")).to_be_hidden()
+    expect(page.get_by_role("button", name="Inside")).to_be_focused()
+
+
+def test_dismissing_outside_any_dialog_still_reaches_the_page(show: Show) -> None:
+    # A dialog elsewhere on the page is not the one the alert sits in.
+    page = show(
+        Alert().title("Saved").dismissible(),
+        html.div(Button().content("Next")),
+        Dialog().title("Elsewhere").trigger(Button().content("Open")),
+    )
+    page.get_by_role("button", name="Dismiss").focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_text("Saved")).to_be_hidden()
+    expect(page.get_by_role("button", name="Next")).to_be_focused()
