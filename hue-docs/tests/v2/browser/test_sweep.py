@@ -1,7 +1,7 @@
 """
 Every page and every frame of the site, opened in Chrome at a desktop and a
-phone width. A script error, a console error or a page wider than the window
-fails the run, with every offender listed.
+phone width. A script error, a console error, a page wider than the window or
+a panel hint cut off fails the run, with every offender listed.
 """
 
 from __future__ import annotations
@@ -18,6 +18,13 @@ from .conftest import stub_fonts
 OVERFLOW_ALLOWED = {"/_frame/stack/width/"}
 
 OVERFLOW = "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+
+# A panel's hint, the text beside its label, with no way to read the rest.
+CLIPPED_HINTS = """
+() => [...document.querySelectorAll("section[x-data^='docsPanel'] h2 + span")]
+  .filter((hint) => hint.scrollWidth > hint.clientWidth + 1)
+  .map((hint) => hint.textContent)
+"""
 
 
 @pytest.mark.parametrize("width", [1440, 390])
@@ -48,6 +55,8 @@ def test_no_page_or_frame_errors_or_overflows(
             over = page.evaluate(OVERFLOW)
             if over > 1 and path not in OVERFLOW_ALLOWED:
                 problems.append(f"{path}: {over}px wider than the window")
+            for hint in page.evaluate(CLIPPED_HINTS):
+                problems.append(f"{path}: hint cut off: {hint}")
     finally:
         context.close()
     assert not problems, f"{len(problems)} problems at {width}px:\n" + "\n".join(

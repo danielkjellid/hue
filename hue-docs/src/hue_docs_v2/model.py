@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from types import ModuleType
 from typing import Literal
 
 from hue.types.core import ComponentType
@@ -50,6 +51,9 @@ class Panel:
     component that looks different above it. min_width keeps a filling frame
     at least that wide, scrolling sideways in a narrower panel, for an
     example with a fixed column that would leave the rest no room on a phone.
+    source is a module whose code the panel shows instead of the examples',
+    for an example that loads from a demo route: the view serving it is the
+    code worth copying.
     """
 
     label: str
@@ -60,6 +64,7 @@ class Panel:
     captions: bool = True
     width: Viewport | None = None
     min_width: int = 0
+    source: ModuleType | None = None
 
     @property
     def slug(self) -> str:
@@ -75,6 +80,7 @@ def panel(
     captions: bool = True,
     width: Viewport | None = None,
     min_width: int = 0,
+    source: ModuleType | None = None,
 ) -> Panel:
     """
     captions=False drops the name above each example, for examples that
@@ -91,6 +97,7 @@ def panel(
         captions=captions,
         width=width,
         min_width=min_width,
+        source=source,
     )
 
 
@@ -127,6 +134,9 @@ class ComponentPage:
     # Views serving the page's live demos, mounted under /demos/<slug>/. A
     # HueView's index is served at /demos/<slug>/ itself.
     views: list[type[HueFragmentsView] | type[HueView]] = field(default_factory=list)
+    # The import line under the lede, for a page whose class is not what a
+    # reader imports, such as Icon, which is bound with create_icon_base.
+    import_line: str | None = None
 
     def __post_init__(self) -> None:
         slugs = [p.slug for p in self.panels]

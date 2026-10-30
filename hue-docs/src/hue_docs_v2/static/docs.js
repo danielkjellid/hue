@@ -171,7 +171,8 @@ document.addEventListener("alpine:init", () => {
     },
 
     // The handle's keyboard: arrows step, shift steps further, Home and End
-    // go to the narrowest and the widest. Fill is the preset beside it.
+    // go to the narrowest and the widest. Fill is the first preset, shown at
+    // every width.
     nudge(event) {
       const current = this.shown;
       // Toward the handle's own side widens, as dragging does.
@@ -296,7 +297,36 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       const row = this.results[this.active];
-      if (row) window.location.href = row.url;
+      if (!row) return;
+      const to = new URL(row.url, location.href);
+      if (to.pathname !== location.pathname || !to.hash) {
+        location.href = row.url;
+        return;
+      }
+      // A section of this page: nothing unloads, so the dialog has to close
+      // first. Once its trap has handed focus back and let the page scroll,
+      // which it does a task later, the section takes the focus.
+      this.open = false;
+      this.$nextTick(() =>
+        setTimeout(() => {
+          location.href = row.url;
+          const target = document.getElementById(decodeURIComponent(to.hash.slice(1)));
+          if (!target) return;
+          if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+          target.focus({ preventScroll: true });
+        }),
+      );
+    },
+
+    // A click on a result goes the way Enter does, so one on this page
+    // closes the dialog too. A modified click is left to open a tab.
+    follow(event, index) {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      event.preventDefault();
+      this.active = index;
+      this.go();
     },
   }));
 });
@@ -347,12 +377,9 @@ if (window.self !== window.top) {
   // A demo's swaps would otherwise push entries onto the docs page's history,
   // so Back would walk the demo before it left the page.
   history.pushState = history.replaceState.bind(history);
-  // Keys the docs page listens for, which a focused frame would otherwise
-  // keep: mod+k opens the site's search, and Escape also goes to the frame
-  // under the pointer.
-  const apple = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   // Escape is passed on in the capture phase, before a component in this
-  // frame that takes the key, such as an open tooltip, stops it.
+  // frame that takes the key, such as an open tooltip, stops it. The docs
+  // page sends it on to the frame under the pointer.
   window.addEventListener(
     "keydown",
     (event) => {
@@ -360,21 +387,66 @@ if (window.self !== window.top) {
     },
     true,
   );
+  // Every other key goes to the docs page too, so its shortcuts work with
+  // focus in a specimen: once the specimen has had the key, and unless it
+  // took it. In a field only a chord with Command or Control is a shortcut,
+  // as on the page, which cannot see the field. The selector is the one
+  // hue's shortcuts.js reads as a field.
+  const field =
+    "input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])" +
+    ":not([type=reset]):not([type=range]):not([type=color]):not([type=file]):not([type=image])," +
+    " textarea, select, [role=combobox], [role=listbox], [role=menu]";
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.defaultPrevented || event.isComposing) return;
+    const typing = event.target.isContentEditable || event.target.closest?.(field);
+    if (typing && !event.metaKey && !event.ctrlKey) return;
     const top = window.top;
-    if (event.key === "Escape") return;
-    const mod = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
-    if (event.key.toLowerCase() !== "k" || !mod || event.altKey || event.shiftKey) return;
-    if (event.defaultPrevented) return;
+    const forwarded = new top.KeyboardEvent("keydown", {
+      key: event.key,
+      code: event.code,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      shiftKey: event.shiftKey,
+      repeat: event.repeat,
+      modifierAltGraph: event.getModifierState("AltGraph"),
+      cancelable: true,
+    });
+    // The search takes focus to the docs page, and its trap hands it back
+    // to this frame rather than to what had it in here.
+    let searched = false;
+    const note = () => (searched = true);
+    top.addEventListener("docs-search", note);
+    top.dispatchEvent(forwarded);
+    top.removeEventListener("docs-search", note);
+    if (!forwarded.defaultPrevented) return;
     event.preventDefault();
-    top.dispatchEvent(new top.CustomEvent("docs-search"));
+    const had = document.activeElement;
+    if (!searched || had === document.body) return;
+    window.addEventListener(
+      "focus",
+      () => {
+        if (document.activeElement === document.body && had.isConnected) had.focus();
+      },
+      { once: true },
+    );
   });
+  // A menu or a popover closes on a click outside it, which a click on the
+  // docs page never is to this frame. Focus leaving the frame stands in for
+  // one, so nothing stays open over a page the reader has moved on from.
+  window.addEventListener("blur", () => document.body?.click());
 }
 
 if (window.self === window.top) {
   // Escape goes to the document with focus, while a tooltip opened by
-  // hovering waits in the frame under the pointer. Passed on to that frame,
-  // from the docs page or from another frame, unless it already heard it.
+  // hovering, or an overlay left open when focus moved on, waits in the
+  // frame under the pointer. Passed on to that frame, from the docs page or
+  // from another frame, unless it already heard it, and only while something
+  // in it is open: a page-wide Escape, such as the one that clears a table's
+  // selection, belongs to the frame with focus. Sent from the element with
+  // focus in there, or else from the overlay, since an overlay hears the key
+  // on its own root and a tooltip on the window.
+  const OPEN = '[role="tooltip"], [role="dialog"], [role="alertdialog"], [role="menu"]';
   let hovered = null;
   document.addEventListener("mouseover", (event) => {
     hovered = event.target instanceof HTMLIFrameElement ? event.target : null;
@@ -385,7 +457,21 @@ if (window.self === window.top) {
   window.docsEscape = (source) => {
     const win = hovered?.isConnected ? hovered.contentWindow : null;
     if (!win || win === source) return;
-    win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const open = [...win.document.querySelectorAll(OPEN)].filter((el) => el.checkVisibility());
+    if (!open.length) return;
+    const active = win.document.activeElement;
+    const from = open.some((el) => el.contains(active)) ? active : open.at(-1);
+    from.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  };
+
+  // The sidebar is longer than the window, so the current page's entry is
+  // brought into its scroller on load, and when the drawer opens on a phone.
+  window.docsShowCurrent = (scroller) => {
+    const item = scroller.querySelector('[aria-current="page"]');
+    if (!item || !scroller.clientHeight) return;
+    const top = item.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    if (top >= 0 && top + item.offsetHeight <= scroller.clientHeight) return;
+    scroller.scrollTop += top - (scroller.clientHeight - item.offsetHeight) / 2;
   };
   window.addEventListener(
     "keydown",
@@ -409,14 +495,38 @@ if (window.self === window.top) {
     });
   });
 
-  // A link to a panel lands before the frames above it have loaded, and
-  // each one that grows pushes the panel down. Keep scrolling back to it
-  // until the reader scrolls, clicks or types, or focus moves into a frame.
-  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-  if (target) {
+  // A page lands before the frames on it have loaded, and each one that
+  // grows moves what is below it. Until the reader scrolls, clicks or types,
+  // or focus moves into a frame, the page keeps going back to the place it
+  // is meant to show: on arriving by a link, the link's target; on Back and
+  // reload, where the reader left it. The browser restores that too, but
+  // before the frames have grown, and then moves with them.
+  const how = performance.getEntriesByType("navigation")[0]?.type;
+  const key = `docs-scroll:${location.href}`;
+  addEventListener("pagehide", () => {
+    try {
+      sessionStorage.setItem(key, String(window.scrollY));
+    } catch {
+      // Without storage the browser's own restoring is all there is.
+    }
+  });
+  let saved = null;
+  if (how === "back_forward" || how === "reload") {
+    try {
+      saved = sessionStorage.getItem(key);
+    } catch {
+      // As above.
+    }
+  }
+  const target =
+    how === "navigate" &&
+    location.hash &&
+    document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target || saved !== null) {
     let landed = null;
     const settle = new ResizeObserver(() => {
-      target.scrollIntoView({ block: "start", behavior: "instant" });
+      if (target) target.scrollIntoView({ block: "start", behavior: "instant" });
+      else window.scrollTo({ top: Number(saved), behavior: "instant" });
       landed = window.scrollY;
     });
     const stop = () => {
@@ -426,8 +536,10 @@ if (window.self === window.top) {
       }
       window.removeEventListener("scroll", moved);
     };
+    // A scroll that is not this one's is the reader's, except on Back and
+    // reload, where the browser scrolls too.
     const moved = () => {
-      if (landed !== null && Math.abs(window.scrollY - landed) > 1) stop();
+      if (target && landed !== null && Math.abs(window.scrollY - landed) > 1) stop();
     };
     settle.observe(document.body);
     for (const type of ["pointerdown", "keydown", "wheel", "touchstart", "blur"]) {

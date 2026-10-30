@@ -48,7 +48,11 @@ def _result_row() -> ComponentType:
                 html.span()
                 .class_("docs-excerpt mt-1 line-clamp-2 block text-xs text-fg-muted")
                 .x_html(unsafe("row.excerpt")),
-                **{":href": "row.url", "tabindex": "-1"},
+                **{
+                    ":href": "row.url",
+                    "tabindex": "-1",
+                    "x-on:click": "follow($event, index)",
+                },
                 class_="block rounded-md px-3 py-2",
             )
         )

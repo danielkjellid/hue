@@ -9,6 +9,7 @@ that opens inside it from covering the docs around it.
 
 from __future__ import annotations
 
+import inspect
 import json
 
 from htmy import html as h
@@ -46,6 +47,8 @@ def frame_href(page: ComponentPage, panel: Panel) -> str:
 
 
 def panel_code(panel: Panel) -> str:
+    if panel.source is not None:
+        return inspect.getsource(panel.source).strip()
     snippets = [snippet(example) for example in panel.examples]
     if len(snippets) == 1:
         body = snippets[0]
@@ -64,6 +67,9 @@ def _viewport_control() -> ComponentType:
         return (
             SegmentedOption()
             .content(name)
+            # Below md the frame can only be as wide as the panel, so the sizes
+            # are hidden, and Fill stays as the way back from a drag.
+            .class_("" if width is None else "max-md:hidden")
             .x_on("click", unsafe(f"width = {value}"))
             .x_bind("aria-pressed", unsafe(f"String(width === {value})"))
         )
@@ -72,7 +78,6 @@ def _viewport_control() -> ComponentType:
         SegmentedControl()
         .label("Preview width")
         .size("sm")
-        .class_("max-md:hidden")
         .content(
             option("Fill", None),
             *[option(name, width) for name, width in VIEWPORTS.items()],
@@ -119,8 +124,9 @@ def panel_section(page: ComponentPage, panel: Panel) -> ComponentType:
             ),
             render_when(
                 bool(panel.hint),
+                # Wrapped below md, where one line has room for a few words.
                 html.span(pr.rich(panel.hint)).class_(
-                    "truncate text-2xs text-fg-subtle"
+                    "text-2xs text-fg-subtle md:truncate"
                 ),
             ),
         ).class_("flex min-w-0 items-baseline gap-3"),
