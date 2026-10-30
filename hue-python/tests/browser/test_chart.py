@@ -1,9 +1,21 @@
+import pytest
 from htmy import html
 from playwright.sync_api import Browser, Page, expect
 
 from hue import assets
-from hue.ui import BarChart, BubbleChart, LineChart, PieChart, ScatterChart
+from hue.ui import (
+    BarChart,
+    BubbleChart,
+    Button,
+    Dialog,
+    DoughnutChart,
+    LineChart,
+    PieChart,
+    Popover,
+    ScatterChart,
+)
 from tests.browser.conftest import ORIGIN, Show, render_page
+from tests.browser.test_datatable import _table
 
 _GRID = "display:grid;grid-template-columns:1fr 1fr;gap:16px"
 
@@ -262,3 +274,318 @@ def test_a_failed_retry_logs_the_url_it_tried(browser: Browser) -> None:
         assert "chart-bundle.js?attempt=1," in hue_errors[1]
     finally:
         page.close()
+
+
+def _hover_middle(page: Page, index: int = 0) -> None:
+    box = page.locator("figure canvas").nth(index).bounding_box()
+    assert box is not None
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.wait_for_function(
+        "i => chartAt(i).tooltip.getActiveElements().length", arg=index
+    )
+
+
+def _active(page: Page, index: int = 0) -> int:
+    return page.evaluate("i => chartAt(i).tooltip.getActiveElements().length", index)
+
+
+def test_escape_hides_a_chart_tooltip_before_its_dialog(show: Show) -> None:
+    page = show(Dialog().title("Holder").open().content(BarChart.example()))
+    dialog = page.get_by_role("dialog", name="Holder")
+    expect(dialog).to_be_visible()
+    _chart_handle(page)
+    _hover_middle(page)
+    # The tooltip takes the first Escape and stops it there, as hue's
+    # Tooltip does, so the dialog stays open.
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !chartAt(0).tooltip.getActiveElements().length")
+    expect(dialog).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+
+
+def test_escape_over_a_chart_tooltip_keeps_a_table_selection(show: Show) -> None:
+    page = show(BarChart.example(), _table("invoices"))
+    _chart_handle(page)
+    page.get_by_role("checkbox", name="Select all").check()
+    expect(page.get_by_role("group", name="Selected rows")).to_be_visible()
+    _hover_middle(page)
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !chartAt(0).tooltip.getActiveElements().length")
+    expect(page.get_by_role("group", name="Selected rows")).to_be_visible()
+
+
+def test_escape_closes_a_popover_over_a_chart_and_returns_focus(show: Show) -> None:
+    popover = (
+        Popover()
+        .title("Sharing")
+        .trigger(Button().content("Share"))
+        .content(Button().content("Copy link"))
+    )
+    page = show(BarChart.example(), popover)
+    _chart_handle(page)
+    page.get_by_role("button", name="Share").click()
+    expect(page.get_by_role("dialog", name="Sharing")).to_be_visible()
+    page.get_by_role("button", name="Copy link").focus()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog", name="Sharing")).to_be_hidden()
+    expect(page.get_by_role("button", name="Share")).to_be_focused()
+
+
+def test_escape_without_a_tooltip_still_clears_a_table_selection(show: Show) -> None:
+    page = show(BarChart.example(), _table("invoices"))
+    _chart_handle(page)
+    page.get_by_role("checkbox", name="Select all").check()
+    expect(page.get_by_role("group", name="Selected rows")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("group", name="Selected rows")).to_be_hidden()
+    expect(page.locator("input[type=checkbox]:checked")).to_have_count(0)
+
+
+def test_escape_hides_only_the_tooltip_that_shows(show: Show) -> None:
+    page = show(BarChart.example(), LineChart.example(), PieChart.example())
+    _chart_handle(page)
+    _hover_middle(page, 1)
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !chartAt(1).tooltip.getActiveElements().length")
+    assert _active(page, 0) == 0
+    assert _active(page, 2) == 0
+    # Moving the pointer brings the tooltip back.
+    _hover_middle(page, 0)
+
+
+def test_escape_hides_a_tooltip_on_a_chart_redrawn_for_the_theme(show: Show) -> None:
+    page = show(BarChart.example())
+    _chart_handle(page)
+    first = page.evaluate("() => chartAt(0).id")
+    page.evaluate("() => { document.documentElement.dataset.theme = 'dark' }")
+    page.wait_for_function(f"() => chartAt(0) && chartAt(0).id !== {first}")
+    _hover_middle(page)
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !chartAt(0).tooltip.getActiveElements().length")
+
+
+def test_escape_on_a_chart_that_failed_to_load_raises_nothing(
+    browser: Browser,
+) -> None:
+    page = browser.new_page()
+    errors: list[str] = []
+    page.on("pageerror", lambda exc: errors.append(str(exc)))
+    document = render_page(LineChart.example())
+
+    def fulfil(route, request) -> None:  # type: ignore[no-untyped-def]
+        path = request.url.removeprefix(ORIGIN).split("?")[0]
+        if path == assets.CHART_JS_URL:
+            route.abort()
+        elif path in assets.ASSET_ROUTES:
+            content, _ = assets.served_asset(path)
+            route.fulfill(body=content, content_type=assets.ASSET_ROUTES[path][1])
+        else:
+            route.fulfill(body=document, content_type="text/html")
+
+    page.route(f"{ORIGIN}/**", fulfil)
+    try:
+        page.goto(f"{ORIGIN}/")
+        expect(page.get_by_role("button", name="Retry")).to_be_visible()
+        page.keyboard.press("Escape")
+        # A second key, so the first one's handler has run by the time the
+        # page answers.
+        page.keyboard.press("Shift")
+        page.evaluate("() => new Promise(requestAnimationFrame)")
+        assert errors == []
+    finally:
+        page.close()
+
+
+def test_a_chart_tooltip_is_gone_when_its_dialog_reopens(show: Show) -> None:
+    page = show(
+        Dialog()
+        .title("Holder")
+        .trigger(Button().content("Open"))
+        .content(BarChart.example())
+    )
+    trigger = page.get_by_role("button", name="Open")
+    trigger.click()
+    dialog = page.get_by_role("dialog", name="Holder")
+    expect(dialog).to_be_visible()
+    _chart_handle(page)
+    # The panel animates in, and the chart follows its size once it shows.
+    page.wait_for_function(
+        "() => document.getAnimations().every(a => a.playState !== 'running')"
+        " && chartAt(0).width > 0"
+    )
+    _hover_middle(page)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+    expect(trigger).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(dialog).to_be_visible()
+    assert _active(page) == 0
+
+
+_LONG = [
+    "Customer success",
+    "Professional services",
+    "Research and development",
+    "Sales and marketing",
+    "General administration",
+    "Infrastructure",
+]
+
+
+def test_long_bar_labels_at_phone_width_fit_the_canvas(show: Show) -> None:
+    chart = BarChart().labels(_LONG).series([5, 9, 3, 7, 2, 4], label="Spend")
+    page = show(chart.description("Spend by team."), width=320)
+    _chart_handle(page)
+    assert page.evaluate("() => document.documentElement.scrollWidth") <= 320
+    # Too long for all six to fit a 102px tall chart, so some are skipped
+    # (the tooltip and the table still name every bar), and the longest, at
+    # the angle it is drawn, fits in the space the axis has below the plot.
+    fits = page.evaluate(
+        """() => {
+            const chart = chartAt(0), x = chart.scales.x;
+            const angle = x.labelRotation * Math.PI / 180;
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = x._resolveTickFontOptions(0).string;
+            const widest = Math.max(...chart.data.labels.map(
+                l => ctx.measureText(l).width));
+            ctx.restore();
+            const needed = widest * Math.sin(angle);
+            return { ticks: x.ticks.length, needed, room: chart.height - x.top };
+        }"""
+    )
+    assert fits["ticks"] >= 1
+    assert fits["needed"] <= fits["room"] + 1, fits
+
+
+def test_a_compared_bar_chart_keeps_every_label_at_phone_width(show: Show) -> None:
+    labels = [f"W{i}" for i in range(1, 13)]
+    chart = (
+        BarChart()
+        .labels(labels)
+        .series(list(range(12)), label="This year")
+        .compare(list(range(12, 0, -1)), label="Last year")
+        .description("Weekly.")
+    )
+    page = show(chart, width=320)
+    _chart_handle(page)
+    assert page.evaluate("() => chartAt(0).scales.x.ticks.length") == 12
+
+
+def test_a_line_chart_still_skips_labels_flat_at_phone_width(show: Show) -> None:
+    labels = [f"2026-01-{day:02d}" for day in range(1, 31)]
+    chart = (
+        LineChart()
+        .labels(labels)
+        .series(list(range(30)), label="Sign-ups")
+        .description("Daily.")
+    )
+    page = show(chart, width=320)
+    _chart_handle(page)
+    x = page.evaluate(
+        "() => ({ ticks: chartAt(0).scales.x.ticks.length,"
+        " rotation: chartAt(0).scales.x.labelRotation })"
+    )
+    assert x["ticks"] < 30
+    assert x["rotation"] == 0
+
+
+_BORDER = "() => chartAt(0).getDatasetMeta(0).data[0].options.borderWidth"
+
+
+@pytest.mark.parametrize("cls", [PieChart, DoughnutChart])
+@pytest.mark.parametrize(
+    "slices", [[("Only", 3)], [("Only", 3), ("Nothing", 0)]], ids=["one", "and-zero"]
+)
+def test_a_lone_slice_draws_no_seam(
+    show: Show, cls: type[PieChart], slices: list[tuple[str, float]]
+) -> None:
+    page = show(cls().slices(slices).description("One."))
+    _chart_handle(page)
+    assert page.evaluate(_BORDER) == 0
+
+
+def test_a_lone_slice_draws_no_seam_after_a_theme_change(show: Show) -> None:
+    page = show(PieChart().slices([("Only", 3)]).description("One."))
+    _chart_handle(page)
+    first = page.evaluate("() => chartAt(0).id")
+    page.evaluate("() => { document.documentElement.dataset.theme = 'dark' }")
+    page.wait_for_function(f"() => chartAt(0) && chartAt(0).id !== {first}")
+    assert page.evaluate(_BORDER) == 0
+
+
+def test_two_slices_keep_their_gap(show: Show) -> None:
+    page = show(PieChart().slices([("a", 1), ("b", 2)]).description("Two."))
+    _chart_handle(page)
+    assert page.evaluate(_BORDER) == 2
+
+
+def test_the_other_slice_tooltip_gives_its_grouped_share(show: Show) -> None:
+    slices = [(f"s{i}", 10) for i in range(8)]
+    page = show(PieChart().slices(slices).description("Eight."))
+    _chart_handle(page)
+    displays = page.evaluate("() => chartAt(0).data.labels")
+    assert displays[-1] == "Other"
+    # Three slices of ten out of eighty: 37.5, rounded to its nearest percent.
+    other = page.evaluate(
+        "() => { const c = chartAt(0); const i = c.data.labels.length - 1;"
+        " c.tooltip.setActiveElements([{ datasetIndex: 0, index: i }], { x: 0, y: 0 });"
+        " c.update('none'); return c.tooltip.body.flatMap(b => b.lines) }"
+    )
+    assert other == [" 30 (38%)"]
+
+
+def test_a_percent_pie_tooltip_does_not_repeat_the_share(show: Show) -> None:
+    chart = (
+        PieChart()
+        .slices([("Yes", 0.62), ("No", 0.38)])
+        .value_format("percent")
+        .description("Votes.")
+    )
+    page = show(chart)
+    _chart_handle(page)
+    lines = page.evaluate(
+        "() => { const c = chartAt(0);"
+        " c.tooltip.setActiveElements([{ datasetIndex: 0, index: 0 }], { x: 0, y: 0 });"
+        " c.update('none'); return c.tooltip.body.flatMap(b => b.lines) }"
+    )
+    assert lines == [" 62%"]
+    assert "Share" not in page.locator("thead").inner_text()
+
+
+_DAYS = [f"Oct {day}" for day in range(1, 32)]
+
+
+@pytest.mark.parametrize("labels", [_LONG, _DAYS], ids=["long", "many"])
+def test_bar_labels_at_phone_width_do_not_overlap(
+    show: Show, labels: list[str]
+) -> None:
+    chart = (
+        BarChart()
+        .labels(labels)
+        .series(list(range(len(labels))), label="Spend")
+        .description("Spend.")
+    )
+    page = show(chart, width=320)
+    _chart_handle(page)
+    # Neighbouring labels, tilted to the same angle, sit a slot apart along
+    # the axis, which leaves slot * sin(angle) between them across their
+    # lines. Flat, the widest label has to fit its slot.
+    x = page.evaluate(
+        """() => {
+            const chart = chartAt(0), x = chart.scales.x, ctx = chart.ctx;
+            const font = x._resolveTickFontOptions(0);
+            ctx.save();
+            ctx.font = font.string;
+            const widths = x.ticks.map(t => ctx.measureText(t.label).width);
+            const widest = Math.max(...widths);
+            ctx.restore();
+            const slot = x.width / x.ticks.length;
+            const angle = x.labelRotation * Math.PI / 180;
+            return { angle: x.labelRotation, slot, widest, line: font.lineHeight,
+                     apart: angle ? slot * Math.sin(angle) : slot - widest };
+        }"""
+    )
+    assert x["apart"] >= (x["line"] if x["angle"] else 0), x

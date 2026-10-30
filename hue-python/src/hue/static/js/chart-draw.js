@@ -169,11 +169,13 @@ function categoryConfig(spec, theme) {
 				x: {
 					grid: { display: false },
 					border: { display: false },
-					// A bar's label is the only name it has, so bars tilt their
-					// labels to fit rather than drop some. Time steps can skip.
+					// Bars tilt their labels to fit as many as they can, and skip
+					// only what still would not fit, since overlapping labels name
+					// nothing. The padding keeps tilted lines a line height apart.
+					// The tooltip and the table name every bar either way.
 					ticks:
 						spec.kind === "bar"
-							? { ...theme.ticks, autoSkip: false, maxRotation: 90 }
+							? { ...theme.ticks, maxRotation: 90, autoSkipPadding: 3 }
 							: { ...theme.ticks, maxRotation: 0, autoSkipPadding: 16 },
 				},
 				y: valueAxis(theme, spec.y, { beginAtZero: true }),

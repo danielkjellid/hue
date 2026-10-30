@@ -122,10 +122,14 @@ export function registerChartData(Alpine) {
 			},
 
 			// Escape dismisses the hover tooltip, which can cover the points
-			// beside it. Heard on the window, since the pointer, not focus,
-			// put it there.
-			hideTooltip() {
+			// beside it. Heard on the window in the capture phase, as hue's
+			// Tooltip is: the pointer, not focus, put it there, and a showing
+			// tooltip takes the first Escape before a dialog or a table around
+			// it hears the key. A control whose own popup is open keeps it.
+			hideTooltip(event) {
 				if (!chart?.tooltip.getActiveElements().length) return;
+				if (event.target.getAttribute?.("aria-expanded") === "true") return;
+				event.stopPropagation();
 				chart.tooltip.setActiveElements([], { x: 0, y: 0 });
 				chart.setActiveElements([]);
 				chart.update();
