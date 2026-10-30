@@ -199,9 +199,9 @@ class MenuItem(Clickable):
 
     def disabled(self, value: bool = True) -> Self:
         """
-        Dim it and take it out of reach, but leave it in the menu and in the
-        tab order: an action that disappears when it cannot be used leaves
-        nothing to explain why.
+        Dim it and make it do nothing, but leave it in the menu, where the
+        arrow keys still reach it: an action that disappears when it cannot
+        be used leaves nothing to explain why.
         """
         self._props["disabled"] = value
         return self
