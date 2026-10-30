@@ -69,17 +69,19 @@ class ButtonGroup(ChainableComponent):
                 "inline-flex [&>*]:relative [&>*]:rounded-none",
                 "[&>*:first-child]:rounded-s-md [&>*:last-child]:rounded-e-md",
                 # The same for a control a menu or a tooltip wraps in a span,
-                # which is the child here but not what draws the corners.
-                "[&>*>:is(button,a)]:rounded-none",
-                "[&>*:first-child>:is(button,a)]:rounded-s-md",
-                "[&>*:last-child>:is(button,a)]:rounded-e-md",
+                # which is the child here but not what draws the corners. Two
+                # spans deep when both wrap it, and then only the overlay's
+                # own trigger, never an item in its panel.
+                "[:is(&>*>:is(button,a),&>*>*>[data-hue-trigger])]:rounded-none",
+                "[:is(&>:first-child>:is(button,a),&>:first-child>*>[data-hue-trigger])]:rounded-s-md",
+                "[:is(&>:last-child>:is(button,a),&>:last-child>*>[data-hue-trigger])]:rounded-e-md",
                 # Pulled onto its neighbour so the shared edge is one line, and
                 # lifted while focused so the ring is not clipped by the button
-                # sitting on top of it. Only a focused control directly inside
-                # the child, not an item in its open menu: a lifted child is a
-                # stacking context, which would hold the menu down with it.
+                # sitting on top of it. A wrapped control is lifted itself, not
+                # its span: a lifted span is a stacking context, and would hold
+                # the panel open beside the control down to the group's layer.
                 "[&>*+*]:-ms-px [&>*:focus-visible]:z-10",
-                "[&>*:has(>:focus-visible)]:z-10",
+                "[:is(&>*>:is(button,a),&>*>*>[data-hue-trigger]):focus-visible]:z-10",
                 self._get_prop("class_"),
             ),
             **{

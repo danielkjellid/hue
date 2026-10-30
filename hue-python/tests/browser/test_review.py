@@ -394,11 +394,6 @@ CONTROLS = """
     })
 """
 
-LIFTED = """
-() => [...document.querySelector('main > div:first-child').children]
-    .map(child => getComputedStyle(child).zIndex)
-"""
-
 
 def _icon(name: str) -> Button:
     return Button().variant("outline").icon_only(name).content(name[0])
@@ -420,7 +415,16 @@ def test_tooltipped_icon_buttons_take_the_group_corners_and_lift(show: Show) -> 
     expect(page.get_by_role("button", name="Copy")).to_be_focused()
     bubble = page.get_by_role("tooltip", name="Copy rows")
     expect(bubble).to_be_visible()
-    assert page.evaluate(LIFTED) == ["auto", "10", "auto"]
+    # Lifted itself rather than through its span, so the column the next
+    # button is pulled onto is the focused one's, or its own bubble's.
+    assert page.get_by_role("button", name="Copy").evaluate(
+        """el => {
+            const r = el.getBoundingClientRect();
+            const y = (r.top + r.bottom) / 2;
+            const hit = document.elementFromPoint(r.right - 0.5, y);
+            return el.parentElement.contains(hit);
+        }"""
+    )
     # The bubble hangs over the next button and stays on top of it.
     page.wait_for_function(
         """el => {
