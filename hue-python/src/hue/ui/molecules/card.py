@@ -29,7 +29,10 @@ _LINKED_CLASSES = classnames(
     "has-[[data-card-link]:focus-visible]:ring-accent",
     "has-[[data-card-link]:focus-visible]:ring-offset-2",
     "has-[[data-card-link]:focus-visible]:ring-offset-canvas",
-    "[&_:is(a,button,input,select,textarea,summary,label,[tabindex],[role=button]):not([data-card-link])]:relative",
+    # At zero specificity, so a lifted element's own fixed, absolute or
+    # sr-only still wins. A tabindex of -1 is a focus target, not a control,
+    # and a dialog's scrim is one.
+    "[:where(&_:is(a,button,input,select,textarea,summary,label,[tabindex]:not([tabindex='-1']),[role=button]):not([data-card-link]))]:relative",
 )
 
 # The overlay is what makes the whole surface clickable while only the title
