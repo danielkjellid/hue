@@ -339,9 +339,9 @@ PAGE = ComponentPage(
             raise_warning,
             raise_info,
             raise_loading,
-            # Room for all five toasts below the triggers, which take a column
-            # of their own on a phone.
-            min_height=640,
+            # A frame's toasts keep to its lower half, which holds all five,
+            # and the triggers take a column of their own on a phone.
+            min_height=720,
             captions=False,
             hint="`toast.js`, no request",
         ),

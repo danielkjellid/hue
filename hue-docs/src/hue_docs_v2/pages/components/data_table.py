@@ -8,7 +8,17 @@ from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.js import ajax
 from hue.types.core import ComponentType
-from hue.ui import Alert, Badge, Button, Column, DataTable, Empty, Pagination, Table
+from hue.ui import (
+    Alert,
+    Badge,
+    Button,
+    Column,
+    DataTable,
+    Empty,
+    Pagination,
+    Table,
+    ToastRegion,
+)
 from hue.ui.atoms.badge import BadgeVariant
 from hue_fastapi import HueView, Page, Router
 
@@ -137,9 +147,14 @@ class DataTableDemo(HueView):
     async def index(self, request: Request, context: HueContext[Request]) -> Page:
         return Page(
             title="Invoices",
-            body=html.div(DataTable.from_state(self.invoices))
-            .id("invoices-demo")
-            .class_("w-full"),
+            body=html.div(
+                html.div(DataTable.from_state(self.invoices))
+                .id("invoices-demo")
+                .class_("w-full"),
+                # For a reader who opens the demo's URL on its own: a frame
+                # takes only the table and has a region of its own.
+                ToastRegion(),
+            ),
         )
 
 
