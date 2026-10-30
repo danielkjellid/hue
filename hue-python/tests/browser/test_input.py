@@ -171,3 +171,13 @@ def test_a_fill_on_a_grouped_input_leaves_the_border_alone(
     assert _pixel(page, middle, top) == border
     assert _pixel(page, middle, bottom) == border
     assert [_pixel(page, x, y) for x, y in corners] == before
+
+
+# The group's height is a minimum, so a taller input grows it.
+def test_a_taller_grouped_input_stays_inside_its_group(show: Show) -> None:
+    page = show(TextInput().name("g").label("G").prefix("$").class_("h-12"))
+    group = page.locator("div:has(> input[name=g])").bounding_box()
+    control = page.locator("input[name=g]").bounding_box()
+    assert group is not None and control is not None
+    assert control["y"] >= group["y"]
+    assert control["y"] + control["height"] <= group["y"] + group["height"]

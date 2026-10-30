@@ -8,12 +8,12 @@ from typing_extensions import Self
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
-    CONTROL_HEIGHTS,
     CONTROL_SIZES,
     CONTROL_TEXT,
     FIELD_SHELL,
     GROUP_ACTION,
     GROUP_ADDON,
+    GROUP_HEIGHTS,
     GROUP_SHELL,
     GROUPED_CONTROL,
     ControlSize,
@@ -260,7 +260,7 @@ class _BaseInput(FieldControl):
 
         return html.div(
             *segments,
-            class_=classnames(GROUP_SHELL, GROUP_ACTION, CONTROL_HEIGHTS[size]),
+            class_=classnames(GROUP_SHELL, GROUP_ACTION, GROUP_HEIGHTS[size]),
             **self._get_group_attrs(),
         )
 
@@ -375,7 +375,9 @@ class PasswordInput(_BaseInput):
                 "action",
                 Button()
                 .variant("ghost")
-                .size("sm")
+                # A step smaller in a small field, so it fits inside the
+                # group's border rather than making the group taller.
+                .size("xs" if self._get_prop("size", "md") == "sm" else "sm")
                 .icon_only("Show password")
                 .aria_pressed("false")
                 # Disabled with the input, so a disabled field stays inert.

@@ -52,6 +52,14 @@ CONTROL_TEXT: dict[ControlSize, str] = {
     "lg": "px-[14px] text-md leading-none",
 }
 
+#: A group's height: at least a plain field's, so the two line up, and more
+#: when the control inside it is given more.
+GROUP_HEIGHTS: dict[ControlSize, str] = {
+    "sm": "min-h-control-sm",
+    "md": "min-h-control-md",
+    "lg": "min-h-control-lg",
+}
+
 #: Height and text together, for a control that stands on its own.
 CONTROL_SIZES: dict[ControlSize, str] = {
     size: f"{CONTROL_HEIGHTS[size]} {CONTROL_TEXT[size]}" for size in CONTROL_TEXT
