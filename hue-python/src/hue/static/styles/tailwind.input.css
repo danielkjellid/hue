@@ -815,4 +815,9 @@
   &[data-scroll-below] {
     --hue-fade-bottom: 20px;
   }
+
+  /* A mask clips everything outside the box, the focus ring included. */
+  &:focus-visible {
+    mask-image: none;
+  }
 }
