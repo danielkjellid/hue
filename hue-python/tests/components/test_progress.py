@@ -28,6 +28,7 @@ class TestProgress:
         # rather than unknown.
         html = await render_tree(_bar().indeterminate(), context_args=context_args)
         assert_no_selector(html, "[aria-valuenow]")
+        assert_no_selector(html, "[aria-valuetext]")
         assert_selector(html, "div.animate-progress")
 
     @pytest.mark.asyncio
@@ -96,6 +97,10 @@ class TestProgress:
             Progress().value(99.99999).label("Upload"), context_args=context_args
         )
         assert select(html, "span.tabular-nums")[0].text == "99%"
+        # A screen reader rounds aria-valuenow itself, so it is told the
+        # readout's text too.
+        assert_attr(html, '[role="progressbar"]', "aria-valuenow", "99.99999")
+        assert_attr(html, '[role="progressbar"]', "aria-valuetext", "99%")
 
     @pytest.mark.asyncio
     async def test_a_hidden_label_leaves_just_the_named_track(self, context_args):

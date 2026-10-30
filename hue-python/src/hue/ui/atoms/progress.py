@@ -159,7 +159,10 @@ class Progress(ChainableComponent):
                 # Omitted entirely when indeterminate: aria-valuenow="0" would
                 # announce "0 percent", which reads as stalled rather than
                 # unknown.
-                "aria_valuenow": None if value is None else f"{value:g}",
+                "aria_valuenow": None if value is None else f"{value:.15g}",
+                # A screen reader rounds valuenow to the nearest percent, so
+                # it is given the readout, which never says 100 short of done.
+                "aria_valuetext": None if value is None else f"{_whole(value)}%",
                 "aria_label": label,
                 **self._get_base_html_attrs(),
             },
