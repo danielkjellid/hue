@@ -81,9 +81,9 @@ FIELD_SHELL = (
 #: the order the variants sort in, hover and focus would win.
 GROUP_STATES = (
     "transition-[border-color,box-shadow] duration-150 "
-    "not-has-[[aria-invalid=true]]:not-has-[input:focus]:"
-    "not-has-[input:disabled]:hover:border-border-hover "
-    "not-has-[[aria-invalid=true]]:has-[input:focus]:border-accent "
+    # One token, not split across lines: Tailwind reads the source as text.
+    "not-has-[input:is(:focus,:disabled),[aria-invalid=true]]:hover:border-border-hover"
+    " not-has-[[aria-invalid=true]]:has-[input:focus]:border-accent "
     "not-has-[[aria-invalid=true]]:has-[input:focus]:ring-3 "
     "not-has-[[aria-invalid=true]]:has-[input:focus]:ring-accent-subtle "
     "has-[[aria-invalid=true]]:border-danger "

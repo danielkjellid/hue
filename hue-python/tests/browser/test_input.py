@@ -75,6 +75,14 @@ def test_hover_without_focus_still_shows(show: Show) -> None:
     expect(field).to_have_css("border-top-color", token(page, "border-hover"))
 
 
+def test_hover_without_focus_still_shows_in_a_group(show: Show) -> None:
+    page = still(show(TextInput().name("site").label("Site").prefix("https://")))
+    page.get_by_label("Site").hover()
+    expect(_group(page, "site")).to_have_css(
+        "border-top-color", token(page, "border-hover")
+    )
+
+
 def test_valid_focus_keeps_its_halo(show: Show) -> None:
     page = still(show(TextInput().name("email").label("Email")))
     field = page.get_by_label("Email")
