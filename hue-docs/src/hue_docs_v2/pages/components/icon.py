@@ -253,6 +253,7 @@ def _usage() -> ComponentType:
 
 PAGE = ComponentPage(
     HueIconClass,
+    import_line="from hue.ui import create_icon_base",
     lede=(
         "An icon draws an SVG inline, from an icon set you bind once with "
         "`create_icon_base`. Size and colour it with the same utility classes "

@@ -104,7 +104,7 @@ def component_main(page: ComponentPage, pages: list[ComponentPage]) -> Component
             pr.h1(page.title),
             pr.lead(page.lede).class_("mt-3"),
         ).class_("mb-10"),
-        code_block(f"from hue.ui import {names}"),
+        code_block(page.import_line or f"from hue.ui import {names}"),
         html.div(*[panel_section(page, panel) for panel in page.panels]).class_(
             "mt-10 flex flex-col gap-6"
         ),

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
-from fastapi import Request
-from hue import html, toast
-from hue.context import HueContext
-from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
-from hue.js import ajax
+from hue import html
+from hue.js import ajax, unsafe
 from hue.types.core import ComponentType
 from hue.ui import (
     Alert,
@@ -17,167 +12,50 @@ from hue.ui import (
     Empty,
     Pagination,
     Table,
-    ToastRegion,
 )
-from hue.ui.atoms.badge import BadgeVariant
-from hue_fastapi import HueView, Page, Router
 
 from hue_docs_v2.layout import prose as pr
 from hue_docs_v2.model import ComponentPage, Note, panel
-
-# The live demo: a declared table over a list of dictionaries, so the
-# filtering, ordering and paging are the Python here. Eight rows and three to
-# a page, because the demo route runs on a Worker with 10ms of CPU.
-_INVOICES: list[dict[str, Any]] = [
-    {
-        "pk": "41",
-        "invoice": "INV-2050",
-        "customer": "Contoso",
-        "amount": 2190,
-        "status": "pending",
-    },
-    {
-        "pk": "17",
-        "invoice": "INV-2048",
-        "customer": "Northwind",
-        "amount": 1200,
-        "status": "paid",
-    },
-    {
-        "pk": "23",
-        "invoice": "INV-2049",
-        "customer": "Fabrikam",
-        "amount": 840,
-        "status": "overdue",
-    },
-    {
-        "pk": "58",
-        "invoice": "INV-2051",
-        "customer": "Adventure Works",
-        "amount": 415,
-        "status": "paid",
-    },
-    {
-        "pk": "62",
-        "invoice": "INV-2052",
-        "customer": "Tailspin Toys",
-        "amount": 3120,
-        "status": "paid",
-    },
-    {
-        "pk": "70",
-        "invoice": "INV-2053",
-        "customer": "Litware",
-        "amount": 960,
-        "status": "pending",
-    },
-    {
-        "pk": "74",
-        "invoice": "INV-2054",
-        "customer": "Proseware",
-        "amount": 1875,
-        "status": "overdue",
-    },
-    {
-        "pk": "81",
-        "invoice": "INV-2055",
-        "customer": "Wingtip",
-        "amount": 230,
-        "status": "paid",
-    },
-]
-
-_STATUS = [("paid", "Paid"), ("pending", "Pending"), ("overdue", "Overdue")]
-_TONE: dict[str, BadgeVariant] = {
-    "paid": "success",
-    "pending": "warning",
-    "overdue": "danger",
-}
-
-
-def _matching(request: Request, asked: TableState) -> list[dict[str, Any]]:
-    found = [row for row in _INVOICES if asked.query.lower() in row["customer"].lower()]
-    if statuses := asked.chosen("status"):
-        found = [row for row in found if row["status"] in statuses]
-    if asked.sort:
-        field = asked.sort.removeprefix("-")
-        found.sort(key=lambda row: row[field], reverse=asked.sort.startswith("-"))
-    return found
-
-
-def _archive(request: Request, ids: list[str]) -> None:
-    # The demo is shared by every reader, so it says what it would do and
-    # changes nothing.
-    toast.success(f"Archived {len(ids)}", description="The demo keeps the rows.")
-
-
-class DataTableDemo(HueView):
-    """
-    The page the live table reads from: every sort, search, filter and page
-    is a GET of this index, and the archive action posts to the route the
-    declaration registers on the router.
-    """
-
-    router = Router[Request]()
-
-    invoices = build_datatable_state(
-        router,
-        key="invoices",
-        columns=[
-            Column("invoice", "Invoice"),
-            Column("customer", "Customer", sort="customer"),
-            Column("amount", "Amount", align="end", sort="amount"),
-            Column(
-                "status",
-                "Status",
-                render=lambda row: (
-                    Badge().variant(_TONE[row["status"]]).content(row["status"].title())
-                ),
-            ),
-        ],
-        rows=_matching,
-        identifier="pk",
-        search="Search customers",
-        filters=[Filter("status", "Status", options=_STATUS)],
-        hideable=["customer", "status"],
-        actions={"archive": BulkAction("Archive", _archive)},
-        page_size=3,
-    )
-
-    async def index(self, request: Request, context: HueContext[Request]) -> Page:
-        return Page(
-            title="Invoices",
-            body=html.div(
-                html.div(DataTable.from_state(self.invoices))
-                .id("invoices-demo")
-                .class_("w-full"),
-                # For a reader who opens the demo's URL on its own: a frame
-                # takes only the table and has a region of its own.
-                ToastRegion(),
-            ),
-        )
-
+from hue_docs_v2.pages.components import _data_table_demo
 
 # Live
+
+# The live table loads from InvoicesView in _data_table_demo, and the Live
+# panel shows that module as its code, which is the part worth copying.
+_LIVE_COLUMNS = [
+    Column("invoice", "Invoice"),
+    Column("customer", "Customer"),
+    Column("amount", "Amount", align="end"),
+    Column("status", "Status"),
+]
 
 
 def declared_table() -> ComponentType:
     return (
         html.div(
+            DataTable().loading().columns(_LIVE_COLUMNS).x_show(unsafe("!failed")),
             DataTable()
-            .loading()
-            .columns(
-                [
-                    Column("invoice", "Invoice"),
-                    Column("customer", "Customer"),
-                    Column("amount", "Amount", align="end"),
-                    Column("status", "Status"),
-                ]
+            .columns(_LIVE_COLUMNS)
+            .error(
+                Empty()
+                .variant("danger")
+                .compact()
+                .title("Could not load the demo")
+                .description("The demo route did not answer. Reload to try again.")
             )
+            .x_show(unsafe("failed"))
+            .x_cloak(),
         )
         .id("invoices-demo")
         .class_("w-full")
-        .x_init(ajax("/demos/data-table/", target="invoices-demo"))
+        .x_data("{ failed: false }")
+        .x_on("ajax:error", unsafe("failed = true"))
+        .x_init(
+            unsafe(
+                f"{ajax('/demos/data-table/', target='invoices-demo')}"
+                ".catch(() => (failed = true))"
+            )
+        )
     )
 
 
@@ -433,8 +311,9 @@ def _usage() -> ComponentType:
         ),
         pr.code(_DECLARATION),
         pr.p(
-            "The live example at the top of this page is this declaration over a "
-            "list of dictionaries, served from a `HueView` under `/demos/data-table/`."
+            "The Live panel at the top of this page runs a declaration like this "
+            "one, written for `hue-fastapi` over a list of dictionaries. Its Code "
+            "button shows the whole view."
         ),
         pr.h3("Rows come from one function"),
         pr.p(
@@ -659,7 +538,9 @@ def _usage() -> ComponentType:
         pr.p(
             "`bind(request)` on the declaration is for code that wants the values "
             "instead of the table, such as a total for a heading. It is a "
-            "coroutine that returns the state, the page of rows and the total."
+            "coroutine that returns a `BoundTable`, whose `state`, `page` and "
+            "`total` hold what was asked for, the page of rows and the number of "
+            "rows that match."
         ),
         pr.h3("How a declared DataTable is put together"),
         pr.p(
@@ -741,7 +622,8 @@ PAGE = ComponentPage(
             declared_table,
             layout="stack",
             min_height=420,
-            hint="A declared table on a demo route. Archive changes nothing",
+            hint="A declared table and the view behind it. Archive changes nothing",
+            source=_data_table_demo,
         ),
         panel(
             "Anatomy",
@@ -796,5 +678,5 @@ PAGE = ComponentPage(
         ),
     ],
     related=[Table, Pagination],
-    views=[DataTableDemo],
+    views=[_data_table_demo.InvoicesView],
 )
