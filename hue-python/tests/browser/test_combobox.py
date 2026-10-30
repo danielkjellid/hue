@@ -1,3 +1,5 @@
+from playwright.sync_api import Locator
+
 from hue.ui import Combobox, SelectOption
 from tests.browser.conftest import Show
 
@@ -20,3 +22,43 @@ def test_typing_activates_the_first_match(show: Show) -> None:
     field.fill("ban")
     page.keyboard.press("Enter")
     assert page.locator("input[type=hidden][name=fruit]").input_value() == "banana"
+
+
+def _long() -> Combobox:
+    return (
+        Combobox()
+        .name("place")
+        .label("Place")
+        .content(
+            SelectOption()
+            .value("long")
+            .label("Llanfairpwllgwyngyllgogerychwyrndrobwllllantysiliogogogoch"),
+        )
+    )
+
+
+def _right(locator: Locator) -> float:
+    box = locator.bounding_box()
+    assert box is not None
+    return box["x"] + box["width"]
+
+
+def _left(locator: Locator) -> float:
+    box = locator.bounding_box()
+    assert box is not None
+    return box["x"]
+
+
+def test_a_narrow_field_stops_short_of_the_chevron(show: Show) -> None:
+    page = show(_long().value("long"), width=200)
+    field = page.get_by_role("combobox", name="Place")
+    chevron = page.get_by_role("button", name="Place")
+    assert _right(field) <= _left(chevron)
+
+
+def test_a_long_token_truncates_inside_the_field(show: Show) -> None:
+    page = show(_long().multiple().value("long"), width=320)
+    token = page.locator('[x-text="item.label"]')
+    chevron = page.get_by_role("button", name="Place")
+    assert _right(token) <= _left(chevron)
+    assert token.evaluate("el => el.scrollWidth > el.clientWidth")
