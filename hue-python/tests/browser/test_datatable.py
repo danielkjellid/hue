@@ -85,3 +85,27 @@ def test_a_sort_link_keeps_focus_through_its_swap(show: Show) -> None:
 def test_a_page_link_keeps_focus_through_its_swap(show: Show) -> None:
     page = show(_table("invoices"))
     _keeps_focus_through_a_swap(page, "#invoices-rows-pagination-page-2")
+
+
+def test_escape_empties_the_search_and_keeps_focus(show: Show) -> None:
+    page = show(_table("invoices"))
+    field = page.get_by_role("searchbox")
+    field.fill("2050")
+    page.wait_for_url("**invoices-q=2050**")
+    field.press("Escape")
+    expect(field).to_have_value("")
+    expect(field).to_be_focused()
+    # An empty search leaves no trace in the URL, as an empty filter does not.
+    page.wait_for_function("() => !location.search.includes('2050')")
+    assert "invoices-q" not in page.evaluate("location.search")
+
+
+def test_a_search_deleted_by_hand_leaves_no_parameter(show: Show) -> None:
+    page = show(_table("invoices"))
+    field = page.get_by_role("searchbox")
+    field.fill("2050")
+    page.wait_for_url("**invoices-q=2050**")
+    field.fill("")
+    page.wait_for_function("() => !location.search.includes('2050')")
+    assert "invoices-q" not in page.evaluate("location.search")
+    expect(field).to_be_focused()

@@ -156,6 +156,21 @@ export function registerTableSearch(Alpine) {
 			this.searched = location.href;
 		},
 
+		// An empty search leaves no trace in the URL, as an empty filter
+		// leaves none. Unnamed rather than disabled for the length of the
+		// submit, since disabling the box would take focus out of it.
+		dropEmpty() {
+			const field = this.$refs.field;
+			if (field.value) {
+				return;
+			}
+			const name = field.name;
+			field.removeAttribute("name");
+			queueMicrotask(() => {
+				field.name = name;
+			});
+		},
+
 		clearField(event) {
 			// An empty box has nothing to clear, so escape goes on to
 			// whatever else is listening - a dialog the table is inside.
