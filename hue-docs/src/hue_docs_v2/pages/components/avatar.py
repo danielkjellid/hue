@@ -97,8 +97,9 @@ def _usage() -> ComponentType:
         ),
         pr.h3("A picture"),
         pr.p(
-            "`src()` replaces the initials with an image, loaded lazily and "
-            "cropped to fill the shape. Keep `name()` alongside it. The image has "
+            "`src()` lays an image over the initials, loaded lazily and "
+            "cropped to fill the shape. An image that fails to load is removed, "
+            "and the initials show instead. Keep `name()` alongside it. The image has "
             "an empty `alt`, and the `Avatar`'s accessible name still comes from "
             "`name()`."
         ),

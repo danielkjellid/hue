@@ -267,11 +267,6 @@ PAGE = ComponentPage(
             "The bar beside the current item is `aria-hidden`; `aria-current` "
             "is what a screen reader hears.",
         ),
-        Note(
-            "warn",
-            "`Sidebar.label()` sets nothing in the rendered markup. Name the "
-            "nav with `SidebarBody.label()` instead.",
-        ),
     ],
     parts=[
         SidebarHeader,

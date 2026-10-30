@@ -216,7 +216,8 @@ def _build() -> ComponentType:
         pr.p(
             "A control with an error sets `aria-invalid`, shows the message in "
             'place of its hint with `role="alert"`, and adds the message\'s '
-            "id to its `aria-describedby`. A message set on the control with "
+            "id to its `aria-describedby`. A `horizontal()` field keeps its "
+            "hint beside the label. A message set on the control with "
             "`error()` wins over the one from `Form`."
         ),
         pr.p(

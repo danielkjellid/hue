@@ -194,8 +194,7 @@ def _usage() -> ComponentType:
         ),
         pr.p(
             "`error()` sets `aria-invalid` on the fieldset and shows the message "
-            "under the options. A `RadioGroup` shows its hint and its error "
-            "together, one under the other."
+            "under the options, in place of the hint."
         ),
         pr.h3("Cards"),
         pr.p(

@@ -17,7 +17,9 @@ def revenue() -> AreaChart:
         .series([3100, 3400, 3200, 4100, 3900, 4600, 4829], label="This week")
         .compare([2900, 3000, 2800, 3300, 3100, 3600, 3700], label="Last week")
         .y_format("currency", currency="USD")
-        .description("Revenue rose from $3,100 to $4,829, above last week every day.")
+        .description(
+            "Revenue rose from 3,100.00 USD to 4,829.00 USD, above last week every day."
+        )
     )
 
 

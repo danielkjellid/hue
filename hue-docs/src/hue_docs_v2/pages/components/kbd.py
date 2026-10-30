@@ -59,21 +59,29 @@ def _usage() -> ComponentType:
         pr.code('Kbd("mod", "K")\nKbd("shift", "mod", "P")\nKbd("esc")'),
         pr.h3("Key names Kbd understands"),
         pr.p(
-            "`shift`, `alt`, `ctrl`, `esc`, `enter`, `tab`, `space`, `backspace`, "
+            "`mod`, `shift`, `alt` and `ctrl` are the modifiers, described in the "
+            "next section. `esc`, `enter`, `tab`, `space`, `backspace`, "
             "`delete`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup` and "
             "`pagedown` are drawn as "
-            "their glyph or short name, and the names are matched in any case. "
+            "their glyph or short name. Every name is matched in any case. "
             "Anything else is printed as given, with two rules for letters: a "
             'letter on its own is drawn as written, so `Kbd("g")` shows `g`, and '
             'a letter in a chord is drawn as a capital, so `Kbd("ctrl", "g")` '
             "shows `G`. A function key, `f1` to `f12`, is always a capital."
         ),
-        pr.h3("The mod key"),
+        pr.h3("Modifier keys in Kbd"),
         pr.p(
-            "`mod` is Command on Apple platforms and Control everywhere else. "
-            "The server cannot tell which, so `Kbd` renders ⌘ and Alpine swaps in "
-            "Ctrl in the browser, reading the platform from the shortcuts store "
-            "in hue's bundle. Without hue's bundle the key stays ⌘."
+            "`mod` is Command on Apple platforms and Control everywhere else. On "
+            "Apple platforms the modifiers are drawn as glyphs: ⌘ for `mod`, ⇧ "
+            "for `shift`, ⌥ for `alt` and ⌃ for `ctrl`. Elsewhere they are words: "
+            "`mod` and `ctrl` are both drawn as Ctrl, `alt` as Alt and `shift` as "
+            "Shift."
+        ),
+        pr.p(
+            "The server cannot tell the platform, so `Kbd` renders the glyphs and "
+            "Alpine swaps in the words in the browser, reading the platform from "
+            "the shortcuts store in hue's bundle. Without hue's bundle the glyphs "
+            "stay."
         ),
         pr.h3("A sequence of key presses"),
         pr.p(
@@ -88,8 +96,9 @@ PAGE = ComponentPage(
     Kbd,
     lede=(
         "`Kbd` draws keyboard keys as real `kbd` elements, for a shortcut written "
-        "into a sentence, a menu or a hint. Modifier names become their glyphs, "
-        "and `mod` becomes Command or Control to match the reader's platform."
+        "into a sentence, a menu or a hint. Modifiers are drawn as glyphs on Apple "
+        "platforms and as words elsewhere, and `mod` becomes Command or Control "
+        "to match the reader's platform."
     ),
     usage=_usage,
     panels=[
@@ -115,7 +124,9 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "`mod` is announced as Command or Control, matching the key drawn.",
+            "Each modifier is announced by its name, matching the key drawn: "
+            "`mod` as Command or Control, `ctrl` as Control, `alt` as Alt and "
+            "`shift` as Shift.",
         ),
         Note(
             "note",

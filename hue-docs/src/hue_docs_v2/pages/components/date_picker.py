@@ -288,8 +288,7 @@ def _usage() -> ComponentType:
         pr.h3("Errors"),
         pr.p(
             "`error()` sets `aria-invalid` on the `fieldset` and shows the message "
-            "under the months. A `DatePicker` shows its hint and its error "
-            "together."
+            "under the months, in place of the hint."
         ),
     )
 

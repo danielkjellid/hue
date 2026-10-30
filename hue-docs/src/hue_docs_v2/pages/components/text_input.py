@@ -168,7 +168,8 @@ def _usage() -> ComponentType:
         pr.p(
             "`error()` marks the input invalid with `aria-invalid`, shows the "
             "message in place of the hint, and adds the message to the "
-            "input's `aria-describedby`. A `Form` can hand errors to every "
+            "input's `aria-describedby`. A `horizontal()` field keeps its hint "
+            "beside the label. A `Form` can hand errors to every "
             "control inside it by name with `errors()`; an error set on the "
             "control itself takes precedence."
         ),

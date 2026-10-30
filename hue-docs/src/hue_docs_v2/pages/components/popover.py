@@ -144,10 +144,10 @@ def _usage() -> ComponentType:
         pr.h2("Popover is not modal"),
         pr.p(
             "Nothing is trapped and the page behind stays live, so a form "
-            "inside a `Popover` is part of the page and Tab moves on past the "
-            "panel. Escape closes the `Popover` and puts focus back on the "
-            "trigger. A click outside closes it and leaves focus where the "
-            "click landed."
+            "inside a `Popover` is part of the page. Escape closes the "
+            "`Popover` and puts focus back on the trigger. A click outside, or "
+            "Tab moving focus out of the panel, closes it and leaves focus "
+            "where it went."
         ),
         pr.h3("Closing from inside"),
         pr.p(

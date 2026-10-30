@@ -360,7 +360,8 @@ def _usage() -> ComponentType:
         pr.p(
             "`error()` sets `aria-invalid` on the text field, which draws the "
             "field's border in red, shows the message in place of the hint and "
-            "adds it to the field's `aria-describedby`."
+            "adds it to the field's `aria-describedby`. A `horizontal()` field "
+            "keeps its hint beside the label."
         ),
     )
 

@@ -214,9 +214,10 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            'The submission indicator has `role="status"` and an `aria-label` of '
-            "Saving, Saved or Not saved, so the outcome is announced and not "
-            "only drawn.",
+            'The submission indicator has `role="status"`. While the request is '
+            "pending it is a `Spinner` with an `aria-label` of Saving. Once it ends, "
+            "the indicator holds Saved or Not saved as visually hidden text, so "
+            "the outcome is announced and not only drawn.",
         ),
         Note(
             "a11y",

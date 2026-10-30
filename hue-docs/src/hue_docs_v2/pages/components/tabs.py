@@ -217,8 +217,9 @@ def _usage() -> ComponentType:
                 "`Tab.current()` marks a tab by hand, for a tab whose `href()` "
                 "is not a path, such as a query string. `current(False)` keeps a "
                 "tab unmarked whatever the path is.",
-                "`Tab.disabled()`, or a `Tab` with no `href()`, renders as text with "
-                "`aria-disabled` rather than as a link, and is never marked.",
+                "`Tab.disabled()`, or a `Tab` with no `href()`, renders as an `a` "
+                'with no `href`, `role="link"` and `aria-disabled="true"`, '
+                "and is never marked.",
             ]
         ),
         pr.h2("What Tabs offers each Tab"),
@@ -329,8 +330,9 @@ PAGE = ComponentPage(
         ),
         Note(
             "a11y",
-            "A disabled tab is a `span` with `aria-disabled`, so the keyboard "
-            "never lands on it.",
+            "A disabled tab is a link with no `href`, so the Tab key skips it. "
+            'It keeps `role="link"` and `aria-disabled="true"`, so a screen '
+            "reader reads it as a link that is unavailable.",
         ),
         Note(
             "note",

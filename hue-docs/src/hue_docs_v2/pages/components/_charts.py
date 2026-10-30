@@ -192,7 +192,7 @@ def slice_data(name: str) -> list[ComponentType]:
             "412 (58%), and the table gives the share a column of its own. A "
             "share below half a percent is written <1% rather than 0%. With "
             '`value_format("percent")` the values already are shares, so the '
-            "tooltip leaves the share out."
+            "tooltip and the table leave the share out."
         ),
         pr.h3(f"More than six slices in a {name}"),
         pr.p(
