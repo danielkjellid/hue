@@ -56,8 +56,8 @@ _POPUP = (
 )
 
 _TOKEN = (
-    "inline-flex h-6 items-center gap-0.5 rounded-sm bg-surface-active ps-[9px] "
-    "pe-[3px] text-xs font-medium text-fg"
+    "inline-flex h-6 min-w-0 max-w-full items-center gap-0.5 rounded-sm "
+    "bg-surface-active ps-[9px] pe-[3px] text-xs font-medium text-fg"
 )
 
 _TOKEN_REMOVE = classnames(
