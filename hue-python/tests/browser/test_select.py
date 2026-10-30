@@ -95,3 +95,27 @@ def test_enter_chooses_the_active_option_and_closes(show: Show) -> None:
     page.keyboard.press("Enter")
     expect(page.get_by_role("listbox")).to_be_hidden()
     expect(page.locator("input[name=fruit]")).to_have_value("banana")
+
+
+def test_reopening_while_the_list_fades_out_raises_nothing(show: Show) -> None:
+    page = show(_fruit())
+    trigger = page.get_by_role("combobox", name="Fruit")
+    trigger.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox")).to_be_visible()
+    # Reopened once the fade out has begun and before Alpine's next tick,
+    # which cuts the fade short. The fixture fails the test on the console
+    # error an unhandled rejection from that would log.
+    trigger.evaluate(
+        """async el => {
+            const press = (key) => el.dispatchEvent(
+                new KeyboardEvent("keydown", { key, bubbles: true })
+            );
+            press("Escape");
+            await Promise.resolve();
+            press("Enter");
+        }"""
+    )
+    expect(page.get_by_role("listbox")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("listbox")).to_be_hidden()
