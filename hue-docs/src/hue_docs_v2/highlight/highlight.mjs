@@ -3,7 +3,9 @@
 // every token, so a block follows whichever data-theme it sits under.
 import { createHighlighter } from "shiki";
 
-const THEMES = { light: "github-light", dark: "github-dark" };
+// Every token colour these two emit clears 4.5:1 on the code background
+// (surface-sunken) in its own theme.
+const THEMES = { light: "github-light-high-contrast", dark: "github-dark-default" };
 
 let input = "";
 for await (const chunk of process.stdin) input += chunk;
