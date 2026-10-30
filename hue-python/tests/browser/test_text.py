@@ -77,7 +77,8 @@ def test_a_link_in_a_plain_heading_is_heading_text(show: Show) -> None:
     ("variant", "size", "weight"),
     [
         ("title-1", "48px", "700"),
-        ("subtitle-1", "14px", "500"),
+        ("subtitle-1", "14px", "600"),
+        ("subtitle-2", "13px", "600"),
         ("body", "13px", "500"),
     ],
 )
@@ -118,3 +119,12 @@ def test_text_aligned_to_the_end_sits_at_the_end(show: Show, dir: str) -> None:
     page = show(Text("שלום עולם").align("end").id("t"), dir=dir)
     left, right = _edges(page, "#t")
     assert (right if dir == "ltr" else left) < 1
+
+
+VARIANTS = ["title-1", "title-2", "title-3", "subtitle-1", "subtitle-2", "body"]
+
+
+def test_every_variant_looks_different_from_every_other(show: Show) -> None:
+    page = show(*(Text("Words").variant(v).id(v) for v in VARIANTS))  # type: ignore[arg-type]
+    looks = {v: tuple(_type(page, f"#{v}")) for v in VARIANTS}
+    assert len(set(looks.values())) == len(VARIANTS), looks

@@ -52,8 +52,10 @@ _VARIANT_CLASSES: dict[TextVariant, str] = {
     "title-1": "text-5xl font-bold",
     "title-2": "text-3xl font-bold",
     "title-3": "text-2xl",
-    "subtitle-1": "text-base font-medium",
-    "subtitle-2": "text-sm font-medium leading-6",
+    # Semibold: the body weight is already 500, so font-medium would leave
+    # subtitle-2 looking exactly like body.
+    "subtitle-1": "text-base font-semibold",
+    "subtitle-2": "text-sm font-semibold leading-6",
     "body": "text-sm leading-6",
 }
 
