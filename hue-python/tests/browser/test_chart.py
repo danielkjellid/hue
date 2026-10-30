@@ -1,8 +1,9 @@
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import BarChart, BubbleChart, LineChart, ScatterChart
-from tests.browser.conftest import Show
+from hue import assets
+from hue.ui import BarChart, BubbleChart, LineChart, PieChart, ScatterChart
+from tests.browser.conftest import ORIGIN, Show
 
 _GRID = "display:grid;grid-template-columns:1fr 1fr;gap:16px"
 
@@ -135,3 +136,66 @@ def test_the_retry_overlay_stays_inside_a_short_chart(show: Show) -> None:
     assert retry.bounding_box()["height"] >= 32  # type: ignore[index]
     # Nor under the canvas, which would take the click.
     retry.click(trial=True, timeout=2000)
+
+
+# The chart behind a canvas, through the Chart class the bundle draws with.
+# A throwaway chart hands over the class, which the bundle does not export.
+_CHART_OF = f"""async index => {{
+    const {{ draw }} = await import({ORIGIN + assets.CHART_JS_URL!r});
+    const holder = document.createElement("div");
+    holder.append(document.createElement("canvas"));
+    document.body.append(holder);
+    const probe = draw(holder.firstChild, {{
+        kind: "pie", labels: ["a"], series: [{{ values: [1], display: ["1"] }}]
+    }});
+    const Chart = probe.constructor;
+    probe.destroy();
+    holder.remove();
+    window.chartAt = i => Chart.getChart(document.querySelectorAll("figure canvas")[i]);
+}}"""
+
+
+def _chart_handle(page: Page) -> None:
+    _drawn(page)
+    page.evaluate(_CHART_OF, 0)
+
+
+def _tooltip_lines(page: Page, index: int = 0) -> list[str]:
+    return page.evaluate(
+        "i => { const t = chartAt(i).tooltip;"
+        " return t.opacity ? t.body.flatMap(b => b.lines) : [] }",
+        index,
+    )
+
+
+def _hover_first_slice(page: Page) -> None:
+    # A point just inside the top of the pie, which is the first slice's.
+    box = page.locator("figure canvas").first.bounding_box()
+    assert box is not None
+    point = page.evaluate(
+        "() => { const arc = chartAt(0).getDatasetMeta(0).data[0];"
+        " const angle = (arc.startAngle + arc.endAngle) / 2;"
+        " const r = (arc.innerRadius + arc.outerRadius) / 2;"
+        " return [arc.x + r * Math.cos(angle), arc.y + r * Math.sin(angle)] }"
+    )
+    page.mouse.move(box["x"] + point[0], box["y"] + point[1])
+
+
+def test_hovering_a_slice_shows_the_share_the_table_gives(show: Show) -> None:
+    slices = [("Pro", 60), ("Starter", 220), ("Legacy", 15), ("Team", 845)]
+    page = show(PieChart().slices(slices).description("Plans."))
+    _chart_handle(page)
+    _hover_first_slice(page)
+    page.wait_for_function("() => chartAt(0).tooltip.opacity === 1")
+    share = page.locator("tbody tr").first.locator("td").nth(1).inner_text()
+    assert _tooltip_lines(page) == [f" 60 ({share})"]
+
+
+def test_hovering_a_bar_chart_lists_the_series_at_that_label(show: Show) -> None:
+    page = show(BarChart.example())
+    _chart_handle(page)
+    box = page.locator("figure canvas").first.bounding_box()
+    assert box is not None
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.wait_for_function("() => chartAt(0).tooltip.opacity === 1")
+    assert len(_tooltip_lines(page)) == 1
