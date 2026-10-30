@@ -161,13 +161,20 @@ class Tooltip(ChainableComponent):
                 #
                 # Escape is heard on the window, because a tooltip opened by
                 # hover has to close while focus is somewhere else entirely. It
-                # drops a pending open too, which would otherwise undo it.
+                # drops a pending open too, which would otherwise undo it. In
+                # the capture phase, before a dialog around it hears the key
+                # and stops it: an open tooltip takes the first Escape, and
+                # only one that was open, so the next press reaches the dialog.
+                # A control with its own popup open is the exception: that
+                # popup opened last, so it closes first.
                 "x-on:mouseenter": f"clearTimeout($el._t); "
                 f"$el._t = setTimeout(() => shown = true, {_OPEN_DELAY_MS})",
                 "x-on:mouseleave": "clearTimeout($el._t); shown = false",
                 "x-on:focusin": "shown = true",
                 "x-on:focusout": "shown = false",
-                "x-on:keydown.escape.window": "clearTimeout($el._t); shown = false",
+                "x-on:keydown.escape.window.capture": "clearTimeout($el._t); "
+                "if (shown && $event.target.getAttribute('aria-expanded') !== 'true') "
+                "{ $event.stopPropagation(); shown = false }",
                 **self._get_base_html_attrs(),
             },
         )

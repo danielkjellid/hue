@@ -2,7 +2,7 @@ import pytest
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Button, Tooltip
+from hue.ui import Button, Dialog, Popover, Tooltip
 from hue.ui.molecules.tooltip import TooltipPlacement
 from tests.browser.conftest import Show
 
@@ -115,3 +115,60 @@ def test_the_pointer_can_cross_into_the_bubble(show: Show, dir: str) -> None:
     page.mouse.move(into["x"] + into["width"] / 2, y, steps=40)
     # Still meant to be open, rather than fading out.
     assert bubble.evaluate("el => Alpine.$data(el).shown")
+
+
+def _in_dialog() -> Dialog:
+    return Dialog().title("Holder").open().content(_tooltip())
+
+
+def test_escape_in_a_dialog_closes_a_focused_tooltip_first(show: Show) -> None:
+    page = show(_in_dialog())
+    _shown(page)
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    expect(page.get_by_role("dialog", name="Holder")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog", name="Holder")).to_be_hidden()
+
+
+def test_escape_in_a_dialog_closes_a_hovered_tooltip_first(show: Show) -> None:
+    page = show(_in_dialog())
+    page.get_by_role("button", name="Close").focus()
+    page.get_by_role("button", name="Copy").hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    expect(page.get_by_role("dialog", name="Holder")).to_be_visible()
+
+
+def test_escape_in_a_dialog_with_no_tooltip_closes_it(show: Show) -> None:
+    page = show(_in_dialog())
+    page.get_by_role("button", name="Close").focus()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog", name="Holder")).to_be_hidden()
+
+
+def test_escape_closes_a_hovered_tooltip_while_focus_is_elsewhere(show: Show) -> None:
+    page = show(_tooltip(), Button().content("Elsewhere"))
+    page.get_by_role("button", name="Elsewhere").focus()
+    page.get_by_role("button", name="Copy").hover()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+
+
+def test_escape_closes_a_focused_tooltip(show: Show) -> None:
+    page = show(_tooltip())
+    _shown(page)
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    expect(page.get_by_role("button", name="Copy")).to_be_focused()
+
+
+def test_escape_closes_what_the_trigger_opened_before_its_tooltip(show: Show) -> None:
+    page = show(Popover().title("Sharing").trigger(_tooltip()))
+    page.get_by_role("button", name="Copy").click()
+    expect(page.get_by_role("dialog", name="Sharing")).to_be_visible()
+    expect(page.get_by_role("tooltip")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog", name="Sharing")).to_be_hidden()

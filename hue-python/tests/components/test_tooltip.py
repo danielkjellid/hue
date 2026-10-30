@@ -39,14 +39,10 @@ class TestTooltip:
     @pytest.mark.asyncio
     async def test_escape_dismisses_it_wherever_focus_is(self, context_args):
         # One opened by hover sits over what the user is reading while focus
-        # is elsewhere, so the key is heard on the window (WCAG 1.4.13).
+        # is elsewhere, so the key is heard on the window (WCAG 1.4.13), and
+        # in the capture phase, before a dialog around it takes the key.
         html = await render_tree(_tooltip(), context_args=context_args)
-        assert_attr(
-            html,
-            "[x-data]",
-            "x-on:keydown.escape.window",
-            "clearTimeout($el._t); shown = false",
-        )
+        assert_attr(html, "[x-data]", "x-on:keydown.escape.window.capture")
 
     @pytest.mark.asyncio
     async def test_it_waits_before_opening(self, context_args):
