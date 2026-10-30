@@ -5,11 +5,19 @@
 document.addEventListener("alpine:init", () => {
   const Alpine = window.Alpine;
 
+  // Whether the OS asks for dark. hue's theme store reads it when asked but
+  // does not track it, so a panel following "system" would not repaint.
+  const dark = window.matchMedia("(prefers-color-scheme: dark)");
+  const os = Alpine.reactive({ dark: dark.matches });
+  dark.addEventListener("change", (event) => (os.dark = event.matches));
+
   // A panel's frame: how wide it is drawn, which theme it is drawn in, and a
   // height that follows what is inside it.
   Alpine.data("docsPanel", ({ minHeight = 0, maxWidth, contentId, width = null } = {}) => ({
-    width, // null fills the panel
-    theme: null, // null follows the site
+    // A start width only where the presets are shown to leave it. On a
+    // narrower screen it would be drawn at a third of its size.
+    width: window.matchMedia("(min-width: 768px)").matches ? width : null, // null fills
+    theme: null, // a choice as hue's theme store has them; null follows the site
     showCode: false,
     minWidth: 320,
     maxWidth,
@@ -25,6 +33,7 @@ document.addEventListener("alpine:init", () => {
         this.room = this.$refs.canvas.clientWidth - 16;
       });
       this.sizes.observe(this.$refs.canvas);
+      this.$watch("choice", () => this.paint());
       this.$watch("effectiveTheme", () => this.paint());
     },
 
@@ -34,8 +43,13 @@ document.addEventListener("alpine:init", () => {
       this.themes?.disconnect();
     },
 
+    get choice() {
+      return this.theme ?? Alpine.store("theme").choice;
+    },
+
     get effectiveTheme() {
-      return this.theme ?? Alpine.store("theme").resolved;
+      if (this.choice !== "system") return this.choice;
+      return os.dark ? "dark" : "light";
     },
 
     // The viewport the example sees, which can be wider than the panel.
@@ -82,10 +96,13 @@ document.addEventListener("alpine:init", () => {
       if (!doc) return;
       this.paint();
       // A ThemeSwitcher in the frame sets its own theme, which the bar follows.
+      // Read from the frame's store: under "system" its data-theme also moves
+      // with the OS, and that is not a choice the reader made.
       this.themes?.disconnect();
       this.themes = new MutationObserver(() => {
-        const theme = doc.documentElement.getAttribute("data-theme");
-        if (theme !== this.effectiveTheme) this.theme = theme;
+        const store = frame.contentWindow.Alpine?.store("theme");
+        const choice = store ? store.choice : doc.documentElement.getAttribute("data-theme");
+        if (choice !== this.choice) this.theme = choice;
       });
       this.themes.observe(doc.documentElement, { attributeFilter: ["data-theme"] });
       // The content, not the body: the body is at least as tall as the
@@ -105,8 +122,16 @@ document.addEventListener("alpine:init", () => {
     },
 
     paint() {
-      const doc = this.$refs.frame?.contentDocument;
-      doc?.documentElement.setAttribute("data-theme", this.effectiveTheme);
+      const win = this.$refs.frame?.contentWindow;
+      const store = win?.Alpine?.store("theme");
+      if (!store) {
+        win?.document.documentElement.setAttribute("data-theme", this.effectiveTheme);
+        return;
+      }
+      // Through the frame's store, so a ThemeSwitcher in it shows the choice.
+      // Not select(), which would save the panel's choice as the site's.
+      store.choice = this.choice;
+      store.apply();
     },
 
     clamp(width) {
@@ -279,17 +304,38 @@ document.addEventListener("alpine:init", () => {
 if (window.self !== window.top) {
   const guard = (event) => {
     const link = event.target.closest?.("a[href]");
-    if (!link || link.getAttribute("href").startsWith("#")) return;
-    if (new URL(link.href).pathname.includes("/demos/")) return;
+    if (!link) return;
+    const modified =
+      event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    if (link.getAttribute("href").startsWith("#")) {
+      // A plain click is handled below, once the specimen's own handlers ran.
+      if (!modified) return;
+    } else if (new URL(link.href).pathname.includes("/demos/")) {
+      return;
+    }
     event.preventDefault();
   };
   // auxclick too, or a middle click opens the made-up path in a new tab.
   document.addEventListener("click", guard, true);
   document.addEventListener("auxclick", guard, true);
+  // Following an anchor would add an entry to the docs page's history, so
+  // the frame moves to it in place.
+  window.addEventListener("click", (event) => {
+    const link = event.target.closest?.("a[href^='#']");
+    if (!link || event.defaultPrevented) return;
+    event.preventDefault();
+    location.replace(link.href);
+  });
   document.addEventListener(
     "submit",
     (event) => {
-      if (new URL(event.target.action).pathname.includes("/demos/")) return;
+      // The attribute rather than form.action, which a control named
+      // "action" replaces; and a submitter's formaction wins over it.
+      const submitter = event.submitter;
+      const action = submitter?.hasAttribute("formaction")
+        ? submitter.formAction
+        : new URL(event.target.getAttribute("action") ?? "", location.href).href;
+      if (new URL(action).pathname.includes("/demos/")) return;
       event.preventDefault();
     },
     true,
@@ -297,4 +343,21 @@ if (window.self !== window.top) {
   // A demo's swaps would otherwise push entries onto the docs page's history,
   // so Back would walk the demo before it left the page.
   history.pushState = history.replaceState.bind(history);
+}
+
+// Escape goes to the docs page while the pointer rests on a frame, where a
+// tooltip opened by hovering waits to hear it. Passed on to that frame.
+if (window.self === window.top) {
+  let hovered = null;
+  document.addEventListener("mouseover", (event) => {
+    hovered = event.target instanceof HTMLIFrameElement ? event.target : null;
+  });
+  document.addEventListener("mouseout", (event) => {
+    if (!event.relatedTarget) hovered = null;
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !hovered?.isConnected) return;
+    const win = hovered.contentWindow;
+    win?.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
 }
