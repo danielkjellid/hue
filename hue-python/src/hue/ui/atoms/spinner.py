@@ -78,7 +78,9 @@ class Spinner(ChainableComponent):
             html.span(
                 aria_hidden="true",
                 class_=classnames(
-                    "inline-block rounded-full border-current/22 border-t-current",
+                    # flex-none, or a label that wraps squashes it to an oval.
+                    "inline-block flex-none rounded-full",
+                    "border-current/22 border-t-current",
                     "animate-spinner",
                     _SIZE_CLASSES[size],
                     "text-fg-subtle" if muted else "text-accent",
