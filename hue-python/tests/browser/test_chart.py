@@ -211,3 +211,11 @@ def test_escape_hides_a_chart_tooltip(show: Show) -> None:
     page.keyboard.press("Escape")
     page.wait_for_function("() => !chartAt(0).tooltip.getActiveElements().length")
     assert page.evaluate("() => chartAt(0).getActiveElements().length") == 0
+
+
+def test_every_bar_keeps_its_label_at_phone_width(show: Show) -> None:
+    chart = BarChart.example()
+    page = show(html.div(chart, style="width:342px"))
+    _chart_handle(page)
+    labels = page.evaluate("() => chartAt(0).data.labels.length")
+    assert page.evaluate("() => chartAt(0).scales.x.ticks.length") == labels

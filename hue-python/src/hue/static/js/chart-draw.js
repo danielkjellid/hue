@@ -169,7 +169,12 @@ function categoryConfig(spec, theme) {
 				x: {
 					grid: { display: false },
 					border: { display: false },
-					ticks: { ...theme.ticks, maxRotation: 0, autoSkipPadding: 16 },
+					// A bar's label is the only name it has, so bars tilt their
+					// labels to fit rather than drop some. Time steps can skip.
+					ticks:
+						spec.kind === "bar"
+							? { ...theme.ticks, autoSkip: false, maxRotation: 90 }
+							: { ...theme.ticks, maxRotation: 0, autoSkipPadding: 16 },
 				},
 				y: valueAxis(theme, spec.y, { beginAtZero: true }),
 			},
