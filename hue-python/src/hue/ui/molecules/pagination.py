@@ -26,7 +26,7 @@ _COUNT = "text-sm tabular-nums text-fg-muted"
 _ITEM = (
     "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
     "justify-center rounded-md border px-2 font-ui text-sm font-medium "
-    "tabular-nums no-underline"
+    "tabular-nums no-underline relative focus-visible:z-10"
 )
 
 _IDLE = (
@@ -47,7 +47,9 @@ _STEPS = {
 }
 
 # Wraps rather than running out of a narrow container. Narrow, the gaps
-# close to a pixel, which is what lets five 40px pages fit beside the steps.
+# close to a pixel, which is what lets five 40px pages fit beside the steps;
+# a focused step is raised over its neighbours, so their backgrounds cannot
+# cover the ring it draws into that gap.
 _ROW = "flex min-w-0 flex-wrap items-center gap-1 @max-md:gap-px"
 
 # Below this width the numbers either side of the current page fold away,
