@@ -4,16 +4,6 @@ from hue.ui import Kbd
 from tests.browser.conftest import Show
 
 
-def _on_windows(page: Page) -> Page:
-    # The platform is read once, as the bundle loads, so the page loads again.
-    page.add_init_script(
-        "Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'Win32' })"
-    )
-    page.reload()
-    page.wait_for_function("() => window.Alpine && document.body._x_dataStack")
-    return page
-
-
 def _drawn(page: Page) -> list[str]:
     return page.locator("kbd").evaluate_all(
         "keys => keys.map(k => { const glyph = k.querySelector('[aria-hidden]');"
@@ -23,7 +13,7 @@ def _drawn(page: Page) -> list[str]:
 
 
 def test_modifiers_are_words_off_apple(show: Show) -> None:
-    page = _on_windows(show(Kbd("ctrl", "alt", "shift", "K")))
+    page = show(Kbd("ctrl", "alt", "shift", "K"), platform="Win32")
     expect(page.locator("kbd").first).to_have_text("Control")
     assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]
 
@@ -37,7 +27,7 @@ def _spoken(page: Page) -> str:
 
 
 def test_modifiers_take_the_conventional_order_off_apple(show: Show) -> None:
-    page = _on_windows(show(Kbd("shift", "alt", "mod", "K")))
+    page = show(Kbd("shift", "alt", "mod", "K"), platform="Win32")
     expect(page.locator("kbd").first).to_have_text("Control")
     assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]
     assert _spoken(page) == "Control Alt Shift K"

@@ -24,7 +24,15 @@ def _tone_after_thumb(page: Page, tone: str) -> int:
     surface = token(page, "surface")
     face = next(i for i, (colour, n) in enumerate(runs) if colour == surface and n > 8)
     edge = sum(n for _, n in runs[: face + 1])
-    return row[edge : edge + 8].count(tone)
+    return sum(_near(colour, tone) for colour in row[edge : edge + 8])
+
+
+def _near(colour: str, tone: str) -> bool:
+    # Within a margin, since how an edge is anti-aliased differs by platform.
+    def channels(rgb: str) -> list[int]:
+        return [int(c) for c in rgb[4:-1].split(",")]
+
+    return all(abs(a - b) <= 48 for a, b in zip(channels(colour), channels(tone), strict=True))
 
 
 def test_invalid_slider_is_invalid_and_red(show: Show) -> None:

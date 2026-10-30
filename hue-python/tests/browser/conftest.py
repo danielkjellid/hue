@@ -9,6 +9,7 @@ so no server runs.
 """
 
 import asyncio
+import json
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
 from collections.abc import Callable, Iterator
@@ -88,8 +89,9 @@ def show(browser: Browser) -> Iterator[Show]:
     """
     Open components on a fresh page and return it once Alpine has started.
 
-    width and height set the viewport, theme the colour scheme, and dir the
-    page's direction. An uncaught error or console error on the page fails
+    width and height set the viewport, theme the colour scheme, dir the
+    page's direction, and platform what navigator.platform says, a Mac unless
+    told otherwise. An uncaught error or console error on the page fails
     the test.
     """
     pages: list[Page] = []
@@ -101,12 +103,19 @@ def show(browser: Browser) -> Iterator[Show]:
         height: int = 800,
         theme: str = "light",
         dir: str | None = None,
+        platform: str = "MacIntel",
     ) -> Page:
         context = browser.new_context(
             viewport={"width": width, "height": height},
             color_scheme="dark" if theme == "dark" else "light",
         )
         page = context.new_page()
+        # Pinned, so a test of what a Mac or a PC is shown gives the same
+        # answer on whatever machine runs it.
+        page.add_init_script(
+            "Object.defineProperty(Navigator.prototype, 'platform', "
+            f"{{ get: () => {json.dumps(platform)} }})"
+        )
         page.on("pageerror", lambda exc: errors.append(str(exc)))
         page.on(
             "console",
