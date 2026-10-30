@@ -120,3 +120,16 @@ def test_other_controls_in_a_linked_card_are_not_covered(show: Show) -> None:
             " return document.elementFromPoint(r.x + 2, r.y + r.height / 2) === el }"
         )
         assert hit, selector
+
+
+def test_a_body_under_media_is_padded_from_it(show: Show) -> None:
+    page = show(
+        Card()
+        .class_("w-80")
+        .content(
+            CardMedia().id("m").content(html.div(class_="size-full")),
+            CardBody().content("x").id("b"),
+        )
+    )
+    padding = page.locator("#b").evaluate("el => getComputedStyle(el).paddingTop")
+    assert padding == "20px"

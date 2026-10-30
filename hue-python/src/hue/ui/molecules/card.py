@@ -195,6 +195,8 @@ class CardMedia(ChainableComponent):
     def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
+            # What a CardBody below it finds it by.
+            data_card_media="",
             class_=classnames(
                 "aspect-video overflow-hidden bg-surface-sunken",
                 "[&_img]:block [&_img]:size-full [&_img]:object-cover",
@@ -282,8 +284,8 @@ class CardBody(ChainableComponent):
     """
     A card's content.
 
-    Takes its top spacing from whatever sits above it, and pads itself when it
-    stands alone.
+    Takes its top spacing from a header above it, and pads itself when it
+    comes first or straight after media.
     """
 
     category = None
@@ -296,7 +298,7 @@ class CardBody(ChainableComponent):
         return html.div(
             *self._children,
             class_=classnames(
-                "px-5 pt-0 pb-5 first:pt-5 text-base",
+                "px-5 pt-0 pb-5 first:pt-5 [[data-card-media]+&]:pt-5 text-base",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),
