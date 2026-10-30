@@ -26,6 +26,15 @@ _CHEVRON = (
 )
 
 
+# Opens the section for something inside it that has to be seen: an invalid
+# field the browser is about to focus, which it gives up on while the panel
+# is display: none, or a heading the contents is going to. The panel is
+# shown there and then, since x-show only gets to it after the browser has
+# looked. Capturing, because invalid does not bubble.
+_OPEN_NOW = unsafe("open = true; $el.style.removeProperty('display')")
+_REVEAL = {"x-on:invalid.capture": _OPEN_NOW, "x-on:hue-reveal": _OPEN_NOW}
+
+
 class Disclosure(ChainableComponent):
     """
     A section of a page that can be folded away.
@@ -92,6 +101,7 @@ class Disclosure(ChainableComponent):
                     ":aria-labelledby": "$id('hue-disclosure-title')",
                     "x-show": unsafe("open"),
                     "x-cloak": True,
+                    **_REVEAL,
                 },
             ),
             # A section spans its column: the header is a band across the
