@@ -208,7 +208,9 @@ function pieConfig(spec, theme) {
 					data: series.values,
 					backgroundColor: theme.colors.series,
 					borderColor: theme.colors.surface,
-					borderWidth: 2,
+					// One slice has no neighbour, and its border would draw a
+					// seam from the centre.
+					borderWidth: series.values.length > 1 ? 2 : 0,
 					hoverOffset: 4,
 				},
 			],

@@ -219,3 +219,10 @@ def test_every_bar_keeps_its_label_at_phone_width(show: Show) -> None:
     _chart_handle(page)
     labels = page.evaluate("() => chartAt(0).data.labels.length")
     assert page.evaluate("() => chartAt(0).scales.x.ticks.length") == labels
+
+
+def test_a_pie_of_one_slice_draws_no_seam(show: Show) -> None:
+    page = show(PieChart().slices([("Only", 3)]).description("One."))
+    _chart_handle(page)
+    arc = "chartAt(0).getDatasetMeta(0).data[0]"
+    assert page.evaluate(f"() => {arc}.options.borderWidth") == 0
