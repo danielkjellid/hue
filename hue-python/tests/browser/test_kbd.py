@@ -16,11 +16,13 @@ def _on_windows(page: Page) -> Page:
 
 def _drawn(page: Page) -> list[str]:
     return page.locator("kbd").evaluate_all(
-        "keys => keys.map(k => (k.querySelector('[aria-hidden]') ?? k).textContent)"
+        "keys => keys.map(k => { const glyph = k.querySelector('[aria-hidden]');"
+        " return glyph ? getComputedStyle(glyph, '::before').content.slice(1, -1)"
+        " : k.textContent })"
     )
 
 
 def test_modifiers_are_words_off_apple(show: Show) -> None:
     page = _on_windows(show(Kbd("ctrl", "alt", "shift", "K")))
-    expect(page.locator("kbd").first).to_have_text("CtrlControl")
+    expect(page.locator("kbd").first).to_have_text("Control")
     assert _drawn(page) == ["Ctrl", "Alt", "Shift", "K"]

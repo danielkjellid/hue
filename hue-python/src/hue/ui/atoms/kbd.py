@@ -3,8 +3,6 @@ from __future__ import annotations
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue import html as hue_html
-from hue.js import unsafe
 from hue.shortcuts import FUNCTION_KEY, KEYS, Key
 from hue.types.core import Component, ComponentType
 from hue.ui.base import ChainableComponent
@@ -37,6 +35,23 @@ _KEY_CLASSES = (
 )
 
 
+def _glyph(glyph: str, **attrs: str) -> ComponentType:
+    """
+    A glyph that only shows, beside the spoken name that is read.
+
+    Drawn as generated content rather than text, because aria-hidden does
+    not hold inside something hidden: a tooltip's bubble describes its
+    control while hidden, and a text glyph would be read there along with
+    the name, every modifier twice.
+    """
+    return html.span(
+        aria_hidden="true",
+        data_glyph=glyph,
+        class_="before:content-[attr(data-glyph)]",
+        **attrs,
+    )
+
+
 class Kbd(ChainableComponent):
     """
     Keyboard keys, rendered as real kbd elements.
@@ -67,20 +82,20 @@ class Kbd(ChainableComponent):
     def _modifier(self, name: str) -> ComponentType:
         apple = _COMMAND if name == "mod" else KEYS[name]
         other = _OFF_APPLE[name]
-        return (
-            hue_html.kbd()
-            .class_(_KEY_CLASSES)
+        return html.kbd(
+            _glyph(
+                apple.glyph,
+                **{":data-glyph": f"{_IS_APPLE} ? '{apple.glyph}' : '{other.glyph}'"},
+            ),
+            html.span(
+                apple.spoken or "",
+                class_="sr-only",
+                **{"x-text": f"{_IS_APPLE} ? '{apple.spoken}' : '{other.spoken}'"},
+            ),
+            class_=_KEY_CLASSES,
             # A scope of its own, so it resolves wherever Alpine runs and not
             # only under a page that declares one.
-            .x_data({})
-            .content(
-                hue_html.span(apple.glyph)
-                .aria_hidden("true")
-                .x_text(unsafe(f"{_IS_APPLE} ? '{apple.glyph}' : '{other.glyph}'")),
-                hue_html.span(apple.spoken)
-                .class_("sr-only")
-                .x_text(unsafe(f"{_IS_APPLE} ? '{apple.spoken}' : '{other.spoken}'")),
-            )
+            **{"x-data": "{}"},
         )
 
     def _key(self, key: str) -> ComponentType:
@@ -93,7 +108,7 @@ class Kbd(ChainableComponent):
         if named.spoken is None:
             return html.kbd(named.glyph, class_=_KEY_CLASSES)
         return html.kbd(
-            html.span(named.glyph, aria_hidden="true"),
+            _glyph(named.glyph),
             html.span(named.spoken, class_="sr-only"),
             class_=_KEY_CLASSES,
         )

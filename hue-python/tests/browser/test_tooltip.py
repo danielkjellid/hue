@@ -2,7 +2,7 @@ import pytest
 from htmy import html
 from playwright.sync_api import Page, expect
 
-from hue.ui import Button, Dialog, Popover, Tooltip
+from hue.ui import Button, Dialog, Kbd, Popover, Tooltip
 from hue.ui.molecules.tooltip import TooltipPlacement
 from tests.browser.conftest import Show
 
@@ -172,3 +172,24 @@ def test_escape_closes_what_the_trigger_opened_before_its_tooltip(show: Show) ->
     expect(page.get_by_role("tooltip")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog", name="Sharing")).to_be_hidden()
+
+
+def _description(page: Page) -> str:
+    # Chrome's own computation, which is what a screen reader is handed.
+    cdp = page.context.new_cdp_session(page)
+    root = cdp.send("DOM.getDocument")["root"]["nodeId"]
+    node = cdp.send("DOM.querySelector", {"nodeId": root, "selector": "button"})
+    tree = cdp.send("Accessibility.getPartialAXTree", {"nodeId": node["nodeId"]})
+    return tree["nodes"][0]["description"]["value"]
+
+
+def test_the_keys_are_described_once_while_hidden(show: Show) -> None:
+    page = show(_tooltip().keys(Kbd("shift", "mod", "K")))
+    expect(page.get_by_role("tooltip")).to_be_hidden()
+    assert _description(page) == "Copy to clipboard Shift Command K"
+
+
+def test_the_keys_are_described_once_while_shown(show: Show) -> None:
+    page = show(_tooltip().keys(Kbd("shift", "mod", "K")))
+    _shown(page)
+    assert _description(page) == "Copy to clipboard Shift Command K"
