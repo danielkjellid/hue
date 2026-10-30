@@ -162,34 +162,43 @@ def shell(
         "sticky top-14 hidden max-h-[calc(100vh-3.5rem)] w-56 flex-none "
         "self-start overflow-y-auto py-10 xl:block"
     )
-    body = html.div(
-        h.link(rel="icon", href=_FAVICON),
-        skip,
+    body = (
         html.div(
-            # Behind the off-canvas navigation, so a tap beside it closes it.
-            html.div()
-            .class_("fixed inset-0 z-20 bg-scrim lg:hidden")
-            .x_show(unsafe("navOpen"))
-            .x_cloak()
-            .x_on("click", unsafe("navOpen = false")),
-            _sidebar(nav, current),
+            h.link(rel="icon", href=_FAVICON),
+            skip,
             html.div(
-                _topbar(title),
+                # Behind the off-canvas navigation, so a tap beside it closes it.
+                html.div()
+                .class_("fixed inset-0 z-20 bg-scrim lg:hidden")
+                .x_show(unsafe("navOpen"))
+                .x_cloak()
+                .x_on("click", unsafe("navOpen = false")),
+                _sidebar(nav, current),
                 html.div(
-                    html.main(main)
-                    .id("content")
-                    .data("pagefind-body", "")
-                    .class_("mx-auto min-w-0 max-w-3xl flex-1 pb-20 pt-10"),
-                    toc,
-                    # Centred as one block with the contents: the column, the
-                    # contents' 14rem, the gap and the padding.
-                ).class_("mx-auto flex max-w-[68rem] gap-8 px-5 lg:px-8"),
-            ).class_("min-w-0 flex-1"),
-        ).class_("flex min-h-screen"),
-        ToastRegion(),
-        search_dialog(),
-        # A classic script, so it runs before the bundle's module and its
-        # Alpine components are registered by the time Alpine starts.
-        h.script(src=url("/static/docs.js")),
-    ).x_data("{ navOpen: false }")
+                    _topbar(title),
+                    html.div(
+                        html.main(main)
+                        .id("content")
+                        .data("pagefind-body", "")
+                        .class_(
+                            "mx-auto min-w-0 max-w-3xl flex-1 scroll-mt-14 pb-20 pt-10"
+                        ),
+                        toc,
+                        # Centred as one block with the contents: the column, the
+                        # contents' 14rem, the gap and the padding.
+                    ).class_("mx-auto flex max-w-[68rem] gap-8 px-5 lg:px-8"),
+                ).class_("min-w-0 flex-1"),
+            ).class_("flex min-h-screen"),
+            ToastRegion(),
+            search_dialog(),
+            # A classic script, so it runs before the bundle's module and its
+            # Alpine components are registered by the time Alpine starts.
+            h.script(src=url("/static/docs.js")),
+        )
+        .x_data("{ navOpen: false }")
+        # Search closes the navigation first. Two inert traps at once each hide
+        # the other from screen readers, and the menu button is where focus
+        # comes back to when search closes.
+        .x_on("docs-search.window", unsafe("navOpen = false"))
+    )
     return Page(title=title, body=body)
