@@ -151,6 +151,7 @@ class Toast(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         variant: ToastVariant = self._get_prop("variant", "info")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
@@ -275,6 +276,7 @@ class ToastRegion(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         # Whatever the handler queued is rendered here, which is also what
         # keeps the router from appending it a second time.
         return html.div(

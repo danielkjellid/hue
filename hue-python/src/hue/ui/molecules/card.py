@@ -133,8 +133,11 @@ class Card(ChainableComponent):
         href: str | None = self._get_prop("href")
         linked = href is not None or self._get_prop("interactive", False)
 
+        # Clip rather than hidden, so a sticky bar inside sticks to the page
+        # rather than to the card. Clip keeps the content's minimum width
+        # where hidden dropped it, so min-w-0 lets a card in a row shrink.
         classes = classnames(
-            "flex flex-col overflow-clip rounded-lg border",
+            "flex min-w-0 flex-col overflow-clip rounded-lg border",
             _VARIANT_CLASSES[variant],
             _LINKED_CLASSES if linked else "",
             self._get_prop("class_"),

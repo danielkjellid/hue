@@ -110,9 +110,10 @@ const TYPED =
 	"[type=submit], [type=reset], [type=image], [type=file], [type=range], [type=color])";
 
 export function registerTableSearch(Alpine) {
-	Alpine.data("hueTableSearch", () => ({
+	Alpine.data("hueTableSearch", (searchName = "") => ({
 		// The address the last search left in the bar.
 		searched: null,
+		searchName,
 
 		// A page-wide key can only belong to one thing. With two tables on
 		// the page there is no answer to which one slash means, so it means
@@ -159,15 +160,20 @@ export function registerTableSearch(Alpine) {
 		// An empty search leaves no trace in the URL, as an empty filter
 		// leaves none. Unnamed rather than disabled for the length of the
 		// submit, since disabling the box would take focus out of it.
+		// The name comes from the scope, never off the box: a second submit
+		// before the first one's timer would read it already gone.
 		dropEmpty() {
 			const field = this.$refs.field;
 			if (field.value) {
+				field.name = this.searchName;
 				return;
 			}
-			const name = field.name;
 			field.removeAttribute("name");
-			queueMicrotask(() => {
-				field.name = name;
+			// A task rather than a microtask: after a real key press,
+			// microtasks run between submit listeners, before Alpine AJAX
+			// reads the form in its own.
+			setTimeout(() => {
+				field.name = this.searchName;
 			});
 		},
 
@@ -309,12 +315,19 @@ export function registerTableFilters(Alpine) {
  * carries the answer.
  */
 export function registerTableColumns(Alpine) {
-	Alpine.data("hueTableColumns", (hidden = [], table = "") => ({
+	Alpine.data("hueTableColumns", (hidden = [], table = "", columns = 0) => ({
 		table,
 		hidden,
+		columns,
 
 		showing(key) {
 			return !this.hidden.includes(key);
+		},
+
+		// The only column still showing, which stays: a URL hiding every
+		// column is refused on the server too.
+		last(key) {
+			return this.showing(key) && this.hidden.length >= this.columns - 1;
 		},
 
 		toggle(key, shown) {

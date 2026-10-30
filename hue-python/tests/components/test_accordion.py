@@ -31,7 +31,7 @@ class TestAccordion:
     @pytest.mark.asyncio
     async def test_the_trigger_says_what_it_controls(self, context_args):
         html = await render_tree(_accordion(), context_args=context_args)
-        assert_attr(html, "button", ":aria-expanded", "shown(0)")
+        assert_attr(html, "button", ":aria-expanded", "hueShown(0)")
         assert_attr(html, "button", ":aria-controls", "$id('hue-accordion-panel')")
 
     @pytest.mark.asyncio
@@ -40,7 +40,7 @@ class TestAccordion:
         assert_attr(
             html, '[role="region"]', ":aria-labelledby", "$id('hue-accordion-trigger')"
         )
-        assert_attr(html, '[role="region"]', "x-show", "shown(0)")
+        assert_attr(html, '[role="region"]', "x-show", "hueShown(0)")
 
     @pytest.mark.asyncio
     async def test_ids_are_minted_per_item(self, context_args):
@@ -70,7 +70,7 @@ class TestAccordion:
             ),
             context_args=context_args,
         )
-        assert "open: [1]" in str(html)
+        assert "hueOpen: [1]" in str(html)
 
     @pytest.mark.asyncio
     async def test_nothing_is_open_by_default(self, context_args):
@@ -78,7 +78,7 @@ class TestAccordion:
             _accordion(AccordionItem().title("First").content("One")),
             context_args=context_args,
         )
-        assert "open: []" in str(html)
+        assert "hueOpen: []" in str(html)
 
     @pytest.mark.asyncio
     async def test_one_at_a_time_keeps_one_however_many_asked(self, context_args):
@@ -89,8 +89,8 @@ class TestAccordion:
             ),
             context_args=context_args,
         )
-        assert "open: [0]" in str(html)
-        assert "single: true" in str(html)
+        assert "hueOpen: [0]" in str(html)
+        assert "hueSingle: true" in str(html)
 
     @pytest.mark.asyncio
     async def test_multiple_keeps_them_all(self, context_args):
@@ -102,8 +102,8 @@ class TestAccordion:
             ),
             context_args=context_args,
         )
-        assert "open: [0, 1]" in str(html)
-        assert "single: false" in str(html)
+        assert "hueOpen: [0, 1]" in str(html)
+        assert "hueSingle: false" in str(html)
 
     @pytest.mark.asyncio
     async def test_it_is_as_wide_as_its_column(self, context_args):

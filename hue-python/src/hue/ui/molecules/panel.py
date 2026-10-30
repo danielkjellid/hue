@@ -100,8 +100,11 @@ class Panel(ChainableComponent):
 
         return html.div(
             *children,
+            # Clip rather than hidden, so a DataTable's bar sticks to the page
+            # rather than to a panel that never scrolls; min-w-0 gives back
+            # the shrinking in a row that hidden came with.
             class_=classnames(
-                "overflow-hidden rounded-lg border border-border bg-surface",
+                "min-w-0 overflow-clip rounded-lg border border-border bg-surface",
                 self._get_prop("class_"),
             ),
             **self._get_base_html_attrs(),

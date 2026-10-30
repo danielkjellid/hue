@@ -95,6 +95,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
         return self
 
     def _render(self, context: Context) -> Component:
+        self._refuse_x_data()
         placement: MenuPlacement = self._get_prop("placement", "bottom-start")
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
@@ -241,6 +242,8 @@ class MenuItem(Clickable):
         variant: MenuItemVariant = self._get_prop("variant", "default")
         checkable: bool = self._get_prop("checkable", False)
         checked: bool = self._get_prop("checked", False)
+        if checkable:
+            self._refuse_x_data()
         disabled: bool = self._get_prop("disabled", False)
         href: str | None = self._get_prop("href")
         shortcut: Shortcut | None = self._get_prop("shortcut")

@@ -1,12 +1,16 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
 from hue import html as hue_html
+from hue.context import HueContextArgs
+from hue.datatable import build_datatable_state
 from hue.formats import Formats
 from hue.renderer import render_tree
+from hue.router import Router
 from hue.ui import Badge, Button, Column, DataTable, Empty
 from tests._a11y import (
     assert_attr,
@@ -740,3 +744,80 @@ class TestDataTableGroups:
             context_args=context_args,
         )
         assert [th.get_text() for th in select(html, "tbody th")] == ["0"]
+
+
+class _QueryRouter(Router[Any]):
+    """
+    Reads the query off the request, so a test can hand a table a URL.
+    """
+
+    def fragment_post(self, path: str) -> Any:  # type: ignore[override]
+        return lambda handler: handler
+
+    def _path_param(self, name: str) -> str:
+        return f"{{{name}}}"
+
+    def _get_query_values(self, request: Any) -> dict[str, list[str]]:
+        return request.query
+
+    def _get_form_values(self, request: Any) -> dict[str, list[str]]:
+        return {}
+
+    def _url_for(self, request: Any, name: str, **params: Any) -> str:
+        return "/"
+
+
+class _AskingRequest:
+    def __init__(self, query: dict[str, list[str]]) -> None:
+        self.query = query
+
+
+class TestHiddenColumns:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("hide", [["a,b"], ["a", "b"], ["a,b,a"]])
+    async def test_a_url_cannot_hide_every_column(self, hide):
+        declaration = build_datatable_state(
+            _QueryRouter(),
+            key="t",
+            columns=[Column("a", "A"), Column("b", "B"), Column("g", "G")],
+            rows=lambda request, asked: [{"a": "1", "b": "2", "g": "x"}],
+            hideable=["a", "b", "g"],
+            group_by="g",
+        )
+        html = await render_tree(
+            DataTable.from_state(declaration),
+            context_args=HueContextArgs(
+                request=_AskingRequest({"t-hide": [*hide, "g"]}), csrf_token="tok"
+            ),
+        )
+        # One column is left showing, and the section title spans it.
+        assert len(select(html, "thead th")) == 1
+        assert_attr(html, "tbody th", "colspan", "1")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("columns", "hideable", "hide", "showing"),
+        [
+            # A key no column has is dropped before the count.
+            ("ab", ["a", "b"], ["zzz,a"], ["B"]),
+            # A locked column stays, so every hideable one can go.
+            ("abc", ["a", "b"], ["a,b"], ["C"]),
+            # Repeated and unknown keys still leave the last asked showing.
+            ("abc", ["a", "b", "c"], ["a,zzz,b", "a", "c"], ["C"]),
+        ],
+    )
+    async def test_a_url_hides_only_what_it_may(self, columns, hideable, hide, showing):
+        declaration = build_datatable_state(
+            _QueryRouter(),
+            key="t",
+            columns=[Column(key, key.upper()) for key in columns],
+            rows=lambda request, asked: [{"a": "1", "b": "2", "c": "3"}],
+            hideable=hideable,
+        )
+        html = await render_tree(
+            DataTable.from_state(declaration),
+            context_args=HueContextArgs(
+                request=_AskingRequest({"t-hide": hide}), csrf_token="tok"
+            ),
+        )
+        assert [th.get_text(strip=True) for th in select(html, "thead th")] == showing

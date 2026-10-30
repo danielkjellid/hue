@@ -90,14 +90,7 @@ class ScrollArea(ChainableComponent):
         }
 
         if fade:
-            # One element holds one scope, so a caller's and the fade's
-            # cannot both live here, and either replacing the other is silent.
-            if "x-data" in attrs:
-                raise ValueError(
-                    "A ScrollArea with fade() keeps its own Alpine scope, so it "
-                    "cannot also take x_data(). Put the x_data() on an element "
-                    "around it, where the area's content can still read it."
-                )
+            self._refuse_x_data()
             attrs |= {
                 "x-data": "hueScrollArea()",
                 "x-on:scroll": "edges()",

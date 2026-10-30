@@ -164,6 +164,20 @@ class ChainableComponent(ABC):
         self._attrs["x-data"] = value
         return self
 
+    def _refuse_x_data(self) -> None:
+        """
+        Raise if x_data() was given to a component whose root holds hue's own
+        Alpine scope. One element holds one scope, so either replacing the
+        other would be silent, and the component would stop working or the
+        caller's state would never exist.
+        """
+        if "x-data" in self._attrs:
+            raise ValueError(
+                f"{type(self).__name__} keeps its own Alpine scope, so it cannot "
+                "also take x_data(). Put the x_data() on an element around it, "
+                "or inside it, where its content can still read it."
+            )
+
     def x_init(self, value: Expression) -> Self:
         """
         Run an expression when the component initialises.
