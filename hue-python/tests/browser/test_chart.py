@@ -1,9 +1,9 @@
 from htmy import html
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Browser, Page, expect
 
 from hue import assets
 from hue.ui import BarChart, BubbleChart, LineChart, PieChart, ScatterChart
-from tests.browser.conftest import ORIGIN, Show
+from tests.browser.conftest import ORIGIN, Show, render_page
 
 _GRID = "display:grid;grid-template-columns:1fr 1fr;gap:16px"
 
@@ -226,3 +226,39 @@ def test_a_pie_of_one_slice_draws_no_seam(show: Show) -> None:
     _chart_handle(page)
     arc = "chartAt(0).getDatasetMeta(0).data[0]"
     assert page.evaluate(f"() => {arc}.options.borderWidth") == 0
+
+
+def test_a_failed_retry_logs_the_url_it_tried(browser: Browser) -> None:
+    page = browser.new_page()
+    errors: list[str] = []
+    page.on(
+        "console",
+        lambda msg: errors.append(msg.text) if msg.type == "error" else None,
+    )
+    document = render_page(LineChart.example(), LineChart.example())
+
+    def fulfil(route, request) -> None:  # type: ignore[no-untyped-def]
+        path = request.url.removeprefix(ORIGIN).split("?")[0]
+        if path == assets.CHART_JS_URL:
+            route.abort()
+        elif path in assets.ASSET_ROUTES:
+            content, _ = assets.served_asset(path)
+            route.fulfill(body=content, content_type=assets.ASSET_ROUTES[path][1])
+        else:
+            route.fulfill(body=document, content_type="text/html")
+
+    page.route(f"{ORIGIN}/**", fulfil)
+    try:
+        page.goto(f"{ORIGIN}/")
+        expect(page.get_by_role("button", name="Retry")).to_have_count(2)
+        retry = page.get_by_role("button", name="Retry").first
+        retry.click()
+        # Focus comes back to Retry once the second attempt has failed.
+        expect(retry).to_be_focused()
+        hue_errors = [e for e in errors if e.startswith("hue could not load")]
+        # Once per attempt, however many charts were waiting on it.
+        assert len(hue_errors) == 2
+        assert "chart-bundle.js," in hue_errors[0]
+        assert "chart-bundle.js?attempt=1," in hue_errors[1]
+    finally:
+        page.close()

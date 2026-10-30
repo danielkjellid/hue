@@ -26,13 +26,12 @@ let attempt = 0;
 const stranded = new Set();
 
 function library() {
-	loading ??= import(
-		attempt ? `${CHART_BUNDLE}?attempt=${attempt}` : CHART_BUNDLE
-	).catch((error) => {
+	const url = attempt ? `${CHART_BUNDLE}?attempt=${attempt}` : CHART_BUNDLE;
+	loading ??= import(url).catch((error) => {
 		// Logged here rather than per chart: one request failed, however
 		// many charts were waiting on it.
 		console.error(
-			`hue could not load ${CHART_BUNDLE}, which charts are drawn with. ` +
+			`hue could not load ${url}, which charts are drawn with. ` +
 				"Serve it from the same directory as hue's main bundle.",
 			error,
 		);
