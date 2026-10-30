@@ -5,7 +5,7 @@ from typing_extensions import Self
 
 from hue.js import call
 from hue.types.core import Component
-from hue.ui._styles import FOCUS_RING, ControlSize
+from hue.ui._styles import FOCUS_RING, GROUP_STATES, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import modelable
 from hue.ui.form import FieldControl
@@ -30,11 +30,7 @@ _SIZES: dict[ControlSize, str] = {
 # and the toggle at the end.
 _SHELL = (
     "flex w-full cursor-text items-center gap-1 rounded-md border "
-    "border-border-input bg-surface py-[3px] shadow-field "
-    "transition-[border-color,box-shadow] duration-150 hover:border-border-hover "
-    "has-[input:focus]:border-accent has-[input:focus]:ring-3 "
-    "has-[input:focus]:ring-accent-subtle has-[[aria-invalid=true]]:border-danger "
-    "has-[:disabled]:bg-surface-sunken"
+    f"border-border-input bg-surface py-[3px] shadow-field {GROUP_STATES}"
 )
 
 # Never narrower than a few letters, so there is always room to type after
