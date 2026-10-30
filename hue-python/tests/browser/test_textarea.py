@@ -71,3 +71,20 @@ def test_autosize_shrinks_when_text_is_taken_out(show: Show) -> None:
     assert field.evaluate("el => el.offsetHeight") > start
     field.fill("short")
     assert field.evaluate("el => el.offsetHeight") == start
+
+
+def test_autosize_keeps_a_dragged_height_as_a_floor(show: Show) -> None:
+    page = show(Textarea().name("bio").label("Bio").autosize())
+    field = page.get_by_label("Bio")
+    field.fill("short")
+    # What dragging the resize handle does.
+    field.evaluate("el => { el.style.height = '300px' }")
+    field.press("a")
+    expect(field).to_have_css("height", "300px")
+    # Taller text still grows it past the dragged height.
+    field.fill("\n".join(["line"] * 20))
+    assert field.evaluate("el => el.offsetHeight") > 300
+    assert _fits(field)
+    # And taking the text out again stops at the dragged height.
+    field.fill("short")
+    expect(field).to_have_css("height", "300px")
