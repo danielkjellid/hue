@@ -199,3 +199,15 @@ def test_hovering_a_bar_chart_lists_the_series_at_that_label(show: Show) -> None
     page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     page.wait_for_function("() => chartAt(0).tooltip.opacity === 1")
     assert len(_tooltip_lines(page)) == 1
+
+
+def test_escape_hides_a_chart_tooltip(show: Show) -> None:
+    page = show(BarChart.example())
+    _chart_handle(page)
+    box = page.locator("figure canvas").first.bounding_box()
+    assert box is not None
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.wait_for_function("() => chartAt(0).tooltip.getActiveElements().length")
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !chartAt(0).tooltip.getActiveElements().length")
+    assert page.evaluate("() => chartAt(0).getActiveElements().length") == 0

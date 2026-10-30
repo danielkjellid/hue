@@ -122,6 +122,16 @@ export function registerChartData(Alpine) {
 				);
 			},
 
+			// Escape dismisses the hover tooltip, which can cover the points
+			// beside it. Heard on the window, since the pointer, not focus,
+			// put it there.
+			hideTooltip() {
+				if (!chart?.tooltip.getActiveElements().length) return;
+				chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+				chart.setActiveElements([]);
+				chart.update();
+			},
+
 			destroy() {
 				gone = true;
 				stranded.delete(this);

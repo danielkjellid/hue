@@ -187,6 +187,7 @@ class Chart(ChainableComponent):
                 **self._get_base_html_attrs(),
                 "x-data": f"hueChart({json.dumps(spec)})",
                 "x-id": "['hue-chart-error', 'hue-chart-caption']",
+                "x-on:keydown.escape.window": "hideTooltip()",
                 # Named, so focus landing here after a retry announces more
                 # than "figure".
                 ":aria-labelledby": _CAPTION_ID,
