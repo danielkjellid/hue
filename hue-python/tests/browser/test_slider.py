@@ -32,7 +32,8 @@ def _near(colour: str, tone: str) -> bool:
     def channels(rgb: str) -> list[int]:
         return [int(c) for c in rgb[4:-1].split(",")]
 
-    return all(abs(a - b) <= 48 for a, b in zip(channels(colour), channels(tone), strict=True))
+    pairs = zip(channels(colour), channels(tone), strict=True)
+    return all(abs(a - b) <= 48 for a, b in pairs)
 
 
 def test_invalid_slider_is_invalid_and_red(show: Show) -> None:
