@@ -1,9 +1,6 @@
 # hue-docs: writing the documentation
 
-Two sites live in this package until the rename. `src/hue_docs/` is v1, the static
-generator that discovers components through `example()`. Leave it alone: it keeps
-working until v2 replaces it. `src/hue_docs_v2/` is the new site, and everything
-below is about v2.
+The site lives in `src/hue_docs_v2/`. The v2 name stays until the rename.
 
 ## How v2 is built
 

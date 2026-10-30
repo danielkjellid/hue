@@ -1,4 +1,4 @@
-PACKAGE = src/hue_docs src/hue_docs_v2
+PACKAGE = src/hue_docs_v2
 BASE    = $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
 TESTS   = tests
 
@@ -9,44 +9,13 @@ include ../base.mk
 	$Q $(UV) sync
 	@touch .venv
 
-#########
-# Build #
-#########
-
-.PHONY: build
-build: .venv ; $(info $(M) building docs site into dist/) @
-	$Q cd $(BASE) && PYTHONPATH=src $(UV) run python -m hue_docs
-
-# CSS_OUT so the tests can build a throwaway copy without touching dist/.
-CSS_OUT ?= dist/styles/tailwind.css
-
-.PHONY: build-css
-build-css: .venv ; $(info $(M) building docs css) @
-	$Q cd $(BASE) && $(UV) run tailwindcss \
-		-i src/hue_docs/styles/docs.input.css \
-		-o $(CSS_OUT)
-
-.PHONY: watch-css
-watch-css: .venv ; $(info $(M) watching docs css) @
-	$Q cd $(BASE) && $(UV) run tailwindcss \
-		-i src/hue_docs/styles/docs.input.css \
-		-o dist/styles/tailwind.css --watch
-
-.PHONY: serve
-serve: ; $(info $(M) serving dist/ on http://localhost:8000) @
-	$Q cd $(BASE)/dist && python3 -m http.server 8000
-
-.PHONY: clean
-clean: ; $(info $(M) removing dist/) @
-	$Q rm -rf $(BASE)/dist
-
 ###########
 # Docs v2 #
 ###########
 
 V2      = src/hue_docs_v2
 DIST_V2 = dist-v2
-# Not 8000, which v1's serve and other local servers already use.
+# Not 8000, which other local servers already use.
 PORT_V2 ?= 8001
 
 .PHONY: highlight-deps

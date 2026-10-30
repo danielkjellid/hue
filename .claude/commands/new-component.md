@@ -33,11 +33,11 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
    `_render` tested both ways** (present and absent). Do not over-test; don't re-test base
    modifiers.
 
-5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. Optionally
-   rebuild docs (`cd hue-docs && PYTHONPATH=src uv run python -m hue_docs`) to confirm the
-   component is auto-discovered. If the component has keyboard, focus or overlay
-   behaviour, build the docs and drive its page in a browser with real keys and pointer
-   moves: Tab, the arrow keys, Escape, and where focus lands when anything closes.
+5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. If the
+   component has keyboard, focus or overlay behaviour, give it a docs page (see
+   `hue-docs/CLAUDE.md`), run `make serve-v2` from `hue-docs/` and drive the page in a
+   browser with real keys and pointer moves: Tab, the arrow keys, Escape, and where focus
+   lands when anything closes.
 
 6. **Run `/prepare-pr` before committing.** Every component goes through its review and
    simplification passes before anything is committed, and the fixes it makes get the
