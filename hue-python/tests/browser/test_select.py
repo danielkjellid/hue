@@ -1,8 +1,9 @@
+import pytest
 from playwright.sync_api import expect
 
 from hue.ui import Select, SelectOption, TextInput
 from hue.ui.atoms.icon import HueIcon
-from tests.browser._fields import css, still, token
+from tests.browser._fields import contrast, css, still, token
 from tests.browser.conftest import Show
 
 
@@ -119,3 +120,36 @@ def test_reopening_while_the_list_fades_out_raises_nothing(show: Show) -> None:
     expect(page.get_by_role("listbox")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("listbox")).to_be_hidden()
+
+
+def _plans() -> Select:
+    return (
+        Select()
+        .name("plan")
+        .label("Plan")
+        .value("free")
+        .content(
+            SelectOption().value("free").label("Free").meta("$0"),
+            SelectOption()
+            .value("pro")
+            .label("Pro")
+            .description("For growing teams")
+            .meta("$12"),
+        )
+    )
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("text", ["$0", "$12", "For growing teams"])
+def test_option_text_is_legible_active_or_selected(
+    show: Show, theme: str, text: str
+) -> None:
+    page = still(show(_plans(), theme=theme))
+    page.get_by_role("combobox", name="Plan").focus()
+    page.keyboard.press("Enter")
+    # Free is selected; Pro becomes the active one.
+    page.keyboard.press("ArrowDown")
+    expect(page.get_by_role("option", name="Pro")).to_have_attribute(
+        "data-active", "true"
+    )
+    assert contrast(page.get_by_role("listbox").get_by_text(text)) >= 4.5

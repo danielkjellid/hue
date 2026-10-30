@@ -5,7 +5,7 @@ from htmy import html
 from playwright.sync_api import Locator, Page, expect
 
 from hue.ui import Combobox, SelectOption
-from tests.browser._fields import css, still, token
+from tests.browser._fields import contrast, css, still, token
 from tests.browser.conftest import Show
 
 
@@ -219,3 +219,18 @@ def test_escape_straight_after_focus_leaves_nothing_active(show: Show) -> None:
     page.keyboard.press("Alt+ArrowDown")
     expect(field).to_have_attribute("aria-expanded", "true")
     expect(field).not_to_have_attribute("aria-activedescendant", re.compile(".*"))
+
+
+def test_meta_on_the_active_option_is_legible_in_dark(show: Show) -> None:
+    combobox = (
+        Combobox()
+        .name("country")
+        .label("Country")
+        .content(SelectOption().value("no").label("Norway").meta("NO"))
+    )
+    page = still(show(combobox, theme="dark"))
+    page.get_by_role("combobox", name="Country").focus()
+    expect(page.get_by_role("option", name="Norway")).to_have_attribute(
+        "data-active", "true"
+    )
+    assert contrast(page.get_by_role("listbox").get_by_text("NO", exact=True)) >= 4.5

@@ -1,7 +1,9 @@
+import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from hue.js import unsafe
 from hue.ui import Button, Command, CommandItem
+from tests.browser._fields import contrast, still
 from tests.browser.conftest import Show
 
 
@@ -89,3 +91,13 @@ def test_enter_straight_after_typing_runs_the_first_match(show: Show) -> None:
     page.keyboard.press("Enter")
     expect(page.get_by_role("dialog")).to_be_hidden()
     assert page.evaluate("window.ran") == "copy"
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("text", ["Anyone with the link can pay", "INV-2048"])
+def test_text_on_the_active_row_is_legible(show: Show, theme: str, text: str) -> None:
+    page = still(show(_palette(), theme=theme))
+    _open(page)
+    page.keyboard.press("ArrowDown")
+    expect(_active(page)).to_have_attribute("data-label", "Copy invoice link")
+    assert contrast(_active(page).get_by_text(text)) >= 4.5

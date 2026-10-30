@@ -375,7 +375,7 @@ class CommandItem(ChainableComponent):
                     lambda text: html.span(
                         text,
                         class_="block truncate text-sm text-fg-muted "
-                        "in-data-active:text-accent-text/80",
+                        "in-data-active:text-accent-text",
                     ),
                 ),
                 class_="min-w-0 flex-1",
@@ -383,7 +383,11 @@ class CommandItem(ChainableComponent):
             render_if(shortcut, lambda each: _shortcut.keys(each.steps)),
             render_if(
                 self._get_prop("meta"),
-                lambda text: html.span(text, class_="ms-auto text-2xs text-fg-subtle"),
+                lambda text: html.span(
+                    text,
+                    class_="ms-auto text-2xs text-fg-subtle "
+                    "in-data-active:text-accent-text",
+                ),
             ),
         )
         if href is not None and not disabled:
