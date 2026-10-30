@@ -5,13 +5,13 @@ sized to it, and a Card or a Panel in a row or holding a long table.
 
 import pytest
 from htmy import html
-from playwright.sync_api import expect
+from playwright.sync_api import Page, expect
 
 from hue.datatable import BulkAction, build_datatable_state
 from hue.ui import Card, CardBody, Column, DataTable, Panel, Stack
 from tests.browser.conftest import Show
 from tests.browser.test_data_navigation_promises import _coarse
-from tests.browser.test_datatable import _Router
+from tests.browser.test_datatable import _Router, _table
 from tests.browser.test_layout_promises import _BAR, _confirmed, _pager
 from tests.browser.test_sticky_bar_promises import _in_reach, _long, _tick_first
 
@@ -186,3 +186,34 @@ def test_the_columns_panel_keeps_the_last_column_showing(show: Show) -> None:
     expect(amount).to_be_disabled()
     invoice.check()
     expect(amount).to_be_enabled()
+
+
+# The empty search.
+
+
+def _search_sent_by_enter(page: Page) -> str:
+    field = page.get_by_role("searchbox")
+    field.focus()
+    with page.expect_request(lambda request: request.method == "GET") as sent:
+        page.keyboard.press("Enter")
+    return sent.value.url
+
+
+def test_enter_in_an_empty_search_sends_no_query(show: Show) -> None:
+    page = show(_table("invoices"))
+    assert "invoices-q" not in _search_sent_by_enter(page)
+    expect(page.get_by_role("searchbox")).to_have_attribute("name", "invoices-q")
+
+
+def test_enter_in_a_cleared_search_sends_no_query(show: Show) -> None:
+    page = show(_table("invoices"))
+    field = page.get_by_role("searchbox")
+    field.fill("2050")
+    page.wait_for_url("**invoices-q=2050**")
+    field.fill("")
+    page.wait_for_function("() => !location.search.includes('2050')")
+    assert "invoices-q" not in _search_sent_by_enter(page)
+    assert "invoices-q" not in page.evaluate("location.search")
+    # A search typed next is still sent under its name.
+    field.fill("2048")
+    page.wait_for_url("**invoices-q=2048**")

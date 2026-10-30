@@ -166,7 +166,10 @@ export function registerTableSearch(Alpine) {
 			}
 			const name = field.name;
 			field.removeAttribute("name");
-			queueMicrotask(() => {
+			// A task rather than a microtask: after a real key press,
+			// microtasks run between submit listeners, before Alpine AJAX
+			// reads the form in its own.
+			setTimeout(() => {
 				field.name = name;
 			});
 		},
