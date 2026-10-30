@@ -434,19 +434,15 @@ class PieChart(Chart):
             rest = sum(n for i, (_, n) in enumerate(drawn) if i not in largest)
             drawn = [*(drawn[i] for i in sorted(largest)), ("Other", rest)]
 
-        def share(number: float) -> str:
-            # Rounding a sliver down to "0%" would read as nothing at all.
-            if 0 < number / total < 0.005:
-                return "<1%"
-            return f"{number / total:.0%}"
-
         # Values already given as percentages would only say it twice.
         percent = format_.kind == "percent"
+        listed = _shares([number for _, number in slices])
+        shown = _shares([number for _, number in drawn])
 
-        def written(number: float) -> str:
+        def written(number: float, share: str) -> str:
             if percent:
                 return format_.write(number)
-            return f"{format_.write(number)} ({share(number)})"
+            return f"{format_.write(number)} ({share})"
 
         return self._figure(
             {
@@ -455,14 +451,17 @@ class PieChart(Chart):
                 "series": [
                     {
                         "values": [number for _, number in drawn],
-                        "display": [written(number) for _, number in drawn],
+                        "display": [
+                            written(number, share)
+                            for (_, number), share in zip(drawn, shown, strict=True)
+                        ],
                     }
                 ],
             },
             headers=["", "Value"] if percent else ["", "Value", "Share"],
             rows=[
-                [label, format_.write(number)] + ([] if percent else [share(number)])
-                for label, number in slices
+                [label, format_.write(number)] + ([] if percent else [share])
+                for (label, number), share in zip(slices, listed, strict=True)
             ],
             legend=[
                 (label, swatch)
@@ -684,6 +683,26 @@ class BubbleChart(_PointChart):
         if size_label is None:
             raise ValueError("BubbleChart needs size_label().")
         return [size_label]
+
+
+def _shares(numbers: list[float]) -> list[str]:
+    """
+    Each number as a whole percent of their total, adding up to 100.
+
+    Rounded one by one, three thirds read 33% each. The largest remainder
+    method hands the points rounding lost to the numbers that lost most.
+    """
+    total = sum(numbers)
+    exact = [number * 100 / total for number in numbers]
+    whole = [math.floor(share) for share in exact]
+    by_remainder = sorted(range(len(exact)), key=lambda i: whole[i] - exact[i])
+    for i in by_remainder[: 100 - sum(whole)]:
+        whole[i] += 1
+    # A sliver written as "0%" would read as nothing at all.
+    return [
+        "<1%" if share == 0 and number > 0 else f"{share}%"
+        for share, number in zip(whole, numbers, strict=True)
+    ]
 
 
 def _legend(items: list[tuple[str, str]]) -> ComponentType:
