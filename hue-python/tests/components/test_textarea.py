@@ -21,7 +21,16 @@ class TestTextarea:
         html = await render_tree(
             Textarea().name("bio").value("Northwind"), context_args=context_args
         )
-        assert ">Northwind</textarea>" in html
+        assert ">\nNorthwind</textarea>" in html
+
+    @pytest.mark.asyncio
+    async def test_a_leading_newline_survives_the_parser(self, context_args):
+        # The parser drops one newline straight after the opening tag, so the
+        # one written first is the one it drops.
+        html = await render_tree(
+            Textarea().name("bio").value("\nNorthwind"), context_args=context_args
+        )
+        assert ">\n\nNorthwind</textarea>" in html
 
     # max_length(): both branches
     @pytest.mark.asyncio
