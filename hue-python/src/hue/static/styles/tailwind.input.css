@@ -667,13 +667,20 @@
   background: transparent;
   cursor: pointer;
   --slider-fill: 0%;
+  --slider-tone: var(--color-accent);
+
+  /* Invalid turns the fill and the thumb's ring red, as an invalid field's
+     border is. */
+  &[aria-invalid="true"] {
+    --slider-tone: var(--color-danger);
+  }
 
   &::-webkit-slider-runnable-track {
     height: 5px;
     border-radius: var(--radius-full);
     background: linear-gradient(
       to right,
-      var(--color-accent) var(--slider-fill),
+      var(--slider-tone) var(--slider-fill),
       var(--color-border) var(--slider-fill)
     );
   }
@@ -687,7 +694,7 @@
   &::-moz-range-progress {
     height: 5px;
     border-radius: var(--radius-full);
-    background: var(--color-accent);
+    background: var(--slider-tone);
   }
 
   &::-webkit-slider-thumb {
@@ -697,7 +704,7 @@
     margin-top: -5.5px;
     border-radius: 50%;
     background: var(--color-surface);
-    border: 1.5px solid var(--color-accent);
+    border: 1.5px solid var(--slider-tone);
     box-shadow: 0 1px 3px rgb(18 18 23 / 0.2);
     transition:
       transform 120ms ease,
@@ -709,7 +716,7 @@
     height: 16px;
     border-radius: 50%;
     background: var(--color-surface);
-    border: 1.5px solid var(--color-accent);
+    border: 1.5px solid var(--slider-tone);
     box-shadow: 0 1px 3px rgb(18 18 23 / 0.2);
   }
 

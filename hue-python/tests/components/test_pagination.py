@@ -1,5 +1,6 @@
 import pytest
 
+from hue import html as hue_html
 from hue.renderer import render_tree
 from hue.ui import Pagination
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -123,6 +124,39 @@ class TestPagination:
         # It sits outside the rows and refreshes itself from the response,
         # so the mark moves to the page you land on.
         assert_attr(html, "#invoices-pages", "x-sync")
+
+    @pytest.mark.asyncio
+    async def test_its_links_take_ids_from_its_own(self, context_args):
+        # A swap replaces the links, and the id is how focus finds the one it
+        # was on. A step spent by the swap hands focus to the page it led to.
+        def pages(own_id):
+            return (
+                Pagination()
+                .page(3)
+                .total_pages(15)
+                .href(lambda p: f"?page={p}")
+                .target("rows")
+                .id(own_id)
+            )
+
+        html = await render_tree(
+            hue_html.div(pages("a"), pages("b")), context_args=context_args
+        )
+        ids = [link["id"] for link in select(html, "nav a")]
+        assert len(ids) == len(set(ids))
+        assert_attr(html, "#a-next", "href", "?page=4")
+        assert_attr(html, "#a-next", "data-hue-refocus", "a-page-4")
+        assert_attr(html, "#b-previous", "data-hue-refocus", "b-page-2")
+        assert_attr(html, "#b-page-15", "href", "?page=15")
+
+    @pytest.mark.asyncio
+    async def test_without_an_id_its_links_have_none(self, context_args):
+        html = await render_tree(
+            Pagination().page(3).total_pages(15).href(lambda p: f"?page={p}"),
+            context_args=context_args,
+        )
+        assert_no_selector(html, "nav a[id]")
+        assert_no_selector(html, "[data-hue-refocus]")
 
     @pytest.mark.asyncio
     async def test_a_target_without_an_id_of_its_own_is_refused(self, context_args):

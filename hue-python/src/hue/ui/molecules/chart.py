@@ -155,7 +155,9 @@ class Chart(ChainableComponent):
                     hidden=True,
                     **{":hidden": "!failed"},
                 ),
-                class_="relative aspect-[5/2] w-full",
+                # min-h-0, or the drawn canvas holds the box open at its old
+                # height and the ratio only ever grows.
+                class_="relative aspect-[5/2] min-h-0 w-full",
             ),
             render_if(legend, _legend),
             _table(self._description(), headers, rows),
@@ -420,9 +422,11 @@ class PieChart(Chart):
                 return "<1%"
             return f"{number / total:.0%}"
 
+        # Values already given as percentages would only say it twice.
+        percent = format_.kind == "percent"
+
         def written(number: float) -> str:
-            # Values already given as percentages would only say it twice.
-            if format_.kind == "percent":
+            if percent:
                 return format_.write(number)
             return f"{format_.write(number)} ({share(number)})"
 
@@ -437,9 +441,9 @@ class PieChart(Chart):
                     }
                 ],
             },
-            headers=["", "Value", "Share"],
+            headers=["", "Value"] if percent else ["", "Value", "Share"],
             rows=[
-                [label, format_.write(number), share(number)]
+                [label, format_.write(number)] + ([] if percent else [share(number)])
                 for label, number in slices
             ],
             legend=[
@@ -563,11 +567,13 @@ class _PointChart(Chart):
                     {
                         "label": label,
                         "points": points,
+                        # One line per value, so the tooltip stacks them and
+                        # stays narrow enough for a phone.
                         "display": [
-                            ", ".join(
+                            [
                                 f"{name}: {cell}"
                                 for name, cell in zip(names, cells(point), strict=True)
-                            )
+                            ]
                             for point in points
                         ],
                     }
@@ -676,23 +682,28 @@ def _legend(items: list[tuple[str, str]]) -> ComponentType:
 
 def _table(caption: str, headers: list[str], rows: list[list[str]]) -> ComponentType:
     # The numbers behind the drawing, for a screen reader to step through.
-    return html.table(
-        html.caption(caption, **{":id": _CAPTION_ID}),
-        html.thead(
-            html.tr(
-                *(
-                    html.th(header, scope="col") if header else html.td()
-                    for header in headers
-                )
-            )
-        ),
-        html.tbody(
-            *(
+    # sr-only goes on a wrapper because a table box does not shrink to 1px,
+    # so on the table itself it widens a narrow page.
+    return html.div(
+        html.table(
+            html.caption(caption, **{":id": _CAPTION_ID}),
+            html.thead(
                 html.tr(
-                    html.th(row[0], scope="row"), *(html.td(cell) for cell in row[1:])
+                    *(
+                        html.th(header, scope="col") if header else html.td()
+                        for header in headers
+                    )
                 )
-                for row in rows
-            )
+            ),
+            html.tbody(
+                *(
+                    html.tr(
+                        html.th(row[0], scope="row"),
+                        *(html.td(cell) for cell in row[1:]),
+                    )
+                    for row in rows
+                )
+            ),
         ),
         class_="sr-only",
     )

@@ -39,7 +39,7 @@ class Breadcrumbs(ChainableComponent):
 
     Worth the row it costs only where the hierarchy is real and deeper than
     two levels. collapse_after() folds the middle of a long trail behind an
-    ellipsis that expands in place.
+    ellipsis that opens it in a popover.
 
         Breadcrumbs().items([("/", "Home"), (None, "INV-2048")])
     """
@@ -151,6 +151,11 @@ class Breadcrumbs(ChainableComponent):
                                     "text-fg no-underline hover:bg-surface-hover",
                                     FOCUS_RING,
                                 ),
+                                # A link that does not leave the page, a
+                                # fragment say, would otherwise leave the
+                                # panel open over it. close() hands focus
+                                # back to the ellipsis rather than the body.
+                                **{"x-on:click": "close()"},
                             )
                         )
                         for crumb in hidden

@@ -83,23 +83,23 @@ function palette(canvas) {
 }
 
 function numberFormat({ format, currency }) {
-	// English and the currency's code, like the values the components write
-	// for the tooltip and the table, so the axis does not group digits or mark
-	// money differently from them.
-	return new Intl.NumberFormat("en", {
+	// English, with a currency's code after the number, like the values the
+	// components write for the tooltip and the table, so the axis does not
+	// group digits or mark money differently from them.
+	const compact = new Intl.NumberFormat("en", {
 		notation: "compact",
-		currencyDisplay: "code",
-		style: format === "number" ? "decimal" : format,
-		currency: format === "currency" ? currency : undefined,
+		style: format === "percent" ? "percent" : "decimal",
 	});
+	return format === "currency"
+		? (value) => `${compact.format(value)} ${currency}`
+		: (value) => compact.format(value);
 }
 
 function valueAxis(theme, format, extra = {}) {
-	const written = numberFormat(format);
 	return {
 		grid: { color: theme.colors.grid },
 		border: { display: false },
-		ticks: { ...theme.ticks, maxTicksLimit: 5, callback: (value) => written.format(value) },
+		ticks: { ...theme.ticks, maxTicksLimit: 5, callback: numberFormat(format) },
 		title: format.label
 			? { display: true, text: format.label, color: theme.colors.axis, font: theme.ticks.font }
 			: undefined,
@@ -178,6 +178,15 @@ function categoryConfig(spec, theme) {
 			const series = spec.series[datasetIndex];
 			return `${series.label}: ${series.display[dataIndex]}`;
 		},
+		// Chart.js takes a line's swatch from its point, which is hollow, so
+		// it is filled with the line's colour to match the legend.
+		swatch:
+			spec.kind === "bar"
+				? undefined
+				: ({ dataset }) => ({
+						borderColor: dataset.borderColor,
+						backgroundColor: dataset.borderColor,
+					}),
 	};
 }
 
@@ -234,9 +243,10 @@ function pointConfig(spec, theme) {
 				y: valueAxis(theme, spec.y, { grace: "5%" }),
 			},
 		},
+		// The series on a line of its own, then a line per value.
 		label: ({ datasetIndex, dataIndex }) => {
 			const series = spec.series[datasetIndex];
-			return `${series.label}: ${series.display[dataIndex]}`;
+			return [series.label, ...series.display[dataIndex]];
 		},
 	};
 }
@@ -255,7 +265,7 @@ export function draw(canvas, spec, { animate = true } = {}) {
 	const colors = palette(canvas);
 	const font = { family: getComputedStyle(canvas).fontFamily, size: 11, weight: 500 };
 	const theme = { colors, ticks: { color: colors.axis, font } };
-	const { type, data, options, label } = CONFIGS[spec.kind](spec, theme);
+	const { type, data, options, label, swatch } = CONFIGS[spec.kind](spec, theme);
 
 	return new Chart(canvas, {
 		type,
@@ -272,7 +282,10 @@ export function draw(canvas, spec, { animate = true } = {}) {
 					titleFont: { family: font.family },
 					bodyFont: { family: font.family },
 					cornerRadius: 6,
-					callbacks: { label: (item) => ` ${label(item)}` },
+					callbacks: {
+						label: (item) => [label(item)].flat().map((line) => ` ${line}`),
+						...(swatch && { labelColor: swatch }),
+					},
 				},
 			},
 		},

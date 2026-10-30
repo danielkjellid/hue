@@ -5,7 +5,7 @@ from typing_extensions import Self
 
 from hue.types.core import ComponentType
 from hue.ui.base import AlpineModelMixin, ChainableComponent, FormElementMixin
-from hue.ui.molecules.field import Field, error_id, hint_id
+from hue.ui.molecules.field import Field, error_id, hint_id, visible_hint
 from hue.ui.molecules.form import FormErrors
 from hue.utils import classnames
 
@@ -85,11 +85,17 @@ class FormControl(AlpineModelMixin, FormElementMixin, ChainableComponent):
         which still has patchy screen-reader support.
         """
         control_id = self._input_id()
+        error = self._error(context)
+        hint = visible_hint(
+            self._get_prop("hint"),
+            error,
+            horizontal=self._get_prop("horizontal", False),
+        )
         return (
             classnames(
                 *extra,
-                hint_id(control_id) if self._get_prop("hint") else None,
-                error_id(control_id) if self._error(context) else None,
+                hint_id(control_id) if hint else None,
+                error_id(control_id) if error else None,
                 self._attrs.get("aria_describedby"),
             )
             or None

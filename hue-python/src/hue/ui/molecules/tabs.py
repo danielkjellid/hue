@@ -7,16 +7,18 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
+from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.ui.base import ChainableComponent
 from hue.ui.navigation import CurrentPage, SwapsTarget, swap
 from hue.utils import classnames, render_if
 
 # Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
 # a second line stops reading as one row of choices, and every tab stays a
-# real link either way.
-_ROW = "flex gap-1 overflow-x-auto border-b border-border"
-_ROW_SEGMENTED = f"{SEGMENTED_TRACK} overflow-x-auto"
+# real link either way. Capped at its container's width, or a parent that
+# does not stretch it (a Stack, say) lets it grow and scroll nothing.
+_SCROLLS = "min-w-0 max-w-full overflow-x-auto"
+_ROW = f"flex gap-1 border-b border-border {_SCROLLS}"
+_ROW_SEGMENTED = f"{SEGMENTED_TRACK} {_SCROLLS}"
 
 # What an underline tab is, laid out. The segmented track says all of
 # this for its own items already, so only one of the two is ever applied.
@@ -48,7 +50,7 @@ _SEGMENTED_TAB = (
 # the same element.
 _IDLE = "text-fg-muted hover:text-fg"
 
-# Not a link, so there is nothing to disable - it is text that says so.
+# A link with nowhere to go, which says so.
 _UNREACHABLE = "cursor-not-allowed text-fg-disabled hover:bg-transparent"
 
 
@@ -141,6 +143,13 @@ class Tabs(SwapsTarget):
         }
 
     def _render(self, context: Context) -> Component:
+        own_id: str | None = self._attrs.get("id")
+        if own_id is not None:
+            # A swap replaces every tab, and the id is how focus finds the
+            # new one. By position, since an href can be anything.
+            for index, child in enumerate(self._children):
+                if isinstance(child, Tab):
+                    child._attrs.setdefault("id", f"{own_id}-tab-{index}")
         return html.nav(
             *self._children,
             aria_label=self._get_prop("label"),
@@ -191,9 +200,10 @@ class Tab(ChainableComponent):
         """
         A section there is nothing in yet.
 
-        Rendered as text rather than as a link, because a link that goes
-        nowhere is one a keyboard still lands on and a screen reader
-        still offers.
+        Rendered as a link with no href, which the Tab key skips. It keeps
+        the link role and aria-disabled, so a screen reader still reads it
+        as a link that is unavailable. On a span, aria-disabled is never
+        read out.
         """
         self._props["disabled"] = value
         return self
@@ -219,7 +229,8 @@ class Tab(ChainableComponent):
             # items, and two colours on one element resolve by stylesheet
             # order rather than by intent.
             _UNREACHABLE if unreachable else "" if segmented else _IDLE,
-            FOCUS_RING,
+            # Inset, because the scrolling row clips a ring drawn outside it.
+            FOCUS_RING_INSET,
         )
         children = (
             *self._children,
@@ -227,8 +238,9 @@ class Tab(ChainableComponent):
         )
 
         if unreachable:
-            return html.span(
+            return html.a(
                 *children,
+                role="link",
                 aria_disabled="true",
                 class_=classes,
                 **self._get_base_html_attrs(),

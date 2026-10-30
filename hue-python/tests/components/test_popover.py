@@ -46,6 +46,14 @@ class TestPopover:
         assert_attr(html, "[x-data]", "x-on:click.outside", "open = false")
 
     @pytest.mark.asyncio
+    async def test_focus_leaving_it_closes_it(self, context_args):
+        # Left open, the panel would cover whatever took focus next.
+        html = await render_tree(_popover(), context_args=context_args)
+        handler = select(html, "[x-data]")[0]["x-on:focusout"]
+        assert "!$el.contains($event.relatedTarget)" in handler
+        assert "open = false" in handler
+
+    @pytest.mark.asyncio
     async def test_it_hangs_off_the_trigger(self, context_args):
         html = await render_tree(
             _popover().placement("top-end"), context_args=context_args

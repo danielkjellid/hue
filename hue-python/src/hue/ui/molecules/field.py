@@ -35,6 +35,19 @@ def error_id(control_id: str) -> str:
     return f"{control_id}-error"
 
 
+def visible_hint(
+    hint: str | None, error: str | None, *, horizontal: bool = False
+) -> str | None:
+    """
+    The hint a field shows. An error takes its place under the
+    control, but not beside the label, where the horizontal layout puts it.
+
+    Field draws from this and the controls point aria-describedby at it, so
+    the id list never names a hint that is not on the page.
+    """
+    return hint if error is None or horizontal else None
+
+
 def hint_component(text: str, control_id: str | None = None) -> ComponentType:
     """
     A field's hint, as the controls and Field both render it.
@@ -153,10 +166,10 @@ class Field(ChainableComponent):
 
     def _render(self, context: Context) -> Component:
         label: str | None = self._get_prop("label")
-        hint: str | None = self._get_prop("hint")
         error: str | None = self._get_prop("error")
         trailing: tuple[ComponentType, ...] = self._get_prop("trailing", ())
         horizontal: bool = self._get_prop("horizontal", False)
+        hint = visible_hint(self._get_prop("hint"), error, horizontal=horizontal)
 
         # A hidden label is still a label, but it is not a row: sr-only takes
         # it out of the flow, so leaving it in the header would leave the gap

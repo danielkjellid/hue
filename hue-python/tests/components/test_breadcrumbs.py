@@ -93,6 +93,14 @@ class TestBreadcrumbs:
         assert_attr(html, '[role="dialog"]', "aria-label", "Hidden level")
 
     @pytest.mark.asyncio
+    async def test_following_a_hidden_step_closes_the_panel(self, context_args):
+        # A fragment link stays on the page, under a panel left open.
+        html = await render_tree(
+            Breadcrumbs().items(_TRAIL).collapse_after(3), context_args=context_args
+        )
+        assert_attr(html, '[role="dialog"] a', "x-on:click", "close()")
+
+    @pytest.mark.asyncio
     async def test_the_panel_leaves_the_trail_one_line(self, context_args):
         # Expanding in place would push the page around while the reader is
         # looking at it.

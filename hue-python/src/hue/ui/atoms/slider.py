@@ -100,6 +100,7 @@ class Slider(FieldControl):
         suffix: str = self._get_prop("suffix", "")
         ticks: tuple[str, ...] = self._get_prop("ticks", ())
         disabled: bool = self._get_prop("disabled", False)
+        error: str | None = self._error(context)
         control_id = self._input_id()
 
         # The fill is a gradient stop on the track, so it has to be recomputed
@@ -132,9 +133,8 @@ class Slider(FieldControl):
                 step=self._get_prop("step"),
                 value=current,
                 disabled=disabled or None,
-                aria_describedby=self._describedby(
-                    context,
-                ),
+                aria_invalid="true" if error is not None else None,
+                aria_describedby=self._describedby(context),
                 **{"x-model.number": "value", ":style": fill, **unit},
             )
         )

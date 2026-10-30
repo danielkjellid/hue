@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import Switch
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 class TestSwitch:
@@ -50,12 +50,13 @@ class TestSwitch:
     async def test_an_outcome_is_named_not_just_coloured(
         self, context_args, state, announced
     ):
-        # A tick that only means something if you can see it is not a report.
+        # A tick that only means something if you can see it is not a report,
+        # and a live region reads out its text, not its aria-label.
         html = await render_tree(
             Switch("notify").label("N").submission_state(state),
             context_args=context_args,
         )
-        assert_attr(html, '[role="status"]', "aria-label", announced)
+        assert select(html, '[role="status"] .sr-only')[0].text == announced
         assert_no_selector(html, "input[disabled]")
 
     @pytest.mark.parametrize("state", ["success", "error"])

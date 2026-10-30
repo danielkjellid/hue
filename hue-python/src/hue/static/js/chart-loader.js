@@ -21,6 +21,9 @@ let rejected = null;
 // A failed import may stay failed for the life of the page, so another
 // attempt asks under a URL the browser has not seen yet.
 let attempt = 0;
+// Charts the last failure left showing Retry. A retry on any of them draws
+// them all, since they were all waiting on the same library.
+const stranded = new Set();
 
 function library() {
 	loading ??= import(
@@ -60,6 +63,7 @@ export function registerChartData(Alpine) {
 					await document.fonts.ready;
 				} catch {
 					this.failed = true;
+					stranded.add(this);
 					// Focus sits on the figure only after a retry, so this was
 					// that retry failing: hand focus back to the button.
 					if (document.activeElement === this.$root) {
@@ -102,18 +106,25 @@ export function registerChartData(Alpine) {
 				if (!this.failed) return;
 				// The button is about to hide, which would drop focus to the page.
 				if (this.$root.contains(document.activeElement)) this.$root.focus();
-				// A failure gets one new attempt, which every chart that
-				// retries shares; one still on its way is waited on instead.
+				// A failure gets one new attempt; one still on its way is
+				// waited on instead.
 				if (loading === rejected) {
 					loading = null;
 					attempt += 1;
 				}
-				this.failed = false;
-				return this.init();
+				const charts = [...stranded];
+				stranded.clear();
+				return Promise.all(
+					charts.map((chart) => {
+						chart.failed = false;
+						return chart.init();
+					}),
+				);
 			},
 
 			destroy() {
 				gone = true;
+				stranded.delete(this);
 				theme?.disconnect();
 				chart?.destroy();
 			},

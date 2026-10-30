@@ -529,7 +529,7 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
 def test_the_search_box_shows_slash_only_where_slash_works(mounted):
     # Cloaked until the browser has counted the boxes, hidden by CSS while the
     # field has focus or text, and named on the input for a screen reader.
-    form = _form(_table(mounted().invoices, _request()), "invoices-q")
+    form = _form(_table(mounted().invoices, _request()), 'id="invoices-q"')
     hint = re.search(r'<span aria-hidden="true" class="([^"]*)"([^>]*)>.*?<kbd', form)
     assert hint, "no slash hint"
     assert "peer-focus:hidden" in hint[1]
@@ -845,8 +845,9 @@ def test_every_name_the_markup_hands_the_script_is_one_it_reads(mounted):
         *re.findall(r"x-on:(hue-table-[\w-]+)", html),
     }
     attributes = set(re.findall(r"data-(hue-[\w-]+|filter[\w-]*|option)=", html))
-    # The popovers' own mark on their triggers, which they read themselves.
-    attributes.discard("hue-trigger")
+    # The popovers' own mark on their triggers, which they read themselves,
+    # and where focus goes after a swap, which swaps.js reads.
+    attributes -= {"hue-trigger", "hue-refocus"}
     assert len(names) >= 5 and len(attributes) >= 5, (names, attributes)
     missing = [name for name in sorted(names) if name not in script]
     missing += [
@@ -1116,6 +1117,30 @@ def test_a_table_narrowed_to_nothing_says_so_and_the_way_out(mounted):
     # The order survives; the search does not.
     assert 'name="invoices-sort" value="amount"' in way_out
     assert 'name="invoices-q"' not in way_out
+
+
+def test_a_control_its_own_swap_takes_away_hands_focus_on(mounted):
+    # Each is gone or hidden once its response is in, so focus goes to the
+    # first of these ids that is still there: the start of the band for the
+    # way out, the control before it for Reset, and the box that picks
+    # every row for an action, whose bar goes with the selection.
+    html = _table(mounted().invoices, _request(q="nobody", status="paid"))
+    band = ["invoices-q", "invoices-filters-trigger", "invoices-columns-trigger"]
+    for id_ in band:
+        assert f'id="{id_}"' in html
+    way_out = _form(html, "Clear search and filters")
+    assert f'data-hue-refocus="{" ".join(band)}"' in way_out
+    reset = _form(html, "hueTableReset")
+    assert f'data-hue-refocus="{" ".join(reversed(band))}"' in reset
+
+    bar = _bar(_table(mounted().invoices, _request()))
+    assert 'data-hue-refocus="invoices-select-all"' in bar
+
+
+def test_a_search_is_trimmed_where_it_enters(mounted):
+    # "contoso " found nothing, and a box of spaces narrowed to nothing.
+    assert _bind(mounted().invoices, _request(q=" contoso ")).state.query == "contoso"
+    assert _bind(mounted().invoices, _request(q="   ")).state.query == ""
 
 
 def test_an_empty_table_that_is_not_narrowed_is_just_empty(urlpatterns_):

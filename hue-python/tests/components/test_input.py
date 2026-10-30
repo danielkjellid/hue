@@ -200,7 +200,7 @@ class TestInputStates:
             context_args=context_args,
         )
         assert "Some help" not in html
-        assert_attr(html, "input", "aria-describedby", "f-hint f-error")
+        assert_attr(html, "input", "aria-describedby", "f-error")
 
     @pytest.mark.asyncio
     async def test_caller_describedby_is_merged(self, context_args):

@@ -548,6 +548,29 @@ class TestDataTable:
         assert_attr(html, "th a", "href", "?sort=amount")
 
     @pytest.mark.asyncio
+    async def test_a_sort_link_takes_an_id_from_the_table(self, context_args):
+        # The swap replaces the link, and the id is how focus finds the new
+        # one. By position, under the rows region the table names.
+        def table(key=None):
+            table = (
+                DataTable()
+                .columns([_COLUMNS[0], Column("amount", "Amount", sort="amount")])
+                .rows(_ROWS)
+                ._sort_href(lambda order: f"?sort={order}")
+            )
+            return table.id(key) if key else table
+
+        html = await render_tree(
+            hue_html.div(table("a"), table("b")), context_args=context_args
+        )
+        assert [link["id"] for link in select(html, "th a")] == [
+            "a-rows-sort-1",
+            "b-rows-sort-1",
+        ]
+        html = await render_tree(table(), context_args=context_args)
+        assert_no_selector(html, "th a[id]")
+
+    @pytest.mark.asyncio
     async def test_a_column_with_no_sort_is_only_its_label(self, context_args):
         html = await render_tree(
             DataTable().columns(_COLUMNS).rows(_ROWS), context_args=context_args

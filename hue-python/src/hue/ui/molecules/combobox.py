@@ -38,9 +38,11 @@ _SHELL = (
 )
 
 # Never narrower than a few letters, so there is always room to type after
-# the last token before the line wraps.
+# the last token before the line wraps, unless the line itself is narrower: a
+# field wider than its column would run under the chevron.
 _FIELD = (
-    "h-6 min-w-20 flex-1 border-none bg-transparent px-0.5 text-fg outline-none "
+    "h-6 min-w-[min(5rem,100%)] flex-1 text-ellipsis border-none bg-transparent "
+    "px-0.5 text-fg outline-none "
     "placeholder:text-fg-subtle disabled:cursor-not-allowed disabled:text-fg-disabled"
 )
 

@@ -110,3 +110,17 @@ class TestSlider:
         html = await render_tree(_slider(), context_args=context_args)
         assert_selector(html, "[x-data] input[type='range']")
         assert_selector(html, "[x-data] span[x-text]")
+
+    # error(): both branches
+    @pytest.mark.asyncio
+    async def test_an_error_marks_the_track_invalid(self, context_args):
+        html = await render_tree(
+            _slider().error("Too many."), context_args=context_args
+        )
+        assert_attr(html, "input", "aria-invalid", "true")
+        assert_attr(html, "input", "aria-describedby", "seats-error")
+
+    @pytest.mark.asyncio
+    async def test_valid_by_default(self, context_args):
+        html = await render_tree(_slider(), context_args=context_args)
+        assert_no_selector(html, "[aria-invalid]")

@@ -317,8 +317,9 @@ class TableRow(ChainableComponent):
     """
     A tr row.
 
-    Selected rows are marked with aria-selected, which is both what a screen
-    reader reads and what tints the row.
+    Selected rows are marked with aria-selected, which tints the row. Screen
+    readers only announce it in a grid, so a plain table says a row is
+    selected through a labelled control in it, such as a checkbox.
     """
 
     category: ClassVar[str | None] = None

@@ -63,8 +63,8 @@ class Accordion(ChainableComponent):
 
     def boxed(self, value: bool = True) -> Self:
         """
-        Put a border and a radius around the whole set, for a list that
-        stands on its own rather than one inside something already ruled.
+        Put each section in a bordered, rounded box of its own, with a gap
+        between them, rather than ruling them off from each other.
         """
         self._props["boxed"] = value
         return self

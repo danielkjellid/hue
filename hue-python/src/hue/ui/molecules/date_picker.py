@@ -15,7 +15,12 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import modelable
 from hue.ui.form import FieldControl
-from hue.ui.molecules.field import error_component, hint_component, legend_component
+from hue.ui.molecules.field import (
+    error_component,
+    hint_component,
+    legend_component,
+    visible_hint,
+)
 from hue.utils import classnames, render_if, render_when
 
 type DatePickerMode = Literal["single", "range", "multiple"]
@@ -290,7 +295,9 @@ class DatePicker(FieldControl):
             submitted,
             render_when(required, enforced),
             *self._panels(grid),
-            render_if(hint, lambda text: hint_component(text, control_id)),
+            render_if(
+                visible_hint(hint, error), lambda text: hint_component(text, control_id)
+            ),
             render_if(error, lambda text: error_component(text, control_id)),
             **attrs,
         )

@@ -1,9 +1,10 @@
 import pytest
 
+from hue import html as hue_html
 from hue.renderer import render_tree
 from hue.ui import Badge, Tab, Tabs
 from hue.ui.base import ChainableComponent
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
 def _tabs(current="/settings/account", **props):
@@ -90,6 +91,26 @@ class TestTabs:
         assert_attr(html, "nav#settings-tabs", "x-sync")
 
     @pytest.mark.asyncio
+    async def test_each_tab_takes_an_id_from_the_row(self, context_args):
+        # A swap replaces the row, and the id is how focus finds the tab it
+        # was on. Two rows on one page keep theirs apart.
+        html = await render_tree(
+            hue_html.div(
+                _tabs(target="panel", id="one"),
+                _tabs(target="panel", id="two"),
+                Tabs().id("three").content(Tab().href("/x").id("mine")),
+            ),
+            context_args=context_args,
+        )
+        ids = [a["id"] for a in select(html, "nav a")]
+        assert ids == ["one-tab-0", "one-tab-1", "two-tab-0", "two-tab-1", "mine"]
+
+    @pytest.mark.asyncio
+    async def test_a_row_without_an_id_gives_its_tabs_none(self, context_args):
+        html = await render_tree(_tabs(), context_args=context_args)
+        assert_no_selector(html, "nav a[id]")
+
+    @pytest.mark.asyncio
     async def test_a_target_without_an_id_of_its_own_is_refused(self, context_args):
         with pytest.raises(ValueError, match="id"):
             await render_tree(_tabs(target="panel"), context_args=context_args)
@@ -119,7 +140,8 @@ class TestTabs:
     # disabled() and badge(): both branches each
     @pytest.mark.asyncio
     async def test_a_section_with_nothing_in_it_is_not_a_link(self, context_args):
-        # A link that goes nowhere is one a keyboard still lands on.
+        # No href, so the keyboard skips it; the role is what lets a screen
+        # reader announce aria-disabled at all, which it ignores on a span.
         html = await render_tree(
             Tabs().content(
                 Tab().href("/settings/account").content("Account"),
@@ -127,8 +149,8 @@ class TestTabs:
             ),
             context_args=context_args,
         )
-        assert_selector(html, "nav > a", count=1)
-        assert_attr(html, "span[aria-disabled]", "aria-disabled", "true")
+        assert_selector(html, "nav > a[href]", count=1)
+        assert_attr(html, 'a[role="link"]:not([href])', "aria-disabled", "true")
 
     @pytest.mark.asyncio
     async def test_a_reachable_tab_says_nothing(self, context_args):

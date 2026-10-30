@@ -42,7 +42,8 @@ class TestSeriesCharts:
         # than saying it a second time.
         html = await render_tree(_chart(), context_args=context_args)
         assert_attr(html, "canvas", "aria-hidden", "true")
-        assert_selector(html, "table.sr-only")
+        # Hidden on a wrapper, since a table box does not shrink to 1px.
+        assert_selector(html, "div.sr-only > table")
         caption = select(html, "table caption")[0].text.strip()
         assert caption == "Revenue peaked on Tuesday."
         # And it names the figure, where focus lands after a retry.
@@ -307,6 +308,9 @@ class TestPieChart:
             chart.value_format("percent"), context_args=context_args
         )
         assert _spec(html)["series"][0]["display"] == ["25%", "75%"]
+        # Nor does the table give a Share column repeating them.
+        assert [th.text for th in select(html, "thead th")] == ["Value"]
+        assert [td.text for td in select(html, "tbody td")] == ["25%", "75%"]
 
     @pytest.mark.asyncio
     async def test_a_zero_slice_is_only_in_the_table(self, context_args):
@@ -358,7 +362,8 @@ class TestScatterChart:
         spec = _spec(await render_tree(_scatter(), context_args=context_args))
         assert spec["kind"] == "scatter"
         assert spec["series"][0]["points"] == [[1, 2], [3, 4.5]]
-        assert spec["series"][0]["display"][1] == "Basket: 3, Margin: 4.5"
+        # A line per value, which the tooltip stacks.
+        assert spec["series"][0]["display"][1] == ["Basket: 3", "Margin: 4.5"]
         assert spec["x"]["label"] == "Basket"
         assert spec["y"]["label"] == "Margin"
 

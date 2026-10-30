@@ -50,12 +50,19 @@ export function registerSelectData(Alpine) {
 					: which === "last"
 						? enabled.at(-1)
 						: (this.selected() ?? enabled[0]);
-			this.$nextTick(() => this.activate(start));
+			// Active now, so letters typed before the list draws build on it;
+			// scrolled once the list is showing and has a layout to scroll.
+			this.activate(start);
+			this.$nextTick(() => this.current()?.scrollIntoView({ block: "nearest" }));
 		},
 
 		hide() {
 			this.open = false;
 			this.active = null;
+		},
+
+		leave(event) {
+			if (!this.$root.contains(event.relatedTarget)) this.hide();
 		},
 
 		choose(option) {
@@ -118,7 +125,7 @@ export function registerSelectData(Alpine) {
 					this.show(opens[key]);
 				} else if (printable) {
 					this.show();
-					this.$nextTick(() => this.typeahead(key));
+					this.typeahead(key);
 				}
 				return;
 			}

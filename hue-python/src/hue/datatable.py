@@ -108,6 +108,7 @@ from hue.ui.molecules.datatable import (
     DataTable,
     RowKey,
     resolve_value,
+    select_all_id,
 )
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.empty import Empty
@@ -685,7 +686,10 @@ class _Declaration:
                 self.identifier,
                 *(
                     _action_control(
-                        action, form_id(self.key) or "", bound.urls.act[name]
+                        action,
+                        form_id(self.key) or "",
+                        bound.urls.act[name],
+                        select_all_id(self.key),
                     )
                     for name, action in self.actions.items()
                 ),
@@ -778,7 +782,8 @@ class _Declaration:
         hideable = set(self.hideable)
         return TableState(
             sort=self._sort_in(asked),
-            query=_one(asked, _QUERY) or "",
+            # Trimmed, so a space typed after a word still finds it.
+            query=(_one(asked, _QUERY) or "").strip(),
             page=page,
             filters=self._filters_in(asked),
             # Only columns that could have been hidden, so a key typed
@@ -920,10 +925,15 @@ build_datatable_state = _Declaration
 # ----------------------------------------------------------------------
 
 
-def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
+def _action_control(
+    action: BulkAction, form: str, url: str, refocus: str
+) -> ComponentType:
     """
     The button in the bar for one action: the submit itself, or the button
     that opens its confirmation, with the submit in the dialog's footer.
+
+    The bar goes once the action is done, so focus goes to refocus, the box
+    that picks every row.
     """
     content = (*((action.icon,) if action.icon else ()), action.label)
     submit = (
@@ -934,6 +944,7 @@ def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
         .content(*content)
         .form(form)
         .formaction(url)
+        .data("hue-refocus", refocus)
     )
     if action.confirm is None:
         return submit
@@ -942,7 +953,11 @@ def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
     dialog = copy(action.confirm)
     dialog._props = dict(action.confirm._props)
     return dialog.trigger(
-        Button().variant(action.variant).size("sm").content(*content)
+        Button()
+        .variant(action.variant)
+        .size("sm")
+        .content(*content)
+        .data("hue-refocus", refocus)
     ).footer(
         Button().variant("ghost").content("Cancel").x_on("click", close()),
         # The answer the dialog asks for, so it is the primary button there
@@ -952,6 +967,23 @@ def _action_control(action: BulkAction, form: str, url: str) -> ComponentType:
         .variant("danger" if action.variant == "danger" else "primary")
         .x_on("click", close()),
     )
+
+
+def _toolbar_controls(bound: BoundTable) -> list[str]:
+    """
+    The ids of the search box and the panel triggers, in the order they sit
+    in the band, for a control that is gone after its swap to hand focus to.
+    """
+    declaration = bound.declaration
+    return [
+        f"{bound.key}-{part}"
+        for part, wanted in (
+            (_QUERY, declaration.search),
+            (f"{_TableFilters.part}-trigger", declaration.filters),
+            (f"{_TableColumns.part}-trigger", declaration.hideable),
+        )
+        if wanted
+    ]
 
 
 def _narrowed(state: TableState) -> bool:
@@ -978,7 +1010,10 @@ def _nothing_matches(bound: BoundTable) -> ComponentType:
                 .variant("outline")
                 .size("xs")
                 .type("submit")
-                .content("Clear search and filters"),
+                .content("Clear search and filters")
+                # Gone once the rows are back, so focus goes to the start
+                # of the band, where the narrowing is done.
+                .data("hue-refocus", " ".join(_toolbar_controls(bound))),
                 method="get",
                 action=bound.urls.read,
                 # The whole frame, so the search box and the panels clear too.
@@ -1224,6 +1259,7 @@ def _filter_panel(bound: BoundTable, declared: Sequence[Filter]) -> ComponentTyp
             Button()
             .variant("outline")
             .size("sm")
+            .id(f"{bound.key}-{_TableFilters.part}-trigger")
             .content(
                 HueIcon("list-filter"),
                 "Filter",
@@ -1377,6 +1413,7 @@ def _applied_chips() -> ComponentType:
                 HueIcon("x").class_("size-3"),
                 type="button",
                 class_=_CHIP,
+                data_chip="",
                 **{
                     "@click": "remove(chip)",
                     ":aria-label": "'Remove filter ' + chip.filterLabel + ': ' "
@@ -1391,7 +1428,7 @@ def _applied_chips() -> ComponentType:
         .content("Clear all")
         .x_on("click", unsafe("clear()")),
         class_=_APPLIED_ROW,
-        **{"x-show": "applied.length", "x-cloak": True},
+        **{"x-ref": "chips", "x-show": "applied.length", "x-cloak": True},
     )
 
 
@@ -1429,6 +1466,7 @@ class _TableColumns(_ToolbarForm):
                 Button()
                 .variant("outline")
                 .size("sm")
+                .id(f"{bound.key}-{self.part}-trigger")
                 .content(HueIcon("columns-3"), "Columns")
             )
             .label("Columns")
@@ -1551,7 +1589,10 @@ class _TableReset(_ToolbarForm):
             .size("sm")
             .type("submit")
             .icon_only("Reset filters and columns")
-            .content(HueIcon("rotate-ccw")),
+            .content(HueIcon("rotate-ccw"))
+            # Hidden once there is nothing to reset, so focus goes to the
+            # nearest control before it.
+            .data("hue-refocus", " ".join(reversed(_toolbar_controls(bound)))),
             id=self.form_of(bound),
             method="get",
             action=bound.urls.read,
