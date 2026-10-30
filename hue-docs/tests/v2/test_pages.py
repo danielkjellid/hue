@@ -140,3 +140,10 @@ def test_every_documented_component_has_a_page() -> None:
     }
     have = {page.component.__name__ for page in COMPONENTS}
     assert documented <= have, f"no page for {sorted(documented - have)}"
+
+
+def test_the_docs_icons_carry_no_title() -> None:
+    # As hue's own: a title joins the accessible name of whatever holds the icon.
+    icons = Path(hue_docs_v2.__file__).parent / "icons"
+    titled = [p.name for p in icons.glob("*.svg") if "<title" in p.read_text()]
+    assert titled == []
