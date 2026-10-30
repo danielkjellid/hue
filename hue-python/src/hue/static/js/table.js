@@ -15,6 +15,27 @@
  * one bar would cover another while its rows stayed ticked, and Escape would
  * clear both.
  */
+// The bar floats over the foot of the window, so while one shows the page
+// gets room under its end to scroll the pager clear of it, and the same
+// scroll padding keeps a focused element from landing under it. Measured
+// rather than fixed, because the bar wraps onto more lines on a phone.
+const floating = new Set();
+const room = new ResizeObserver(() => {
+	let needed = 0;
+	for (const bar of floating) {
+		if (!bar.isConnected) {
+			floating.delete(bar);
+			room.unobserve(bar);
+		} else if (bar.offsetHeight) {
+			const offset = parseFloat(getComputedStyle(bar).bottom) || 0;
+			// 8px clear of its top edge, so a focus ring is not cut by it.
+			needed = Math.max(needed, bar.offsetHeight + offset + 8);
+		}
+	}
+	const style = document.documentElement.style;
+	style.paddingBottom = style.scrollPaddingBottom = needed ? `${needed}px` : "";
+});
+
 export function registerTableSelection(Alpine) {
 	Alpine.data("hueTableSelection", () => ({
 		// Declared, so Alpine keeps them on this scope instead of writing
@@ -50,6 +71,11 @@ export function registerTableSelection(Alpine) {
 
 		destroy() {
 			window.removeEventListener("hue-table-selection", this.onOtherSelection);
+		},
+
+		keepClear(bar) {
+			floating.add(bar);
+			room.observe(bar);
 		},
 
 		get values() {

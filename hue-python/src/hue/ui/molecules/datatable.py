@@ -550,6 +550,7 @@ class DataTable(ChainableComponent):
             **{
                 # So clear() can tell focus is in here before hiding it.
                 "x-ref": "bar",
+                "x-init": "keepClear($el)",
                 "x-show": "selected.length > 0",
                 "x-cloak": True,
                 "x-on:keydown.escape.window": "if (selected.length) clear()",

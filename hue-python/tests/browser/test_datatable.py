@@ -109,3 +109,95 @@ def test_a_search_deleted_by_hand_leaves_no_parameter(show: Show) -> None:
     page.wait_for_function("() => !location.search.includes('2050')")
     assert "invoices-q" not in page.evaluate("location.search")
     expect(field).to_be_focused()
+
+
+def _bar(page: Page):  # type: ignore[no-untyped-def]
+    return page.get_by_role("group", name="Selected rows")
+
+
+def test_ticking_a_row_shows_the_bar_and_escape_clears_it(show: Show) -> None:
+    page = show(_table("invoices"))
+    page.get_by_role("checkbox", name="Select INV-2050").check()
+    expect(_bar(page)).to_be_visible()
+    expect(_bar(page)).to_contain_text("1 selected")
+    page.keyboard.press("Escape")
+    expect(_bar(page)).to_be_hidden()
+    expect(page.get_by_role("checkbox", name="Select INV-2050")).not_to_be_checked()
+
+
+def test_a_selection_in_one_table_clears_the_other(show: Show) -> None:
+    page = show(_table("first"), _table("second"))
+    page.locator("#first").get_by_role("checkbox", name="Select INV-2050").check()
+    page.locator("#second").get_by_role("checkbox", name="Select INV-2050").check()
+    expect(_bar(page).locator("visible=true")).to_have_count(1)
+    expect(
+        page.locator("#first").get_by_role("checkbox", name="Select INV-2050")
+    ).not_to_be_checked()
+
+
+# Where the bar's top rests, leaving out the slide it comes in with.
+_BAR_TOP = (
+    "(() => { const bar = document.querySelector('[aria-label=\"Selected rows\"]');"
+    " return innerHeight - parseFloat(getComputedStyle(bar).bottom)"
+    " - bar.offsetHeight })()"
+)
+
+
+def _uncovered(page: Page, selector: str) -> bool:
+    return page.evaluate(
+        """(selector) => {
+            const el = document.querySelector(selector);
+            const box = el.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+                box.left + box.width / 2, box.top + box.height / 2);
+            return el.contains(hit);
+        }""",
+        selector,
+    )
+
+
+def _ticked_at_the_foot(show: Show, *tables: DataTable) -> Page:
+    """
+    A phone whose window ends at the pager, with a row ticked, so the bar
+    sits over the pager unless the page makes room for it.
+    """
+    page = show(*tables, width=390, height=900)
+    pager = page.locator("#invoices-rows-pagination-page-2")
+    bottom = page.evaluate(
+        "() => document.querySelector('#invoices-rows').getBoundingClientRect().bottom"
+    )
+    page.set_viewport_size({"width": 390, "height": int(bottom)})
+    page.get_by_role("checkbox", name="Select INV-2050").check()
+    expect(_bar(page)).to_be_visible()
+    expect(pager).to_be_visible()
+    return page
+
+
+def test_a_focused_page_link_is_not_under_the_bar(show: Show) -> None:
+    page = _ticked_at_the_foot(show, _table("invoices"))
+    page.locator("#invoices-rows-pagination-page-2").focus()
+    page.wait_for_function(
+        "() => document.querySelector('#invoices-rows-pagination-page-2')"
+        f".getBoundingClientRect().bottom <= {_BAR_TOP}"
+    )
+    assert _uncovered(page, "#invoices-rows-pagination-page-2")
+
+
+def test_the_page_scrolls_the_pager_clear_of_the_bar(show: Show) -> None:
+    page = _ticked_at_the_foot(show, _table("invoices"))
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    # The band under the rows holds the count and the pager.
+    assert page.evaluate(
+        "() => document.querySelector('#invoices-rows').getBoundingClientRect()"
+        f".bottom <= {_BAR_TOP}"
+    )
+
+
+def test_the_room_goes_with_the_bar(show: Show) -> None:
+    page = _ticked_at_the_foot(show, _table("invoices"))
+    page.keyboard.press("Escape")
+    expect(_bar(page)).to_be_hidden()
+    page.wait_for_function(
+        "() => !document.documentElement.style.paddingBottom"
+        " && !document.documentElement.style.scrollPaddingBottom"
+    )
