@@ -142,7 +142,7 @@ class Switch(FormControl):
         screen reader, since the row already says what it is.
         """
         if state == "pending":
-            return Spinner().size("xs").muted().aria_label("Saving")
+            return Spinner().size("xs").muted().label("Saving", visible=False)
 
         icon, tone, label = _FINISHED[state]
         # It clears itself rather than waiting for another render: the request

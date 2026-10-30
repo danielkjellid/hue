@@ -30,9 +30,8 @@ class Spinner(ChainableComponent):
     """
     An indeterminate busy indicator.
 
-    size() and muted() set the appearance. label() names what is loading: it
-    shows beside the spinner and takes over the live region, so the ring itself
-    stops being announced.
+    size() and muted() set the appearance. label() names what is loading and
+    shows beside the spinner.
 
         Spinner().label("Loading payments")
     """
@@ -55,46 +54,44 @@ class Spinner(ChainableComponent):
         self._props["muted"] = value
         return self
 
-    def label(self, value: str) -> Self:
+    def label(self, value: str, *, visible: bool = True) -> Self:
         """
         Say what is loading, shown beside the spinner and announced with it.
+        visible=False keeps it for screen readers only, for a spinner with no
+        room for words. Without a label it announces "Loading".
         """
         self._props["label"] = value
+        self._props["label_visible"] = visible
         return self
 
     def _render(self, context: Context) -> Component:
         size: SpinnerSize = self._get_prop("size", "md")
         muted: bool = self._get_prop("muted", False)
         label: str | None = self._get_prop("label")
+        visible: bool = label is not None and self._get_prop("label_visible", True)
 
-        circle_classes = classnames(
-            "inline-block rounded-full border-current/22 border-t-current",
-            "animate-spinner",
-            _SIZE_CLASSES[size],
-            "text-fg-subtle" if muted else "text-accent",
-        )
-
-        # role="status" announces politely without stealing focus. It has to be
-        # on the element that holds the text, and the ring itself is decoration
-        # once a label says what is happening.
-        if label is not None:
-            return html.span(
-                html.span(class_=circle_classes, aria_hidden="true"),
-                html.span(
-                    label, class_=classnames("text-fg-muted", _LABEL_CLASSES[size])
-                ),
-                class_=classnames(
-                    "inline-flex items-center gap-2.5",
-                    self._get_prop("class_"),
-                ),
-                **{"role": "status", **self._get_base_html_attrs()},
-            )
-
+        # role="status" announces politely without stealing focus. A live
+        # region reads the text inside it and ignores its aria-label, so the
+        # text is always there, hidden when nothing on screen says it, and the
+        # ring is decoration.
         return html.span(
-            class_=classnames(circle_classes, self._get_prop("class_")),
-            **{
-                "role": "status",
-                "aria_label": "Loading",
-                **self._get_base_html_attrs(),
-            },
+            html.span(
+                aria_hidden="true",
+                class_=classnames(
+                    "inline-block rounded-full border-current/22 border-t-current",
+                    "animate-spinner",
+                    _SIZE_CLASSES[size],
+                    "text-fg-subtle" if muted else "text-accent",
+                ),
+            ),
+            html.span(
+                label or "Loading",
+                class_=classnames("text-fg-muted", _LABEL_CLASSES[size])
+                if visible
+                else "sr-only",
+            ),
+            class_=classnames(
+                "inline-flex items-center gap-2.5", self._get_prop("class_")
+            ),
+            **{"role": "status", **self._get_base_html_attrs()},
         )
