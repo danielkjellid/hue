@@ -99,14 +99,15 @@ class TestAvatarGroup:
         # announced twice however it was built.
         assert_selector(html, 'span[aria-hidden="true"]', count=2)
 
+    @pytest.mark.parametrize("label", [None, "", "  "])
     @pytest.mark.asyncio
-    async def test_requires_a_label(self, context_args):
+    async def test_requires_a_label(self, context_args, label):
         # Without one the group announces nothing at all.
+        group = AvatarGroup().content(Avatar().name("Ada"))
+        if label is not None:
+            group.label(label)
         with pytest.raises(ValueError, match="requires a label"):
-            await render_tree(
-                AvatarGroup().content(Avatar().name("Ada")),
-                context_args=context_args,
-            )
+            await render_tree(group, context_args=context_args)
 
     # more(): both branches
     @pytest.mark.asyncio

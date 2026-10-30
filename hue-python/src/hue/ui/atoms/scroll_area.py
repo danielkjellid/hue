@@ -65,7 +65,8 @@ class ScrollArea(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        label: str | None = self._get_prop("label")
+        # A blank label names nothing, so it is no label at all.
+        label: str | None = (self._get_prop("label") or "").strip() or None
         fade: bool = self._get_prop("fade", False)
 
         if label is None:

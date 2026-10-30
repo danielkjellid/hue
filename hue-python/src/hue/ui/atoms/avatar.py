@@ -242,7 +242,8 @@ class AvatarGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        label: str | None = self._get_prop("label")
+        # A blank label names nothing, so it is no label at all.
+        label: str | None = (self._get_prop("label") or "").strip() or None
         if label is None:
             raise ValueError(
                 "AvatarGroup requires a label; call .label() with a summary of "

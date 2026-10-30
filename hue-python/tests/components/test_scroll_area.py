@@ -21,10 +21,14 @@ class TestScrollArea:
         assert_attr(html, "div", "role", "region")
         assert_attr(html, "div", "aria-label", "Time zones")
 
+    @pytest.mark.parametrize("label", [None, "", "  "])
     @pytest.mark.asyncio
-    async def test_it_refuses_to_render_without_a_label(self, context_args):
+    async def test_it_refuses_to_render_without_a_label(self, context_args, label):
+        area = ScrollArea().content("Oslo")
+        if label is not None:
+            area.label(label)
         with pytest.raises(ValueError, match="label"):
-            await render_tree(ScrollArea().content("Oslo"), context_args=context_args)
+            await render_tree(area, context_args=context_args)
 
     @pytest.mark.asyncio
     async def test_the_scroll_stays_inside_it(self, context_args):
