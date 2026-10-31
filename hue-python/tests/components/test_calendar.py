@@ -85,12 +85,12 @@ class TestFrame:
     async def test_a_swap_puts_focus_back_on_the_link_or_the_heading(
         self, context_args
     ):
-        # ajax-focus.js finds a step again by its id; a day is gone with the
-        # swap, and the region names the heading as where focus goes
-        # instead. A view tab is drawn again, and names the heading itself.
+        # swaps.js finds a step or a view tab again by its id; a day is gone
+        # with the swap, and the region names the heading as where focus
+        # goes instead.
         html = await _html(_calendar().id("cal"), context_args)
         assert_attr(html, "#cal-view", "data-hue-refocus", "cal-heading")
-        assert_attr(html, "#cal-switch-month", "data-hue-refocus", "cal-heading")
+        assert_no_selector(html, "#cal-switch-month[data-hue-refocus]")
         assert_attr(html, "#cal-view h2#cal-heading", "tabindex", "-1")
         assert_no_selector(html, "[x-on\\:ajax\\:merged]")
         plain = await _html(_calendar(), context_args)
