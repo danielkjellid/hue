@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any, Final
 from urllib.parse import quote
 
@@ -148,15 +149,17 @@ class Router[T_Request: Request](HueRouter[T_Request]):
         )
         return f"{mount.prefix}/{path}"
 
-    def _form_fields(self) -> frozenset[str]:
-        return frozenset({CSRF_FORM_FIELD})
+    def _csrf_field(self) -> str:
+        return CSRF_FORM_FIELD
 
-    def _passes_through(self, error: Exception) -> bool:
+    def _refusal(self, error: Exception) -> HTTPStatus | None:
         """
         Starlette's own answers, such as a 403 or a 404 raised as an
-        HTTPException, are sent as Starlette sends them.
+        HTTPException, keep their status and are not reported as failures.
         """
-        return isinstance(error, HTTPException)
+        if isinstance(error, HTTPException):
+            return HTTPStatus(error.status_code)
+        return None
 
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
         # A sync handler or data fetch would otherwise block the event loop for

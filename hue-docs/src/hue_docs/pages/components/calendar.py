@@ -675,10 +675,11 @@ def _usage() -> ComponentType:
             "the rule into occurrences is the job of `events`."
         ),
         pr.p(
-            "`events` is a plain function, which the router runs in a thread. In "
+            "A sync `events` function runs in a thread, off the event loop. In "
             "`hue-django` that is because the ORM refuses a query made on the "
-            "event loop, and in `hue-fastapi` it keeps a blocking call from "
-            "holding up other requests. An async `events` is not awaited."
+            "loop, and in `hue-fastapi` it keeps a blocking call from holding "
+            "up other requests. An async `events` is awaited on the loop "
+            "instead."
         ),
         pr.h2("A declared Calendar keeps its state in the URL"),
         pr.p(

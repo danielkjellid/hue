@@ -233,6 +233,16 @@ async def test_an_event_takes_its_layers_colour_unless_it_chose_one(context_args
 
 
 @pytest.mark.asyncio
+async def test_an_async_events_is_awaited(context_args):
+    # Handed to a thread it would return a coroutine, which is no list.
+    async def events(request: Any, asked: CalendarState) -> list[Event]:
+        return _events(request, asked)
+
+    html = await _drawn(_declared(events=events), context_args)
+    assert select(html, "#events-view button[aria-label^='Review,']")
+
+
+@pytest.mark.asyncio
 async def test_something_that_is_not_an_event_is_refused_by_name(context_args):
     with pytest.raises(TypeError, match="events"):
         await _drawn(

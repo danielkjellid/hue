@@ -73,9 +73,10 @@ because both usually use the ORM and the ORM refuses to run on the loop.
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from http import HTTPStatus
@@ -165,7 +166,10 @@ _LONGEST = 366
 
 
 # Given the request and what it asked for, every event that answers it.
-type EventsFor = Callable[[Any, "CalendarState"], Iterable[Event]]
+# Awaited when it is async.
+type EventsFor = Callable[
+    [Any, "CalendarState"], Iterable[Event] | Awaitable[Iterable[Event]]
+]
 # Given the request and an event, with an id when it exists, keep it.
 type SaveHandler = Callable[[Any, Event], Any]
 # Given the request and an event's id, remove it.
@@ -541,7 +545,7 @@ class _Declaration(Declaration[Routes]):
         formats: Formats,
         urls: Urls | None = None,
     ) -> BoundCalendar:
-        events = await self._router._run_sync(self._fetch, request, asked)
+        events = await self._fetch(request, asked)
         return BoundCalendar(
             self,
             asked,
@@ -552,14 +556,19 @@ class _Declaration(Declaration[Routes]):
             formats,
         )
 
-    def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
+    async def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
         """
-        events(), run off the event loop by the router and materialised
-        there, each event in its layer's colour unless it chose its own.
+        events(), awaited on the loop when it is async and otherwise run off
+        it by the router and materialised there, each event in its layer's
+        colour unless it chose its own.
         """
+        if inspect.iscoroutinefunction(self.events):
+            given = list(await self.events(request, asked))
+        else:
+            given = await self._router._run_sync(_listed, self.events, request, asked)
         colors = {layer.key: layer.color for layer in self.layers}
         found: list[Event] = []
-        for returned in self.events(request, asked):
+        for returned in given:
             if not isinstance(returned, Event):
                 raise TypeError(
                     f"{self.key}: events() returned {returned!r}, which is not an "
@@ -627,7 +636,7 @@ class _Declaration(Declaration[Routes]):
             layer=layer,
         ), {}
 
-    def _overlapping(
+    async def _overlapping(
         self, request: Any, asked: CalendarState, draft: Event, formats: Formats
     ) -> list[Event]:
         """
@@ -649,7 +658,7 @@ class _Declaration(Declaration[Routes]):
         object.__setattr__(covering, "last", last)
         starts, ends = draft.moments(formats)
         found = []
-        for event in self._fetch(request, covering):
+        for event in await self._fetch(request, covering):
             if not event.timed or (event.id is not None and event.id == draft.id):
                 continue
             opens, closes = event.moments(formats)
@@ -892,9 +901,7 @@ class _Declaration(Declaration[Routes]):
         """
         draft, _ = self._draft(body, bound.formats)
         found = (
-            await self._router._run_sync(
-                self._overlapping, request, bound.state, draft, bound.formats
-            )
+            await self._overlapping(request, bound.state, draft, bound.formats)
             if draft is not None and draft.timed
             else []
         )
@@ -1527,3 +1534,11 @@ def _options(bound: BoundCalendar) -> ComponentType:
             )
         )
     )
+
+
+def _listed(events: EventsFor, request: Any, asked: CalendarState) -> list[Any]:
+    """
+    A plain events(), called and read to the end off the event loop, since a
+    query is only run as it is read.
+    """
+    return list(events(request, asked))  # type: ignore[arg-type]
