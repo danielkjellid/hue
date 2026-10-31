@@ -315,7 +315,7 @@ class TestTimeGrid:
         )
         standup = _event(html, "Standup")
         assert standup["aria-label"].endswith("09:00 to 09:15, repeats")
-        assert standup.select_one("svg title").get_text() == "repeat"
+        assert standup.select_one("svg[aria-hidden=true]")
         assert _event(html, "Design review").select_one("svg") is None
 
     @pytest.mark.asyncio
