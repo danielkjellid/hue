@@ -15,7 +15,8 @@ and what it draws around the Calendar in _calendar_chrome.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+import inspect
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from functools import partial
@@ -260,20 +261,26 @@ class _Declaration(Declaration[Routes]):
         formats: Formats,
         keys: type[ShortcutRegistry] | None = None,
     ) -> BoundCalendar:
-        events = await self._router._run_sync(self._fetch, request, asked)
+        events = await self._fetch(request, asked)
         urls = self._urls_for(request, self._served())
         return BoundCalendar(self, asked, events, today, urls, others, formats, keys)
 
-    async def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
+    async def _given(self, request: Any, asked: CalendarState) -> list[Any]:
         """
-        events(), awaited on the loop when it is async and otherwise run off
-        it by the router and materialised there, each event in its layer's
-        colour unless it chose its own.
+        What events() returns, as it returned it: awaited on the loop when it
+        is async, and otherwise run off it by the router and read to the end
+        there, since a query is only run as it is read.
         """
         if inspect.iscoroutinefunction(self.events):
-            given = list(await self.events(request, asked))
-        else:
-            given = await self._router._run_sync(_listed, self.events, request, asked)
+            return list(await self.events(request, asked))
+        return await self._router._run_sync(_listed, self.events, request, asked)
+
+    async def _fetch(self, request: Any, asked: CalendarState) -> list[Event]:
+        """
+        events() as _given reads it, each event in its layer's colour
+        unless it chose its own.
+        """
+        given = await self._given(request, asked)
         colors = {layer.key: layer.color for layer in self.layers}
         found: list[Event] = []
         for returned in given:
@@ -396,7 +403,7 @@ class _Declaration(Declaration[Routes]):
         object.__setattr__(covering, "last", last)
         return covering
 
-    def _find(
+    async def _find(
         self,
         request: Any,
         asked: CalendarState,
@@ -416,7 +423,7 @@ class _Declaration(Declaration[Routes]):
         if day is not None and not FIRST <= day <= LAST:
             return None
         first, last = (day, day) if day else (asked.first, asked.last)
-        for event in self.events(request, self._covering(asked, first, last)):
+        for event in await self._given(request, self._covering(asked, first, last)):
             if not isinstance(event, Event) or event.id != id:
                 continue
             if not occurrence or stamps(event, formats)[0] == occurrence:
@@ -461,9 +468,7 @@ class _Declaration(Declaration[Routes]):
             raise AssertionError(action)
         # Undone by saving the event back as events() had it, series and
         # all, without the id, so an undone delete is a new event.
-        was = await self._router._run_sync(
-            self._find, request, bound.state, body.id, body.occurrence, formats
-        )
+        was = await self._find(request, bound.state, body.id, body.occurrence, formats)
         return await self._changed(
             request,
             bound,
@@ -543,9 +548,7 @@ class _Declaration(Declaration[Routes]):
                 body=body,
                 lands=draft,
             )
-        was = await self._router._run_sync(
-            self._find, request, bound.state, draft.id, body.occurrence, formats
-        )
+        was = await self._find(request, bound.state, draft.id, body.occurrence, formats)
         if was is None:
             toast.danger("Save failed", description="The event is no longer there.")
             return refused(HTTPStatus.NOT_FOUND)
@@ -583,16 +586,12 @@ class _Declaration(Declaration[Routes]):
         and a save handler is enough.
         """
         formats = bound.formats
-        was = await self._router._run_sync(
-            self._find, request, bound.state, body.id, body.occurrence, formats
-        )
+        was = await self._find(request, bound.state, body.id, body.occurrence, formats)
         if was is None and body.undo:
             # An Undo names the occurrence where the series landed, which
             # its rule may skip: a weekday series dropped on a Saturday. It
             # posts the times it goes back to, so any occurrence will do.
-            was = await self._router._run_sync(
-                self._find, request, bound.state, body.id, "", formats
-            )
+            was = await self._find(request, bound.state, body.id, "", formats)
         if was is None:
             return await self._failed(
                 request,
@@ -730,7 +729,7 @@ class _Declaration(Declaration[Routes]):
         it. The whole thing, with an empty slot: the response targets the
         slot, which closes the dialog, and the synced parts refresh.
         """
-        events = await self._router._run_sync(self._fetch, request, bound.state)
+        events = await self._fetch(request, bound.state)
         redrawn = replace(bound, events=events)
         if isinstance(focus, Event):
             focus = landing(redrawn, focus)
@@ -742,3 +741,10 @@ class _Declaration(Declaration[Routes]):
 
 # What a view calls, at class scope, to declare a calendar.
 build_calendar_state = _Declaration
+
+
+def _listed(events: EventsFor, request: Any, asked: CalendarState) -> list[Any]:
+    """
+    A plain events(), called and read to the end off the event loop.
+    """
+    return list(events(request, asked))  # type: ignore[arg-type]

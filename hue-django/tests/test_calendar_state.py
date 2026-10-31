@@ -623,6 +623,16 @@ def test_a_move_saves_the_event_as_events_has_it_at_the_posted_times(mounted):
     )
 
 
+def test_a_move_finds_the_event_through_an_async_events(mounted):
+    # Handed to a thread it would return a coroutine, and find nothing.
+    async def events(request: Any, asked: Any) -> list[Event]:
+        return [_REVIEW]
+
+    mounted(events=events)
+    assert _act("move", **_moved()).status_code == 200
+    assert [event.starts for event in _SAVED] == [datetime(2026, 10, 15, 14)]
+
+
 def test_a_move_of_the_end_alone_is_a_resize(mounted):
     mounted(events=lambda r, s: [_REVIEW])
     html = unescape(
