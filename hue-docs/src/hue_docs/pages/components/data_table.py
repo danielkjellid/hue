@@ -278,7 +278,10 @@ def _usage() -> ComponentType:
             "`HUE_DATE_FORMAT`, `HUE_DATETIME_FORMAT` and `HUE_TIME_FORMAT` settings, "
             "and with `USE_TZ` on converts an aware datetime to the current "
             "timezone first. `hue-fastapi` takes them as `formats=` on "
-            "`configure_hue()`. "
+            "`configure_hue()`. A `DataTable` writes any strftime directive, "
+            "but a `DateInput`, `DateTimeInput` or `TimeInput` raises on a format "
+            "whose text it cannot read back. `Formats` in `hue.formats` lists the "
+            "formats that read. "
             "A `Decimal` is written in full as stored, so `2190.00` keeps its places. "
             "Any other value raises, and needs a `render` on its column."
         ),

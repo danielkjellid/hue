@@ -60,11 +60,12 @@ def snippet(example: Example) -> str:
 
 # Names an example uses that hue.ui does not export, and where they come from.
 _ELSEWHERE = {
-    "date": "from datetime import date",
     "html": "from hue import html",
     "toast": "from hue import toast",
 }
-# hue.js's helpers, gathered into one import line.
+# The datetime module's types and hue.js's helpers, each gathered into one
+# import line.
+_DATETIME = ("date", "datetime", "time")
 _JS = ("ajax", "call", "close", "unsafe")
 
 # The docs' own icon set stands in for the reader's, which they bind once.
@@ -80,7 +81,10 @@ def imports(*snippets: str) -> str:
         names |= {
             node.id for node in ast.walk(ast.parse(code)) if isinstance(node, ast.Name)
         }
-    lines = [line for name, line in _ELSEWHERE.items() if name in names]
+    lines = []
+    if moments := [name for name in _DATETIME if name in names]:
+        lines.append(f"from datetime import {', '.join(moments)}")
+    lines += [line for name, line in _ELSEWHERE.items() if name in names]
     if js := [name for name in _JS if name in names]:
         lines.append(f"from hue.js import {', '.join(js)}")
     from_ui = names & set(ui.__all__)
