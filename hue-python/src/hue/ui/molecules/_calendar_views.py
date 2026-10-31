@@ -498,14 +498,10 @@ class Draw:
                     {"rounded-s-none": before, "rounded-e-none": after},
                 )
             )
-            .content(
-                *self.title_of(event),
-                # The squared corner is what a sighted reader sees of a bar
-                # that goes on; this is what a screen reader hears of it.
-                render_when(
-                    before or after, html.span(" (continues)", class_="sr-only")
-                ),
-            )
+            # The squared corner is what a sighted reader sees of a bar that
+            # goes on; the name, which gives the whole span, is what a screen
+            # reader hears of it.
+            .content(*self.title_of(event))
         )
         return self.event(event, button)
 

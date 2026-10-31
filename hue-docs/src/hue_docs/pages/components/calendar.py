@@ -571,8 +571,9 @@ PAGE = ComponentPage(
             "a11y",
             "Every event is a button named with its title, its day and its "
             "times, and whether it repeats, since its place in a grid says "
-            "nothing to a screen reader. An all-day bar cut off at the edge of "
-            "the week adds (continues) to its name.",
+            "nothing to a screen reader. An all-day bar's name gives its first "
+            "and last day, so a bar cut off at the edge of the week says how "
+            "far it runs.",
         ),
         Note(
             "a11y",

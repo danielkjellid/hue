@@ -432,7 +432,6 @@ class TestTimeGrid:
         assert bar["style"] == "grid-column: 5 / 7"
         assert_attr(html, "button[data-all-day]", "data-starts", "2026-10-16")
         assert_attr(html, "button[data-all-day]", "data-ends", "2026-10-17")
-        assert "(continues)" not in bar.get_text()
 
     @pytest.mark.asyncio
     async def test_a_bar_cut_by_the_week_says_it_continues(self, context_args):
@@ -441,7 +440,8 @@ class TestTimeGrid:
         button = _event(html, "Offsite")
         assert "rounded-s-none" in button["class"]
         assert "rounded-e-none" not in button["class"]
-        assert "(continues)" in button.get_text()
+        # The name gives the whole span, which says it runs past the week.
+        assert button["aria-label"].endswith("to Tuesday 13 October 2026")
 
     @pytest.mark.asyncio
     async def test_the_now_line_sits_in_todays_column_only(self, context_args):
