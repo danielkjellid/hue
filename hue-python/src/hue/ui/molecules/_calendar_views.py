@@ -407,9 +407,6 @@ class Draw:
         return (
             Popover()
             .title(event.title)
-            # Fixed: in the time grid the popover opens inside a scroll
-            # container, which would clip one positioned on the page.
-            .placement("bottom-start", fixed=True)
             .trigger(button)
             .class_("h-full w-full")
             .content(self._panel(event))
@@ -854,7 +851,6 @@ def _more(draw: Draw, day: date, hidden: list[Placed]) -> ComponentType:
     return (
         Popover()
         .title(name)
-        .placement("bottom-start", fixed=True)
         .trigger(
             Button()
             .variant("ghost")
