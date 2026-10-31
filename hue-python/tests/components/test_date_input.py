@@ -214,9 +214,8 @@ class TestDateInput:
         assert alert.select_one("[x-text]").text == "Too late"
         assert alert.select_one('[x-text="error"]')
         assert_attr(html, "input#starts", "aria-invalid", "true")
-        assert_attr(
-            html, "input#starts", "aria-describedby", "starts-hint starts-error"
-        )
+        # The hint gives way to the error, so only the error describes it.
+        assert_attr(html, "input#starts", "aria-describedby", "starts-error")
         assert config(html)["error"] == "Too late"
         assert select(html, "#starts-hint")[0].parent["x-show"] == "!error"
 
