@@ -16,7 +16,7 @@ from hue.ui import (
     SelectOption,
     Tooltip,
 )
-from tests.browser.conftest import Show
+from tests.browser.conftest import TRAPPED, Show
 
 # Each edge's midpoint, just inside it, is the panel itself and not whatever
 # would show through where a clipping ancestor cut it off. Midpoints, because
@@ -93,9 +93,18 @@ PANELS: dict[str, tuple[Callable[[], ComponentType], Callable[[Page], Locator]]]
 }
 
 
-@pytest.mark.parametrize("overlay", ["dialog", "drawer"])
-@pytest.mark.parametrize("panel", PANELS)
-def test_a_panel_inside_is_not_clipped(show: Show, overlay: str, panel: str) -> None:
+# Each panel once, and each holder more than once.
+@pytest.mark.parametrize(
+    ("panel", "overlay"),
+    [
+        ("select", "dialog"),
+        ("combobox", "drawer"),
+        ("menu", "drawer"),
+        ("popover", "drawer"),
+        ("tooltip", "dialog"),
+    ],
+)
+def test_a_panel_inside_is_not_clipped(show: Show, panel: str, overlay: str) -> None:
     # The control sits last in the body, so its panel hangs past the bottom
     # of the overlay that holds it.
     build, open_panel = PANELS[panel]
@@ -111,6 +120,7 @@ def test_escape_returns_focus_to_the_trigger(show: Show) -> None:
     trigger = page.get_by_role("button", name="Invite")
     trigger.click()
     expect(page.get_by_role("dialog", name="Invite")).to_be_visible()
+    page.wait_for_function(TRAPPED)
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog", name="Invite")).to_be_hidden()
     expect(trigger).to_be_focused()

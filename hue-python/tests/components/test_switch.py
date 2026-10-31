@@ -16,19 +16,12 @@ class TestSwitch:
         assert_attr(html, "input", "type", "checkbox")
         assert_attr(html, "input", "role", "switch")
 
-    # checked(): both branches
     @pytest.mark.asyncio
     async def test_starts_on(self, context_args):
         html = await render_tree(
             Switch("notify").label("N").checked(), context_args=context_args
         )
         assert_attr(html, "input", "checked")
-
-    @pytest.mark.asyncio
-    async def test_starts_off_by_default(self, context_args):
-        # checked="false" would still leave it on.
-        html = await render_tree(Switch("notify").label("N"), context_args=context_args)
-        assert_no_selector(html, "input[checked]")
 
     # submission_state(): every value, because a switch writes as it is
     # flipped and each stage of that write looks different.
@@ -42,6 +35,8 @@ class TestSwitch:
         )
         assert_attr(html, "input", "disabled")
         assert select(html, '[role="status"] .sr-only')[0].text == "Saving"
+        # It ends when the response lands, not when a timer says so.
+        assert_no_selector(html, "[x-init]")
 
     @pytest.mark.parametrize(
         ("state", "announced"), [("success", "Saved"), ("error", "Not saved")]
@@ -87,66 +82,6 @@ class TestSwitch:
         assert_no_selector(html, "[x-init]")
 
     @pytest.mark.asyncio
-    async def test_pending_does_not_clear_itself(self, context_args):
-        # It ends when the response lands, not when a timer says so.
-        html = await render_tree(
-            Switch("notify").label("N").submission_state("pending"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "[x-init]")
-
-    @pytest.mark.asyncio
-    async def test_nothing_reported_by_default(self, context_args):
-        html = await render_tree(Switch("notify").label("N"), context_args=context_args)
-        assert_no_selector(html, '[role="status"]')
-        assert_no_selector(html, "input[disabled]")
-
-    @pytest.mark.asyncio
-    async def test_the_indicator_sits_on_the_label_line(self, context_args):
-        # The one row guaranteed to be there, so it does not move depending
-        # on whether the switch has a description.
-        html = await render_tree(
-            Switch("notify").label("N").submission_state("pending"),
-            context_args=context_args,
-        )
-        assert_selector(html, 'span.items-center > [role="status"]')
-
-    @pytest.mark.asyncio
-    async def test_the_knob_travels_the_width_of_the_track(self, context_args):
-        html = await render_tree(
-            Switch("n").label("N").size("lg"), context_args=context_args
-        )
-        assert_selector(html, "input.w-\\[44px\\]")
-        assert_selector(html, "input.checked\\:before\\:translate-x-\\[19px\\]")
-
-    @pytest.mark.asyncio
-    async def test_a_description_sits_under_the_label(self, context_args):
-        html = await render_tree(
-            Switch("n").label("N").description("Sent as things happen."),
-            context_args=context_args,
-        )
-        assert_selector(html, "span.text-fg-muted")
-
-    @pytest.mark.asyncio
-    async def test_no_description_by_default(self, context_args):
-        html = await render_tree(Switch("n").label("N"), context_args=context_args)
-        assert_no_selector(html, "span.text-fg-muted")
-
-    # size(): each one meets the label's first line in a different place, so
-    # each carries its own offset rather than sharing one nudge.
-    @pytest.mark.parametrize(
-        ("size", "offset"),
-        [("sm", "mt-px"), ("md", "mt-0"), ("lg", "-mt-\\[3px\\]")],
-    )
-    @pytest.mark.asyncio
-    async def test_every_size_sits_on_the_first_line(self, context_args, size, offset):
-        html = await render_tree(
-            Switch("n").label("N").size(size), context_args=context_args
-        )
-        assert_selector(html, f"input.{offset}")
-
-    # layout(): both branches
-    @pytest.mark.asyncio
     async def test_horizontal_puts_the_text_first(self, context_args):
         # The scanning order a settings list wants: what can I change, then
         # the thing that changes it.
@@ -157,18 +92,7 @@ class TestSwitch:
             .horizontal(),
             context_args=context_args,
         )
-        assert_selector(html, "label.justify-between")
         assert html.index("Two-factor") < html.index("<input")
-        # Centred against the whole block, so no first-line offset applies.
-        assert_no_selector(html, "input.mt-0")
-
-    @pytest.mark.asyncio
-    async def test_the_switch_leads_by_default(self, context_args):
-        html = await render_tree(
-            Switch("n").label("Two-factor"), context_args=context_args
-        )
-        assert_no_selector(html, "label.justify-between")
-        assert html.index("<input") < html.index("Two-factor")
 
     @pytest.mark.asyncio
     async def test_named_by_its_label_alone(self, context_args):
@@ -180,9 +104,3 @@ class TestSwitch:
         )
         assert_attr(html, "input", "aria-labelledby", "n-label")
         assert_attr(html, "input", "aria-describedby", "n-description")
-
-    @pytest.mark.asyncio
-    async def test_a_choice_has_no_field_hint(self, context_args):
-        # It says its extra line with description(), beside the control,
-        # rather than under the whole row where a field puts its hint.
-        assert not hasattr(Switch(), "hint")

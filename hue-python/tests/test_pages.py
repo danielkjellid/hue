@@ -43,19 +43,13 @@ class TestThemeScript:
         assert not script.has_attr("defer")
         assert not script.has_attr("async")
         assert "data-theme" in script.text
+        # System resolves against the OS.
+        assert "prefers-color-scheme: dark" in script.text
+        assert "'system'" in script.text
 
     @pytest.mark.asyncio
-    async def test_resolves_system_against_the_os(self, context_args):
-        script = theme_script(await render_page(context_args))
-        assert "prefers-color-scheme: dark" in script
-        assert "'system'" in script
-
-    @pytest.mark.asyncio
-    async def test_reads_the_default_storage_key(self, context_args):
+    async def test_reads_the_storage_key(self, context_args):
         assert '"hue-theme"' in theme_script(await render_page(context_args))
-
-    @pytest.mark.asyncio
-    async def test_storage_key_is_configurable(self, context_args):
         page_class = create_page_base(
             css_url="/c.css",
             js_url="/j.js",

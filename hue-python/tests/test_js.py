@@ -1,48 +1,41 @@
-import json
 from dataclasses import dataclass
 
 import pytest
 from pydantic import BaseModel, Field
 
 from hue import html
-from hue.js import Expression, ajax, call, close, unsafe
+from hue.js import ajax, call, unsafe
 from hue.ui import Button, Card, MenuItem, Stack, TextInput
 
 
-class TestExpressions:
-    def test_unsafe_vouches_for_source_as_written(self):
-        assert unsafe("open = !open") == "open = !open"
-        assert isinstance(unsafe("open"), Expression)
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (("sendInvoice", 2048), "sendInvoice(2048)"),
+        (("greet", "O'Hara"), 'greet("O\'Hara")'),
+        (("$store.cart.add", 7), "$store.cart.add(7)"),
+        # An expression goes in as written, alone or at any depth: quoted, the
+        # one way of passing a variable would be the one way that cannot work.
+        (("note", unsafe("selected"), "archived", 3), 'note(selected, "archived", 3)'),
+        (
+            ("save", {"ids": unsafe("selected"), "tags": [unsafe("t")]}),
+            'save({"ids": selected, "tags": [t]})',
+        ),
+        (
+            ("f", {"page": 2, "flags": [True, None], "q": "O'Hara"}),
+            'f({"page": 2, "flags": [true, null], "q": "O\'Hara"})',
+        ),
+    ],
+)
+def test_call_quotes_its_arguments(args, expected):
+    # The point of it: the short way to write an action is the safe one.
+    assert call(*args) == expected
 
-    def test_call_quotes_its_arguments(self):
-        # The point of it: the short way to write an action is the safe one.
-        assert call("sendInvoice", 2048) == "sendInvoice(2048)"
-        assert call("copy", "ada@example.com") == 'copy("ada@example.com")'
-        assert call("greet", "O'Hara") == 'greet("O\'Hara")'
 
-    def test_call_refuses_a_function_that_is_an_expression(self):
-        # Otherwise there would be nothing left to quote.
-        with pytest.raises(ValueError, match="not a function name"):
-            call("alert(1);//", 1)
-
-    def test_close_is_the_way_out_of_an_overlay(self):
-        # Every overlay puts one in scope, so the common action says what it
-        # does rather than vouching for a string.
-        assert close() == "close()"
-        assert isinstance(close(), Expression)
-
-    def test_call_takes_a_path_to_a_function(self):
-        assert call("$store.cart.add", 7) == "$store.cart.add(7)"
-
-    def test_an_expression_goes_in_as_written_at_any_depth(self):
-        # Quoted whole, one inside a dict or a list would arrive as a string.
-        assert call("save", {"ids": unsafe("selected"), "tags": [unsafe("t")]}) == (
-            'save({"ids": selected, "tags": [t]})'
-        )
-
-    def test_plain_nested_values_are_written_as_json(self):
-        value = {"page": 2, "flags": [True, None], "q": "O'Hara"}
-        assert call("f", value) == f"f({json.dumps(value)})"
+def test_call_refuses_a_function_that_is_an_expression():
+    # Otherwise there would be nothing left to quote.
+    with pytest.raises(ValueError, match="not a function name"):
+        call("alert(1);//", 1)
 
 
 @dataclass
@@ -59,73 +52,86 @@ class _ArchiveModel(BaseModel):
 
 
 class TestAjax:
-    def test_a_request_is_written_with_every_value_quoted(self):
-        # sync, so the toast region a route's toast arrives in is updated too.
-        assert ajax("/invoices/2048/", method="delete", target="invoices") == (
-            '$ajax("/invoices/2048/", '
-            '{"method": "delete", "target": "invoices", "sync": true})'
-        )
+    @pytest.mark.parametrize(
+        ("kwargs", "expected"),
+        [
+            # sync, so the toast region a route's toast arrives in is updated too.
+            (
+                {"method": "delete", "target": "invoices"},
+                '{"method": "delete", "target": "invoices", "sync": true})',
+            ),
+            # It defaults to GET, like $ajax itself.
+            ({"target": "t"}, '{"method": "get", "target": "t", "sync": true})'),
+            (
+                {
+                    "method": "post",
+                    "target": ["rows", "summary"],
+                    "body": {"reason": 'a "duplicate"', "ids": unsafe("selected")},
+                },
+                '"target": "rows summary", "sync": true, '
+                '"body": {"reason": "a \\"duplicate\\"", "ids": selected}})',
+            ),
+            # A None is left out so the default applies: $ajax would send "null".
+            (
+                {"method": "post", "target": "t", "body": {"q": None, "page": 2}},
+                '"body": {"page": 2}})',
+            ),
+            # asdict would deep-copy the expression into a plain str.
+            (
+                {
+                    "method": "post",
+                    "target": "t",
+                    "body": _ArchiveData("dup", ids=unsafe("selected")),
+                },
+                '"body": {"reason": "dup", "ids": selected}})',
+            ),
+            # The route validates the form by alias, so that is the field's name.
+            (
+                {
+                    "method": "post",
+                    "target": "t",
+                    "body": _ArchiveModel(reason="dup", notify=True),
+                },
+                '"body": {"reason": "dup", "notify": true, "sendAt": "now"}})',
+            ),
+        ],
+        ids=["no body", "get", "quoted body", "none", "dataclass", "model"],
+    )
+    def test_a_request_is_written_with_every_value_quoted(self, kwargs, expected):
+        request = ajax("/invoices/2048/", **kwargs)
+        assert request.startswith('$ajax("/invoices/2048/", {')
+        assert request.endswith(expected)
 
-    def test_a_body_is_quoted_except_what_only_the_browser_knows(self):
-        request = ajax(
-            "/invoices/archive/",
-            method="post",
-            target=["rows", "summary"],
-            body={"reason": 'a "duplicate"', "ids": unsafe("selected")},
-        )
-        assert request == (
-            '$ajax("/invoices/archive/", '
-            '{"method": "post", "target": "rows summary", "sync": true, '
-            '"body": {"reason": "a \\"duplicate\\"", "ids": selected}})'
-        )
+    @pytest.mark.parametrize(
+        ("kwargs", "error", "match"),
+        [
+            (
+                {"method": "post", "target": "t", "body": [("q", 1)]},
+                TypeError,
+                "mapping, a dataclass",
+            ),
+            # "GET" would slip past the check on a GET's body, and still be one.
+            (
+                {"method": "GET", "target": "t", "body": {"q": 1}},
+                ValueError,
+                "not a method",
+            ),
+            # $ajax would turn it into the query string, which no body model reads.
+            ({"target": "t", "body": {"q": "contoso"}}, ValueError, "query string"),
+            # $ajax would fall back to the id of whatever runs it, often none.
+            ({"target": ""}, ValueError, None),
+            ({"target": []}, ValueError, None),
+            ({"target": ["rows summary"]}, ValueError, None),
+        ],
+    )
+    def test_a_request_that_cannot_work_is_refused(self, kwargs, error, match):
+        with pytest.raises(error, match=match):
+            ajax("/invoices/", **kwargs)
 
-    def test_a_none_is_left_out_so_the_default_applies(self):
-        # $ajax would send it as the text "null".
-        request = ajax(
-            "/invoices/", method="post", target="t", body={"q": None, "page": 2}
-        )
-        assert '"body": {"page": 2}' in request
 
-    def test_a_body_can_be_a_dataclass(self):
-        request = ajax("/a/", method="post", target="t", body=_ArchiveData("dup"))
-        assert request.endswith('"body": {"reason": "dup"}})')
-
-    def test_a_body_can_be_a_pydantic_model_sent_by_its_aliases(self):
-        # The route validates the form by alias, so that is the field's name.
-        body = _ArchiveModel(reason="dup", notify=True)
-        request = ajax("/a/", method="post", target="t", body=body)
-        assert request.endswith(
-            '"body": {"reason": "dup", "notify": true, "sendAt": "now"}})'
-        )
-
-    def test_an_expression_in_a_model_field_goes_in_as_written(self):
-        # asdict would deep-copy it, and the copy is a plain str.
-        body = _ArchiveData("dup", ids=unsafe("selected"))
-        request = ajax("/a/", method="post", target="t", body=body)
-        assert request.endswith('"body": {"reason": "dup", "ids": selected}})')
-
-    def test_any_other_body_is_refused(self):
-        with pytest.raises(TypeError, match="mapping, a dataclass"):
-            ajax("/a/", method="post", target="t", body=[("q", 1)])  # type: ignore[arg-type]
-
-    def test_it_defaults_to_get_like_ajax_itself(self):
-        assert '"method": "get"' in ajax("/invoices/", target="invoices")
-
-    def test_an_unknown_method_is_refused(self):
-        # "GET" would slip past the check on a GET's body, and still be one.
-        with pytest.raises(ValueError, match="not a method"):
-            ajax("/invoices/", target="t", method="GET", body={"q": 1})  # type: ignore[arg-type]
-
-    def test_a_get_takes_no_body(self):
-        # $ajax would turn it into the query string, which no body model reads.
-        with pytest.raises(ValueError, match="query string"):
-            ajax("/invoices/", target="invoices", body={"q": "contoso"})
-
-    @pytest.mark.parametrize("target", ["", [], ["rows summary"]])
-    def test_it_needs_ids_to_update(self, target):
-        # $ajax would fall back to the id of whatever runs it, often none.
-        with pytest.raises(ValueError):
-            ajax("/invoices/", target=target)
+_AJAX_EVENTS = (
+    "before send redirect success error sent missing merge merged after".split()
+)
 
 
 class TestModifiersRefuseStrings:
@@ -141,8 +147,11 @@ class TestModifiersRefuseStrings:
             (Button, "x_init", ("go()",)),
             (Button, "x_trap", ("open",)),
             (Button, "x_anchor", ("$refs.trigger",)),
+            (Button, "on_click", ("send(1)",)),
             (TextInput, "x_model", ("q; window.x++",)),
             (html.form, "x_target_dynamic", ("'rows'",)),
+            # Alpine evaluates every @ajax:* handler, so these are code too.
+            *[(Button, f"ajax_{event}", ("done = true",)) for event in _AJAX_EVENTS],
         ],
     )
     def test_a_plain_string_is_refused(self, component, modifier, args):
@@ -151,32 +160,15 @@ class TestModifiersRefuseStrings:
         with pytest.raises(TypeError, match="takes an expression"):
             getattr(component(), modifier)(*args)
 
-    @pytest.mark.parametrize(
-        "event",
-        [
-            "before",
-            "send",
-            "redirect",
-            "success",
-            "error",
-            "sent",
-            "missing",
-            "merge",
-            "merged",
-            "after",
-        ],
-    )
-    def test_alpine_ajax_handlers_take_an_expression(self, event):
-        # Alpine evaluates every @ajax:* handler, so these are code too.
-        modifier = getattr(Button(), f"ajax_{event}")
-        with pytest.raises(TypeError, match="takes an expression"):
-            modifier("done = true")
-        attrs = modifier(unsafe("done = true"))._get_base_html_attrs()
-        assert attrs[f"@ajax:{event}"] == "done = true"
-
     def test_an_expression_goes_through(self):
-        attrs = Button().x_on("click", unsafe("open = true"))._get_base_html_attrs()
+        attrs = (
+            Button()
+            .x_on("click", unsafe("open = true"))
+            .ajax_success(unsafe("done = true"))
+            ._get_base_html_attrs()
+        )
         assert attrs["@click"] == "open = true"
+        assert attrs["@ajax:success"] == "done = true"
 
 
 class TestOnClick:
@@ -188,10 +180,6 @@ class TestOnClick:
         assert not hasattr(Card(), "on_click")
         assert not hasattr(Stack(), "on_click")
 
-    def test_it_is_a_click_handler(self):
-        attrs = Button().on_click(call("send", 1))._get_base_html_attrs()
-        assert attrs["@click"] == "send(1)"
-
     def test_several_run_in_order(self):
         attrs = (
             Button()
@@ -200,24 +188,8 @@ class TestOnClick:
         )
         assert attrs["@click"] == "send(1); open = false"
 
-    def test_a_string_is_refused(self):
-        with pytest.raises(TypeError, match="takes an expression"):
-            Button().on_click("send(1)")
-
     def test_a_disabled_control_drops_its_handler(self):
         # Enter on a focused, aria-disabled control is still a click.
         button = Button().on_click(call("send", 1))
         assert "@click" not in button._get_clickable_attrs(disabled=True)
         assert button._get_clickable_attrs(disabled=False)["@click"] == "send(1)"
-
-
-def test_an_expression_argument_goes_in_as_written():
-    # Quoting it back into a string would make the one way of passing a
-    # variable the one way that cannot work.
-    assert call("remove", unsafe("selected")) == "remove(selected)"
-
-
-def test_everything_else_is_still_quoted():
-    assert call("note", unsafe("selected"), "archived", 3) == (
-        'note(selected, "archived", 3)'
-    )

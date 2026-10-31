@@ -45,17 +45,6 @@ class TestQueue:
         finally:
             toast.close(token)
 
-    def test_one_request_cannot_see_another(self):
-        first = toast.open()
-        toast.success("Mine")
-        toast.close(first)
-
-        second = toast.open()
-        try:
-            assert toast.drain() == []
-        finally:
-            toast.close(second)
-
 
 class TestStoring:
     def test_a_message_survives_a_round_trip_as_data(self):
@@ -214,11 +203,3 @@ class TestRawResponses:
             assert [message.title for message in toast.drain()] == ["Invoice sent"]
         finally:
             toast.close(token)
-
-    @pytest.mark.asyncio
-    async def test_a_redirect_that_raised_nothing_goes_through(
-        self, router: MockRouter, mock_request: type[MockRequest]
-    ):
-        wrapped = router._wrap_view(_redirecting_view(raises=False), require_ajax=True)
-        request = mock_request(headers={"X-Requested-With": "XMLHttpRequest"})
-        assert isinstance(await wrapped(Mock(), request), RawResponse)

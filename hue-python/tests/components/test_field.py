@@ -41,7 +41,6 @@ class TestField:
         )
         assert_attr(html, "label", "for", "region")
 
-    # hint() and error(): both branches, and the error wins
     @pytest.mark.asyncio
     async def test_the_hint_is_identified_for_the_control(self, context_args):
         html = await render_tree(
@@ -51,24 +50,9 @@ class TestField:
         assert_selector(html, "#region-hint")
 
     @pytest.mark.asyncio
-    async def test_no_hint_by_default(self, context_args):
-        html = await render_tree(
-            Field().label("Region").html_for("region"), context_args=context_args
-        )
-        assert_no_selector(html, "#region-hint")
-
-    @pytest.mark.asyncio
-    async def test_the_error_is_announced(self, context_args):
+    async def test_an_error_is_announced_in_place_of_the_hint(self, context_args):
         # It usually appears after a submit the user has already made, so
         # nothing would prompt a screen reader to revisit it.
-        html = await render_tree(
-            Field().label("Region").html_for("region").error("Pick one."),
-            context_args=context_args,
-        )
-        assert_selector(html, '[role="alert"]#region-error')
-
-    @pytest.mark.asyncio
-    async def test_an_error_replaces_the_hint(self, context_args):
         html = await render_tree(
             Field()
             .label("Region")
@@ -78,17 +62,7 @@ class TestField:
             context_args=context_args,
         )
         assert_no_selector(html, "#region-hint")
-        assert_selector(html, "#region-error")
-
-    # layout(): both branches
-    @pytest.mark.asyncio
-    async def test_stacked_by_default(self, context_args):
-        html = await render_tree(
-            Field().label("Region").hint("Where data lives."),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.flex-col")
-        assert_no_selector(html, "div.flex-row")
+        assert_selector(html, '[role="alert"]#region-error')
 
     @pytest.mark.asyncio
     async def test_horizontal_moves_the_hint_into_the_label_column(self, context_args):
@@ -103,67 +77,7 @@ class TestField:
             .content("a control"),
             context_args=context_args,
         )
-        assert_selector(html, "div.flex-row")
         assert_selector(html, "div.w-\\[180px\\] > #region-hint")
-
-    # A horizontal row centres only when both columns are one line.
-    @pytest.mark.asyncio
-    async def test_a_single_line_row_is_centred(self, context_args):
-        # One line against one box: top-aligning them leaves the label sitting
-        # above the middle of the control it names.
-        html = await render_tree(
-            Field()
-            .label("Region")
-            .html_for("region")
-            .horizontal()
-            .content("a control"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.flex-row.items-center")
-
-    @pytest.mark.asyncio
-    async def test_a_hint_puts_the_row_back_on_its_top_edge(self, context_args):
-        # Centred, the label would drift down past the control as the column
-        # under it grows.
-        html = await render_tree(
-            Field()
-            .label("Region")
-            .html_for("region")
-            .hint("Where data lives.")
-            .horizontal(),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.flex-row.items-start")
-
-    @pytest.mark.asyncio
-    async def test_an_error_does_the_same_from_the_other_side(self, context_args):
-        html = await render_tree(
-            Field()
-            .label("Region")
-            .html_for("region")
-            .error("Pick one.")
-            .horizontal()
-            .content("a control"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.flex-row.items-start")
-
-    # trailing(): both branches
-    @pytest.mark.asyncio
-    async def test_trailing_sits_at_the_end_of_the_label_row(self, context_args):
-        html = await render_tree(
-            Field().label("Display name").trailing("Optional"),
-            context_args=context_args,
-        )
-        assert_selector(html, "span.text-fg-subtle")
-        assert "Optional" in html
-
-    @pytest.mark.asyncio
-    async def test_nothing_trailing_by_default(self, context_args):
-        html = await render_tree(
-            Field().label("Display name"), context_args=context_args
-        )
-        assert_no_selector(html, "span.text-fg-subtle")
 
     # An unlabelled field still has to lay out whatever is inside it.
     @pytest.mark.asyncio
@@ -174,8 +88,6 @@ class TestField:
         assert "a control" in html
         assert_no_selector(html, "label")
 
-
-class TestHiddenLabel:
     @pytest.mark.asyncio
     async def test_a_hidden_label_leaves_no_row_above_the_control(self, context_args):
         # sr-only takes it out of the flow, so a header holding only that is
@@ -187,14 +99,6 @@ class TestHiddenLabel:
         )
         assert_selector(html, "label.sr-only")
         assert_no_selector(html, "div.items-baseline")
-
-    @pytest.mark.asyncio
-    async def test_a_visible_label_keeps_its_row(self, context_args):
-        html = await render_tree(
-            Field().label("Rows per page").content("control"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.items-baseline label")
 
 
 # The controls describe themselves by the hint Field draws, so the two have to

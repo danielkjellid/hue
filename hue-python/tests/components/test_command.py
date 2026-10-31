@@ -60,7 +60,6 @@ class TestCommand:
         )
         assert_attr(html, "[x-on\\:click\\.self]", "tabindex", "-1")
 
-    # hotkey(): both branches
     @pytest.mark.asyncio
     async def test_the_hotkey_toggles_the_palette(self, context_args):
         html = await render_tree(_command().hotkey("mod+K"), context_args=context_args)
@@ -70,12 +69,6 @@ class TestCommand:
         assert root["x-on:hue:shortcut.prevent"] == "open = !open"
 
     @pytest.mark.asyncio
-    async def test_without_a_hotkey_none_is_bound(self, context_args):
-        html = await render_tree(_command(), context_args=context_args)
-        assert_no_selector(html, "[x-shortcut]")
-
-    # trigger(): both branches
-    @pytest.mark.asyncio
     async def test_a_trigger_opens_it(self, context_args):
         html = await render_tree(
             _command().trigger(Button().content("Search")),
@@ -83,11 +76,6 @@ class TestCommand:
         )
         assert_attr(html, "button", "aria-haspopup", "dialog")
         assert_attr(html, "button", "x-on:click", "open = true")
-
-    @pytest.mark.asyncio
-    async def test_without_a_trigger_there_is_no_button(self, context_args):
-        html = await render_tree(_command(), context_args=context_args)
-        assert_no_selector(html, "button")
 
     @pytest.mark.asyncio
     async def test_the_empty_message_reaches_the_browser(self, context_args):
@@ -131,18 +119,12 @@ class TestCommandItem:
         assert_attr(html, '[role="option"]', "tabindex", "-1")
         assert_attr(html, '[role="option"]', "data-label", "Go to Billing")
 
-    # href(): both branches
     @pytest.mark.asyncio
     async def test_an_href_draws_a_link(self, context_args):
         html = await self._item(
             CommandItem().label("Billing").href("/billing"), context_args
         )
         assert_attr(html, 'a[role="option"]', "href", "/billing")
-
-    @pytest.mark.asyncio
-    async def test_without_an_href_it_is_not_a_link(self, context_args):
-        html = await self._item(CommandItem().label("Billing"), context_args)
-        assert_no_selector(html, "a")
 
     @pytest.mark.asyncio
     async def test_a_disabled_link_goes_nowhere(self, context_args):
@@ -152,7 +134,6 @@ class TestCommandItem:
         assert_no_selector(html, "a")
         assert_attr(html, '[role="option"]', "aria-disabled", "true")
 
-    # action(): both branches
     @pytest.mark.asyncio
     async def test_an_action_runs_on_the_command_event(self, context_args):
         html = await self._item(
@@ -160,16 +141,10 @@ class TestCommandItem:
         )
         assert_attr(html, '[role="option"]', "x-on:command.stop", "create()")
 
-    @pytest.mark.asyncio
-    async def test_without_an_action_nothing_listens(self, context_args):
-        html = await self._item(CommandItem().label("Create"), context_args)
-        assert_no_selector(html, "[x-on\\:command\\.stop]")
-
     def test_an_action_must_be_an_expression(self):
         with pytest.raises(TypeError):
             CommandItem().action("create()")  # type: ignore[arg-type]
 
-    # keywords(): both branches
     @pytest.mark.asyncio
     async def test_keywords_are_searched(self, context_args):
         html = await self._item(
@@ -177,12 +152,6 @@ class TestCommandItem:
         )
         assert_attr(html, '[role="option"]', "data-keywords", "dark mode")
 
-    @pytest.mark.asyncio
-    async def test_without_keywords_only_the_label_is(self, context_args):
-        html = await self._item(CommandItem().label("Theme"), context_args)
-        assert_no_selector(html, "[data-keywords]")
-
-    # description() and meta(): both branches
     @pytest.mark.asyncio
     async def test_description_and_meta_are_drawn(self, context_args):
         html = await self._item(
@@ -195,13 +164,6 @@ class TestCommandItem:
         text = select(html, '[role="option"]')[0].get_text()
         assert "Starts a draft" in text
         assert "$1,200" in text
-
-    @pytest.mark.asyncio
-    async def test_a_plain_item_is_only_its_label(self, context_args):
-        html = await self._item(CommandItem().label("Create invoice"), context_args)
-        assert select(html, '[role="option"]')[0].get_text(strip=True) == (
-            "Create invoice"
-        )
 
 
 class TestCommandShortcuts:

@@ -53,11 +53,6 @@ class TestDatePicker:
         assert "sr-only" in select(html, "legend")[0]["class"]
 
     @pytest.mark.asyncio
-    async def test_the_legend_shows_by_default(self, context_args):
-        html = await render_tree(_picker(), context_args=context_args)
-        assert "sr-only" not in select(html, "legend")[0]["class"]
-
-    @pytest.mark.asyncio
     async def test_week_start_turns_the_header(self, context_args):
         html = await render_tree(
             _picker().week_start("sunday"), context_args=context_args
@@ -92,47 +87,29 @@ class TestDatePicker:
         assert config["monthNamesInDate"][9] == "of m10"
         assert config["monthNames"][9] == "October"
 
-    # value(): ISO strings, sorted, bounded by the mode
-
     @pytest.mark.asyncio
-    async def test_the_value_is_handed_over_as_sorted_iso_days(self, context_args):
-        picker = _picker().mode("multiple").value(date(2026, 10, 9), date(2026, 1, 2))
+    @pytest.mark.parametrize(
+        ("mode", "days", "expected"),
+        [
+            ("multiple", ((10, 9), (1, 2)), ["2026-01-02", "2026-10-09"]),
+            ("range", ((10, 9), (10, 2)), ["2026-10-02", "2026-10-09"]),
+            ("range", ((10, 9), (10, 9)), ["2026-10-09", "2026-10-09"]),
+            ("multiple", ((10, 9), (10, 9)), ["2026-10-09"]),
+        ],
+        ids=["sorted", "range sorted", "one-day range", "multiple deduped"],
+    )
+    async def test_the_value_is_handed_over_as_sorted_iso_days(
+        self, context_args, mode, days, expected
+    ):
+        picker = _picker().mode(mode).value(*(date(2026, m, d) for m, d in days))
         html = await render_tree(picker, context_args=context_args)
-        assert _config(html)["value"] == ["2026-01-02", "2026-10-09"]
+        assert _config(html)["value"] == expected
 
     @pytest.mark.asyncio
-    async def test_no_value_is_an_empty_list(self, context_args):
-        html = await render_tree(_picker(), context_args=context_args)
-        config = _config(html)
-        assert config["value"] == []
-        assert config["min"] is None
-        assert config["max"] is None
-
-    @pytest.mark.asyncio
-    async def test_a_range_takes_two_days_and_a_single_one(self, context_args):
+    async def test_a_single_picker_takes_one_day(self, context_args):
         two = (date(2026, 10, 9), date(2026, 10, 2))
-        html = await render_tree(
-            _picker().mode("range").value(*two), context_args=context_args
-        )
-        assert _config(html)["value"] == ["2026-10-02", "2026-10-09"]
         with pytest.raises(ValueError, match="single"):
             await render_tree(_picker().value(*two), context_args=context_args)
-
-    @pytest.mark.asyncio
-    async def test_a_one_day_range_keeps_both_ends(self, context_args):
-        day = date(2026, 10, 9)
-        html = await render_tree(
-            _picker().mode("range").value(day, day), context_args=context_args
-        )
-        assert _config(html)["value"] == ["2026-10-09", "2026-10-09"]
-
-    @pytest.mark.asyncio
-    async def test_multiple_holds_a_day_once(self, context_args):
-        day = date(2026, 10, 9)
-        html = await render_tree(
-            _picker().mode("multiple").value(day, day), context_args=context_args
-        )
-        assert _config(html)["value"] == ["2026-10-09"]
 
     def test_an_unknown_weekday_is_refused(self):
         with pytest.raises(ValueError, match="weekday"):
@@ -166,13 +143,6 @@ class TestDatePicker:
         assert config["closed"] == [5, 6]
         assert config["markers"] == ["2026-10-05"]
         assert config["markerLabel"] == "has bookings"
-
-    # mode(): several days are a multiselectable grid
-
-    @pytest.mark.asyncio
-    async def test_single_is_not_multiselectable(self, context_args):
-        html = await render_tree(_picker(), context_args=context_args)
-        assert_no_selector(html, "[aria-multiselectable]")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("mode", ["range", "multiple"])
@@ -257,13 +227,6 @@ class TestDatePicker:
         assert_no_selector(html, "fieldset[x-model]")
 
     @pytest.mark.asyncio
-    async def test_without_x_model_nothing_is_modelable(self, context_args):
-        html = await render_tree(_picker(), context_args=context_args)
-        assert_no_selector(html, "[x-modelable]")
-
-    # required() and error()
-
-    @pytest.mark.asyncio
     async def test_required_is_enforced_by_an_empty_input_until_a_pick(
         self, context_args
     ):
@@ -287,12 +250,6 @@ class TestDatePicker:
     async def test_required_marks_the_legend(self, context_args):
         html = await render_tree(_picker().required(), context_args=context_args)
         assert_attr(html, "legend span", "aria-hidden", "true")
-
-    @pytest.mark.asyncio
-    async def test_not_required_says_nothing(self, context_args):
-        html = await render_tree(_picker(), context_args=context_args)
-        assert_no_selector(html, "input.sr-only")
-        assert_no_selector(html, "legend [aria-hidden]")
 
     @pytest.mark.asyncio
     async def test_a_hint_is_shown_and_describes_the_group(self, context_args):

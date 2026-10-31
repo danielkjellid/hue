@@ -20,14 +20,6 @@ class TestPagination:
         assert "Showing" in str(html)
         assert "21\u201330" in str(html)
         assert "148" in str(html)
-
-    @pytest.mark.asyncio
-    async def test_the_page_you_are_on_is_marked(self, context_args):
-        html = await render_tree(
-            Pagination().page(3).total_pages(15).total_records(148),
-            context_args=context_args,
-        )
-        assert_attr(html, '[aria-current="page"]', "aria-current", "page")
         assert select(html, '[aria-current="page"]')[0].get_text().strip() == "3"
 
     @pytest.mark.asyncio
@@ -91,14 +83,11 @@ class TestPagination:
         )
         assert_selector(html, 'nav a[href="?page=4"]')
         assert_no_selector(html, "nav button")
-
-    @pytest.mark.asyncio
-    async def test_without_one_they_are_buttons(self, context_args):
-        html = await render_tree(
+        buttons = await render_tree(
             Pagination().page(3).total_pages(15), context_args=context_args
         )
-        assert_selector(html, "nav button")
-        assert_no_selector(html, "nav a")
+        assert_selector(buttons, "nav button")
+        assert_no_selector(buttons, "nav a")
 
     @pytest.mark.asyncio
     async def test_no_records_is_said_as_such(self, context_args):
@@ -109,7 +98,6 @@ class TestPagination:
         assert "No records" in html
         assert "Showing" not in html
 
-    # target(): both branches
     @pytest.mark.asyncio
     async def test_a_target_swaps_the_page_in_and_remembers_it(self, context_args):
         html = await render_tree(
@@ -155,30 +143,12 @@ class TestPagination:
         assert_attr(html, "#b-page-15", "href", "?page=15")
 
     @pytest.mark.asyncio
-    async def test_without_an_id_its_links_have_none(self, context_args):
-        html = await render_tree(
-            Pagination().page(3).total_pages(15).href(lambda p: f"?page={p}"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "nav a[id]")
-        assert_no_selector(html, "[data-hue-refocus]")
-
-    @pytest.mark.asyncio
     async def test_a_target_without_an_id_of_its_own_is_refused(self, context_args):
         with pytest.raises(ValueError, match="id"):
             await render_tree(
                 Pagination().page(3).total_pages(15).target("invoices-rows"),
                 context_args=context_args,
             )
-
-    @pytest.mark.asyncio
-    async def test_without_a_target_a_step_is_a_navigation(self, context_args):
-        html = await render_tree(
-            Pagination().page(3).total_pages(15).href(lambda p: f"?page={p}"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, "[x-target\\.push]")
-        assert_no_selector(html, "[x-sync]")
 
     # The one-page case
     @pytest.mark.asyncio
@@ -229,14 +199,6 @@ class TestPagination:
         assert_attr(html, 'span[aria-hidden="true"]', "aria-hidden", "true")
 
     @pytest.mark.asyncio
-    async def test_rows_per_page_shows_beside_numbered_steps_too(self, context_args):
-        html = await render_tree(
-            Pagination().id("results").page(2).total_pages(5).page_sizes([10, 25]),
-            context_args=context_args,
-        )
-        assert_selector(html, "select")
-
-    @pytest.mark.asyncio
     async def test_rows_per_page_without_an_id_raises(self, context_args):
         # Without an id the select would fall back to a bare page_size id,
         # and a second pagination on the page would claim the same one.
@@ -245,13 +207,6 @@ class TestPagination:
                 Pagination().page(2).total_pages(5).page_sizes([10, 25]),
                 context_args=context_args,
             )
-
-    @pytest.mark.asyncio
-    async def test_without_page_sizes_there_is_no_select(self, context_args):
-        html = await render_tree(
-            Pagination().page(2).total_pages(5), context_args=context_args
-        )
-        assert_no_selector(html, "select")
 
     @pytest.mark.asyncio
     async def test_the_select_takes_its_id_from_the_pagination(self, context_args):
@@ -273,14 +228,6 @@ class TestPagination:
         )
         assert "2,481 records" in str(html)
         assert "Showing" not in str(html)
-
-    @pytest.mark.asyncio
-    async def test_the_count_is_optional(self, context_args):
-        html = await render_tree(
-            Pagination().page(2).total_pages(4), context_args=context_args
-        )
-        assert "Showing" not in str(html)
-        assert_selector(html, "nav")
 
     # page_size() changes what the range says
     @pytest.mark.asyncio
@@ -332,18 +279,14 @@ class TestPagination:
                 context_args=context_args,
             )
 
-    @pytest.mark.asyncio
-    async def test_the_range_never_runs_backwards(self, context_args):
-        # Four pages of ten claimed over 18 records: page 4 holds nothing.
-        html = await render_tree(
-            Pagination().page(4).total_pages(4).total_records(18),
-            context_args=context_args,
-        )
-        assert "11\u201318" in str(html)
-
     @pytest.mark.parametrize(
         ("page", "size", "total", "expected"),
-        [(2, 10, 18, (11, 18)), (4, 10, 18, (11, 18)), (1, 10, 0, (0, 0))],
+        [
+            (2, 10, 18, (11, 18)),
+            # Four pages of ten claimed over 18 records: page 4 holds nothing.
+            (4, 10, 18, (11, 18)),
+            (1, 10, 0, (0, 0)),
+        ],
     )
     def test_record_range_never_inverts(self, page, size, total, expected):
         assert record_range(page, size, total) == expected

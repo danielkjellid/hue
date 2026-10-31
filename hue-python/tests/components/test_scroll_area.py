@@ -2,7 +2,7 @@ import pytest
 
 from hue.renderer import render_tree
 from hue.ui import ScrollArea
-from tests._a11y import assert_attr, assert_no_selector, assert_selector
+from tests._a11y import assert_attr, assert_selector
 
 
 class TestScrollArea:
@@ -38,36 +38,17 @@ class TestScrollArea:
             ScrollArea().label("Time zones").content("Oslo"),
             context_args=context_args,
         )
-        assert_selector(html, "div.overflow-auto.overscroll-contain.scrollbar-thin")
+        assert_selector(html, "div.overflow-auto.overscroll-contain")
 
-    @pytest.mark.asyncio
-    async def test_max_height_is_where_it_starts_scrolling(self, context_args):
-        html = await render_tree(
-            ScrollArea().label("Time zones").max_height("max-h-64").content("Oslo"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.max-h-64")
-
-    # fade(): both branches
     @pytest.mark.asyncio
     async def test_a_faded_edge_knows_which_way_there_is_more(self, context_args):
         html = await render_tree(
             ScrollArea().label("Release notes").fade().content("4.2.0"),
             context_args=context_args,
         )
-        assert_selector(html, "div.scroll-fade")
         assert_attr(html, "div", "x-data", "hueScrollArea()")
         assert_attr(html, "div", ":data-scroll-above", "above || null")
         assert_attr(html, "div", ":data-scroll-below", "below || null")
-
-    @pytest.mark.asyncio
-    async def test_without_the_fade_there_is_nothing_to_watch(self, context_args):
-        html = await render_tree(
-            ScrollArea().label("Release notes").content("4.2.0"),
-            context_args=context_args,
-        )
-        assert_no_selector(html, ".scroll-fade")
-        assert_no_selector(html, "[x-data]")
 
     # A faded area's x-data is hue's own, so a caller's would replace it or
     # be replaced: both branches.

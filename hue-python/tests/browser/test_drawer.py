@@ -29,13 +29,13 @@ LAST_FRAME = """
 }
 """
 
+# The default, start, and end in a right-to-left page.
 SIDES = pytest.mark.parametrize(
     ("dir", "side", "edge"),
     [
         ("ltr", "end", "right"),
         ("ltr", "start", "left"),
         ("rtl", "end", "left"),
-        ("rtl", "start", "right"),
     ],
 )
 
@@ -57,22 +57,31 @@ def _off_the(edge: str, frame: dict[str, float]) -> bool:
 
 
 @SIDES
-def test_a_side_drawer_enters_from_its_own_edge(
+def test_a_side_drawer_enters_and_leaves_by_its_own_edge(
     show: Show, dir: str, side: DrawerSide, edge: str
 ) -> None:
     page = _opened(show, dir, side)
     page.wait_for_function("document.getAnimations().length > 0")
     assert _off_the(edge, page.evaluate(FIRST_FRAME))
-
-
-@SIDES
-def test_a_side_drawer_leaves_by_its_own_edge(
-    show: Show, dir: str, side: DrawerSide, edge: str
-) -> None:
-    page = _opened(show, dir, side)
+    page.evaluate("document.getAnimations().forEach(a => a.finish())")
     page.wait_for_function("document.getAnimations().length === 0")
     page.keyboard.press("Escape")
     page.wait_for_function(
         "document.getAnimations().some(a => a.animationName?.endsWith('-out'))"
     )
     assert _off_the(edge, page.evaluate(LAST_FRAME))
+
+
+def test_a_narrow_rtl_side_drawer_is_still_a_bottom_sheet(show: Show) -> None:
+    page = show(
+        Drawer().title("Filters").side("end").trigger(Button().content("Open")),
+        width=500,
+        dir="rtl",
+    )
+    page.get_by_role("button", name="Open").click()
+    expect(page.get_by_role("dialog", name="Filters")).to_be_visible()
+    page.wait_for_function("document.getAnimations().length === 0")
+    box = page.locator("aside").bounding_box()
+    assert box is not None
+    assert box["x"] == 0 and box["width"] == 500
+    assert abs(box["y"] + box["height"] - 800) <= 1

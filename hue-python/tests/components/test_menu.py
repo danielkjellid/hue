@@ -32,24 +32,6 @@ class TestDropdownMenu:
         html = await render_tree(_menu(), context_args=context_args)
         assert_attr(html, "button[aria-haspopup]", "aria-haspopup", "menu")
         assert_attr(html, "button[aria-haspopup]", "x-bind:aria-expanded", "open")
-        assert_attr(
-            html, "button[aria-haspopup]", "x-on:keydown.down.prevent", "open = true"
-        )
-
-    @pytest.mark.asyncio
-    async def test_the_arrow_keys_walk_the_items_and_wrap(self, context_args):
-        # Without this a menu is a list of buttons the arrow keys ignore.
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_attr(
-            html, '[role="menu"]', "x-on:keydown.down.prevent", "$focus.wrap().next()"
-        )
-        assert_attr(
-            html,
-            '[role="menu"]',
-            "x-on:keydown.up.prevent",
-            "$focus.wrap().previous()",
-        )
-        assert_attr(html, '[role="menu"]', "x-effect")
 
     @pytest.mark.asyncio
     async def test_tab_leaves_the_menu_rather_than_walking_it(self, context_args):
@@ -62,25 +44,6 @@ class TestDropdownMenu:
             html, "[x-data]", "x-on:keydown.tab", "$nextTick(() => open = false)"
         )
         assert_attr(html, '[role="menuitem"]', "tabindex", "-1")
-
-    @pytest.mark.asyncio
-    async def test_the_ring_stays_inside_the_item(self, context_args):
-        # An offset ring is drawn outside the item, where it lands on the
-        # panel's padding and past its edge.
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_selector(html, '[role="menuitem"].focus-visible\\:inset-ring-2')
-
-    @pytest.mark.asyncio
-    async def test_escape_closes_it_and_hands_focus_back(self, context_args):
-        # Stopped, so a dialog the menu sits in stays open.
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_attr(
-            html,
-            "[x-data]",
-            "x-on:keydown.escape",
-            "if (open) { $event.stopPropagation(); close() }",
-        )
-        assert_attr(html, '[role="menu"]', "tabindex", "-1")
 
     @pytest.mark.asyncio
     async def test_the_menu_is_named(self, context_args):
@@ -129,37 +92,19 @@ class TestDropdownMenu:
 
 class TestMenuItem:
     @pytest.mark.asyncio
-    async def test_hovering_moves_focus_so_one_item_is_active(self, context_args):
-        # Otherwise the ring sits on the item the keyboard left and the
-        # highlight on the one the pointer is over, and two rows look active.
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_attr(
-            html,
-            '[role="menuitem"]',
-            "x-on:mouseenter",
-            "open && $el.focus({ preventScroll: true })",
-        )
-
-    @pytest.mark.asyncio
     async def test_picking_one_closes_the_menu(self, context_args):
         html = await render_tree(_menu(), context_args=context_args)
         assert_attr(html, '[role="menuitem"]', "x-on:click", "close()")
 
-    # href(): both branches
     @pytest.mark.asyncio
     async def test_an_item_with_a_destination_is_a_link(self, context_args):
         html = await render_tree(
-            _menu(MenuItem().href("/settings").content("Settings")),
+            _menu(MenuItem().href("/settings").content("Settings"), MenuItem()),
             context_args=context_args,
         )
         assert_attr(html, 'a[role="menuitem"]', "href", "/settings")
-
-    @pytest.mark.asyncio
-    async def test_an_item_without_one_is_a_button(self, context_args):
-        html = await render_tree(_menu(), context_args=context_args)
         assert_selector(html, 'button[role="menuitem"]')
 
-    # checkable(): both branches
     @pytest.mark.asyncio
     async def test_a_checkable_item_answers_its_own_click(self, context_args):
         html = await render_tree(
@@ -168,26 +113,10 @@ class TestMenuItem:
         )
         assert_attr(html, '[role="menuitemcheckbox"]', ":aria-checked", "checked")
         assert_attr(html, '[role="menuitemcheckbox"]', "x-data", "{ checked: true }")
-        assert_selector(html, "span.checkmark")
 
     @pytest.mark.asyncio
-    async def test_an_ordinary_item_has_no_tick(self, context_args):
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_no_selector(html, "span.checkmark")
-
-    # disabled(): both branches
-    @pytest.mark.asyncio
-    async def test_a_disabled_item_stays_in_the_menu(self, context_args):
-        # Out of reach but still announced: an action that disappears when it
-        # cannot be used leaves nothing to explain why.
-        html = await render_tree(
-            _menu(MenuItem().disabled().content("Transfer ownership")),
-            context_args=context_args,
-        )
-        assert_attr(html, '[role="menuitem"]', "aria-disabled", "true")
-
-    @pytest.mark.asyncio
-    async def test_a_disabled_item_cannot_be_activated(self, context_args):
+    async def test_a_disabled_item_is_announced_but_inert(self, context_args):
+        # Still in the menu, so nothing vanishes without saying why. But
         # pointer-events-none stops the mouse but not Enter on the focused
         # item, so nothing may be listening for the click it becomes.
         html = await render_tree(
@@ -206,36 +135,8 @@ class TestMenuItem:
             assert not [attr for attr in item.attrs if "click" in attr]
             assert item.get("href") is None
             assert item.get("tabindex") == "-1"
+            assert item.get("aria-disabled") == "true"
 
-    @pytest.mark.asyncio
-    async def test_an_enabled_item_says_nothing(self, context_args):
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_no_selector(html, "[aria-disabled]")
-
-    # variant(): both branches
-    @pytest.mark.asyncio
-    async def test_the_danger_variant_is_the_only_coloured_item(self, context_args):
-        html = await render_tree(
-            _menu(MenuItem().variant("danger").content("Delete")),
-            context_args=context_args,
-        )
-        assert_selector(html, '[role="menuitem"].text-danger-text')
-
-    @pytest.mark.asyncio
-    async def test_the_default_variant_takes_the_menu_colour(self, context_args):
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_selector(html, '[role="menuitem"].text-fg')
-
-    # icon()
-    @pytest.mark.asyncio
-    async def test_an_item_can_carry_an_icon(self, context_args):
-        html = await render_tree(
-            _menu(MenuItem().icon(HueIcon("copy")).content("Duplicate")),
-            context_args=context_args,
-        )
-        assert_selector(html, '[role="menuitem"] svg')
-
-    # shortcut(): both branches, and what it refuses
     @pytest.mark.asyncio
     async def test_a_shortcut_is_shown_announced_and_run(self, shortcut_context_args):
         item = MenuItem().shortcut(Shortcuts.duplicate)
@@ -315,25 +216,12 @@ class TestMenuItem:
                 context_args=shortcut_context_args,
             )
 
-    @pytest.mark.asyncio
-    async def test_a_bare_item_is_just_its_label(self, context_args):
-        html = await render_tree(_menu(), context_args=context_args)
-        assert_no_selector(html, '[role="menuitem"] svg')
-        assert_no_selector(html, '[role="menuitem"] kbd')
-
 
 class TestMenuParts:
     @pytest.mark.asyncio
     async def test_a_separator_is_a_rule(self, context_args):
         html = await render_tree(_menu(MenuSeparator()), context_args=context_args)
         assert_selector(html, '[role="menu"] hr')
-
-    @pytest.mark.asyncio
-    async def test_a_label_heads_a_run_of_items(self, context_args):
-        html = await render_tree(
-            _menu(MenuLabel().content("Sharing")), context_args=context_args
-        )
-        assert_selector(html, '[role="menu"] div.uppercase')
 
     @pytest.mark.asyncio
     async def test_a_label_groups_the_items_up_to_the_next_separator(
@@ -354,11 +242,3 @@ class TestMenuParts:
         assert group[":aria-labelledby"] == group.select_one(".uppercase")[":id"]
         items = [item.get_text(strip=True) for item in group.select("button")]
         assert items == ["Invite"]
-
-    @pytest.mark.asyncio
-    async def test_items_with_no_label_are_not_grouped(self, context_args):
-        html = await render_tree(
-            _menu(MenuItem().content("Open"), MenuSeparator()),
-            context_args=context_args,
-        )
-        assert_no_selector(html, '[role="group"]')

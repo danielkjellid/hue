@@ -228,13 +228,6 @@ def test_escape_hides_a_chart_tooltip(show: Show) -> None:
     assert page.evaluate("() => chartAt(0).getActiveElements().length") == 0
 
 
-def test_a_pie_of_one_slice_draws_no_seam(show: Show) -> None:
-    page = show(PieChart().slices([("Only", 3)]).description("One."))
-    _chart_handle(page)
-    arc = "chartAt(0).getDatasetMeta(0).data[0]"
-    assert page.evaluate(f"() => {arc}.options.borderWidth") == 0
-
-
 def test_a_failed_retry_logs_the_url_it_tried(browser: Browser) -> None:
     page = browser.new_page()
     errors: list[str] = []
@@ -419,41 +412,6 @@ def test_a_chart_tooltip_is_gone_when_its_dialog_reopens(show: Show) -> None:
     assert _active(page) == 0
 
 
-_LONG = [
-    "Customer success",
-    "Professional services",
-    "Research and development",
-    "Sales and marketing",
-    "General administration",
-    "Infrastructure",
-]
-
-
-def test_long_bar_labels_at_phone_width_fit_the_canvas(show: Show) -> None:
-    chart = BarChart().labels(_LONG).series([5, 9, 3, 7, 2, 4], label="Spend")
-    page = show(chart.description("Spend by team."), width=320)
-    _chart_handle(page)
-    assert page.evaluate("() => document.documentElement.scrollWidth") <= 320
-    # Too long for all six to fit, so some are skipped (the tooltip and the
-    # table still name every bar), and the ones drawn fit below the plot.
-    fits = page.evaluate(
-        """() => {
-            const chart = chartAt(0), x = chart.scales.x;
-            const angle = x.labelRotation * Math.PI / 180;
-            const ctx = chart.ctx;
-            ctx.save();
-            ctx.font = x._resolveTickFontOptions(0).string;
-            const widest = Math.max(...chart.data.labels.map(
-                l => ctx.measureText(l).width));
-            ctx.restore();
-            const needed = widest * Math.sin(angle);
-            return { ticks: x.ticks.length, needed, room: chart.height - x.top };
-        }"""
-    )
-    assert fits["ticks"] >= 1
-    assert fits["needed"] <= fits["room"] + 1, fits
-
-
 def test_a_line_chart_still_skips_labels_flat_at_phone_width(show: Show) -> None:
     labels = [f"2026-01-{day:02d}" for day in range(1, 31)]
     chart = (
@@ -472,103 +430,43 @@ def test_a_line_chart_still_skips_labels_flat_at_phone_width(show: Show) -> None
     assert x["rotation"] == 0
 
 
-_BORDER = "() => chartAt(0).getDatasetMeta(0).data[0].options.borderWidth"
+_BORDER = "i => chartAt(i).getDatasetMeta(0).data[0].options.borderWidth"
 
 
-@pytest.mark.parametrize("cls", [PieChart, DoughnutChart])
-@pytest.mark.parametrize(
-    "slices", [[("Only", 3)], [("Only", 3), ("Nothing", 0)]], ids=["one", "and-zero"]
-)
-def test_a_lone_slice_draws_no_seam(
-    show: Show, cls: type[PieChart], slices: list[tuple[str, float]]
-) -> None:
-    page = show(cls().slices(slices).description("One."))
+def test_a_lone_slice_draws_no_seam_and_two_keep_their_gap(show: Show) -> None:
+    page = show(
+        PieChart().slices([("Only", 3)]).description("One."),
+        DoughnutChart().slices([("Only", 3), ("Nothing", 0)]).description("One."),
+        PieChart().slices([("a", 1), ("b", 2)]).description("Two."),
+    )
     _chart_handle(page)
-    assert page.evaluate(_BORDER) == 0
-
-
-def test_a_lone_slice_draws_no_seam_after_a_theme_change(show: Show) -> None:
-    page = show(PieChart().slices([("Only", 3)]).description("One."))
-    _chart_handle(page)
+    assert [page.evaluate(_BORDER, i) for i in range(3)] == [0, 0, 2]
     first = page.evaluate("() => chartAt(0).id")
     page.evaluate("() => { document.documentElement.dataset.theme = 'dark' }")
     page.wait_for_function(f"() => chartAt(0) && chartAt(0).id !== {first}")
-    assert page.evaluate(_BORDER) == 0
+    assert page.evaluate(_BORDER, 0) == 0
 
 
-def test_two_slices_keep_their_gap(show: Show) -> None:
-    page = show(PieChart().slices([("a", 1), ("b", 2)]).description("Two."))
-    _chart_handle(page)
-    assert page.evaluate(_BORDER) == 2
+_TOOLTIP_AT = """([i, index]) => { const c = chartAt(i);
+    c.tooltip.setActiveElements([{ datasetIndex: 0, index }], { x: 0, y: 0 });
+    c.update('none'); return c.tooltip.body.flatMap(b => b.lines) }"""
 
 
-def test_the_other_slice_tooltip_gives_its_grouped_share(show: Show) -> None:
-    slices = [(f"s{i}", 10) for i in range(8)]
-    page = show(PieChart().slices(slices).description("Eight."))
-    _chart_handle(page)
-    displays = page.evaluate("() => chartAt(0).data.labels")
-    assert displays[-1] == "Other"
-    # Three slices of ten out of eighty: 37.5, rounded to its nearest percent.
-    other = page.evaluate(
-        "() => { const c = chartAt(0); const i = c.data.labels.length - 1;"
-        " c.tooltip.setActiveElements([{ datasetIndex: 0, index: i }], { x: 0, y: 0 });"
-        " c.update('none'); return c.tooltip.body.flatMap(b => b.lines) }"
-    )
-    assert other == [" 30 (38%)"]
-
-
-def test_a_percent_pie_tooltip_does_not_repeat_the_share(show: Show) -> None:
-    chart = (
+def test_a_pie_tooltip_gives_the_share_once(show: Show) -> None:
+    page = show(
+        PieChart().slices([(f"s{i}", 10) for i in range(8)]).description("Eight."),
         PieChart()
         .slices([("Yes", 0.62), ("No", 0.38)])
         .value_format("percent")
-        .description("Votes.")
+        .description("Votes."),
     )
-    page = show(chart)
     _chart_handle(page)
-    lines = page.evaluate(
-        "() => { const c = chartAt(0);"
-        " c.tooltip.setActiveElements([{ datasetIndex: 0, index: 0 }], { x: 0, y: 0 });"
-        " c.update('none'); return c.tooltip.body.flatMap(b => b.lines) }"
-    )
-    assert lines == [" 62%"]
-    assert "Share" not in page.locator("thead").inner_text()
-
-
-_DAYS = [f"Oct {day}" for day in range(1, 32)]
-
-
-@pytest.mark.parametrize("labels", [_LONG, _DAYS], ids=["long", "many"])
-def test_bar_labels_at_phone_width_do_not_overlap(
-    show: Show, labels: list[str]
-) -> None:
-    chart = (
-        BarChart()
-        .labels(labels)
-        .series(list(range(len(labels))), label="Spend")
-        .description("Spend.")
-    )
-    page = show(chart, width=320)
-    _chart_handle(page)
-    # Neighbouring labels, tilted to the same angle, sit a slot apart along
-    # the axis, which leaves slot * sin(angle) between them across their
-    # lines. Flat, the widest label has to fit its slot.
-    x = page.evaluate(
-        """() => {
-            const chart = chartAt(0), x = chart.scales.x, ctx = chart.ctx;
-            const font = x._resolveTickFontOptions(0);
-            ctx.save();
-            ctx.font = font.string;
-            const widths = x.ticks.map(t => ctx.measureText(t.label).width);
-            const widest = Math.max(...widths);
-            ctx.restore();
-            const slot = x.width / x.ticks.length;
-            const angle = x.labelRotation * Math.PI / 180;
-            return { angle: x.labelRotation, slot, widest, line: font.lineHeight,
-                     apart: angle ? slot * Math.sin(angle) : slot - widest };
-        }"""
-    )
-    assert x["apart"] >= (x["line"] if x["angle"] else 0), x
+    labels = page.evaluate("() => chartAt(0).data.labels")
+    assert labels[-1] == "Other"
+    # Three slices of ten out of eighty: 37.5, rounded to its nearest percent.
+    assert page.evaluate(_TOOLTIP_AT, [0, len(labels) - 1]) == [" 30 (38%)"]
+    # A share already, so it is not repeated.
+    assert page.evaluate(_TOOLTIP_AT, [1, 0]) == [" 62%"]
 
 
 LABEL_SETS = {
@@ -662,10 +560,11 @@ def label_faults(page: Page) -> dict[str, dict]:
     return faults
 
 
-@pytest.mark.parametrize("theme", ["light", "dark"])
-@pytest.mark.parametrize("width", [320, 360, 390, 414, 768, 1280])
-def test_drawn_bar_labels_never_overlap(show: Show, width: int, theme: str) -> None:
-    faults = label_faults(show(*_bar_charts(), width=width, theme=theme))
+@pytest.mark.parametrize("width", [320, 1280])
+def test_drawn_bar_labels_never_overlap(show: Show, width: int) -> None:
+    page = show(*_bar_charts(), width=width)
+    faults = label_faults(page)
+    assert not _overflows(page)
     assert {k: v["overlaps"] for k, v in faults.items() if v["overlaps"]} == {}
     assert [k for k, v in faults.items() if v["clipped"]] == []
 

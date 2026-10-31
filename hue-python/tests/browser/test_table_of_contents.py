@@ -51,30 +51,20 @@ def _doc_scroll(page: Page) -> float:
     return page.evaluate("document.getElementById('doc').scrollTop")
 
 
+def _two_frames(page: Page) -> None:
+    # So a fragment scroll the browser runs late has had its turn.
+    page.evaluate(
+        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+    )
+
+
 def test_click_scrolls_only_the_container(show: Show) -> None:
     page = show(*_in_container())
     _entry(page, "Beta").click()
     expect(_entry(page, "Beta")).to_have_attribute("aria-current", "location")
     assert abs(_heading_top(page, "Beta")) < 2
     assert page.evaluate("window.scrollY") == 0
-
-
-def test_click_focuses_the_heading(show: Show) -> None:
-    page = show(*_in_container())
-    _entry(page, "Beta").click()
     expect(page.locator("#beta")).to_be_focused()
-
-
-def test_back_retraces_each_click_in_a_container(show: Show) -> None:
-    page = show(*_in_container())
-    _entry(page, "Alpha").click()
-    _entry(page, "Beta").click()
-    page.go_back()
-    expect(_entry(page, "Alpha")).to_have_attribute("aria-current", "location")
-    page.wait_for_function(
-        "() => Math.abs(document.getElementById('alpha').getBoundingClientRect().top"
-        " - document.getElementById('doc').getBoundingClientRect().top) < 2"
-    )
 
 
 def test_back_restores_a_container_scrolled_by_hand(show: Show) -> None:
@@ -85,19 +75,25 @@ def test_back_restores_a_container_scrolled_by_hand(show: Show) -> None:
     page.wait_for_function("document.getElementById('doc').scrollTop === 150")
 
 
-def test_back_restores_a_hand_scroll_over_the_fragment(show: Show) -> None:
+def test_back_and_forward_restore_a_hand_scroll_over_the_fragment(
+    show: Show,
+) -> None:
     page = show(*_in_container())
     _entry(page, "Alpha").click()
     # Somewhere the fragment #alpha does not point at.
     page.evaluate("document.getElementById('doc').scrollTop = 450")
+    page.wait_for_function("history.state?.hueTocScroll === 450")
     _entry(page, "Beta").click()
+    page.evaluate("document.getElementById('doc').scrollTop = 1000")
+    page.wait_for_function("history.state?.hueTocScroll === 1000")
     page.go_back()
     expect(page).to_have_url("http://hue.test/#alpha")
-    # Two frames, so a fragment scroll the browser runs late has had its turn.
-    page.evaluate(
-        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
-    )
+    _two_frames(page)
     assert _doc_scroll(page) == 450
+    page.go_forward()
+    expect(page).to_have_url("http://hue.test/#beta")
+    _two_frames(page)
+    assert _doc_scroll(page) == 1000
 
 
 def test_click_brings_an_out_of_view_container_into_view(show: Show) -> None:
@@ -109,13 +105,29 @@ def test_click_brings_an_out_of_view_container_into_view(show: Show) -> None:
 
 
 def test_page_back_and_forward_retrace_each_click(show: Show) -> None:
-    page = show(TableOfContents(), *_sections())
-    _entry(page, "Alpha").click()
+    # A page-level contents has no container, so a page scroll coming to
+    # rest files nothing on the entry, and Back still lands on the heading.
+    page = show(
+        html.div(
+            TableOfContents().of("#doc"),
+            style="position: fixed; top: 0; right: 0; width: 200px",
+        ),
+        html.div(*_sections(), html.div(style="height: 900px"), id="doc"),
+        height=600,
+    )
     _entry(page, "Beta").click()
+    expect(page).to_have_url("http://hue.test/#beta")
+    page.evaluate(
+        "new Promise((r) => { addEventListener('scrollend', r, { once: true });"
+        " scrollTo(0, 1500) })"
+    )
+    assert page.evaluate("history.state") is None
+    _entry(page, "Gamma").click()
     page.go_back()
-    expect(_entry(page, "Alpha")).to_have_attribute("aria-current", "location")
-    page.go_forward()
+    expect(page).to_have_url("http://hue.test/#beta")
     expect(_entry(page, "Beta")).to_have_attribute("aria-current", "location")
+    page.go_forward()
+    expect(_entry(page, "Gamma")).to_have_attribute("aria-current", "location")
 
 
 def test_nothing_to_scroll_marks_the_first_then_the_clicked(show: Show) -> None:
@@ -169,15 +181,34 @@ def _follows_into(page: Page, opened: str) -> None:
     )
 
 
-def test_following_an_entry_in_a_closed_disclosure_opens_it(show: Show) -> None:
+def test_following_an_entry_in_closed_sections_opens_only_those(show: Show) -> None:
+    # An accordion item inside a closed disclosure, beside another closed
+    # disclosure that stays closed.
     page = show(
         *_folded(
-            Disclosure()
-            .title("More")
-            .closed()
-            .content(html.h2("Hidden", id="hidden"), html.p("Folded text"))
+            html.div(
+                Disclosure()
+                .title("Other")
+                .closed()
+                .content(html.h2("Elsewhere", id="elsewhere"), html.p("Other text")),
+                Disclosure()
+                .title("More")
+                .closed()
+                .content(
+                    Accordion().content(
+                        AccordionItem().title("First").open().content("First body"),
+                        AccordionItem()
+                        .title("Second")
+                        .content(html.h2("Hidden", id="hidden"), html.p("Folded text")),
+                    )
+                ),
+            )
         )
     )
+    _follows_into(page, "text=Folded text")
+    expect(page.get_by_text("Other text")).to_be_hidden()
+    # Following it again, now open, leaves it open.
+    _entry(page, "Alpha").click()
     _follows_into(page, "text=Folded text")
 
 
@@ -262,13 +293,6 @@ def test_the_active_entry_stays_inside_a_scrolling_column(show: Show) -> None:
     page.wait_for_function("() => document.getElementById('column').scrollTop === 0")
 
 
-def _two_frames(page: Page) -> None:
-    # So a fragment scroll the browser runs late has had its turn.
-    page.evaluate(
-        "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
-    )
-
-
 def test_back_across_a_plain_fragment_link_restores_a_hand_scroll(show: Show) -> None:
     page = show(html.a("To gamma", href="#gamma"), *_in_container())
     _entry(page, "Alpha").click()
@@ -282,15 +306,27 @@ def test_back_across_a_plain_fragment_link_restores_a_hand_scroll(show: Show) ->
     assert _doc_scroll(page) == 500
 
 
-def test_forward_restores_a_hand_scroll(show: Show) -> None:
-    page = show(*_in_container())
-    _entry(page, "Alpha").click()
-    _entry(page, "Beta").click()
-    page.evaluate("document.getElementById('doc').scrollTop = 1000")
-    page.wait_for_function("history.state?.hueTocScroll === 1000")
-    page.go_back()
-    expect(page).to_have_url("http://hue.test/#alpha")
-    page.go_forward()
-    expect(page).to_have_url("http://hue.test/#beta")
-    _two_frames(page)
-    assert _doc_scroll(page) == 1000
+def test_contents_inside_the_scroller_they_list_never_scroll_it(show: Show) -> None:
+    # The contents share the headings' scroller: keeping the active entry in
+    # view must leave it to the reader, and the page must not move.
+    page = show(
+        html.div(
+            html.div(
+                TableOfContents().of("#doc"),
+                style="position: sticky; top: 0; float: right; width: 200px;",
+            ),
+            *[
+                html.section(html.h2(f"Part {n:02}"), html.div(style="height: 400px"))
+                for n in range(1, 13)
+            ],
+            id="doc",
+            style="height: 400px; overflow-y: auto",
+        ),
+        html.div(style="height: 2000px"),
+        width=1000,
+        height=600,
+    )
+    page.evaluate("document.getElementById('doc').scrollTop = 1700")
+    expect(_entry(page, "Part 05")).to_have_attribute("aria-current", "location")
+    assert page.evaluate("document.getElementById('doc').scrollTop") == 1700
+    assert page.evaluate("window.scrollY") == 0

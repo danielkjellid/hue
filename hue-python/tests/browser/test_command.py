@@ -13,6 +13,10 @@ def _palette() -> Command:
         .trigger(Button().content("Open"))
         .content(
             CommandItem()
+            .label("Archived reports")
+            .disabled()
+            .action(unsafe("window.ran = 'archived'")),
+            CommandItem()
             .label("Go to settings")
             .action(unsafe("window.ran = 'settings'")),
             CommandItem()
@@ -72,15 +76,40 @@ def test_a_keyword_and_enter_runs_the_first_match(show: Show) -> None:
     assert page.evaluate("window.ran") == "copy"
 
 
-def test_escape_clears_the_text_then_closes(show: Show) -> None:
+def test_escape_clears_the_text_then_closes_and_reopens_fresh(show: Show) -> None:
     page = show(_palette())
     field = _open(page)
-    field.fill("share")
+    field.fill("delete")
     page.keyboard.press("Escape")
     expect(field).to_have_value("")
     expect(page.get_by_role("dialog")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog")).to_be_hidden()
+    field = _open(page)
+    expect(field).to_have_value("")
+    expect(page.get_by_role("option", name="Delete workspace")).to_be_visible()
+    expect(_active(page)).to_have_attribute("data-label", "Go to settings")
+    page.keyboard.press("Enter")
+    page.wait_for_function("window.ran === 'settings'")
+
+
+def test_enter_with_no_match_runs_nothing(show: Show) -> None:
+    page = show(_palette())
+    field = _open(page)
+    field.press_sequentially("zzz")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog")).to_be_visible()
+    assert page.evaluate("window.ran") is None
+
+
+def test_typing_skips_a_disabled_first_match(show: Show) -> None:
+    page = show(_palette())
+    field = _open(page)
+    # "Archived reports" is the first item with an "r", and it is disabled.
+    field.press_sequentially("r")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog")).to_be_hidden()
+    assert page.evaluate("window.ran") not in (None, "archived")
 
 
 def test_enter_straight_after_typing_runs_the_first_match(show: Show) -> None:

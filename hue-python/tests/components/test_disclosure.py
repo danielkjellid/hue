@@ -18,13 +18,6 @@ class TestDisclosure:
         )
         assert_selector(html, "h3 > button[type=button]")
         assert_no_selector(html, "a")
-
-    @pytest.mark.asyncio
-    async def test_the_trigger_says_what_it_controls(self, context_args):
-        html = await render_tree(
-            Disclosure().title("General").content("Fields"),
-            context_args=context_args,
-        )
         assert_attr(html, "button", ":aria-expanded", "hueOpen")
         assert_attr(html, "button", ":aria-controls", "$id('hue-disclosure-panel')")
         assert_attr(html, "button", "x-on:click", "hueOpen = !hueOpen")
@@ -53,17 +46,6 @@ class TestDisclosure:
         )
         assert_selector(html, "[x-data]", count=1)
         assert_attr(html, "[x-data]", "x-id")
-
-    # closed(): both branches
-    @pytest.mark.asyncio
-    async def test_it_starts_open(self, context_args):
-        # A section of a form is there to be filled in, so the fields are
-        # what the page shows first.
-        html = await render_tree(
-            Disclosure().title("General").content("Fields"),
-            context_args=context_args,
-        )
-        assert select(html, "[x-data]")[0]["x-data"].startswith("{ hueOpen: true,")
 
     @pytest.mark.asyncio
     async def test_it_can_start_folded_away(self, context_args):

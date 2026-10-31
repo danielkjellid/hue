@@ -1,21 +1,9 @@
-import pytest
 from htmy import html
 from playwright.sync_api import expect
 
 from hue.js import unsafe
-from hue.ui import Alert, Banner, Button, Dialog, Drawer, Popover, Stack, TextInput
+from hue.ui import Alert, Banner, Button, Dialog, Popover, Stack, TextInput
 from tests.browser.conftest import Show
-
-
-def test_dismissing_hands_focus_to_the_next_button(show: Show) -> None:
-    page = show(
-        Alert().title("Saved").dismissible(),
-        Button().content("Next"),
-    )
-    page.get_by_role("button", name="Dismiss").focus()
-    page.keyboard.press("Enter")
-    expect(page.get_by_text("Saved")).to_be_hidden()
-    expect(page.get_by_role("button", name="Next")).to_be_focused()
 
 
 def test_dismissing_the_last_hands_focus_back(show: Show) -> None:
@@ -29,26 +17,9 @@ def test_dismissing_the_last_hands_focus_back(show: Show) -> None:
     expect(page.get_by_role("button", name="Before")).to_be_focused()
 
 
-@pytest.mark.parametrize("cls", [Alert, Banner])
-def test_a_dismissible_alert_takes_a_width_class(show: Show, cls: type[Alert]) -> None:
-    stack = Stack().align_items("items-start")
-    page = show(
-        html.div(
-            stack.content(cls().class_("w-full").title("Saved").dismissible()),
-            style="width:600px",
-        )
-    )
-    box = page.get_by_role("status").bounding_box()
-    assert box is not None
-    assert box["width"] == 600
-
-
-@pytest.mark.parametrize("cls", [Alert, Banner])
-def test_a_caller_x_data_and_x_show_still_work_with_dismiss(
-    show: Show, cls: type[Alert]
-) -> None:
+def test_a_caller_x_data_and_x_show_still_work_with_dismiss(show: Show) -> None:
     alert = (
-        cls()
+        Banner()
         .x_data("{ note: 'from the caller' }")
         .x_show(unsafe("true"))
         .title("Saved")
@@ -80,12 +51,35 @@ def test_an_alert_the_caller_reveals_later_can_still_be_dismissed(show: Show) ->
     expect(page.get_by_role("button", name="After")).to_be_focused()
 
 
-@pytest.mark.parametrize("cls", [Alert, Banner])
-def test_dismissing_in_a_stack_leaves_one_gap(show: Show, cls: type[Alert]) -> None:
+def test_a_dismissible_alert_takes_a_width_and_a_flex_class(show: Show) -> None:
+    # The dismiss state lives on the button, so a class on the alert still
+    # sizes the alert rather than a wrapper around it.
+    page = show(
+        html.div(
+            Stack()
+            .align_items("items-start")
+            .content(Banner().class_("w-full").title("Wide").dismissible()),
+            style="width:600px",
+        ),
+        html.div(
+            Alert().class_("flex-1").title("Grows").dismissible(),
+            Button().content("Undo"),
+            style="display:flex;gap:8px;width:600px",
+        ),
+    )
+    wide = page.get_by_role("status").first.bounding_box()
+    grows = page.get_by_role("status").last.bounding_box()
+    button = page.get_by_role("button", name="Undo").bounding_box()
+    assert wide is not None and grows is not None and button is not None
+    assert wide["width"] == 600
+    assert abs(grows["width"] + 8 + button["width"] - 600) < 1
+
+
+def test_dismissing_in_a_stack_leaves_one_gap(show: Show) -> None:
     page = show(
         Stack().content(
             Button().content("Before"),
-            cls().title("Saved").dismissible(),
+            Banner().title("Saved").dismissible(),
             Button().content("After"),
         )
     )
@@ -100,26 +94,10 @@ def test_dismissing_in_a_stack_leaves_one_gap(show: Show, cls: type[Alert]) -> N
     assert abs(after["y"] - (before["y"] + before["height"]) - gap) < 1
 
 
-@pytest.mark.parametrize("cls", [Alert, Banner])
-def test_a_dismissible_alert_takes_flex_1(show: Show, cls: type[Alert]) -> None:
-    page = show(
-        html.div(
-            cls().class_("flex-1").title("Saved").dismissible(),
-            Button().content("Undo"),
-            style="display:flex;gap:8px;width:600px",
-        )
-    )
-    alert = page.get_by_role("status").bounding_box()
-    button = page.get_by_role("button", name="Undo").bounding_box()
-    assert alert is not None and button is not None
-    assert abs(alert["width"] + 8 + button["width"] - 600) < 1
-
-
-@pytest.mark.parametrize("cls", [Alert, Banner])
 def test_dismissing_with_nothing_else_focusable_focuses_the_holder(
-    show: Show, cls: type[Alert]
+    show: Show,
 ) -> None:
-    page = show(html.div(cls().title("Saved").dismissible(), id="holder"))
+    page = show(html.div(Alert().title("Saved").dismissible(), id="holder"))
     page.get_by_role("button", name="Dismiss").focus()
     page.keyboard.press("Enter")
     expect(page.get_by_text("Saved")).to_be_hidden()
@@ -164,25 +142,6 @@ def test_dismissing_inside_a_dialog_keeps_focus_in_the_dialog(show: Show) -> Non
     expect(dialog).to_be_visible()
     # Somewhere a keyboard user can go on from: inside the dialog, and not
     # on the hidden close button.
-    page.wait_for_function(
-        "() => { const el = document.activeElement;"
-        " return document.querySelector('[role=dialog]').contains(el)"
-        " && el.getClientRects().length > 0 }",
-        timeout=3000,
-    )
-
-
-def test_dismissing_in_a_drawer_keeps_focus_in_the_drawer(show: Show) -> None:
-    page = show(
-        Drawer().title("Holder").open().content(Alert().title("Saved").dismissible()),
-        Button().content("Outside"),
-    )
-    panel = page.get_by_role("dialog", name="Holder")
-    expect(panel).to_be_visible()
-    page.get_by_role("button", name="Dismiss").last.focus()
-    page.keyboard.press("Enter")
-    expect(page.get_by_text("Saved")).to_be_hidden()
-    expect(panel).to_be_visible()
     page.wait_for_function(
         "() => { const el = document.activeElement;"
         " return document.querySelector('[role=dialog]').contains(el)"

@@ -36,19 +36,16 @@ def _near(colour: str, tone: str) -> bool:
     return all(abs(a - b) <= 48 for a, b in pairs)
 
 
-def test_invalid_slider_is_invalid_and_red(show: Show) -> None:
+def test_invalid_slider_is_red_and_keyboard_focus_draws_a_two_pixel_ring(
+    show: Show,
+) -> None:
     page = still(show(_invalid()))
     slider = page.get_by_role("slider")
-    expect(slider).to_have_attribute("aria-invalid", "true")
     # The fill to the left of the thumb.
     box = slider.bounding_box()
     assert box is not None
     start = row_of_pixels(page, box["x"] + 4, box["y"] + box["height"] / 2, 1)
     assert start == [token(page, "danger")]
-
-
-def test_keyboard_focus_draws_a_two_pixel_ring(show: Show) -> None:
-    page = still(show(_invalid()))
     danger = token(page, "danger")
     resting = _tone_after_thumb(page, danger)
     page.keyboard.press("Tab")

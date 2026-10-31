@@ -13,21 +13,19 @@ class TestKbd:
         assert_selector(html, "kbd", count=2)
 
     @pytest.mark.asyncio
-    async def test_a_plain_key_renders_verbatim(self, context_args):
-        html = await render_tree(Kbd("K"), context_args=context_args)
-        assert_selector(html, "kbd", count=1)
-        assert ">K<" in html
-
-    @pytest.mark.asyncio
-    async def test_keys_can_be_set_after_construction(self, context_args):
-        html = await render_tree(Kbd().keys("esc"), context_args=context_args)
-        assert "Esc" in html
-
-    @pytest.mark.asyncio
-    async def test_wrapper_carries_caller_classes(self, context_args):
-        # Even a single key is wrapped, so class_() has one predictable home.
-        html = await render_tree(Kbd("K").class_("ml-2"), context_args=context_args)
-        assert_selector(html, "span.ml-2 > kbd")
+    @pytest.mark.parametrize(
+        ("keys", "text"),
+        [
+            (("K",), "K"),
+            (("f5",), "F5"),
+            # A capital G alone would read as Shift+G, which "g" does not match.
+            (("g",), "g"),
+            (("shift", "g"), "G"),
+        ],
+    )
+    async def test_the_last_key_reads_as_written(self, context_args, keys, text):
+        html = await render_tree(Kbd(*keys), context_args=context_args)
+        assert select(html, "kbd")[-1].get_text() == text
 
     # Glyph keys: a spoken name alongside, because a screen reader would
     # otherwise read the Unicode name of the glyph.
@@ -40,28 +38,11 @@ class TestKbd:
         assert "⇧" in html
 
     @pytest.mark.asyncio
-    async def test_word_key_needs_no_spoken_name(self, context_args):
+    @pytest.mark.parametrize("key", ["esc", "f5"])
+    async def test_word_key_needs_no_spoken_name(self, context_args, key):
         # "Esc" already reads as a word, so a second announcement is noise.
-        html = await render_tree(Kbd("esc"), context_args=context_args)
+        html = await render_tree(Kbd(key), context_args=context_args)
         assert_no_selector(html, "kbd > span.sr-only")
-
-    @pytest.mark.asyncio
-    async def test_unknown_key_needs_no_spoken_name(self, context_args):
-        html = await render_tree(Kbd("f5"), context_args=context_args)
-        assert_no_selector(html, "kbd > span.sr-only")
-        assert select(html, "kbd")[0].get_text() == "F5"
-
-    # A letter alone is drawn as written, in a chord as a capital.
-    @pytest.mark.asyncio
-    async def test_a_letter_alone_reads_as_what_to_type(self, context_args):
-        # A capital G would read as Shift+G, which a plain "g" does not match.
-        html = await render_tree(Kbd("g"), context_args=context_args)
-        assert select(html, "kbd")[0].get_text() == "g"
-
-    @pytest.mark.asyncio
-    async def test_a_letter_in_a_chord_is_a_capital(self, context_args):
-        html = await render_tree(Kbd("shift", "g"), context_args=context_args)
-        assert select(html, "kbd")[-1].get_text() == "G"
 
     # mod: only the browser knows which key it is, so the server renders the
     # Apple glyph and Alpine corrects both the glyph and the spoken name.
@@ -88,8 +69,3 @@ class TestKbd:
             ":data-glyph",
             f"($store.shortcuts?.apple ?? true) ? '{glyph}' : '{word}'",
         )
-
-    @pytest.mark.asyncio
-    async def test_other_keys_need_no_javascript(self, context_args):
-        html = await render_tree(Kbd("esc", "up", "K"), context_args=context_args)
-        assert_no_selector(html, "kbd[x-data]")

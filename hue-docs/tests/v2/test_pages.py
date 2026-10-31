@@ -1,5 +1,6 @@
 """
-Every page and every frame renders, every example in it, and no id repeats.
+Every page and every frame renders, every example in it, no id repeats, and
+the rules every component keeps hold on all of them.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 import hue
 import hue_fastapi
 import pytest
+from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from hue import ui
 from hue.ui.base import ChainableComponent
@@ -47,6 +49,44 @@ def test_no_id_appears_twice(client: TestClient, path: str) -> None:
         f"{path} repeats ids {repeated}. A label points at the first match in "
         f"the document, so give each example's control a name of its own."
     )
+
+
+# Present means true, so any of these written as "false" still switches it on.
+_BOOLEAN_ATTRS = {
+    "autofocus",
+    "checked",
+    "disabled",
+    "hidden",
+    "inert",
+    "multiple",
+    "open",
+    "readonly",
+    "required",
+    "selected",
+}
+
+
+@pytest.mark.parametrize("path", page_paths() + frame_paths())
+def test_no_boolean_attribute_is_false_and_no_icon_unnamed(
+    client: TestClient, path: str
+) -> None:
+    page = BeautifulSoup(client.get(path).text, "html.parser")
+    written_false = sorted(
+        f"{tag.name}[{attr}]"
+        for tag in page.find_all(True)
+        for attr in _BOOLEAN_ATTRS & set(tag.attrs)
+        if tag[attr] == "false"
+    )
+    assert not written_false, f"{path} writes {written_false} as false"
+    unnamed = [
+        str(svg)[:80]
+        for svg in page.find_all("svg")
+        if svg.get("aria-hidden") != "true"
+        and not svg.get("aria-label")
+        and not svg.get("aria-labelledby")
+        and svg.get("role") != "presentation"
+    ]
+    assert not unnamed, f"{path} has icons that are neither hidden nor named"
 
 
 @pytest.mark.parametrize("old,new", REDIRECTS.items())

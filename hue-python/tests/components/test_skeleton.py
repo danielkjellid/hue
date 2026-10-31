@@ -12,66 +12,31 @@ class TestSkeleton:
         # aria-busy belongs on the region they stand in for.
         html = await render_tree(Skeleton(), context_args=context_args)
         assert_attr(html, "div", "aria-hidden", "true")
-
-    @pytest.mark.asyncio
-    async def test_shimmers(self, context_args):
-        html = await render_tree(Skeleton(), context_args=context_args)
-        assert_selector(html, "div.animate-shimmer")
-
-    @pytest.mark.asyncio
-    async def test_is_visible_against_the_canvas(self, context_args):
-        # The guide's sunken-to-active pair is gray-50 sweeping to gray-100, a
-        # 3% difference against white - invisible on the surface a skeleton
-        # most often sits on.
-        html = await render_tree(Skeleton(), context_args=context_args)
-        assert_selector(html, "div.from-surface-active")
-        assert_no_selector(html, "div.from-surface-sunken")
-
-    # shape(): default vs an explicit shape, each carrying its own box
-    @pytest.mark.asyncio
-    async def test_default_shape_is_text(self, context_args):
-        html = await render_tree(Skeleton(), context_args=context_args)
-        assert_selector(html, "div.h-3\\.5.w-full")
-
-    @pytest.mark.asyncio
-    async def test_circle_shape_is_square_and_round(self, context_args):
-        html = await render_tree(Skeleton().shape("circle"), context_args=context_args)
-        assert_selector(html, "div.h-9.w-9.rounded-full")
+        html = await render_tree(Skeleton().lines(2), context_args=context_args)
+        assert_selector(html, "[aria-hidden]", count=1)
 
     # The box has to match what is loading, or the page jumps on arrival. Each
     # axis replaces the shape's own rather than layering over it, since two
     # width utilities resolve by stylesheet order and not by intent.
+    @pytest.mark.parametrize(
+        ("skeleton", "kept", "replaced"),
+        [
+            (Skeleton().shape("rect").width("w-1/2"), "w-1\\/2", "w-full"),
+            (Skeleton().shape("card").height("h-20"), "h-20", "h-32"),
+            (
+                Skeleton().shape("circle").width("w-16").height("h-16"),
+                "h-16.w-16",
+                "h-9",
+            ),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_width_replaces_the_shape_width(self, context_args):
-        html = await render_tree(
-            Skeleton().shape("rect").width("w-1/2"), context_args=context_args
-        )
-        assert_selector(html, "div.w-1\\/2")
-        assert_no_selector(html, "div.w-full")
-
-    @pytest.mark.asyncio
-    async def test_height_replaces_the_shape_height(self, context_args):
-        html = await render_tree(
-            Skeleton().shape("card").height("h-20"), context_args=context_args
-        )
-        assert_selector(html, "div.h-20")
-        assert_no_selector(html, "div.h-32")
-
-    @pytest.mark.asyncio
-    async def test_both_axes_on_a_circle(self, context_args):
-        html = await render_tree(
-            Skeleton().shape("circle").width("w-16").height("h-16"),
-            context_args=context_args,
-        )
-        assert_selector(html, "div.h-16.w-16")
-        assert_no_selector(html, "div.h-9")
-
-    # lines(): both branches
-    @pytest.mark.asyncio
-    async def test_single_bar_by_default(self, context_args):
-        html = await render_tree(Skeleton(), context_args=context_args)
-        assert_selector(html, "div", count=1)
-        assert_no_selector(html, "div > div")
+    async def test_a_size_replaces_the_shapes_own(
+        self, context_args, skeleton, kept, replaced
+    ):
+        html = await render_tree(skeleton, context_args=context_args)
+        assert_selector(html, f"div.{kept}")
+        assert_no_selector(html, f"div.{replaced}")
 
     @pytest.mark.asyncio
     async def test_several_lines_stack_with_a_short_last_one(self, context_args):
@@ -96,15 +61,3 @@ class TestSkeleton:
             await render_tree(
                 Skeleton().shape(shape).lines(3), context_args=context_args
             )
-
-    @pytest.mark.asyncio
-    async def test_one_line_does_not_get_the_short_width(self, context_args):
-        html = await render_tree(
-            Skeleton().shape("text").lines(1), context_args=context_args
-        )
-        assert_no_selector(html, "div.w-\\[62\\%\\]")
-
-    @pytest.mark.asyncio
-    async def test_only_the_wrapper_is_hidden_once(self, context_args):
-        html = await render_tree(Skeleton().lines(2), context_args=context_args)
-        assert_selector(html, "[aria-hidden]", count=1)

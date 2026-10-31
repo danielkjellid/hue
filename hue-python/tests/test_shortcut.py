@@ -25,19 +25,20 @@ def request_scope():
 
 
 class TestKeys:
-    def test_a_chord_and_a_sequence_parse_to_their_keys(self):
-        assert parse_keys(("Mod+K",)) == (("mod", "k"),)
-        assert parse_keys(("g", "b")) == (("g",), ("b",))
-
-    def test_modifiers_keep_the_order_they_were_written_in(self):
-        # It is the order Kbd draws them in.
-        assert parse_keys(("shift+mod+k",)) == (("shift", "mod", "k"),)
-
-    def test_another_name_for_a_key_becomes_its_own(self):
-        assert parse_keys(("ctrl+escape", "alt+arrowup")) == (
-            ("ctrl", "esc"),
-            ("alt", "up"),
-        )
+    @pytest.mark.parametrize(
+        ("steps", "keys"),
+        [
+            (("Mod+K",), (("mod", "k"),)),
+            (("g", "b"), (("g",), ("b",))),
+            # Modifiers keep the order they were written in, which Kbd draws.
+            (("shift+mod+k",), (("shift", "mod", "k"),)),
+            # Another name for a key becomes its own.
+            (("ctrl+escape", "alt+arrowup"), (("ctrl", "esc"), ("alt", "up"))),
+        ],
+        ids=["chord", "sequence", "modifier order", "alias"],
+    )
+    def test_steps_parse_to_their_keys(self, steps, keys):
+        assert parse_keys(steps) == keys
 
     @pytest.mark.parametrize(
         "steps",
@@ -97,22 +98,19 @@ class TestRegistry:
                 a = Shortcut("A", first, href="/a/")
                 b = Shortcut("B", second, href="/b/")
 
-    def test_a_key_that_starts_a_sequence_is_refused(self):
-        # G would run on the first press, so G then B could never finish.
+    @pytest.mark.parametrize(
+        ("short", "long"),
+        [(("g",), ("g", "b")), (("b",), ("g", "b", "c"))],
+        ids=["starts a sequence", "inside a sequence"],
+    )
+    def test_a_key_that_would_cut_a_sequence_short_is_refused(self, short, long):
+        # The short one would run partway through, so the long one could
+        # never finish.
         with pytest.raises(ValueError, match="never could"):
 
             class _(ShortcutRegistry):
-                a = Shortcut("A", "g", href="/a/")
-                b = Shortcut("B", "g", "b", href="/b/")
-
-    def test_a_key_inside_a_sequence_is_refused(self):
-        # B would run as soon as G then B was pressed, and G then B then C
-        # could never get its last key.
-        with pytest.raises(ValueError, match="never could finish"):
-
-            class _(ShortcutRegistry):
-                a = Shortcut("A", "b", href="/a/")
-                b = Shortcut("B", "g", "b", "c", href="/b/")
+                a = Shortcut("A", *short, href="/a/")
+                b = Shortcut("B", *long, href="/b/")
 
     def test_a_shortcut_cannot_take_a_name_the_registry_uses(self):
         with pytest.raises(ValueError, match="uses itself"):

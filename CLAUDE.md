@@ -196,44 +196,87 @@ component shows up correctly:
 
 ## Testing
 
-Tests live in each package's `tests/`. In `hue-python`, there is **one test file per
-component** under `tests/components/`, shared fixtures in `tests/conftest.py`, and shared
+Tests live in each package's `tests/`. In `hue-python`, a component has **at most one test
+file per tier**, named after it, under `tests/components/` and `tests/browser/`. One with
+nothing worth testing has none. Shared fixtures are in `tests/conftest.py`, and shared
 accessibility helpers in `tests/_a11y.py`.
 
-**Mechanics:** use the `context_args` fixture (a `HueContextArgs` with a mock request), then
-`await render_tree(component, context_args=context_args)` (mark the test
-`@pytest.mark.asyncio`) and assert against the returned HTML — preferably via the `_a11y.py`
-parse helpers rather than brittle substring checks.
+There are two tiers, and almost all of CI's time goes to the second:
 
-**Philosophy — test the concepts, not exhaustively.** The current suite has been trimmed; do
-not regrow it. For each component cover what actually matters:
+- **Markup** (`tests/components/`, `tests/test_*.py`): render with the `context_args`
+  fixture and `await render_tree(component, context_args=context_args)` (mark the test
+  `@pytest.mark.asyncio`), then assert through the `tests/_a11y.py` parse helpers rather
+  than substring checks.
+- **Browser** (`tests/browser/`): the component in a page in the installed Chrome, driven
+  with real keys and pointer moves through Playwright's sync API. The `show` fixture takes
+  components (and `width`, `theme`, `dir`), returns the page once Alpine has started, and
+  fails the test on any console error. It runs with the rest of `uv run pytest tests`.
 
-- That each variant renders as expected (e.g. `Callout().variant("error")` produces the
-  error styling/markup).
-- That key props change the output, and required structure/attributes are present.
-- That **accessibility invariants hold** (semantic element, expected `role`/`aria-*`, labels
-  associated with inputs, decorative icons `aria-hidden`, focusable where applicable).
-- **Conditional rendering both ways.** Any branch — `render_if`/`render_if_else`,
-  `classes_if`/`classes_if_else`, or a plain `if` in `_render` (title shown vs omitted,
-  disabled vs enabled, child present vs absent) — gets an isolated unit test for **each**
-  branch: one proving the element/class appears when the condition holds, one proving it is
-  absent when it doesn't.
+**Every test answers one question: what realistic bug makes it fail, and would anything
+else catch it first?** Types and the hue-docs suite already catch a lot: it renders every
+page and frame, and fails on an id used twice, a class missing from the stylesheet, a
+console error, or a page wider than the window at desktop and phone width. A test with no realistic bug
+behind it, or one something else catches first, does not get written. Skip edge cases
+nobody hits.
 
-Do **not** write ~25 trivial tests per component, and do **not** re-test the shared
-`ChainableComponent` modifiers per component — those are tested once in `tests/test_base.py`.
+### Accessibility (WCAG 2.2 AA)
 
-Accessibility assertions parse the rendered HTML (helpers in `tests/_a11y.py`, built on
-`beautifulsoup4`). The heavier `axe-playwright-python` WCAG engine needs a headless browser
-and is intentionally not used here.
+Every component is covered here, where the rest of the suite samples. Each requirement goes
+in the tier that can see it.
 
-**Behaviour is tested in a browser.** `tests/browser/` renders components into a page in
-the installed Chrome and drives it with real keys and pointer moves through Playwright's
-sync API: the `show` fixture takes components (and `width`, `theme`, `dir`) and returns
-the page once Alpine has started, and fails the test on any console error. It runs with
-the rest of `uv run pytest tests`. Every fix to keyboard, focus, pointer, overlay or layout
-behaviour lands with a browser test that failed before the fix, and a fix is done only
-when the whole suite passes, not just its own test: the bugs a fix brings back are in the
-behaviour next to it.
+- **Markup, every component:** the semantic element and `role`; an accessible name on
+  every interactive element (a required one raises when missing); labels, hints and errors
+  wired to their control (`for`, `aria-describedby`, `aria-errormessage`,
+  `aria-invalid`); state exposed (`aria-expanded`, `aria-selected`, `aria-checked`,
+  `aria-current`, `aria-busy`, `disabled`); a live region where content changes without a
+  page load; `sr-only` rather than `invisible` or `display: none` for text that is only
+  visually hidden.
+- **Browser, every interactive component:** the keyboard pattern from the WAI-ARIA
+  Authoring Practices for that widget; focus that is visible and lands where it should
+  (into an overlay on open, back to the trigger on close, never on `<body>`); a modal that
+  traps focus; Escape closing only the innermost overlay; no horizontal scroll at 320px
+  wide; 24px targets on a coarse pointer; reduced motion honoured; RTL wherever direction
+  changes the behaviour.
+- **Once, for every component**, in hue-docs' `test_pages.py` over every page and frame:
+  no id twice, no boolean attribute written `"false"`, every `svg` either `aria-hidden` or
+  named. A rule that holds everywhere goes there, not into each component's file.
+
+### Markup tier
+
+Cover:
+
+1. The form contract: the name and value a control submits, `type="button"` against
+   `type="submit"`, and disabled meaning inert to the keyboard and the form.
+2. Escaping of text inside Alpine expressions and inline scripts.
+3. Real logic (the router, `Formats`, `TableState`, pagination, chart data, date ranges),
+   tested like a pure function with one parametrized table of representative cases. Logic
+   that is hard to reach through `_render` wants pulling out into a function.
+4. Each error the API promises to raise, once, with one or two bad inputs.
+5. A bug that shipped, once, with the test named after the behaviour.
+
+### Browser tier
+
+1. Behaviour only: keyboard, focus, pointer, overlays, layout geometry, Alpine state.
+   Anything a markup test can see goes in the markup tier.
+2. One file per component, named after it, and no file for a fix round or a review.
+3. A matrix covers the edges, not the grid: the narrowest width and one wide one, coarse
+   pointer only where it changes a size, RTL only where it changes a direction. A parameter
+   that never changes the outcome comes out.
+4. A fix to keyboard, focus, pointer, overlay or layout behaviour lands with a test that
+   failed before it, in the component's file, extending an existing test where one is
+   close. The fix is done when the whole suite passes, not only its own test.
+5. Wait on a condition, never a fixed delay. A test that takes more than about two seconds
+   needs a reason.
+
+### Don't test
+
+- Tailwind classes as a stand-in for appearance. A class is fine where it is the behaviour
+  (`sr-only`, `hidden`, `opacity-0` against `invisible`).
+- A styling default, or the off branch of a conditional unless the absence is the contract
+  (no `aria-invalid` on a valid field, no `aria-describedby` pointing at nothing).
+- A modifier that writes its value straight through to an attribute, the shared
+  `ChainableComponent` modifiers (tested once in `tests/test_base.py`), and anything a type
+  or the hue-docs suite already enforces.
 
 ## Component quality bar
 
@@ -288,8 +331,8 @@ against each of these.
 - **Ids are unique on the page and built from the component's own id.** Build them from
   `_input_id()` or an Alpine `$id`, never from a name alone, a slug, or raw user text.
   Same-named checkboxes, radio values with a space, slugged Select options and
-  Pagination's `page_size` all collided. Render every component twice on one page in its
-  tests.
+  Pagination's `page_size` all collided. The hue-docs suite checks ids on every page; an
+  id that depends on a value or an option needs its own test with two of them on one page.
 - **Move focus before hiding the element that has it.** `x-show="false"` or `$el.remove()`
   on a focused element drops focus to `<body>`, which Alert, Toast, Command and a Dialog
   that started open all did. Decide where focus goes (the trigger, the next control, the
