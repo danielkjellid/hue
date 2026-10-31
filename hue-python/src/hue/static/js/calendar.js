@@ -8,7 +8,7 @@
  * under the pointer; everything else a new event starts with is the
  * server's to fill in. The state a click posts is read from the page at
  * the click, since this root is drawn once and the calendar moves under
- * it. Focus across a swap is ajax-focus.js's, for every component.
+ * it. Focus across a swap is swaps.js's, for every component.
  *
  * The state is named calendar-something so that no Popover or Dialog
  * inside, whose own state is open, can shadow it.

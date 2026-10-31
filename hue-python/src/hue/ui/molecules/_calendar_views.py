@@ -380,7 +380,7 @@ class Draw:
         if self.region is not None and (views := self._stable("views")):
             tabs.id(views).target(self.region, sync=False)
             # The new view's heading rather than its current tab, which is
-            # where ajax-focus.js would otherwise land.
+            # where swaps.js would otherwise land.
             tabs.data("hue-refocus", self.heading or "")
         return tabs.content(
             *(
