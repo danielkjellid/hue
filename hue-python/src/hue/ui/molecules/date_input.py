@@ -362,9 +362,7 @@ class _PickerInput(FieldControl):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                # Fixed, because a Dialog clips what overflows its panel and
-                # a date field in a dialog is the common case.
-                "x-anchor.fixed.bottom-start.offset.6": "$refs.shell",
+                **_overlay.anchor("bottom-start", "$refs.shell"),
                 **_overlay.HOLDS_FOCUS,
             },
         )
