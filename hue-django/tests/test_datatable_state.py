@@ -523,7 +523,7 @@ def test_the_search_box_answers_to_slash_and_escape(mounted):
     html = _table(mounted().invoices, _request())
     assert re.search(r"x-data='hueTableSearch\(\"invoices-q\"\)'", html)
     assert 'x-on:keydown.window.slash="focusField($event)"' in html
-    assert 'x-on:keydown.escape="if ($el.value) { $event.stopPropagation();' in html
+    assert '@keydown.escape="clearField($event)"' in html
     # What the shortcut counts to decide whether it means anything: a
     # page-wide key with two candidates belongs to neither.
     assert "data-hue-table-search" in html

@@ -38,6 +38,9 @@ class _Router:
         self.registered.append(path)
         return lambda view_func: view_func
 
+    def _path_param(self, name: str) -> str:
+        return f"<str:{name}>"
+
     def _get_query_values(self, request: Any) -> dict[str, list[str]]:
         return self.query
 
