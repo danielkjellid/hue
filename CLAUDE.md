@@ -51,8 +51,8 @@ uv run pytest tests          # hue-python, hue-django and hue-fastapi (no make t
 make test                    # hue-docs only
 
 # Docs (from hue-docs/)
-make build                                 # build → writes dist/ (pins the Tailwind version)
-make serve                                 # http.server on http://localhost:8000
+make build                                 # freeze the site → writes dist/
+make serve                                 # live on http://localhost:8001
 
 # Assets (from hue-python/)
 make build        # build CSS + the Alpine JS bundle (hue-django serves them from the hue package)
@@ -91,7 +91,7 @@ canonical templates. The shape:
   `"Feedback"`). Set it to `None` for composition-only parts (e.g. `TableRow`) that are
   exported but should not get their own docs page.
 - **Write the chain, not the shortcut.** A named control takes its name either way, but
-  every docstring, `example()` and showcase spells it `TextInput().name("email")` rather
+  every docstring, docs page and example spells it `TextInput().name("email")` rather
   than `TextInput("email")` — one positional string is the only thing in the API whose
   meaning you have to already know, and it happens to set the submitted name, the `id`,
   the `for` on the label, and the ids the hint and error hang off. The constructor form
@@ -168,31 +168,11 @@ and is deleted with the last of them.
 To restyle Hue, redefine a `--hue-*` ramp step and everything built on it moves with it, in
 both themes; to change one role only, redefine that alias.
 
-## Docs auto-discovery (don't break it)
+## Docs (`hue-docs/src/hue_docs/`)
 
-This section is about v1 (`hue-docs/src/hue_docs/`). Docs v2 (`src/hue_docs_v2/`)
-declares its pages in Python and does not read `example()`; its rules are in
-`hue-docs/CLAUDE.md`. v1 stays until v2 replaces it, so keep `example()` working for now.
-
-`hue-docs` introspects `hue.ui.__all__`, keeps `ChainableComponent` subclasses, derives
-"axes" from `Literal` enum and `bool` modifier signatures, and reads default values out of
-the `_render` source via the AST (`_get_prop("name", <literal>)`). Practical rules so a new
-component shows up correctly:
-
-- Every documented component **must** define `example()` — the docs build fails loudly
-  otherwise — and its body must be a **single `return` expression** (its source is shown
-  verbatim as the usage snippet; a test enforces this).
-- Use real `Literal` type aliases for variant axes (so they resolve as enum axes).
-- Defaults are read from the **literal** second argument of `_get_prop("name", <literal>)`
-  in `_render` (via the AST), then overlaid with anything the constructor pre-sets in
-  `_props`.
-- **Every `Literal`/`bool` modifier becomes a control**, so each one has to change what
-  `example()` renders — a test in `hue-docs` fails when an axis comes out identical for every
-  value, because a knob that does nothing reads as a broken page. Either give the modifier a
-  visible effect, or take the `Literal`/`bool` out of its signature: a semantic-only knob
-  belongs as a keyword-only argument on the modifier it qualifies
-  (`Empty.title(value, *, heading=None)`), which also keeps it off the playground.
-- `hue-docs` pins `htmy==0.8.2` (APIs removed in 0.9+); keep core compatible with that pin.
+The docs declare their pages in Python rather than discovering components; the rules for
+writing them are in `hue-docs/CLAUDE.md`. `hue-docs` pins `htmy==0.8.2` (APIs removed in
+0.9+), so keep core compatible with that pin.
 
 ## Testing
 
@@ -295,9 +275,7 @@ Every component must satisfy these — review against them before finishing:
 - **Declarative & simple API.** Usage should read as `Component().variant(…).content(…)`.
   Keep the public surface small and obvious.
 - **DRY, but earn the abstraction.** Reuse existing components and utils. A new util must be
-  used in **≥2 places** — otherwise inline it. Watch for brittle, drift-prone coupling (e.g.
-  the docs' regex/AST reading of `example()` and `_get_prop` defaults — keep those shapes
-  conventional).
+  used in **≥2 places** — otherwise inline it. Watch for brittle, drift-prone coupling.
 - **No over-complicated Tailwind.** Keep class lists readable; lean on `classnames` /
   `classes_if`; don't hand-roll deep conditional class soup.
 - **Comments & docstrings:** informative and simple — explain *why*, not *what*. Don't
@@ -308,8 +286,7 @@ Every component must satisfy these — review against them before finishing:
   one-line docstrings.
 - **Component docstrings stay short.** A one-line summary of what it is, then a sentence or
   two on the modifiers. Around eight lines is plenty. At most one short example, and only
-  where the shape isn't obvious from the summary — the docs page already renders `example()`
-  verbatim as the usage snippet.
+  where the shape isn't obvious from the summary — the docs page already shows the usage.
 - **Design intent goes in the defaults, not the prose.** The design guide leads internal
   development — it describes what is *intended*, not what is enforced. Express that intent by
   choosing the default and the set of variants: Badge starts `neutral`, Card starts flat

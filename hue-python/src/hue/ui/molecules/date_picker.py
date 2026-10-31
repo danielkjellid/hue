@@ -130,10 +130,6 @@ class DatePicker(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("due").label("Due date")
-
     def value(self, *days: date) -> Self:
         """
         The days selected to start with.

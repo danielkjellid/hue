@@ -20,9 +20,8 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 2. **Create the component** at `hue-python/src/hue/ui/{atoms,molecules}/<name>.py` with:
    `from __future__ import annotations`; `Literal` type aliases for variant/size axes;
-   the class with `category`, an `example()` classmethod (single simple expression),
-   chainable modifier methods returning `Self`, and `_render` reading props via
-   `_get_prop` and splatting `_get_base_html_attrs()`.
+   the class with `category`, chainable modifier methods returning `Self`, and `_render`
+   reading props via `_get_prop` and splatting `_get_base_html_attrs()`.
 
 3. **Export it** in `hue-python/src/hue/ui/__init__.py` — add the import and the
    alphabetized `__all__` entry.
@@ -33,11 +32,11 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
    `_render` tested both ways** (present and absent). Do not over-test; don't re-test base
    modifiers.
 
-5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. Optionally
-   rebuild docs (`cd hue-docs && PYTHONPATH=src uv run python -m hue_docs`) to confirm the
-   component is auto-discovered. If the component has keyboard, focus or overlay
-   behaviour, build the docs and drive its page in a browser with real keys and pointer
-   moves: Tab, the arrow keys, Escape, and where focus lands when anything closes.
+5. **Verify**: from `hue-python/`, run `make lint` and `uv run pytest tests`. If the
+   component has keyboard, focus or overlay behaviour, give it a docs page (see
+   `hue-docs/CLAUDE.md`), run `make serve` from `hue-docs/` and drive the page in a
+   browser with real keys and pointer moves: Tab, the arrow keys, Escape, and where focus
+   lands when anything closes.
 
 6. **Run `/prepare-pr` before committing.** Every component goes through its review and
    simplification passes before anything is committed, and the fixes it makes get the

@@ -38,10 +38,6 @@ class Spinner(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().label("Loading payments")
-
     def size(self, value: SpinnerSize) -> Self:
         self._props["size"] = value
         return self

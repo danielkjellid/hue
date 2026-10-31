@@ -1,16 +1,14 @@
 ---
-description: Rebuild and serve the hue-docs static site
+description: Rebuild and serve the hue-docs site
 ---
 
 Build and serve the documentation site.
 
-1. From `hue-docs/`, build: `PYTHONPATH=src uv run python -m hue_docs` (writes `dist/`).
-   Report any discovery/render errors — these usually mean a component broke the
-   auto-discovery rules (see "Docs auto-discovery" in `@CLAUDE.md`).
-2. Serve it: `make serve` (http.server on http://localhost:8000). Run in the background if
-   you need to keep working.
-3. To confirm a specific component renders, fetch its page, e.g.
-   `curl -s -m 4 http://localhost:8000/<slug>/ -o /dev/null -w "HTTP %{http_code}\n"`,
+1. From `hue-docs/`, run `make serve` in the background. It builds the stylesheet,
+   scripts and search index, then serves the pages live on http://localhost:8001.
+   Report any build error.
+2. To confirm a page renders, fetch it, e.g.
+   `curl -s -m 4 http://localhost:8001/components/<slug>/ -o /dev/null -w "HTTP %{http_code}\n"`,
    and report the status.
 
-For live CSS while editing docs, `make watch-css` (from `hue-docs/`) in a separate process.
+New Tailwind classes need another run, since nothing watches the CSS.

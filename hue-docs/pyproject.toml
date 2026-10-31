@@ -10,9 +10,7 @@ dependencies = [
     # removed APIs that hue imports (e.g. htmy.core.Tag).
     "htmy==0.8.2",
     "pytailwindcss>=0.3.0",
-    # Build-time syntax highlighting for code blocks (no runtime JS).
-    "pygments>=2.17",
-    # docs v2: served live by FastAPI, frozen with its TestClient, searched
+    # Served live by FastAPI, frozen with its TestClient, searched
     # through Pagefind's index.
     "fastapi>=0.115",
     "hue-fastapi>=0.1.0",
@@ -23,7 +21,7 @@ dependencies = [
 
 [tool.uv]
 # hue-docs is a build tool we run, not a library others install. Tell uv to only
-# install the dependencies and never try to build/install hue_docs itself.
+# install the dependencies and never try to build/install the docs themselves.
 package = false
 
 [tool.uv.sources]
@@ -46,31 +44,22 @@ dev = [
 [tool.ruff]
 extend = "../ruff.toml"
 
-#########
-# Mypy  #
-#########
-
-[[tool.mypy.overrides]]
-# Pygments ships no type stubs.
-module = ["pygments.*"]
-ignore_missing_imports = true
-
 ##########
 # Deptry #
 ##########
 
 [tool.deptry]
-known_first_party = ["hue_docs", "hue_docs_v2"]
+known_first_party = ["hue_docs"]
 extend_exclude = ["tests", "test_.*\\.py", "worker"]
 
 [tool.deptry.per_rule_ignores]
-# pytailwindcss ships the `tailwindcss` CLI we invoke via subprocess in build.py;
+# pytailwindcss ships the `tailwindcss` CLI the Makefile runs;
 # it is never imported, so deptry would otherwise flag it as unused.
 DEP002 = [
     "pytailwindcss",
     # The TestClient freeze.py uses imports httpx itself.
     "httpx",
-    # Run as a command by make serve-v2.
+    # Run as a command by make serve.
     "uvicorn",
 ]
 

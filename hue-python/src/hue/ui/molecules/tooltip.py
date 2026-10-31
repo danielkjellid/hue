@@ -8,7 +8,6 @@ from typing_extensions import Self
 
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
@@ -59,14 +58,6 @@ class Tooltip(_overlay.WrapsTrigger):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .content("Copy to clipboard")
-            .trigger(Button().variant("ghost").size("sm").content("Copy"))
-        )
 
     def trigger(self, value: ChainableComponent) -> Self:
         """

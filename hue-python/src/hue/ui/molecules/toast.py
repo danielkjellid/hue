@@ -109,15 +109,6 @@ class Toast(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .variant("success")
-            .title("Invoice sent")
-            .description("INV-2048 sent to ada@example.com")
-        )
-
     def variant(self, value: ToastVariant) -> Self:
         self._props["variant"] = value
         return self

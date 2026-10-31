@@ -62,12 +62,6 @@ class Skeleton(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        # Deliberately without lines(): the docs render this example under every
-        # shape, and a paragraph of circles is exactly what lines() rejects.
-        return cls().shape("text")
-
     def shape(self, value: SkeletonShape) -> Self:
         self._props["shape"] = value
         return self

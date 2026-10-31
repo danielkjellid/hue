@@ -301,16 +301,6 @@ class LineChart(_SeriesChart):
 
     _KIND = "line"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-            .series([212, 240, 198, 260, 251, 305, 330], label="This week")
-            .compare([190, 205, 201, 222, 230, 260, 270], label="Last week")
-            .description("Sign-ups rose from 212 to 330, above last week every day.")
-        )
-
 
 class AreaChart(_SeriesChart):
     """
@@ -323,20 +313,6 @@ class AreaChart(_SeriesChart):
 
     _KIND = "area"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .labels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-            .series([3100, 3400, 3200, 4100, 3900, 4600, 4829], label="This week")
-            .compare([2900, 3000, 2800, 3300, 3100, 3600, 3700], label="Last week")
-            .y_format("currency", currency="USD")
-            .description(
-                "Revenue rose from 3,100.00 USD to 4,829.00 USD, above last week "
-                "every day."
-            )
-        )
-
 
 class BarChart(_SeriesChart):
     """
@@ -348,16 +324,6 @@ class BarChart(_SeriesChart):
     """
 
     _KIND = "bar"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .labels(["Paid", "Pending", "Draft", "Declined", "Refunded"])
-            .series([92, 31, 14, 8, 3], label="Invoices")
-            .highlight("Paid")
-            .description("Most invoices in September are paid: 92 of 148.")
-        )
 
     def highlight(self, label: str) -> Self:
         """
@@ -381,14 +347,6 @@ class PieChart(Chart):
     """
 
     _KIND: ClassVar[str] = "pie"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .slices([("Paid", 92), ("Pending", 31), ("Draft", 14), ("Declined", 8)])
-            .description("Most invoices this month are paid: 92 of 145.")
-        )
 
     def slices(self, value: Sequence[tuple[str, float]]) -> Self:
         """
@@ -477,14 +435,6 @@ class DoughnutChart(PieChart):
     """
 
     _KIND = "doughnut"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .slices([("Card", 412), ("Invoice", 191), ("Transfer", 107)])
-            .description("Card is the most used way to pay, at 58%.")
-        )
 
 
 class _PointChart(Chart):
@@ -627,20 +577,6 @@ class ScatterChart(_PointChart):
     _ARITY = 2
     _SHAPE = "(x, y); a point with a size belongs on a BubbleChart"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .series(
-                [(12, 0.18), (25, 0.22), (31, 0.35), (44, 0.41), (58, 0.47)],
-                label="Orders",
-            )
-            .x_label("Basket size")
-            .y_label("Margin")
-            .y_format("percent")
-            .description("Margin grows with basket size, from 18% to 47%.")
-        )
-
 
 class BubbleChart(_PointChart):
     """
@@ -654,20 +590,6 @@ class BubbleChart(_PointChart):
     _KIND = "bubble"
     _ARITY = 3
     _SHAPE = "(x, y, size)"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .series(
-                [(2, 40, 120), (5, 55, 340), (8, 48, 90), (11, 70, 410)],
-                label="Teams",
-            )
-            .x_label("Engineers")
-            .y_label("Deploys per week")
-            .size_label("Incidents fixed")
-            .description("Larger teams deploy more and fix more incidents.")
-        )
 
     def size_label(self, value: str) -> Self:
         """

@@ -41,10 +41,6 @@ class Slider(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("seats").label("Team seats").min(1).max(50).value(12)
-
     def min(self, value: float) -> Self:
         self._props["min"] = value
         return self

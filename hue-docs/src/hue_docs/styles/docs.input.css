@@ -1,13 +1,7 @@
 /*
- * Tailwind entry point for the docs site.
- *
- * We import hue's own Tailwind input so we inherit its @theme tokens, the
- * `dark` custom variant, and the `@import "tailwindcss"` it pulls in. Then we
- * declare explicit @source roots so Tailwind scans:
- *   - hue's component source (the utility classes baked into each component)
- *   - this docs package's source (sidebar, cards, prose, code-block classes)
- * Class names live as string literals in those .py files, so scanning the
- * source is enough — we don't need to scan the generated (gitignored) HTML.
+ * Tailwind entry point for the docs. hue's own input brings the tokens, the
+ * dark variant and Tailwind itself; the sources are hue's components and
+ * this package, whose class names are string literals in its .py files.
  */
 
 @import "../../../../hue-python/src/hue/static/styles/tailwind.input.css";
@@ -15,8 +9,30 @@
 @source "../../../../hue-python/src/hue";
 @source "../";
 
-/* Keep Alpine-controlled elements (playground previews) hidden until Alpine
- * initialises, so only the selected combination is ever shown. */
-[x-cloak] {
-  display: none !important;
+@layer components {
+  .docs-inline-code {
+    @apply rounded-xs border border-border bg-surface-sunken px-[5px] py-px font-mono text-[0.9em] text-fg;
+  }
+
+  .docs-excerpt mark {
+    @apply bg-transparent font-semibold text-accent-text;
+  }
+
+  /* Shiki's output, with both themes' colours on every token as variables. */
+  .docs-code .shiki {
+    @apply overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 font-mono text-xs leading-[1.7] outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
+  }
+
+  .docs-code .shiki span {
+    color: var(--shiki-light);
+  }
+
+  [data-theme="dark"] .docs-code .shiki span {
+    color: var(--shiki-dark);
+  }
+
+  /* A block inside something that already has an edge and corners. */
+  .docs-code-flush .shiki {
+    @apply rounded-none border-0;
+  }
 }

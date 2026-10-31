@@ -9,8 +9,6 @@ from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
-from hue.ui.atoms.button import Button
-from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent, Clickable
 from hue.ui.molecules import _overlay
 from hue.utils import classes_if, classnames, render_if, render_when
@@ -50,23 +48,6 @@ class DropdownMenu(_overlay.WrapsTrigger):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Project actions")
-            .trigger(Button().variant("outline").content("Project actions"))
-            .content(
-                MenuItem().icon(HueIcon("copy")).content("Duplicate"),
-                MenuItem().icon(HueIcon("file-text")).content("Export as CSV"),
-                MenuSeparator(),
-                MenuItem()
-                .variant("danger")
-                .icon(HueIcon("trash-2"))
-                .content("Delete project"),
-            )
-        )
 
     def label(self, value: str) -> Self:
         """

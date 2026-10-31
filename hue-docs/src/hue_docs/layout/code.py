@@ -1,48 +1,63 @@
-"""A styled, copyable code block. Uses the bundled Alpine for copy — no JS deps."""
+"""
+A highlighted code block with a copy button.
+"""
 
 from __future__ import annotations
 
+from htmy import SafeStr
 from hue import html
 from hue.js import unsafe
 from hue.types.core import ComponentType
+from hue.ui import Button
+from hue.utils import classnames
 
-from hue_docs.layout.highlight import highlight_code
+from hue_docs.highlight import highlight
+from hue_docs.icons import Icon
+
+_COPY = (
+    "navigator.clipboard.writeText($refs.code.textContent.trim());"
+    " copied = true; setTimeout(() => copied = false, 1500)"
+)
 
 
-def code_block(source: str, *, language: str = "python") -> ComponentType:
+def copy_button() -> ComponentType:
     return (
-        html.div()
-        .class_("group relative")
-        .x_data("{ copied: false }")
+        Button()
+        .variant("ghost")
+        .size("xs")
+        .icon_only("Copy code")
         .content(
-            html.button("Copy")
-            .aria_label("Copy code to clipboard")
-            .class_(
-                "absolute right-2 top-2 rounded-md border border-surface-200 "
-                "bg-background px-2 py-1 text-xs text-surface-600 opacity-0 "
-                "transition-opacity hover:text-surface-900 group-hover:opacity-100 "
-                "focus-visible:opacity-100"
-            )
-            .x_on(
-                "click",
-                unsafe(
-                    "navigator.clipboard.writeText($refs.code.textContent);"
-                    " copied = true; setTimeout(() => copied = false, 1200)"
-                ),
-            )
-            .x_text(unsafe("copied ? 'Copied' : 'Copy'")),
-            html.pre(
-                # The copy button reads the highlighted element's own text,
-                # which is the source with the markup stripped back off. A
-                # second, hidden copy of it would be the same page weight
-                # twice - and a snippet that mentions an id would put that id
-                # on the page as text, where anything reading the document
-                # for real ones finds it.
-                html.code(highlight_code(source, language)).x_ref("code"),
-            ).class_(
-                "highlight overflow-x-auto rounded-lg border border-surface-200 "
-                "bg-surface-50 p-4 text-sm leading-6 "
-                "font-mono dark:border-surface-100 dark:bg-surface-900"
-            ),
+            html.span(Icon("copy")).x_show(unsafe("!copied")),
+            html.span(Icon("check")).x_show(unsafe("copied")).x_cloak(),
         )
+        .x_on("click", unsafe(_COPY))
+    )
+
+
+def code_block(
+    source: str, *, language: str = "python", flush: bool = False
+) -> ComponentType:
+    """
+    The copy button reads the highlighted element's own text, which is the
+    source with the markup stripped back off, so the page carries it once.
+
+    flush drops the block's own border and corners, for one that sits inside
+    something that has them already.
+    """
+    return (
+        html.div(
+            html.div(copy_button()).class_(
+                "absolute end-2 top-2 opacity-0 transition-opacity "
+                "group-hover:opacity-100 group-focus-within:opacity-100"
+            ),
+            html.div(SafeStr(highlight(source, language))).x_ref("code"),
+            # Announced by itself when a copy lands, since the icon swap says
+            # nothing to a screen reader.
+            html.span()
+            .class_("sr-only")
+            .aria_live("polite")
+            .x_text(unsafe("copied ? 'Copied' : ''")),
+        )
+        .class_(classnames("docs-code group relative", {"docs-code-flush": flush}))
+        .x_data("{ copied: false }")
     )
