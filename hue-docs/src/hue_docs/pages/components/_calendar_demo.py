@@ -19,6 +19,9 @@ EVENTS = [
         id="1",
         layer="eng",
         repeat="weekdays",
+        # When the series began, which a calendar with a save needs from
+        # every occurrence: moving one moves the series.
+        series_starts=datetime(2026, 10, 12, 9),
         location="Huddle room",
     ),
     Event(
@@ -77,8 +80,8 @@ def events_for(request: Request, asked: CalendarState) -> list[Event]:
     ]
 
 
-# Every reader of the docs shares these events, so saving and deleting
-# change nothing.
+# Every reader of the docs shares these events, so saving, moving and
+# deleting change nothing. Returning no id leaves a create without an Undo.
 def save_event(request: Request, event: Event) -> None:
     toast.info("The demo keeps its events", description=event.title)
 

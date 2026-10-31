@@ -392,6 +392,50 @@ def nothing_scheduled() -> Calendar:
     )
 
 
+# Width
+
+
+def narrow_month() -> Calendar:
+    return (
+        Calendar()
+        .view("month")
+        .date(date(2026, 10, 1))
+        .today(date(2026, 10, 14))
+        .href(lambda day, view: f"#{view}/{day}")
+        .events(
+            [
+                Event(
+                    "Design review",
+                    datetime(2026, 10, 14, 13),
+                    datetime(2026, 10, 14, 14, 30),
+                ),
+                Event("Release freeze", date(2026, 10, 15), color=4),
+                Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5),
+            ]
+        )
+    )
+
+
+def narrow_week() -> Calendar:
+    return (
+        Calendar()
+        .view("week")
+        .date(date(2026, 10, 14))
+        .today(date(2026, 10, 14))
+        .href(lambda day, view: f"#{view}/{day}")
+        .events(
+            [
+                Event(
+                    "Design review",
+                    datetime(2026, 10, 14, 13),
+                    datetime(2026, 10, 14, 14, 30),
+                ),
+                Event("Release freeze", date(2026, 10, 16), color=4),
+            ]
+        )
+    )
+
+
 # Declared
 
 
@@ -443,8 +487,9 @@ def events_for(request: HttpRequest, asked: CalendarState) -> list[Event]:
     return [entry.event() for entry in found]
 
 
-def save_entry(request: HttpRequest, event: Event) -> None:
-    Entry.objects.update_or_create(pk=event.id, defaults=fields_of(event))
+def save_entry(request: HttpRequest, event: Event) -> int:
+    entry, _ = Entry.objects.update_or_create(pk=event.id, defaults=fields_of(event))
+    return entry.pk
 
 
 def delete_entry(request: HttpRequest, id: str) -> None:
@@ -633,8 +678,9 @@ def _usage() -> ComponentType:
                 "`ValueError`.",
                 "`layers` is a list of `Layer`. Two layers with one key raise, "
                 "and so does a key with a comma in it.",
-                "`save` and `delete` make the `Calendar` editable. Without either "
-                "it registers no route.",
+                "`save` and `delete` make the `Calendar` editable, and a `save` "
+                "also lets the reader drag its events. Without either it "
+                "registers no route.",
                 "`repeats` maps your own repeat keys to the labels the dialog "
                 "offers. It needs a `save`, and raises without one.",
                 "`search` is the label and placeholder of the search box, which "
@@ -672,7 +718,14 @@ def _usage() -> ComponentType:
             "An event without a `color` of its own takes its layer's. `repeat` "
             "is your key for the rule an event repeats by: the `Calendar` draws "
             "the repeat mark and the dialog shows the key's label, and expanding "
-            "the rule into occurrences is the job of `events`."
+            "the rule into occurrences is the job of `events`. With a `save`, "
+            "every occurrence of a repeating event also needs `series_starts`, "
+            "as ",
+            pr.link(
+                "Moving a repeating Calendar event",
+                "#moving-a-repeating-calendar-event",
+            ),
+            " explains.",
         ),
         pr.p(
             "A sync `events` function runs in a thread, off the event loop. In "
@@ -766,8 +819,16 @@ def _usage() -> ComponentType:
             'copy with no `id` and no `repeat`, titled with "(copy)" after the '
             "original's title."
         ),
+        pr.p(
+            "For a new event, `save` returns the id it gave the event, or the "
+            "saved `Event` with its `id` set. The toast's Undo deletes that id, "
+            "so a `save` that returns `None` leaves a create without Undo. Any "
+            "string or number returned for a new event is read as its id, so "
+            "never return a count of rows. What `save` returns for an edit is "
+            "not read."
+        ),
         pr.code(
-            "def save_entry(request, event: Event) -> None: ...\n"
+            "def save_entry(request, event: Event) -> str | int | Event | None: ...\n"
             "def delete_entry(request, id: str) -> None: ..."
         ),
         pr.p(
@@ -813,6 +874,180 @@ def _usage() -> ComponentType:
             "`hue-django`, a `PermissionDenied`, an `Http404` or a bad request "
             "keeps its status and is not logged."
         ),
+        pr.h2("Dragging Calendar events"),
+        pr.p(
+            "A declared `Calendar` with a `save` lets the reader drag its "
+            "events. In the day and week views:"
+        ),
+        pr.bullets(
+            [
+                "Dragging across an empty part of a day draws a range and opens "
+                "the dialog with that range filled in.",
+                "Dragging an event moves it up and down its day, or across to "
+                "another day's column.",
+                "Dragging an event's bottom edge changes when it ends.",
+            ]
+        ),
+        pr.p(
+            "The time grid snaps to the quarter hour, and an event shows its "
+            "new times while it is dragged. A move keeps the start inside the "
+            "event's own day, and the end no later than the midnight after the "
+            "day the event ends on."
+        ),
+        pr.p(
+            "In the month view and along the all-day row, a drag moves an event "
+            "by whole days, counted from the day the reader took hold of, and "
+            "keeps its times and length. Only the `Calendar`'s own days take a "
+            "drop. An event let go over the sidebar's picker, or anywhere off "
+            "the calendar, stays where it was."
+        ),
+        pr.bullets(
+            [
+                "A press that travels less than five pixels is a click, so it "
+                "still opens an event's popover or the dialog.",
+                "A drag that ends where it began posts nothing, and Escape "
+                "during a drag puts the event back.",
+                "Mouse, pen and touch share one pointer drag. On a touch screen "
+                "a finger on an event drags it.",
+                "The agenda view's rows move from the keyboard only.",
+                "An event without an `id` cannot be moved, since the move route "
+                "finds an event by its id.",
+            ]
+        ),
+        pr.h3("Moving a Calendar event from the keyboard"),
+        pr.p(
+            "On a focused event, Alt with Up or Down moves it by a quarter "
+            "hour, and Alt with Left or Right moves it by a day. Alt and Shift "
+            "together change when it ends: Up and Down by a quarter hour for a "
+            "timed event, Left and Right by a day for an all-day event. A key "
+            "that would take the event out of its day posts nothing."
+        ),
+        pr.p(
+            "Focus stays on the event once the `Calendar` is redrawn, and the "
+            "event's accessible name gives its new times. A key pressed again "
+            "before the answer arrives is dropped, so holding a key never posts "
+            "times the event no longer has. The `Calendar` listens for these keys "
+            "itself, so they work without a shortcut registry. "
+            "The Edit dialog remains the full keyboard path."
+        ),
+        pr.h2("The move route of a declared Calendar"),
+        pr.p(
+            "A drag or an Alt key posts to `{key}/move/`, beside the other "
+            "actions, which exists when the declaration has a `save`. The "
+            "browser posts the event's `id`, which occurrence the reader took "
+            "hold of, and the new times. That is all it knows, so the route "
+            "looks the event up through `events` on the day that occurrence "
+            "starts, in every layer and with no search. `save` then receives "
+            "that same `Event` at the new times, with its title, layer, "
+            "location, notes and repeat key unchanged. Whether the event is "
+            "timed or all day comes from what `events` returned, not from the "
+            "request."
+        ),
+        pr.p(
+            "The toast says Moved, or Resized when the start stayed put. An id "
+            "that `events` no longer has gets a 404 and a danger toast, and a "
+            "time the clocks skip going forward gets a 422 with the reason in "
+            "the toast. Both redraw the `Calendar` as it is now."
+        ),
+        pr.h3("Moving a repeating Calendar event"),
+        pr.p(
+            "A series moves as a whole. With a `save`, each repeating `Event` "
+            "that `events` returns needs `series_starts`: when the first "
+            "occurrence of its series starts. Without it the `Calendar` raises "
+            "a `TypeError` that names the event."
+        ),
+        pr.code(
+            "Event(\n"
+            '    "Standup",\n'
+            "    datetime(2026, 10, 14, 9, 30),\n"
+            "    datetime(2026, 10, 14, 9, 45),\n"
+            '    id="12",\n'
+            '    repeat="weekly",\n'
+            "    series_starts=datetime(2026, 9, 2, 9, 30),\n"
+            ")"
+        ),
+        pr.p(
+            "When one occurrence moves, `save` receives the series: its first "
+            "occurrence moved by the same number of days, at the occurrence's "
+            "new time of day and with its new length. An app that stores a "
+            "series as its first occurrence and a rule saves it like any other "
+            "edit. An edit of one occurrence in the dialog reaches `save` the "
+            "same way. When the series' new first occurrence would start or end "
+            "in an hour the clocks skip, the move is refused, and the dialog "
+            "puts the error on the start time."
+        ),
+        pr.h2("Undo in a declared Calendar"),
+        pr.p(
+            "A success toast offers Undo when the route that reverses the "
+            "change exists. Undo posts to the same route:"
+        ),
+        pr.bullets(
+            [
+                "After an edit, it saves the event as `events` had it, a series "
+                "from its first occurrence.",
+                "After a move or a resize, it moves the event back.",
+                "After a delete, it saves the event as `events` had it, without "
+                "its `id`, so `save` makes it again under a new id.",
+                "After a create or a duplicate, it deletes the id `save` "
+                "returned. That needs a `delete`, and a `save` that returns the "
+                "id.",
+            ]
+        ),
+        pr.p(
+            "Undo goes one level deep: the toast an Undo earns offers none. "
+            "Once the `Calendar` is back, focus goes to the event the Undo "
+            "restored, or to New event after an undone create."
+        ),
+        pr.p(
+            "The `save` in the Declared panel stores nothing and returns "
+            "nothing. Its events stay where they are: a drag gets the toast "
+            "and its Undo, and the event is drawn where it was. A create there "
+            "has no Undo."
+        ),
+        pr.h2("Keyboard shortcuts for a declared Calendar"),
+        pr.p(
+            "`CalendarShortcuts` holds the keys a declared `Calendar` answers "
+            "to. An app opts in by having its shortcut registry, the one in the "
+            "render context, inherit it. Without that the `Calendar` binds no "
+            "keys. ",
+            pr.link("Keyboard shortcuts", "/keyboard-shortcuts/"),
+            " covers the registry and how each framework is given it.",
+        ),
+        pr.code(
+            "from hue.calendar import CalendarShortcuts\n"
+            "from hue.shortcuts import Shortcut\n\n\n"
+            "class Shortcuts(CalendarShortcuts):\n"
+            '    billing = Shortcut("Go to Billing", "g", "b", href="/billing/")'
+        ),
+        pr.bullets(
+            [
+                "`t` goes to today, and `j` and `k` to the previous and next "
+                "day, week, month, year or 30 days.",
+                "`d`, `w`, `m`, `y` and `a` switch to the day, week, month, year "
+                "and agenda views.",
+                "`n` opens New event, when there is a `save`.",
+                "`/` focuses the search box, when there is a `search`.",
+                "`?` opens a dialog listing every shortcut on for the page, the "
+                "app's own included, and the Alt keys that move an event. The "
+                "view options have a Keyboard shortcuts button that opens it "
+                "too.",
+            ]
+        ),
+        pr.p(
+            "Each key presses the control a click would, so a key and a click "
+            "cannot drift apart. The keys are scoped, so they are on only "
+            "where a declared `Calendar` is drawn, and like every shortcut they "
+            "stay silent while someone types or a dialog is open. The arrow "
+            "keys on their own are not among them: they move through the "
+            "sidebar's picker and any listbox, and the registry refuses them."
+        ),
+        pr.p(
+            "Only one `Calendar` on a page holds the keys, the first one the "
+            "view builds. The calendar whose route answered last takes them, so "
+            "a change made in another calendar on the page hands that one the "
+            "keys. The docs' own registry does not inherit `CalendarShortcuts`, "
+            "so the Declared panel has no shortcuts."
+        ),
         pr.h2("What a reader of a declared Calendar sees and hears"),
         pr.bullets(
             [
@@ -824,12 +1059,35 @@ def _usage() -> ComponentType:
                 "its name.",
                 "The dialog opens on its title field. When a save or a delete "
                 "closes it, focus goes to New event.",
+                "After a move or an Undo, the event that moved or came back "
+                "takes focus as the `Calendar` is swapped in. An event drawn on "
+                "several days takes it on the day it starts. On a full month day "
+                "it takes the place of the last event shown, which moves into "
+                "+N more, so focus never lands in a closed popover.",
                 "The button that opens the sidebar below `lg` is named Calendar "
                 "tools and says whether the sidebar is open. Below `sm` the "
                 "dialog docks to the bottom edge as a sheet, as every `Dialog` "
                 "does.",
                 "When the `Formats` in the context moves times into a timezone, "
                 "the sidebar says which one, such as Times in Europe/Oslo.",
+            ]
+        ),
+        pr.h2("A Calendar on a narrow screen"),
+        pr.bullets(
+            [
+                "Below the `md` breakpoint, 768 pixels, a declared `Calendar` "
+                "that loads on a week shows the day it is around, and so does "
+                "one on a week when the window narrows past it. The day view is "
+                "fetched in place with no history entry, and the URL keeps "
+                "saying week, so the same link opens the week on a wider "
+                "screen. The server cannot know the viewport, so the week shows "
+                "for one request before the day replaces it.",
+                "In the day and week views, every `Calendar` keeps each day's "
+                "column at least 4.5rem wide. A week picked from its tab on a "
+                "phone scrolls sideways.",
+                "Below `md` the month view folds its events to bars: an all-day "
+                "event keeps its fill and a timed one its dot, without the "
+                "words. Each event's accessible name stays the same.",
             ]
         ),
         pr.h2("Assumptions of a declared Calendar"),
@@ -851,8 +1109,19 @@ def _usage() -> ComponentType:
                 *[
                     html.li(pr.rich(gap))
                     for gap in [
-                        "An event cannot be dragged to move or resize it.",
-                        "A delete removes the event at once, with no undo.",
+                        "The grid does not scroll by itself when a drag nears "
+                        "its edge.",
+                        "The times shown during a drag use a 24-hour clock, "
+                        "whatever the `Formats` says. The redraw after the drop "
+                        "follows the `Formats`.",
+                        "A swipe that starts on an event drags it instead of "
+                        "scrolling.",
+                        "After a series move is undone, focus goes to the first "
+                        "occurrence of the series on screen rather than the one "
+                        "that was dragged.",
+                        "A move whose answer has no calendar in it, such as a "
+                        "proxy's error page, puts the event back with no "
+                        "message.",
                     ]
                 ]
             ).class_("list-disc space-y-1 ps-5")
@@ -866,8 +1135,9 @@ PAGE = ComponentPage(
         "A `Calendar` lays out events on a day, a week, a month, a year or the "
         "next 30 days. Handed its events, it is presentational, and `href()` "
         "turns its navigation into links to the app's own routes. Declared on "
-        "a view, it also searches, shows and hides layers, and saves and "
-        "deletes events through a dialog, with its state in the URL."
+        "a view, it also searches, shows and hides layers, saves and deletes "
+        "events through a dialog, and moves them by drag or by key, with its "
+        "state in the URL."
     ),
     usage=_usage,
     panels=[
@@ -885,8 +1155,8 @@ PAGE = ComponentPage(
             layout="stack",
             min_width=960,
             min_height=820,
-            hint="A declared calendar over a week in October 2026, and the view "
-            "behind it. Saving and deleting change nothing",
+            hint="A declared calendar and its view. Drag an event, or press Alt "
+            "and an arrow key on one. Nothing is saved",
             source=_calendar_demo,
         ),
         panel(
@@ -918,6 +1188,15 @@ PAGE = ComponentPage(
             hint="`week_start()` and `weekdays()`",
         ),
         panel("Empty", nothing_scheduled, layout="stack"),
+        panel(
+            "Width",
+            narrow_month,
+            narrow_week,
+            layout="stack",
+            width="sm",
+            hint="Below `md` the month folds its events to bars. Narrow the frame "
+            "and the week scrolls sideways",
+        ),
     ],
     notes=[
         Note(
@@ -943,8 +1222,15 @@ PAGE = ComponentPage(
             "a11y",
             "With an `id()`, a visually hidden status region outside the swapped "
             "part announces the new title after each swap. Focus goes back to "
-            "the link that was followed when the new view has it again, as "
-            "Previous, Today and Next do, and to the view's heading otherwise.",
+            "the control that was used when the new view has it again, as "
+            "Previous, Today, Next and the view tabs do, and to the view's "
+            "heading otherwise, such as after a day's link.",
+        ),
+        Note(
+            "a11y",
+            "In a declared `Calendar` with a `save`, Alt with the arrow keys "
+            "moves or resizes the focused event, so dragging has a keyboard "
+            "equivalent, and focus stays on the event after the redraw.",
         ),
         Note(
             "note",
