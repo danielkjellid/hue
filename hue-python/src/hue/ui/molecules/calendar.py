@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date
 
 from htmy import Context, html
 from typing_extensions import Self
@@ -62,57 +62,6 @@ class Calendar(ChainableComponent):
     """
 
     category = "Data"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .date(date(2026, 10, 14))
-            .today(date(2026, 10, 14))
-            .href(lambda day, view: f"#{view}/{day}")
-            .events(
-                [
-                    Event(
-                        "Design review",
-                        datetime(2026, 10, 14, 13),
-                        datetime(2026, 10, 14, 14, 30),
-                        id="1",
-                        location="Room 3B",
-                        notes="Walk the range state matrix.",
-                    ),
-                    Event(
-                        "Contrast audit",
-                        datetime(2026, 10, 15, 10),
-                        datetime(2026, 10, 15, 12),
-                        id="2",
-                        color=2,
-                    ),
-                    Event(
-                        "Pairing",
-                        datetime(2026, 10, 15, 11),
-                        datetime(2026, 10, 15, 12, 30),
-                        id="3",
-                        color=3,
-                    ),
-                    Event(
-                        "Release freeze",
-                        date(2026, 10, 16),
-                        date(2026, 10, 17),
-                        id="4",
-                        color=4,
-                    ),
-                    Event(
-                        "Standup",
-                        datetime(2026, 10, 12, 9),
-                        datetime(2026, 10, 12, 9, 15),
-                        id="5",
-                        recurring=True,
-                        color=6,
-                        href="#standup",
-                    ),
-                ]
-            )
-        )
 
     def view(self, value: CalendarView) -> Self:
         self._props["view"] = value

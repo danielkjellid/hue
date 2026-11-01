@@ -11,8 +11,8 @@ from hue.ui import Button, Calendar, DatePicker, Event, Table
 from hue.ui.molecules.calendar import CalendarView
 from hue_fastapi import HueFragmentsView, Page, Router
 
-from hue_docs_v2.layout import prose as pr
-from hue_docs_v2.model import ComponentPage, Note, panel
+from hue_docs.layout import prose as pr
+from hue_docs.model import ComponentPage, Note, panel
 
 
 class CalendarDemo(HueFragmentsView):
