@@ -6,8 +6,8 @@ from hue.js import unsafe
 from hue.types.core import ComponentType
 from hue.ui import DateInput, DatePicker, DateTimeInput, Stack, Text, TimeInput
 
-from hue_docs_v2.layout import prose as pr
-from hue_docs_v2.model import ComponentPage, Note, panel
+from hue_docs.layout import prose as pr
+from hue_docs.model import ComponentPage, Note, panel
 
 # Live
 

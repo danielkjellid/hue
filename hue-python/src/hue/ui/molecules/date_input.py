@@ -509,10 +509,6 @@ class DateInput(DayRules, _PickerInput):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("starts").label("Start date")
-
     def value(self, *days: date) -> Self:
         """
         The days it starts with: one, the two ends of a range, or several.
@@ -612,10 +608,6 @@ class DateTimeInput(DayRules, _PickerInput):
     _opens = "Choose date and time"
     _format = "datetime"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("publish_at").label("Publish at")
-
     def value(self, value: datetime) -> Self:
         self._props["value"] = value
         return self
@@ -660,10 +652,6 @@ class TimeInput(_PickerInput):
     _icon = "clock"
     _opens = "Choose time"
     _format = "time"
-
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("reminder").label("Reminder")
 
     def value(self, value: time) -> Self:
         self._props["value"] = value
