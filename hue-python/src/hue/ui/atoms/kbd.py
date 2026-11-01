@@ -72,10 +72,6 @@ class Kbd(ChainableComponent):
         super().__init__()
         self._keys: tuple[str, ...] = keys
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls("mod", "K")
-
     def keys(self, *values: str) -> Self:
         self._keys = values
         return self

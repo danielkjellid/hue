@@ -6,7 +6,6 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
@@ -48,19 +47,6 @@ class Dialog(_overlay.WrapsTrigger):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .title("Invite teammates")
-            .description("They will get an email with a join link.")
-            .trigger(Button().content("Invite"))
-            .footer(
-                Button().variant("ghost").content("Cancel"),
-                Button().content("Send invites"),
-            )
-        )
 
     def title(self, value: str) -> Self:
         self._props["title"] = value

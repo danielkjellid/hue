@@ -48,10 +48,6 @@ class Badge(ChainableComponent):
 
     category = "Feedback"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().variant("success").dot().content("Active")
-
     def variant(self, value: BadgeVariant) -> Self:
         self._props["variant"] = value
         return self

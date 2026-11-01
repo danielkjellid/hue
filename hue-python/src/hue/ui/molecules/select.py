@@ -125,20 +125,6 @@ class Select(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .name("plan")
-            .label("Plan")
-            .placeholder("Choose a plan")
-            .content(
-                SelectOption().value("free").label("Free").meta("$0"),
-                SelectOption().value("pro").label("Pro").meta("$49"),
-                SelectOption().value("scale").label("Scale").meta("$199"),
-            )
-        )
-
     def value(self, value: str) -> Self:
         """
         Which option starts selected.

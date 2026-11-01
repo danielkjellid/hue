@@ -47,10 +47,6 @@ class Form(ChainableComponent):
 
     category: ClassVar[str | None] = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().errors({"email": "That address is already registered."})
-
     def action(self, value: str) -> Self:
         self._props["action"] = value
         return self

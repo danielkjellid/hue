@@ -10,7 +10,6 @@ from hue.js import Expression, call, expect
 from hue.shortcuts import Shortcut, Steps, binding, parse_keys
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
-from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.base import ChainableComponent
@@ -50,28 +49,6 @@ class Command(ChainableComponent):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .hotkey("mod+k")
-            .trigger(Button().variant("outline").content("Open command palette"))
-            .content(
-                CommandGroup()
-                .label("Navigate")
-                .content(
-                    CommandItem().label("Go to Billing").href("#billing"),
-                    CommandItem().label("Go to Members").href("#members"),
-                ),
-                CommandGroup()
-                .label("Actions")
-                .content(
-                    CommandItem().label("Create invoice"),
-                    CommandItem().label("Invite teammate"),
-                ),
-            )
-        )
 
     def placeholder(self, value: str) -> Self:
         self._props["placeholder"] = value

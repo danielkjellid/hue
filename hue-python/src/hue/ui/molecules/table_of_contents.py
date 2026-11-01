@@ -39,10 +39,6 @@ class TableOfContents(ChainableComponent):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().of("main").title("On this page")
-
     def of(self, value: str, *, headings: str = "h2, h3") -> Self:
         """
         Where the content is, as a CSS selector - "main" by default.

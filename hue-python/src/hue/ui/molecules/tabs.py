@@ -94,19 +94,6 @@ class Tabs(SwapsTarget):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Settings")
-            .current("/settings/team")
-            .content(
-                Tab().href("/settings/account").content("My Account"),
-                Tab().href("/settings/team").content("Team Members"),
-                Tab().href("/settings/billing").content("Billing"),
-            )
-        )
-
     def segmented(self, value: bool = True) -> Self:
         """
         Wear the segmented track instead of the rule: a row of places

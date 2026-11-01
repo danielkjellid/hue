@@ -50,18 +50,6 @@ class Accordion(ChainableComponent):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content(
-            AccordionItem()
-            .title("How is usage calculated?")
-            .open()
-            .content("Metered per API call, aggregated hourly, billed monthly."),
-            AccordionItem()
-            .title("Can I change plans mid-cycle?")
-            .content("Upgrades take effect immediately and are prorated."),
-        )
-
     def boxed(self, value: bool = True) -> Self:
         """
         Put each section in a bordered, rounded box of its own, with a gap

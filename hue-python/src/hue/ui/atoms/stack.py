@@ -27,18 +27,6 @@ class Stack(ChainableComponent):
 
     category = "Layout"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .horizontal()
-            .content(
-                html.div("1", class_="size-10 rounded-md bg-primary p-2 text-white"),
-                html.div("2", class_="size-10 rounded-md bg-primary p-2 text-white"),
-                html.div("3", class_="size-10 rounded-md bg-primary p-2 text-white"),
-            )
-        )
-
     def horizontal(self, value: bool = True) -> Self:
         """
         Lay the children out in a row instead of a column.

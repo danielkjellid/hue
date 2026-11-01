@@ -1,58 +1,43 @@
 """
-Render hue components to HTML in a static (request-less) build.
-
-render_tree expects a request and CSRF token because hue is built for live,
-AJAX-first apps. A static docs build has neither, so a stub request and a
-placeholder token are passed. Components only stash these on the context and
-the showcased components never read the request, so this is safe.
+Rendering inside a request, the way a live FastAPI page renders.
 """
 
 from __future__ import annotations
-
-import asyncio
 
 from htmy import SafeStr
 from hue import html
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
+from hue.shortcuts import ShortcutRegistry
 from hue.types.core import ComponentType
 
-from hue_docs.shortcuts import Shortcuts
+from hue_docs.model import Example
 
-# Static pages have no real CSRF protection; the token only flows into Alpine's
-# config and never guards a real request here.
-PLACEHOLDER_CSRF = "static-docs"
-
-
-class _StubRequest:
-    """
-    Minimal stand-in for a framework request object.
-    """
+# What a broken example says in place of itself, which the freeze refuses.
+COULD_NOT_RENDER = "Could not render:"
 
 
-async def render_html(*components: ComponentType) -> str:
+async def render_html(
+    *components: ComponentType,
+    request: object,
+    shortcuts: type[ShortcutRegistry] | None = None,
+) -> str:
+    # No CSRF token: the pages are frozen to static files, and the demo routes
+    # they post to change nothing, so the Worker runs without CSRF.
     return await render_tree(
         *components,
         context_args=HueContextArgs(
-            request=_StubRequest(),
-            csrf_token=PLACEHOLDER_CSRF,
-            # The site's own, which its pages bind and the Command and
-            # DropdownMenu showcases list and run.
-            shortcuts=Shortcuts,
+            request=request, csrf_token="", shortcuts=shortcuts
         ),
     )
 
 
-def render_html_sync(*components: ComponentType) -> str:
-    return asyncio.run(render_html(*components))
-
-
-def preview(component: ComponentType) -> ComponentType:
+async def preview(example: Example, request: object) -> ComponentType:
     """
-    A component pre-rendered for embedding in a page, or an inline error so one
-    bad example cannot fail the whole build.
+    One example rendered on its own, or a note saying why not, so one broken
+    example costs its own cell rather than the whole page.
     """
     try:
-        return SafeStr(render_html_sync(component))
+        return SafeStr(await render_html(example(), request=request))
     except Exception as exc:
-        return html.p(f"Could not render: {exc}").class_("text-sm text-danger-text")
+        return html.p(f"{COULD_NOT_RENDER} {exc}").class_("text-sm text-danger-text")

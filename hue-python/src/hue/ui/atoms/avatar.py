@@ -63,10 +63,6 @@ class Avatar(ChainableComponent):
 
     category = "Media"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("Ada Lovelace").status("online")
-
     def name(self, value: str) -> Self:
         """
         Who this is. Becomes both the initials and the accessible name.
@@ -210,18 +206,6 @@ class AvatarGroup(ChainableComponent):
     """
 
     category = "Media"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Ada Lovelace, Grace Hopper and 3 others")
-            .more(3)
-            .content(
-                Avatar().name("Ada Lovelace"),
-                Avatar().name("Grace Hopper"),
-            )
-        )
 
     def label(self, value: str) -> Self:
         """

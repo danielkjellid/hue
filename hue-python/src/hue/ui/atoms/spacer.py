@@ -26,10 +26,6 @@ class Spacer(ChainableComponent):
 
     category = "Layout"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().spacing("md")
-
     def spacing(self, value: Size) -> Self:
         self._props["spacing"] = value
         return self

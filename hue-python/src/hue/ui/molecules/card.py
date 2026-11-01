@@ -98,13 +98,6 @@ class Card(ChainableComponent):
 
     category = "Layout"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content(
-            CardHeader().title("Monthly revenue").description("Last 30 days"),
-            CardBody().content("$48,290"),
-        )
-
     def variant(self, value: CardVariant) -> Self:
         self._props["variant"] = value
         return self
@@ -194,10 +187,6 @@ class CardMedia(ChainableComponent):
 
     category = None
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content(html.img(src="/assets/cover.svg", alt=""))
-
     def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
@@ -220,10 +209,6 @@ class CardHeader(ChainableComponent):
     """
 
     category = None
-
-    @classmethod
-    def example(cls) -> Self:
-        return cls().title("Monthly revenue").description("Last 30 days")
 
     def title(self, value: str) -> Self:
         self._props["title"] = value
@@ -296,10 +281,6 @@ class CardBody(ChainableComponent):
 
     category = None
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content("Card content")
-
     def _render(self, context: Context) -> Component:
         return html.div(
             *self._children,
@@ -317,10 +298,6 @@ class CardFooter(ChainableComponent):
     """
 
     category = None
-
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content("Footer")
 
     def _render(self, context: Context) -> Component:
         return html.div(

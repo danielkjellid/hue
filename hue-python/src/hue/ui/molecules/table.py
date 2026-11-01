@@ -80,27 +80,6 @@ class Table(ChainableComponent):
 
     category = "Data"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content(
-            TableHeader().content(
-                TableRow().content(
-                    TableHead().content("Name"),
-                    TableHead().content("Email"),
-                ),
-            ),
-            TableBody().content(
-                TableRow().content(
-                    TableCell().content("Ada Lovelace"),
-                    TableCell().content("ada@example.com"),
-                ),
-                TableRow().content(
-                    TableCell().content("Alan Turing"),
-                    TableCell().content("alan@example.com"),
-                ),
-            ),
-        )
-
     def compact(self, value: bool = True) -> Self:
         """
         Tighten the rows, for a table someone scans rather than reads. About

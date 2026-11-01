@@ -80,10 +80,6 @@ class Disclosure(ChainableComponent):
 
     category = "Layout"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().title("General").content("Everything about the product itself.")
-
     def title(self, value: str) -> Self:
         self._props["title"] = value
         return self

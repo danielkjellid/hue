@@ -87,10 +87,6 @@ class Switch(FormControl):
 
     category: ClassVar[str | None] = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().name("notify").label("Email notifications").checked()
-
     def checked(self, value: bool = True) -> Self:
         self._props["checked"] = value
         return self

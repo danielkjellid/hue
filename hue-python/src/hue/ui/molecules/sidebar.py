@@ -43,21 +43,6 @@ class Sidebar(ChainableComponent):
 
     category = "Navigation"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .current("/events")
-            .content(
-                SidebarBody().content(
-                    SidebarSection().content(
-                        SidebarItem().href("/").content("Home"),
-                        SidebarItem().href("/events").content("Events"),
-                    )
-                )
-            )
-        )
-
     def current(self, value: str) -> Self:
         """
         The path of the page you are on, set once rather than per item.

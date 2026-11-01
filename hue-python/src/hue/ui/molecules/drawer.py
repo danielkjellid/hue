@@ -6,7 +6,6 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
@@ -59,19 +58,6 @@ class Drawer(_overlay.WrapsTrigger):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .title("Filters")
-            .description("3 filters applied, 148 of 2,481 records")
-            .trigger(Button().variant("outline").content("Open filters"))
-            .footer(
-                Button().variant("ghost").content("Reset all"),
-                Button().content("Show 148 records"),
-            )
-        )
 
     def title(self, value: str) -> Self:
         self._props["title"] = value

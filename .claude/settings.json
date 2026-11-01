@@ -15,7 +15,6 @@
       "Bash(uv run deptry:*)",
       "Bash(uv run tailwindcss:*)",
       "Bash(uv sync:*)",
-      "Bash(PYTHONPATH=src uv run python -m hue_docs:*)",
       "Bash(npm run build:*)"
     ]
   }

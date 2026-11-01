@@ -102,15 +102,6 @@ class Alert(ChainableComponent):
     #: of halfway down a chain.
     edge_to_edge: ClassVar[bool] = False
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .variant("info")
-            .title("Scheduled maintenance")
-            .content("The API is read-only on Sunday between 02:00 and 04:00 UTC.")
-        )
-
     def variant(self, value: AlertVariant) -> Self:
         self._props["variant"] = value
         return self
@@ -236,12 +227,3 @@ class Banner(Alert):
     category = "Feedback"
 
     edge_to_edge: ClassVar[bool] = True
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .variant("info")
-            .title("Scheduled maintenance on Sunday")
-            .content("The API is read-only between 02:00 and 04:00 UTC.")
-        )

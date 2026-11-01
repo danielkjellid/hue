@@ -91,15 +91,6 @@ class Textarea(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .name("description")
-            .label("Description")
-            .placeholder("What does this workspace do?")
-        )
-
     def placeholder(self, value: str) -> Self:
         self._props["placeholder"] = value
         return self

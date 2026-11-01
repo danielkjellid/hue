@@ -50,10 +50,6 @@ class Radio(ChainableComponent):
         super().__init__()
         self._group_attrs: dict[str, object] = {}
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().value("eu").label("Europe")
-
     def value(self, value: str) -> Self:
         self._props["value"] = value
         return self
@@ -159,19 +155,6 @@ class RadioGroup(FieldControl):
     """
 
     category: ClassVar[str | None] = "Inputs"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .name("region")
-            .legend("Region")
-            .value("eu")
-            .content(
-                Radio().value("eu").label("Europe"),
-                Radio().value("us").label("North America"),
-            )
-        )
 
     def legend(self, value: str) -> Self:
         """

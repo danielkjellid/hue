@@ -32,15 +32,6 @@ class NativeSelect(FieldControl):
 
     category = "Inputs"
 
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .name("region")
-            .label("Region")
-            .options([("eu", "Europe"), ("us", "North America")])
-        )
-
     def options(self, value: list[tuple[str, str]]) -> Self:
         """
         The choices, as (value, label) pairs.

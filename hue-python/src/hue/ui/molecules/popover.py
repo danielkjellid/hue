@@ -6,7 +6,6 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component
-from hue.ui.atoms.button import Button
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if, render_when
@@ -26,15 +25,6 @@ class Popover(_overlay.WrapsTrigger):
     """
 
     category = "Overlays"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .title("Share Route planner")
-            .description("Anyone with the link can view. Members can edit.")
-            .trigger(Button().variant("outline").content("Share project"))
-        )
 
     def title(self, value: str) -> Self:
         self._props["title"] = value

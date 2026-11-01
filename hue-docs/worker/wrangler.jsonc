@@ -1,5 +1,5 @@
 {
-  // Docs v2: the frozen site as static assets, and a Python Worker that runs
+  // The frozen docs site as static assets, and a Python Worker that runs
   // only the demo routes. run_worker_first sends /demos/ to the Worker and
   // everything else straight to the files, which costs no Worker CPU.
   "$schema": "https://developers.cloudflare.com/schemas/wrangler.json",
@@ -10,7 +10,7 @@
   // Only .py files are bundled by default; hue reads its icons from disk.
   "rules": [{ "type": "Text", "globs": ["**/*.svg"], "fallthrough": true }],
   "assets": {
-    "directory": "../dist-v2",
+    "directory": "../dist",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "run_worker_first": ["/demos/*"]

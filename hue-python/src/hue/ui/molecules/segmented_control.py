@@ -47,10 +47,6 @@ class SegmentedOption(Clickable):
 
     category = None
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().value("week").content("Week")
-
     def value(self, value: str) -> Self:
         self._props["value"] = value
         return self
@@ -132,19 +128,6 @@ class SegmentedControl(ChainableComponent):
     """
 
     category = "Actions"
-
-    @classmethod
-    def example(cls) -> Self:
-        return (
-            cls()
-            .label("Date range")
-            .value("week")
-            .content(
-                SegmentedOption().value("day").content("Day"),
-                SegmentedOption().value("week").content("Week"),
-                SegmentedOption().value("month").content("Month"),
-            )
-        )
 
     def label(self, value: str) -> Self:
         self._props["label"] = value

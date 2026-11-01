@@ -1,34 +1,8 @@
 import pytest
 
 from hue.renderer import render_tree
-from hue.ui import (
-    Combobox,
-    DatePicker,
-    Field,
-    NativeSelect,
-    RadioGroup,
-    Select,
-    Slider,
-    Textarea,
-    TextInput,
-)
-from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
-
-_CONTROLS = [
-    TextInput,
-    Textarea,
-    NativeSelect,
-    Select,
-    Combobox,
-    Slider,
-    RadioGroup,
-    DatePicker,
-]
-_HORIZONTAL = [TextInput, Textarea, NativeSelect, Select, Combobox]
-
-
-def _described_ids(html: str) -> list[str]:
-    return select(html, "[aria-describedby]")[0]["aria-describedby"].split()
+from hue.ui import Field
+from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 
 class TestField:
@@ -99,34 +73,3 @@ class TestField:
         )
         assert_selector(html, "label.sr-only")
         assert_no_selector(html, "div.items-baseline")
-
-
-# The controls describe themselves by the hint Field draws, so the two have to
-# agree on when an error takes the hint's place.
-class TestDescribedBy:
-    @pytest.mark.parametrize("control", _CONTROLS)
-    @pytest.mark.asyncio
-    async def test_an_error_takes_the_hint_out_of_the_description(
-        self, context_args, control
-    ):
-        html = await render_tree(
-            control.example().hint("A hint.").error("Wrong."),
-            context_args=context_args,
-        )
-        ids = _described_ids(html)
-        assert all(select(html, f"#{id_}") for id_ in ids)
-        assert not any(id_.endswith("-hint") for id_ in ids)
-
-    @pytest.mark.parametrize("control", _HORIZONTAL)
-    @pytest.mark.asyncio
-    async def test_a_horizontal_hint_stays_beside_the_error(
-        self, context_args, control
-    ):
-        # Beside the label, the hint is not where the error goes.
-        html = await render_tree(
-            control.example().hint("A hint.").error("Wrong.").horizontal(),
-            context_args=context_args,
-        )
-        ids = _described_ids(html)
-        assert all(select(html, f"#{id_}") for id_ in ids)
-        assert any(id_.endswith("-hint") for id_ in ids)

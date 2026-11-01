@@ -34,13 +34,6 @@ class ButtonGroup(ChainableComponent):
 
     category = "Actions"
 
-    @classmethod
-    def example(cls) -> Self:
-        return cls().content(
-            Button().variant("outline").size("sm").content("Export"),
-            Button().variant("outline").size("sm").content("Schedule"),
-        )
-
     def label(self, value: str) -> Self:
         """
         Name the group, for when the buttons only make sense together.

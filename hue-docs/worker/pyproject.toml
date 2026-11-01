@@ -1,6 +1,6 @@
 # The Cloudflare Python Worker behind the docs' live demos. Its Python
 # packages come from PyPI; hue, hue-fastapi and the docs are copied into src/
-# by `make worker-v2`, since they are not published.
+# by `make worker`, since they are not published.
 [project]
 name = "hue-docs-worker"
 version = "0.1.0"
