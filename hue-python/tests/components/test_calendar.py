@@ -514,7 +514,7 @@ class TestMonth:
         cell = select(html, "td[data-date='2026-10-15']")[0]
         assert len(cell.select(":scope > ul > li")) == 2
         more = cell.select_one("button[aria-label^='+3 more']")
-        assert more.get_text(strip=True) == "+3 more"
+        assert " ".join(more.get_text().split()) == "+3 more"
         panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
         hidden = [b["aria-label"].split(",")[0] for b in panel.select("[data-starts]")]
         assert hidden == ["Talk 0", "Talk 1", "Talk 2"]
@@ -535,6 +535,21 @@ class TestMonth:
         )
         assert len(select(html, "button[data-all-day]")) == 19
         assert calls == ["Offsite"]
+
+    @pytest.mark.asyncio
+    async def test_a_cell_folds_its_items_to_bars_on_a_phone_and_the_rest_do_not(
+        self, context_args
+    ):
+        html = await _html(_calendar(_REVIEW, _FREEZE).view("month"), context_args)
+        cell = select(html, "td[data-date='2026-10-14']")[0]
+        dotted = cell.select_one("button[data-starts]")
+        assert "max-md:h-2" in dotted["class"]
+        assert all(
+            "max-md:hidden" in span["class"] for span in dotted.select("span")[1:]
+        )
+        # The week's all-day row and the +more popover keep their words.
+        week = await _html(_calendar(_REVIEW, _FREEZE), context_args)
+        assert "max-md:h-2" not in _event(week, "Release freeze")["class"]
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):

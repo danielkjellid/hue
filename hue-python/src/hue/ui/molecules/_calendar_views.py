@@ -106,6 +106,11 @@ _DOTTED = (
 )
 _DOT = "size-2 flex-none rounded-full"
 _TIME = "flex-none text-2xs tabular-nums text-fg-muted"
+# A month cell on a narrow screen holds bars rather than words: the chip
+# keeps its tint and the dotted item its dot, and the text is for wider
+# screens. The button's name says it all to a screen reader either way.
+_COMPACT = "max-md:h-2 max-md:px-0 max-md:leading-none"
+_HIDDEN = "max-md:hidden"
 _REPEAT = "ms-1 inline size-3 align-[-2px] text-fg-muted"
 
 
@@ -482,10 +487,12 @@ class Draw:
             render_when(event.recurring, HueIcon("repeat").class_(_REPEAT)),
         )
 
-    def chip(self, event: Event, before: bool, after: bool) -> ComponentType:
+    def chip(
+        self, event: Event, before: bool, after: bool, *, compact: bool = False
+    ) -> ComponentType:
         """
         An all-day event in a list: a filled bar, squared off at an end it
-        continues past.
+        continues past. compact folds it to a bare bar on a narrow screen.
         """
         button = (
             EventButton(event, self.name(event))
@@ -496,41 +503,52 @@ class Draw:
                     _TINT[event.color],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
+                    {_COMPACT: compact},
                 )
             )
             # The squared corner is what a sighted reader sees of a bar that
             # goes on; the name, which gives the whole span, is what a screen
             # reader hears of it.
-            .content(*self.title_of(event))
+            .content(
+                html.span(*self.title_of(event), class_=_HIDDEN if compact else None)
+            )
         )
         return self.event(event, button)
 
-    def dotted(self, placed: Placed) -> ComponentType:
+    def dotted(self, placed: Placed, *, compact: bool = False) -> ComponentType:
         """
         A timed event in a list: a dot in its colour, its start time and
-        its title.
+        its title. compact keeps the dot alone on a narrow screen.
         """
         event = placed.event
         starts = starts_on(placed, self.formats)
         button = (
             EventButton(event, self.name(event))
-            .class_(classnames(_DOTTED, FOCUS_RING_INSET))
+            .class_(classnames(_DOTTED, FOCUS_RING_INSET, {_COMPACT: compact}))
             .content(
                 html.span(
                     aria_hidden="true", class_=classnames(_DOT, _SOLID[event.color])
                 ),
-                html.span(self.clock(starts), class_=_TIME),
-                html.span(*self.title_of(event), class_="min-w-0 truncate"),
+                html.span(
+                    self.clock(starts), class_=classnames(_TIME, {_HIDDEN: compact})
+                ),
+                html.span(
+                    *self.title_of(event),
+                    class_=classnames("min-w-0 truncate", {_HIDDEN: compact}),
+                ),
             )
         )
         return self.event(event, button)
 
-    def item(self, placed: Placed) -> ComponentType:
+    def item(self, placed: Placed, *, compact: bool = False) -> ComponentType:
         return html.li(
-            self.dotted(placed)
+            self.dotted(placed, compact=compact)
             if placed.event.timed
             else self.chip(
-                placed.event, placed.continues_before, placed.continues_after
+                placed.event,
+                placed.continues_before,
+                placed.continues_after,
+                compact=compact,
             ),
             # A flex item rather than a line box, so the chip inside sits
             # flush with no descender gap under it.
@@ -567,19 +585,23 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
     a row above and the hours down the side.
     """
     placed = place(draw.events, days[0], days[-1], draw.formats)
-    columns = f"grid-template-columns: 3.5rem repeat({len(days)}, minmax(0, 1fr))"
+    # A column is never narrower than a time can be read in. At a phone's
+    # width a week is wider than the screen and the rows scroll together.
+    columns = f"grid-template-columns: 4rem repeat({len(days)}, minmax(4.5rem, 1fr))"
     bars = _bars(days, placed)
     return html.div(
         html.div(
             html.div(),
             *(_day_head(draw, day) for day in days),
-            class_="grid border-b border-border",
+            class_="grid min-w-max border-b border-border",
             style=columns,
         ),
         html.div(
             html.div(
                 "All day",
-                class_=classnames(_HEAD, "flex items-center justify-end pe-2"),
+                class_=classnames(
+                    _HEAD, "flex items-center justify-end whitespace-nowrap pe-2"
+                ),
             ),
             render_when(
                 bool(bars),
@@ -594,7 +616,7 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 ),
                 html.div(class_="min-h-7 border-s border-border"),
             ),
-            class_="grid border-b border-border",
+            class_="grid min-w-max border-b border-border",
             style=columns,
         ),
         html.div(
@@ -604,10 +626,10 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                 class_="grid",
                 style=f"{columns}; height: {24 * _HOUR}px",
             ),
-            class_="max-h-[42rem] overflow-y-auto",
+            class_="max-h-[42rem] min-w-max overflow-y-auto",
             **{"x-init": f"$el.scrollTop = {_OPENS_AT}"},
         ),
-        class_="flex flex-col",
+        class_="flex flex-col overflow-x-auto",
     )
 
 
@@ -822,14 +844,15 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         render_when(
             bool(shown),
             html.ul(
-                *(draw.item(each) for each in shown),
+                *(draw.item(each, compact=True) for each in shown),
                 class_="mt-1 flex flex-col gap-0.5",
             ),
         ),
         render_when(len(shown) < len(items), _more(draw, day, items[len(shown) :])),
         data_date=day.isoformat(),
         class_=classnames(
-            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0",
+            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0 "
+            "max-md:h-16",
             {
                 _WEEKEND: outside or weekend(day),
                 "text-fg-subtle": outside,
@@ -853,7 +876,8 @@ def _more(draw: Draw, day: date, hidden: list[Placed]) -> ComponentType:
             .size("xs")
             .aria_label(f"+{count} more, {name}")
             .class_("mt-0.5")
-            .content(f"+{count} more")
+            # The count alone where the cell is too narrow for the word.
+            .content(f"+{count}", html.span(" more", class_="max-md:hidden"))
         )
         .content(
             html.ul(
