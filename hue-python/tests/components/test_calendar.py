@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from htmy.renderer import default
 
+from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.renderer import render_tree
 from hue.ui import Button, Calendar, Event
@@ -84,12 +85,12 @@ class TestFrame:
     async def test_a_swap_puts_focus_back_on_the_link_or_the_heading(
         self, context_args
     ):
-        # ajax-focus.js finds a step again by its id; a day or a view tab is
-        # gone with the swap, and the region and the switcher name the
-        # heading as where focus goes instead.
+        # swaps.js finds a step or a view tab again by its id; a day is gone
+        # with the swap, and the region names the heading as where focus
+        # goes instead.
         html = await _html(_calendar().id("cal"), context_args)
         assert_attr(html, "#cal-view", "data-hue-refocus", "cal-heading")
-        assert_attr(html, "#cal-views", "data-hue-refocus", "cal-heading")
+        assert_no_selector(html, "#cal-switch-month[data-hue-refocus]")
         assert_attr(html, "#cal-view h2#cal-heading", "tabindex", "-1")
         assert_no_selector(html, "[x-on\\:ajax\\:merged]")
         plain = await _html(_calendar(), context_args)
@@ -457,9 +458,30 @@ class TestTimeGrid:
         assert_no_selector(elsewhere, "[x-data*=minute]")
 
     @pytest.mark.asyncio
-    async def test_the_grid_opens_at_half_past_seven(self, context_args):
+    async def test_the_grid_opens_at_half_past_seven_unless_told_where_it_was(
+        self, context_args
+    ):
         html = await _html(_calendar(), context_args)
-        assert_attr(html, ".overflow-y-auto", "x-init", "$el.scrollTop = 360")
+        assert_attr(
+            html,
+            "[data-time-grid]",
+            "x-init",
+            "$el.scrollTop = $data.gridScroll ?? 360",
+        )
+
+    @pytest.mark.asyncio
+    async def test_only_a_movable_event_has_a_resize_handle(self, context_args):
+        html = await _html(_calendar(_REVIEW), context_args)
+        assert_no_selector(html, "[data-resize]")
+        assert "touch-none" not in _event(html, "Design review")["class"]
+        movable = _calendar(_REVIEW)
+        movable._props["movable"] = True
+        html = await _html(movable, context_args)
+        button = _event(html, "Design review")
+        assert button.select_one("[data-resize]")["aria-hidden"] == "true"
+        assert "touch-none" in button["class"]
+        # The time is marked, so a drag can rewrite it as it goes.
+        assert button.select_one("[data-time]").get_text() == f"13:00 {_DASH} 14:30"
 
 
 class TestMonth:
@@ -522,6 +544,21 @@ class TestMonth:
         assert hidden == ["Talk 0", "Talk 1", "Talk 2"]
 
     @pytest.mark.asyncio
+    async def test_a_full_day_keeps_the_focused_event_out_of_more(self, context_args):
+        extra = [Event(f"Talk {n}", datetime(2026, 10, 15, 14 + n)) for n in range(3)]
+        calendar = _calendar(_AUDIT, _PAIRING, *extra).view("month")
+        calendar._props["focus"] = extra[1]
+        html = await _html(calendar, context_args)
+        cell = select(html, "td[data-date='2026-10-15']")[0]
+        focused = cell.select_one("[x-autofocus]")
+        assert focused["aria-label"].startswith("Talk 1")
+        assert focused.find_parent(attrs={"role": "dialog"}) is None
+        more = cell.select_one("button[aria-label^='+3 more']")
+        panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
+        hidden = [b["aria-label"].split(",")[0] for b in panel.select("[data-starts]")]
+        assert hidden == ["Pairing", "Talk 0", "Talk 2"]
+
+    @pytest.mark.asyncio
     async def test_an_events_actions_run_once_however_many_days_it_covers(
         self, context_args
     ):
@@ -552,6 +589,16 @@ class TestMonth:
         # The week's all-day row and the +more popover keep their words.
         week = await _html(_calendar(_REVIEW, _FREEZE), context_args)
         assert "max-md:h-2" not in _event(week, "Release freeze")["class"]
+
+    @pytest.mark.asyncio
+    async def test_a_finger_drags_a_chip_only_when_movable(self, context_args):
+        html = await _html(_calendar(_FREEZE).view("month"), context_args)
+        assert "touch-none" not in _event(html, "Release freeze")["class"]
+        movable = _calendar(_FREEZE).view("month")
+        movable._props["movable"] = True
+        html = await _html(movable, context_args)
+        button = _event(html, "Release freeze")
+        assert "touch-none" in button["class"]
 
     @pytest.mark.asyncio
     async def test_three_events_fit_without_a_more(self, context_args):
@@ -732,6 +779,20 @@ class TestEventPopover:
         html = await _html(_calendar(_REVIEW), context_args)
         button = _event(html, "Design review")
         assert button["data-event-id"] == "1"
-        assert button["data-starts"] == "2026-10-14T13:00:00"
-        assert button["data-ends"] == "2026-10-14T14:30:00"
+        assert button["data-starts"] == "2026-10-14T13:00"
+        assert button["data-ends"] == "2026-10-14T14:30"
         assert "data-all-day" not in button.attrs
+
+    @pytest.mark.asyncio
+    async def test_the_times_a_script_reads_are_the_readers_wall_clock(self):
+        # An aware event is stamped in the timezone it is drawn in, which is
+        # what the dialog posts back, rather than in the zone it arrived in.
+        oslo = ZoneInfo("Europe/Oslo")
+        args = HueContextArgs(
+            request=None,
+            csrf_token="t",
+            formats=Formats(localize=lambda moment: moment.astimezone(oslo)),
+        )
+        review = Event("Review", datetime(2026, 10, 14, 11, tzinfo=UTC), id="1")
+        html = await _html(_calendar(review), args)
+        assert _event(html, "Review")["data-starts"] == "2026-10-14T13:00"
