@@ -43,7 +43,7 @@ type _Kind = Literal["single", "range", "multiple", "datetime", "time"]
 _POPOVER = classnames(
     "z-70 max-h-[calc(50dvh-3rem)] max-w-[calc(100vw-2rem)] overflow-auto",
     "sm:max-h-[calc(100dvh-2rem)]",
-    "rounded-lg border border-border bg-surface-raised p-3 shadow-raised",
+    "rounded-lg border border-border bg-surface-raised shadow-raised",
     "outline-none",
 )
 _PRESET = classnames(
@@ -357,7 +357,8 @@ class _PickerInput(FieldControl):
             id=popover_id,
             role="dialog",
             aria_label=label,
-            class_=_POPOVER,
+            # A time list alone scrolls to the popover's edge, as Select's does.
+            class_=classnames(_POPOVER, "p-3" if self._kind() != "time" else None),
             **{
                 "x-show": "open",
                 "x-cloak": True,
@@ -483,7 +484,7 @@ def _times(formats: Formats, step: int, label: str) -> ComponentType:
         aria_label=label,
         class_=classnames(
             "relative flex max-h-72 w-24 flex-none flex-col gap-0.5",
-            "overflow-y-auto p-0.5",
+            "overflow-y-auto scrollbar-thin p-1",
         ),
         **{"x-ref": "times"},
     )
