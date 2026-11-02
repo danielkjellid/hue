@@ -9,6 +9,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
+from hue.ui._styles import LOADING
 from hue.ui.base import ChainableComponent
 from hue.ui.navigation import SYNC
 from hue.utils import classes_if_else, classnames, render_if
@@ -49,10 +50,6 @@ _FRAME = "w-full rounded-lg border border-border bg-surface"
 # Alpine AJAX marks what it is about to replace aria-busy for as long as the
 # request runs. Dimmed, so a slow query reads as working rather than as a
 # click that did nothing; the attribute itself tells a screen reader.
-_LOADING = (
-    "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:cursor-progress"
-)
-
 # A stuck bar sits over the last rows and the pager until the reader scrolls
 # to its place, and a control focused there would be under it. The margin is
 # room for the bar, wrapped onto two lines, and the 24px it floats above the
@@ -183,7 +180,7 @@ class Table(ChainableComponent):
                 # them, so a response that changes the rows changes these.
                 *below,
                 id=rows_id(frame_id),
-                class_=classnames(_LOADING, {_CLEAR_OF_BAR: bool(sticky_bar)}),
+                class_=classnames(LOADING, {_CLEAR_OF_BAR: bool(sticky_bar)}),
                 # Refreshed by every response that carries it, not only the
                 # ones aimed at it. Each read loads the whole page, so another
                 # table's links and carried state keep up with this one's.
@@ -210,7 +207,7 @@ class Table(ChainableComponent):
         return html.div(
             *inside,
             id=frame_id,
-            class_=classnames(_FRAME, _LOADING),
+            class_=classnames(_FRAME, LOADING),
             **({"x-data": scope} if scope is not None else {}),
         )
 

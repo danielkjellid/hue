@@ -32,6 +32,7 @@ from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.breadcrumbs import Breadcrumbs
 from hue.ui.molecules.button_group import ButtonGroup
+from hue.ui.molecules.calendar import Calendar, Event
 from hue.ui.molecules.card import (
     Card,
     CardBody,
@@ -119,6 +120,7 @@ __all__ = [
     "BubbleChart",
     "Button",
     "ButtonGroup",
+    "Calendar",
     "Card",
     "CardBody",
     "CardFooter",
@@ -144,6 +146,7 @@ __all__ = [
     "DropdownMenu",
     "EmailInput",
     "Empty",
+    "Event",
     "Field",
     "Form",
     "FormErrors",

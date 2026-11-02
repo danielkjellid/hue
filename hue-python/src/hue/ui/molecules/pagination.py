@@ -8,35 +8,19 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.types.core import Component, ComponentType
-from hue.ui._styles import FOCUS_RING
+from hue.ui._styles import DASH, FOCUS_RING, STEP, STEP_IDLE, STEP_SPENT
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.native_select import NativeSelect
 from hue.ui.navigation import SwapsTarget
 from hue.utils import classnames, render_if
 
-# What every step is, minus anything its state decides. The three states
-# below each name a border colour, a text colour and a cursor, so no two
-# classes are left competing for the same property.
 _BAR = "flex w-full flex-wrap items-center justify-between gap-4"
 _COUNT = "text-sm tabular-nums text-fg-muted"
 
-_ITEM = (
-    "inline-flex h-control-sm min-w-[var(--spacing-control-sm)] items-center "
-    "justify-center rounded-md border px-2 font-ui text-sm font-medium "
-    "tabular-nums no-underline relative focus-visible:z-10"
-)
-
-_IDLE = (
-    "border-transparent text-fg-muted cursor-pointer "
-    "hover:bg-surface-hover hover:text-fg"
-)
+_ITEM = f"{STEP} relative focus-visible:z-10"
 
 _CURRENT = "bg-accent-subtle border-accent-border text-accent-text cursor-pointer"
-
-# A step with nowhere to go stays in the row and stays announced: a control
-# that disappears at the ends teaches nobody where the ends are.
-_SPENT = "border-transparent text-fg-disabled cursor-not-allowed pointer-events-none"
 
 # The name and the glyph of each step.
 _STEPS = {
@@ -238,7 +222,9 @@ class Pagination(SwapsTarget):
         inert: bool = False,
         class_: str | None = None,
     ) -> ComponentType:
-        classes = classnames(_ITEM, _CURRENT if current else _IDLE, FOCUS_RING, class_)
+        classes = classnames(
+            _ITEM, _CURRENT if current else STEP_IDLE, FOCUS_RING, class_
+        )
         href = self._get_prop("href")
         if inert:
             return html.span(str(number), aria_current="page", class_=classes)
@@ -310,21 +296,21 @@ class Pagination(SwapsTarget):
                 glyph,
                 aria_label=label,
                 aria_disabled="true",
-                class_=classnames(_ITEM, _SPENT),
+                class_=classnames(_ITEM, STEP_SPENT),
             )
         if href is None:
             return html.button(
                 glyph,
                 type="button",
                 aria_label=label,
-                class_=classnames(_ITEM, _IDLE, FOCUS_RING),
+                class_=classnames(_ITEM, STEP_IDLE, FOCUS_RING),
             )
         return html.a(
             glyph,
             href=href(number),
             id=self._link_id(way),
             aria_label=label,
-            class_=classnames(_ITEM, _IDLE, FOCUS_RING),
+            class_=classnames(_ITEM, STEP_IDLE, FOCUS_RING),
             # Spent at either end, so focus goes on to the page it led to.
             data_hue_refocus=self._link_id(f"page-{number}"),
             **self._swap_attrs(),
@@ -339,10 +325,6 @@ class Pagination(SwapsTarget):
         if own_id is None:
             return None
         return f"{own_id}-{part}"
-
-
-#: The range separator. An en dash, which is what a range takes.
-_RANGE = "\u2013"
 
 
 def _cursor_step(label: str, enabled: bool) -> ComponentType:
@@ -391,7 +373,7 @@ def _status(page: int, size: int, total: int) -> list[ComponentType]:
     first, last = record_range(page, size, total)
     return [
         "Showing ",
-        html.strong(f"{first:,}{_RANGE}{last:,}"),
+        html.strong(f"{first:,}{DASH}{last:,}"),
         " of ",
         html.strong(f"{total:,}"),
         " records",
