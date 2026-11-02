@@ -9,16 +9,15 @@ the rule, expanded here into the occurrences the days shown hold.
 
 from django.db.models import Q
 from django.http import Http404, HttpRequest
-from hue import html
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContext
-from hue.ui import Calendar, Event, Stack, Text, ToastRegion
+from hue.ui import Calendar, Event, Stack, Text
 from hue_django.pages import Page
 from hue_django.router import Router
-from hue_django.views import HueView
 
 from example.events.models import Entry
 from example.events.repeats import occurrences
+from example.layouts import AppView
 
 # Each calendar in its own chart colour, which its events take.
 _LAYERS = [
@@ -81,7 +80,8 @@ def delete_entry(request: HttpRequest, id: str) -> None:
     _entry(id).delete()
 
 
-class EventsView(HueView):
+class EventsView(AppView):
+    wide = True
     router = Router[HttpRequest]()
 
     events = build_calendar_state(
@@ -100,18 +100,11 @@ class EventsView(HueView):
     ) -> Page:
         return Page(
             title="Events",
-            body=html.main()
-            .class_("example-page example-page-wide")
+            body=Stack()
+            .spacing("lg")
+            .align_items("items-stretch")
             .content(
-                Stack()
-                .spacing("lg")
-                .align_items("items-stretch")
-                .content(
-                    Text("Events").variant("title-2").tag("h1"),
-                    Calendar.from_state(self.events),
-                ),
-                # Once per page, and there before the first toast: a live
-                # region made together with its content is not read out.
-                ToastRegion(),
+                Text("Events").variant("title-2").tag("h1"),
+                Calendar.from_state(self.events),
             ),
         )

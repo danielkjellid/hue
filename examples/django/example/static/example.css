@@ -1,5 +1,14 @@
+/* The shell: the sidebar down the side, the page scrolling beside it. */
+.example-shell {
+  display: flex;
+  height: 100vh;
+}
+
 /* The page around the components: a readable width and some air. */
 .example-page {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
   max-width: 72rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
