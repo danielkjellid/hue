@@ -57,7 +57,7 @@ def _view(**given: Any) -> Any:
     _SAVED.clear()
     _DELETED.clear()
     given.setdefault("events", _events)
-    given.setdefault("layers", [Layer("work", "Work"), Layer("home", "Home", color=3)])
+    given.setdefault("layers", [Layer("work", "Work"), Layer("home", "Home")])
     given.setdefault("save", lambda request, event: _SAVED.append(event))
     given.setdefault("delete", lambda request, id: _DELETED.append(id))
 

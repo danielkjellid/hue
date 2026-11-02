@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from htmy.renderer import default
 
+from hue import palette
 from hue.context import HueContextArgs
 from hue.formats import Formats
 from hue.renderer import render_tree
@@ -26,7 +27,9 @@ _REVIEW = Event(
 )
 _AUDIT = Event("Contrast audit", datetime(2026, 10, 15, 10), datetime(2026, 10, 15, 12))
 _PAIRING = Event("Pairing", datetime(2026, 10, 15, 11), datetime(2026, 10, 15, 12, 30))
-_FREEZE = Event("Release freeze", date(2026, 10, 16), date(2026, 10, 17), color=4)
+_FREEZE = Event(
+    "Release freeze", date(2026, 10, 16), date(2026, 10, 17), color=palette.purple
+)
 _STANDUP = Event(
     "Standup",
     datetime(2026, 10, 12, 9),
@@ -616,10 +619,10 @@ class TestMonth:
     ):
         html = await _html(_calendar(_REVIEW, _FREEZE).view("month"), context_args)
         review = _event(html, "Design review")
-        assert "bg-chart-1" in review.select("span")[0]["class"]
+        assert review["style"] == palette.accent.style
         assert review.select("span")[1].get_text() == "13:00"
         freeze = _event(html, "Release freeze")
-        assert "bg-chart-4/15" in freeze["class"]
+        assert freeze["style"] == palette.purple.style
         assert len(select(html, "td[data-date='2026-10-17'] button[data-all-day]")) == 1
 
     @pytest.mark.asyncio

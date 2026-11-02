@@ -99,8 +99,8 @@ class ScheduleView(HueView):
         events=events_for,
         layers=[
             Layer("product", "Product"),
-            Layer("eng", "Engineering", color=2),
-            Layer("personal", "Personal", color=3),
+            Layer("eng", "Engineering"),
+            Layer("personal", "Personal"),
         ],
         save=save_event,
         delete=delete_event,

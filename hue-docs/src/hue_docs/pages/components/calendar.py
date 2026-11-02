@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import cast, get_args
 
 from fastapi import HTTPException, Request
-from hue import html
+from hue import html, palette
 from hue.context import HueContext
 from hue.js import ajax, unsafe
 from hue.types.core import ComponentType
@@ -62,7 +62,7 @@ def october() -> Calendar:
                     datetime(2026, 10, 12, 9, 15),
                     repeat="weekly",
                     location="Huddle room",
-                    color=6,
+                    color=palette.gray,
                 ),
                 Event(
                     "Design review",
@@ -75,27 +75,32 @@ def october() -> Calendar:
                     "Contrast audit",
                     datetime(2026, 10, 15, 10),
                     datetime(2026, 10, 15, 12),
-                    color=2,
+                    color=palette.teal,
                 ),
                 Event(
                     "Pairing",
                     datetime(2026, 10, 15, 11),
                     datetime(2026, 10, 15, 12, 30),
-                    color=3,
+                    color=palette.orange,
                 ),
                 Event(
                     "Release freeze",
                     date(2026, 10, 16),
                     date(2026, 10, 17),
-                    color=4,
+                    color=palette.purple,
                 ),
                 Event(
                     "Deploy window",
                     datetime(2026, 10, 16, 22),
                     datetime(2026, 10, 17, 2),
-                    color=2,
+                    color=palette.teal,
                 ),
-                Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5),
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 30),
+                    color=palette.yellow,
+                ),
             ]
         )
     )
@@ -117,13 +122,13 @@ def day() -> Calendar:
                     "Contrast audit",
                     datetime(2026, 10, 15, 10),
                     datetime(2026, 10, 15, 12),
-                    color=2,
+                    color=palette.teal,
                 ),
                 Event(
                     "Pairing",
                     datetime(2026, 10, 15, 11),
                     datetime(2026, 10, 15, 12, 30),
-                    color=3,
+                    color=palette.orange,
                 ),
                 Event(
                     "Token naming",
@@ -134,7 +139,7 @@ def day() -> Calendar:
                     "Dentist",
                     datetime(2026, 10, 15, 15),
                     datetime(2026, 10, 15, 15, 45),
-                    color=5,
+                    color=palette.yellow,
                 ),
             ]
         )
@@ -155,7 +160,7 @@ def week() -> Calendar:
                     datetime(2026, 10, 12, 9),
                     datetime(2026, 10, 12, 9, 15),
                     repeat="weekly",
-                    color=6,
+                    color=palette.gray,
                 ),
                 Event(
                     "Design review",
@@ -166,25 +171,25 @@ def week() -> Calendar:
                     "Contrast audit",
                     datetime(2026, 10, 15, 10),
                     datetime(2026, 10, 15, 12),
-                    color=2,
+                    color=palette.teal,
                 ),
                 Event(
                     "Pairing",
                     datetime(2026, 10, 15, 11),
                     datetime(2026, 10, 15, 12, 30),
-                    color=3,
+                    color=palette.orange,
                 ),
                 Event(
                     "Release freeze",
                     date(2026, 10, 16),
                     date(2026, 10, 17),
-                    color=4,
+                    color=palette.purple,
                 ),
                 Event(
                     "Deploy window",
                     datetime(2026, 10, 16, 22),
                     datetime(2026, 10, 17, 2),
-                    color=2,
+                    color=palette.teal,
                 ),
             ]
         )
@@ -204,33 +209,38 @@ def month() -> Calendar:
                     "Quarterly planning",
                     date(2026, 10, 8),
                     date(2026, 10, 9),
-                    color=4,
+                    color=palette.purple,
                 ),
                 Event(
                     "Design review",
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Release freeze", date(2026, 10, 15), color=4),
+                Event("Release freeze", date(2026, 10, 15), color=palette.purple),
                 Event(
                     "Contrast audit",
                     datetime(2026, 10, 15, 10),
                     datetime(2026, 10, 15, 12),
-                    color=2,
+                    color=palette.teal,
                 ),
                 Event(
                     "Pairing",
                     datetime(2026, 10, 15, 11),
                     datetime(2026, 10, 15, 12, 30),
-                    color=3,
+                    color=palette.orange,
                 ),
                 Event(
                     "Dentist",
                     datetime(2026, 10, 15, 15),
                     datetime(2026, 10, 15, 15, 45),
-                    color=5,
+                    color=palette.yellow,
                 ),
-                Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5),
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 30),
+                    color=palette.yellow,
+                ),
             ]
         )
     )
@@ -246,14 +256,24 @@ def year() -> Calendar:
         .events(
             [
                 Event("Kickoff", date(2026, 1, 12)),
-                Event("Offsite", date(2026, 3, 18), date(2026, 3, 20), color=4),
-                Event("Summer break", date(2026, 7, 6), date(2026, 7, 24), color=5),
+                Event(
+                    "Offsite",
+                    date(2026, 3, 18),
+                    date(2026, 3, 20),
+                    color=palette.purple,
+                ),
+                Event(
+                    "Summer break",
+                    date(2026, 7, 6),
+                    date(2026, 7, 24),
+                    color=palette.yellow,
+                ),
                 Event(
                     "Design review",
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Year end", date(2026, 12, 18), color=2),
+                Event("Year end", date(2026, 12, 18), color=palette.teal),
             ]
         )
     )
@@ -274,7 +294,7 @@ def agenda() -> Calendar:
                     datetime(2026, 10, 12, 9, 15),
                     repeat="weekly",
                     location="Huddle room",
-                    color=6,
+                    color=palette.gray,
                 ),
                 Event(
                     "Design review",
@@ -286,9 +306,14 @@ def agenda() -> Calendar:
                     "Release freeze",
                     date(2026, 10, 16),
                     date(2026, 10, 17),
-                    color=4,
+                    color=palette.purple,
                 ),
-                Event("Time off", date(2026, 10, 26), date(2026, 10, 28), color=5),
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 28),
+                    color=palette.yellow,
+                ),
             ]
         )
     )
@@ -338,7 +363,12 @@ def without_links() -> Calendar:
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5),
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 30),
+                    color=palette.yellow,
+                ),
             ]
         )
     )
@@ -355,7 +385,16 @@ def sunday_first() -> Calendar:
         .today(date(2026, 10, 14))
         .week_start("sunday")
         .href(lambda day, view: f"#{view}/{day}")
-        .events([Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5)])
+        .events(
+            [
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 30),
+                    color=palette.yellow,
+                )
+            ]
+        )
     )
 
 
@@ -374,7 +413,7 @@ def weekdays_only() -> Calendar:
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Release freeze", date(2026, 10, 16), color=4),
+                Event("Release freeze", date(2026, 10, 16), color=palette.purple),
             ]
         )
     )
@@ -409,8 +448,13 @@ def narrow_month() -> Calendar:
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Release freeze", date(2026, 10, 15), color=4),
-                Event("Time off", date(2026, 10, 26), date(2026, 10, 30), color=5),
+                Event("Release freeze", date(2026, 10, 15), color=palette.purple),
+                Event(
+                    "Time off",
+                    date(2026, 10, 26),
+                    date(2026, 10, 30),
+                    color=palette.yellow,
+                ),
             ]
         )
     )
@@ -430,7 +474,7 @@ def narrow_week() -> Calendar:
                     datetime(2026, 10, 14, 13),
                     datetime(2026, 10, 14, 14, 30),
                 ),
-                Event("Release freeze", date(2026, 10, 16), color=4),
+                Event("Release freeze", date(2026, 10, 16), color=palette.purple),
             ]
         )
     )
@@ -472,7 +516,8 @@ def declared_calendar() -> ComponentType:
     )
 
 
-_DECLARATION = """from hue.calendar import CalendarState, Layer, build_calendar_state
+_DECLARATION = """from hue import palette
+from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.ui import Calendar, Event
 
 
@@ -505,7 +550,8 @@ class EventsView(HueView):
         events=events_for,
         layers=[
             Layer("product", "Product"),
-            Layer("eng", "Engineering", color=2),
+            Layer("eng", "Engineering"),
+            Layer("time-off", "Time off", color=palette.yellow),
         ],
         save=save_entry,
         delete=delete_entry,
@@ -547,7 +593,12 @@ def _usage() -> ComponentType:
             "over. Without an end it covers one day, or one moment."
         ),
         pr.code(
-            'Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), color=4)\n'
+            "Event(\n"
+            '    "Offsite",\n'
+            "    date(2026, 10, 19),\n"
+            "    date(2026, 10, 21),\n"
+            "    color=palette.purple,\n"
+            ")\n"
             "Event(\n"
             '    "Standup",\n'
             "    datetime(2026, 10, 14, 9, 30),\n"
@@ -558,9 +609,9 @@ def _usage() -> ComponentType:
         ),
         pr.bullets(
             [
-                "`color` is 1 to 6, one of the chart tokens. Without one an event "
-                "takes 1, the accent, or its layer's colour in a declared "
-                "`Calendar`.",
+                "`color` is a `hue.palette` preset, such as `palette.purple`, or a "
+                "`Color` of your own. Without one an event takes the accent, or "
+                "its layer's colour in a declared `Calendar`.",
                 "`location` and `notes` show in the event's popover.",
                 "`repeat` is the key of the rule the event repeats by, and any key "
                 "draws a repeat mark. The `Calendar` does not expand a rule into "
@@ -572,8 +623,8 @@ def _usage() -> ComponentType:
             ]
         ),
         pr.p(
-            "An `Event` raises a `ValueError` when its title is empty, when its "
-            "colour is outside 1 to 6, when it mixes a `date` with a `datetime` "
+            "An `Event` raises a `ValueError` when its title is empty, when it "
+            "mixes a `date` with a `datetime` "
             "or a naive `datetime` with an aware one, and when it ends before it "
             "starts. An aware `datetime` is moved into the reader's time by the "
             "`localize` of the `Formats` in the context, when there is one, "
@@ -769,7 +820,10 @@ def _usage() -> ComponentType:
         pr.h2("Calendar layers, search and view options"),
         pr.p(
             "Each `Layer` is one of the calendars a reader can show or hide: a "
-            "key, a name and a chart colour, 1 by default. The sidebar lists the "
+            "key, a name and a colour. A `Layer` without a `color` takes the "
+            "next `hue.palette` preset by its place in the list, so the first "
+            "is the accent and the second teal. Past six layers, each needs a "
+            "colour of its own. The sidebar lists the "
             "layers under Calendars as checkboxes. Unticking one adds its key to "
             "`{key}-hide`, so the URL carries the hidden layers and a layer added "
             "later shows up for someone following an old link. It is called a "

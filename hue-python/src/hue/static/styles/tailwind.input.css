@@ -82,8 +82,9 @@
   --hue-yellow-700: #C28800;
   --hue-yellow-800: #8A6100;
   --hue-yellow-900: #523900;
-  /* teal, orange and purple exist for charts only, which need more hues
-     than the status colours. They share the blue ramp's lightness steps. */
+  /* teal, orange and purple exist for the category colours only, which need
+     more hues than the status colours. They share the blue ramp's lightness
+     steps. */
   --hue-teal-50: #EFFBF9;
   --hue-teal-100: #D9F6F1;
   --hue-teal-200: #A8EAE0;
@@ -227,18 +228,19 @@
   --color-info-border: var(--hue-blue-200);
   --color-info-vivid: var(--hue-blue-500);
 
-  /* --------------------------------------------------------------- charts */
-  /* For categories a chart has to tell apart: pie slices, scatter series.
-     Each clears 3:1 on the surface, and the set stays apart under every
-     simulated colour-vision deficiency, which is why the steps vary in
-     lightness as well as hue. chart-1 is the accent; chart-6 is the muted
-     grey a comparison is drawn in, and a pie's Other slice. */
-  --color-chart-1: var(--color-accent);
-  --color-chart-2: var(--hue-teal-600);
-  --color-chart-3: var(--hue-orange-600);
-  --color-chart-4: var(--hue-purple-600);
-  --color-chart-5: var(--hue-yellow-800);
-  --color-chart-6: var(--color-fg-subtle);
+  /* ----------------------------------------------------------- categories */
+  /* For categories a reader has to tell apart: a chart's series and slices,
+     a calendar's layers. Each clears 3:1 on the surface, and the set stays
+     apart under every simulated colour-vision deficiency, which is why the
+     steps vary in lightness as well as hue. gray is the muted one a
+     comparison is drawn in, and a pie's Other slice. hue.palette names
+     these, and an app's own colours sit beside them. */
+  --color-category-accent: var(--color-accent);
+  --color-category-teal: var(--hue-teal-600);
+  --color-category-orange: var(--hue-orange-600);
+  --color-category-purple: var(--hue-purple-600);
+  --color-category-yellow: var(--hue-yellow-800);
+  --color-category-gray: var(--color-fg-subtle);
 
   /* ----------------------------------------------------------- typography */
   /* Hue loads no webfonts. Name the faces you want by redefining these three
@@ -511,9 +513,9 @@
   --color-info-border: rgb(0 172 255 / 0.34);
   --color-info-vivid: var(--hue-blue-400);
 
-  --color-chart-2: var(--hue-teal-300);
-  --color-chart-3: var(--hue-orange-400);
-  --color-chart-5: var(--hue-yellow-300);
+  --color-category-teal: var(--hue-teal-300);
+  --color-category-orange: var(--hue-orange-400);
+  --color-category-yellow: var(--hue-yellow-300);
 
   /* A blank layer rather than none: the utility lists it beside the focus
      ring, and a none inside a list voids the whole box-shadow. */

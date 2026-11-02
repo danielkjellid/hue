@@ -14,16 +14,11 @@ from calendar import monthrange
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from typing import Any, Literal, get_args
+from typing import Any
 
 from hue.formats import Formats
+from hue.palette import Color
 from hue.ui.molecules.date_picker import WEEKDAYS, Weekday
-
-# One of the chart tokens, which stay apart from each other in both themes
-# and under every simulated colour-vision deficiency. 1 is the accent.
-type EventColor = Literal[1, 2, 3, 4, 5, 6]
-
-_COLORS: tuple[int, ...] = get_args(EventColor.__value__)
 
 # The minutes in a day, where a timed event that runs past midnight is cut.
 MIDNIGHT = 24 * 60
@@ -41,13 +36,13 @@ class Event:
     id is what a route names it by. href makes the detail popover offer a
     link to it. repeat is the key of the rule it repeats by, which draws the
     repeat mark; expanding the rule into occurrences is the app's job. layer
-    names the calendar it belongs to, under a declaration. color picks one of
-    the six chart tokens, the first unless its layer says otherwise.
+    names the calendar it belongs to, under a declaration. color is a
+    palette colour, the accent unless its layer says otherwise.
     series_starts is when the first occurrence of the series it belongs to
     starts, which an editable calendar needs from every occurrence it is
     handed: moving one occurrence moves the series from there.
 
-        Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), color=4)
+        Event("Offsite", date(2026, 10, 19), date(2026, 10, 21), color=palette.purple)
         Event("Standup", datetime(2026, 10, 14, 9, 30), id="12", repeat="weekly")
     """
 
@@ -60,7 +55,7 @@ class Event:
     repeat: str | None = None
     layer: str | None = None
     href: str | None = None
-    color: EventColor | None = None
+    color: Color | None = None
     series_starts: date | datetime | None = None
 
     def __post_init__(self) -> None:
@@ -69,10 +64,6 @@ class Event:
         # no day at all. The title is every control's accessible name.
         if not self.title:
             raise ValueError("An Event needs a title; it is what the event is called.")
-        if self.color is not None and self.color not in _COLORS:
-            raise ValueError(
-                f"{self.title!r} has color {self.color!r}; it is one of 1 to 6."
-            )
         if self.series_starts is not None and isinstance(
             self.series_starts, datetime
         ) != isinstance(self.starts, datetime):
@@ -101,13 +92,6 @@ class Event:
     @property
     def timed(self) -> bool:
         return isinstance(self.starts, datetime)
-
-    @property
-    def tone(self) -> EventColor:
-        """
-        The chart token it is drawn in: its own, or the first.
-        """
-        return 1 if self.color is None else self.color
 
     def moments(self, formats: Formats) -> tuple[datetime, datetime]:
         """

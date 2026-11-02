@@ -25,7 +25,7 @@ from typing import Any, Literal
 
 from htmy import Context, html
 
-from hue import toast
+from hue import palette, toast
 from hue._calendar_chrome import (
     DRAGS,
     Band,
@@ -141,6 +141,15 @@ class _Declaration(Declaration[Routes]):
         super().__init__(router, key)
         self.events = events
         self.layers = list(layers)
+        # A layer left without a colour takes one by its place in the list,
+        # so two of them never share the accent.
+        self.colors = dict(
+            zip(
+                (layer.key for layer in self.layers),
+                palette.assign([layer.color for layer in self.layers], key),
+                strict=True,
+            )
+        )
         self.save = save
         self.delete = delete
         self.repeats = dict(repeats or {})
@@ -281,7 +290,6 @@ class _Declaration(Declaration[Routes]):
         unless it chose its own.
         """
         given = await self._given(request, asked)
-        colors = {layer.key: layer.color for layer in self.layers}
         found: list[Event] = []
         for returned in given:
             if not isinstance(returned, Event):
@@ -299,7 +307,7 @@ class _Declaration(Declaration[Routes]):
                     f"repeats, without series_starts. Moving it moves the whole "
                     f"series, from when its first occurrence starts."
                 )
-            own = colors.get(returned.layer or "")
+            own = self.colors.get(returned.layer or "")
             if returned.color is None and own is not None:
                 found.append(replace(returned, color=own))
             else:

@@ -3,14 +3,16 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar, Literal
 
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue import palette
 from hue.js import call, unsafe
+from hue.palette import Color
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
@@ -18,17 +20,6 @@ from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
 type ChartFormat = Literal["number", "percent", "currency"]
-
-# The chart palette, as utilities for the legend. chart-draw.js paints with
-# the same tokens; spelled out because Tailwind only sees literal class names.
-_SWATCHES = (
-    "bg-chart-1",
-    "bg-chart-2",
-    "bg-chart-3",
-    "bg-chart-4",
-    "bg-chart-5",
-    "bg-chart-6",
-)
 
 _ERROR_ID = "$id('hue-chart-error')"
 _CAPTION_ID = "$id('hue-chart-caption')"
@@ -120,17 +111,34 @@ class Chart(ChainableComponent):
             )
         return description
 
+    def colors(self, value: Mapping[str, Color]) -> Self:
+        """
+        A colour for a series or slice, by its label, so the same thing can
+        keep one colour from chart to chart. The rest keep their defaults.
+        """
+        self._props["colors"] = dict(value)
+        return self
+
+    def _colors(self, labels: Sequence[str]) -> dict[str, Color]:
+        colors: dict[str, Color] = self._get_prop("colors", {})
+        for unknown in [label for label in colors if label not in labels]:
+            raise ValueError(
+                f"{type(self).__name__} colors() names {unknown!r}, which it "
+                f"does not draw."
+            )
+        return colors
+
     def _figure(
         self,
         spec: dict[str, Any],
         *,
         headers: list[str],
         rows: list[list[str]],
-        legend: list[tuple[str, str]] | None,
+        legend: list[tuple[str, Color]] | None,
     ) -> Component:
         """
         The chart's markup. headers and rows make the table, each row led by
-        a header cell; legend pairs each name with its swatch class.
+        a header cell; legend pairs each name with its colour.
         """
         self._refuse_x_data()
         return html.figure(
@@ -214,7 +222,8 @@ class _SeriesChart(Chart):
 
     def series(self, values: Sequence[float], *, label: str) -> Self:
         """
-        The values the chart is about, one per label, drawn in the accent.
+        The values the chart is about, one per label, drawn in the accent
+        unless colors() names another.
         """
         self._props["series"] = (_named(label, "series"), _numbers(values, "series"))
         return self
@@ -265,11 +274,23 @@ class _SeriesChart(Chart):
                 f"compare(): {highlight!r}."
             )
 
+        colors = self._colors([label for label, _ in drawn])
+        main = colors.get(series[0], palette.accent)
+        # The comparison, and a bar chart's bars around the highlighted one.
+        muted = palette.gray
+        if compare is not None:
+            muted = colors.get(compare[0], muted)
         displays = [[y.write(v) for v in values] for _, values in drawn]
         return self._figure(
             {
                 "kind": self._KIND,
                 "labels": labels,
+                "colors": [main.css, muted.css],
+                # The accent fills with its vivid step, the brighter one kept
+                # for decoration; any other colour fills with itself.
+                "fill": "var(--color-accent-vivid)"
+                if main == palette.accent
+                else main.css,
                 "series": [
                     {"label": label, "values": values, "display": display}
                     for (label, values), display in zip(drawn, displays, strict=True)
@@ -282,10 +303,9 @@ class _SeriesChart(Chart):
                 [label, *(display[i] for display in displays)]
                 for i, label in enumerate(labels)
             ],
-            # The muted swatch is chart-6, the same grey as fg-subtle.
             legend=None
             if compare is None
-            else [(series[0], _SWATCHES[0]), (compare[0], _SWATCHES[5])],
+            else [(series[0], main), (compare[0], muted)],
         )
 
 
@@ -341,8 +361,8 @@ class PieChart(Chart):
     How a whole divides into parts, as a pie.
 
     slices() gives each part's label and value. Each slice gets a colour of
-    its own from the chart palette, which has six: past six slices, the five
-    largest are drawn and the rest are grouped as Other. The table a screen
+    its own, by its place or from colors(). Past six slices, the five largest
+    are drawn and the rest are grouped as Other. The table a screen
     reader is given still lists every slice, with its share of the whole.
     """
 
@@ -385,14 +405,20 @@ class PieChart(Chart):
 
         # A slice of nothing has no area to colour, so only the table lists it.
         drawn = [(label, number) for label, number in slices if number > 0]
-        if len(drawn) > len(_SWATCHES):
+        if len(drawn) > len(palette.ORDER):
             # One colour is kept back for Other, and a slice the caller called
             # Other joins it rather than appearing twice.
-            room = len(_SWATCHES) - 1
+            room = len(palette.ORDER) - 1
             candidates = [i for i, (label, _) in enumerate(drawn) if label != "Other"]
             largest = sorted(candidates, key=lambda i: -drawn[i][1])[:room]
             rest = sum(n for i, (_, n) in enumerate(drawn) if i not in largest)
             drawn = [*(drawn[i] for i in sorted(largest)), ("Other", rest)]
+
+        names = [label for label, _ in drawn]
+        # Checked against every slice, so a colour for one grouped into Other
+        # is not refused for it.
+        chosen = self._colors([label for label, _ in slices] + ["Other"])
+        colors = palette.assign([chosen.get(label) for label in names], "slices")
 
         # Values already given as percentages would only say it twice.
         percent = format_.kind == "percent"
@@ -405,7 +431,8 @@ class PieChart(Chart):
         return self._figure(
             {
                 "kind": self._KIND,
-                "labels": [label for label, _ in drawn],
+                "labels": names,
+                "colors": [color.css for color in colors],
                 "series": [
                     {
                         "values": [number for _, number in drawn],
@@ -419,10 +446,7 @@ class PieChart(Chart):
                 + ([] if percent else [_share(number, total)])
                 for label, number in slices
             ],
-            legend=[
-                (label, swatch)
-                for (label, _), swatch in zip(drawn, _SWATCHES, strict=False)
-            ],
+            legend=list(zip(names, colors, strict=True)),
         )
 
 
@@ -439,7 +463,7 @@ class DoughnutChart(PieChart):
 
 class _PointChart(Chart):
     """
-    Points placed by numbers on both axes, in up to five series.
+    Points placed by numbers on both axes, in one or more series.
     """
 
     _KIND: ClassVar[str]
@@ -454,7 +478,7 @@ class _PointChart(Chart):
     def series(self, points: Sequence[Sequence[float]], *, label: str) -> Self:
         """
         One set of points. Call it again for another set, drawn in the next
-        colour of the chart palette.
+        palette colour unless colors() names one.
         """
         name = type(self).__name__
         checked = [_numbers(point, "point") for point in points]
@@ -510,18 +534,21 @@ class _PointChart(Chart):
 
         if not series:
             raise ValueError(f"{name} needs a series() to draw.")
-        # The last colour is the grey a comparison is muted with, which would
-        # read as less important rather than as one more series.
-        if len(series) > len(_SWATCHES) - 1:
-            raise ValueError(
-                f"{name} draws at most {len(_SWATCHES) - 1} series, one per "
-                "colour of the chart palette."
-            )
         if x_label is None or y_label is None:
             raise ValueError(f"{name} needs x_label() and y_label().")
         labels = [label for label, _ in series]
         if len(set(labels)) != len(labels):
             raise ValueError(f"{name} series labels must differ from each other.")
+        chosen = self._colors(labels)
+        # The last colour is the grey a comparison is muted with, which would
+        # read as less important rather than as one more series.
+        room = len(palette.ORDER) - 1
+        if any(label not in chosen for label in labels[room:]):
+            raise ValueError(
+                f"{name} picks colours for the first {room} series; give the "
+                f"rest one through colors()."
+            )
+        colors = palette.assign([chosen.get(label) for label in labels], name)
         names = [x_label, y_label, *self._size_name()]
 
         def cells(point: list[float]) -> list[str]:
@@ -532,6 +559,7 @@ class _PointChart(Chart):
         return self._figure(
             {
                 "kind": self._KIND,
+                "colors": [color.css for color in colors],
                 "series": [
                     {
                         "label": label,
@@ -555,12 +583,7 @@ class _PointChart(Chart):
             rows=[
                 [label, *cells(point)] for label, points in series for point in points
             ],
-            legend=None
-            if len(series) == 1
-            else [
-                (label, swatch)
-                for (label, _), swatch in zip(series, _SWATCHES, strict=False)
-            ],
+            legend=None if len(series) == 1 else list(zip(labels, colors, strict=True)),
         )
 
 
@@ -618,17 +641,19 @@ def _share(number: float, total: float) -> str:
     return "<1%" if share == 0 and number > 0 else f"{share}%"
 
 
-def _legend(items: list[tuple[str, str]]) -> ComponentType:
+def _legend(items: list[tuple[str, Color]]) -> ComponentType:
     return html.ul(
         *(
             html.li(
                 html.span(
-                    class_=f"size-2.5 flex-none rounded-xs {swatch}", aria_hidden="true"
+                    class_="size-2.5 flex-none rounded-xs bg-(--hue-mark)",
+                    style=color.style,
+                    aria_hidden="true",
                 ),
                 label,
                 class_="inline-flex items-center gap-1.5",
             )
-            for label, swatch in items
+            for label, color in items
         ),
         class_="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs text-fg-muted",
     )

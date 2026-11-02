@@ -9,7 +9,7 @@ the rule, expanded here into the occurrences the days shown hold.
 
 from django.db.models import Q
 from django.http import Http404, HttpRequest
-from hue import html
+from hue import html, palette
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContext
 from hue.ui import Calendar, Event, Stack, Text, ToastRegion
@@ -20,12 +20,13 @@ from hue_django.views import HueView
 from example.events.models import Entry
 from example.events.repeats import occurrences
 
-# Each calendar in its own chart colour, which its events take.
+# Each calendar takes the next palette colour by its place, and its events
+# take the calendar's. Time off picks yellow over purple.
 _LAYERS = [
-    Layer(Entry.Layer.PRODUCT, "Product", color=1),
-    Layer(Entry.Layer.ENGINEERING, "Engineering", color=2),
-    Layer(Entry.Layer.PERSONAL, "Personal", color=3),
-    Layer(Entry.Layer.TIME_OFF, "Time off", color=5),
+    Layer(Entry.Layer.PRODUCT, "Product"),
+    Layer(Entry.Layer.ENGINEERING, "Engineering"),
+    Layer(Entry.Layer.PERSONAL, "Personal"),
+    Layer(Entry.Layer.TIME_OFF, "Time off", color=palette.yellow),
 ]
 
 

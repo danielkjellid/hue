@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from hue import calendar as declared
-from hue import html, scope
+from hue import html, palette, scope
 from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.formats import Formats
@@ -26,7 +26,7 @@ from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _TODAY = date(2026, 10, 14)
 _Page = create_page_base(css_url="/s.css", js_url="/a.js", html_title_factory=str)
-_LAYERS = [Layer("work", "Work"), Layer("home", "Home", color=3)]
+_LAYERS = [Layer("work", "Work"), Layer("home", "Home")]
 
 
 class _Router:
@@ -219,22 +219,24 @@ async def test_events_is_asked_for_the_days_and_the_layers_shown(context_args):
 
 @pytest.mark.asyncio
 async def test_an_event_takes_its_layers_colour_unless_it_chose_one(context_args):
+    # home names no colour, so it takes the second by its place: two layers
+    # left without one used to share the accent.
     html = await _drawn(
         _declared(
             layers=_LAYERS,
             events=lambda r, s: [
-                Event("Own", _TODAY, layer="home", color=5),
+                Event("Own", _TODAY, layer="home", color=palette.yellow),
                 Event("Home", _TODAY, layer="home"),
             ],
         ),
         context_args,
     )
     own, home = (
-        select(html, f"#events-view button[aria-label^='{title},']")[0]["class"]
+        select(html, f"#events-view button[aria-label^='{title},']")[0]["style"]
         for title in ("Own", "Home")
     )
-    assert "border-chart-5" in own
-    assert "border-chart-3" in home
+    assert own == palette.yellow.style
+    assert home == palette.teal.style
 
 
 @pytest.mark.asyncio

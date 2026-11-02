@@ -32,6 +32,7 @@ from hue._calendar_state import (
 )
 from hue._declared import bound_from, carried, search_form, search_id
 from hue.js import Expression, call, close, unsafe
+from hue.palette import Color
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
@@ -48,7 +49,7 @@ from hue.ui.molecules.date_picker import WEEKDAYS, DatePicker
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.popover import Popover
 from hue.ui.navigation import SYNC, swap
-from hue.utils import classnames, render_if, render_when
+from hue.utils import render_if, render_when
 
 if TYPE_CHECKING:
     from hue.calendar import _Declaration
@@ -392,7 +393,10 @@ class Side(ChainableComponent):
                 html.section(
                     html.h2("Calendars", class_=PANEL_LABEL),
                     html.ul(
-                        *(_layer_row(bound, layer) for layer in declared.layers),
+                        *(
+                            _layer_row(bound, layer, declared.colors[layer.key])
+                            for layer in declared.layers
+                        ),
                         class_="flex flex-col gap-2",
                     ),
                     # The boxes sit outside the form, so they are read and
@@ -451,7 +455,7 @@ class Side(ChainableComponent):
         )
 
 
-def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
+def _layer_row(bound: BoundCalendar, layer: Layer, color: Color) -> ComponentType:
     """
     One calendar in the sidebar: a box ticked while it shows, and its
     colour. The boxes are read from the scope, which the click changes.
@@ -475,9 +479,8 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
         ),
         html.span(
             aria_hidden="true",
-            class_=classnames(
-                "size-2.5 flex-none rounded-xs", views._SOLID[layer.color]
-            ),
+            class_="size-2.5 flex-none rounded-xs bg-(--hue-mark)",
+            style=color.style,
         ),
         class_="flex items-center gap-3",
     )

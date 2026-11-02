@@ -59,26 +59,23 @@ function resolve(canvas, colors) {
 	return Object.fromEntries(Object.keys(colors).map((name, i) => [name, resolved[i]]));
 }
 
-// The components' legends name the same chart-N tokens for their swatches.
-function palette(canvas) {
-	const vivid = (percent) =>
-		`color-mix(in srgb, var(--color-accent-vivid) ${percent}%, transparent)`;
+// spec.colors are the series' or slices' colours as CSS, the same values the
+// components' legends set for their swatches.
+function palette(canvas, spec) {
+	const fill = (percent) =>
+		`color-mix(in srgb, ${spec.fill ?? "transparent"} ${percent}%, transparent)`;
+	const series = Object.fromEntries(spec.colors.map((color, i) => [`series${i}`, color]));
 	const colors = resolve(canvas, {
-		chart1: "var(--color-chart-1)",
-		chart2: "var(--color-chart-2)",
-		chart3: "var(--color-chart-3)",
-		chart4: "var(--color-chart-4)",
-		chart5: "var(--color-chart-5)",
-		chart6: "var(--color-chart-6)",
+		...series,
 		axis: "var(--color-fg-subtle)",
 		grid: "var(--color-border)",
 		surface: "var(--color-surface)",
 		tooltip: "var(--color-fg-strong)",
 		tooltipText: "var(--color-canvas)",
-		areaTop: vivid(24),
-		areaBottom: vivid(0),
+		areaTop: fill(24),
+		areaBottom: fill(0),
 	});
-	colors.series = [1, 2, 3, 4, 5, 6].map((n) => colors[`chart${n}`]);
+	colors.series = spec.colors.map((_, i) => colors[`series${i}`]);
 	return colors;
 }
 
@@ -107,12 +104,11 @@ function valueAxis(theme, format, extra = {}) {
 	};
 }
 
-// Line, area and bar: one value per label, the main series in the accent and
+// Line, area and bar: one value per label, the main series in its colour and
 // a comparison muted.
 function categoryConfig(spec, theme) {
 	const { colors } = theme;
-	const accent = colors.series[0];
-	const muted = colors.series[5];
+	const [accent, muted] = colors.series;
 
 	const dataset = (series, index) => {
 		const main = index === 0;
@@ -265,7 +261,7 @@ const CONFIGS = {
 };
 
 export function draw(canvas, spec, { animate = true } = {}) {
-	const colors = palette(canvas);
+	const colors = palette(canvas, spec);
 	const font = { family: getComputedStyle(canvas).fontFamily, size: 11, weight: 500 };
 	const theme = { colors, ticks: { color: colors.axis, font } };
 	const { type, data, options, label, swatch } = CONFIGS[spec.kind](spec, theme);
