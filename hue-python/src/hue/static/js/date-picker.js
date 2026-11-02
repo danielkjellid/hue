@@ -16,7 +16,7 @@
  * complete: one day, or the end of a range.
  */
 
-const DAY = 24 * 60 * 60 * 1000;
+export const DAY = 24 * 60 * 60 * 1000;
 // The months and days date.fromisoformat() accepts on the server.
 const FIRST_MONTH = 1 * 12;
 const LAST_MONTH = 9999 * 12 + 11;
@@ -36,20 +36,20 @@ const PICK = {
 
 // Through setUTCFullYear rather than Date.UTC, which reads a year under
 // 100 as the 1900s. The month is 0-based and overflows into the next year.
-function utc(year, month, day) {
+export function utc(year, month, day) {
 	const at = new Date(0);
 	at.setUTCFullYear(year, month, day);
 	return at.getTime();
 }
 
-const iso = (at) => new Date(at).toISOString().slice(0, 10);
-const parse = (day) => utc(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8));
+export const iso = (at) => new Date(at).toISOString().slice(0, 10);
+export const parse = (day) => utc(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8));
 const monthOf = (day) => +day.slice(0, 4) * 12 + +day.slice(5, 7) - 1;
 const firstOf = (month) => utc(Math.floor(month / 12), month % 12, 1);
 // Monday 0, as date.weekday() counts.
-const weekday = (at) => (new Date(at).getUTCDay() + 6) % 7;
+export const weekday = (at) => (new Date(at).getUTCDay() + 6) % 7;
 
-function today() {
+export function today() {
 	const now = new Date();
 	return iso(utc(now.getFullYear(), now.getMonth(), now.getDate()));
 }
@@ -69,6 +69,11 @@ function addMonths(day, n) {
 	return iso(firstOf(month) + (Math.min(+day.slice(8), last) - 1) * DAY);
 }
 
+// Wednesday 14 October 2026, the words and order Formats.day() writes.
+export function dayName(day, dayNames, monthNamesInDate) {
+	return `${dayNames[weekday(parse(day))]} ${+day.slice(8)} ${monthNamesInDate[+day.slice(5, 7) - 1]} ${day.slice(0, 4)}`;
+}
+
 export function datePicker(config) {
 	const {
 		mode,
@@ -85,9 +90,7 @@ export function datePicker(config) {
 	const unavailable = new Set(config.unavailable);
 	const closed = new Set(config.closed);
 	const markers = new Set(config.markers);
-	// Wednesday 14 October 2026, the words and order Formats.day() writes.
-	const name = (day) =>
-		`${dayNames[weekday(parse(day))]} ${+day.slice(8)} ${monthNamesInDate[+day.slice(5, 7) - 1]} ${day.slice(0, 4)}`;
+	const name = (day) => dayName(day, dayNames, monthNamesInDate);
 	const clamp = (day) => (min && day < min ? min : max && day > max ? max : day);
 	// Whether every month shown from this first one is one the server takes.
 	const fits = (first) => first >= FIRST_MONTH && first + months - 1 <= LAST_MONTH;

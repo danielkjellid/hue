@@ -43,6 +43,7 @@ def test_the_names_are_django_s_translations():
     assert formats.day_names[0] == "mandag"
     assert formats.day_abbreviations[0] == "man"
     assert formats.month_names[9] == "oktober"
+    assert formats.month_abbreviations[9] == "Okt"
     assert _formats().day_names[0] == "Monday"
 
 
