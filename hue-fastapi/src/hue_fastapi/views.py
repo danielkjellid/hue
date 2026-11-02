@@ -2,11 +2,13 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from http import HTTPStatus
 from inspect import Parameter, Signature, signature
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from fastapi import APIRouter, Depends
+from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
 from hue.router import PAGE_ROUTE, RawResponse, Route, check_unique_routes
+from hue.types.core import ComponentType
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, PlainTextResponse, Response
 
@@ -236,6 +238,11 @@ class HueView(_BaseView):
     query parameters or a Depends, which is why no protocol pins its signature.
     Fragment routes are added with the router and are AJAX-only.
 
+    layout (sync or async, optional) draws the app shell around the page's
+    body. Each class's layout wraps the one its subclasses define, so a
+    subclass nests inside its parent's shell on its own: do not call
+    super().layout(), or the parent's shell is drawn twice.
+
         class LoginView(HueView):
             router = Router[Request]()
 
@@ -252,6 +259,13 @@ class HueView(_BaseView):
 
         app.include_router(LoginView.api_router, prefix="/login")
     """
+
+    if TYPE_CHECKING:
+        # Declared for the type checker only, so a subclass's def is checked
+        # against it. The router finds each class's own at runtime.
+        def layout(
+            self, body: ComponentType, context: HueContext[Request]
+        ) -> ComponentType | Awaitable[ComponentType]: ...
 
     @classmethod
     def _build_api_router(cls) -> APIRouter:
