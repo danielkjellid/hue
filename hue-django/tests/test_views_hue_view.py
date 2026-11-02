@@ -11,6 +11,7 @@ from django.test import Client, override_settings
 from django.urls import URLPattern, include, path
 from htmy import html
 from hue.context import HueContext
+from hue.theme import Fonts, Theme
 from pydantic import Json
 
 from hue_django.pages import Page
@@ -597,8 +598,10 @@ def test_page_reads_settings_at_render_time(urlpatterns_: list[URLPattern]):
     with override_settings(
         HUE_EXTRA_CSS_URLS=["/extra.css"],
         HUE_HTML_TITLE_FACTORY=lambda title: f"{title} | Test",
+        HUE_THEME=Theme(fonts=Fonts(ui="Geist")),
     ):
         content = Client().get("/myview/").content
 
     assert b'href="/extra.css"' in content
     assert b"Home | Test</title>" in content
+    assert b"--font-ui: Geist;" in content

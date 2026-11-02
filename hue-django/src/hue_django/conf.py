@@ -5,6 +5,7 @@ from django.conf import settings as django_settings
 from django.utils.module_loading import import_string
 from hue.formats import Formats
 from hue.shortcuts import ShortcutRegistry
+from hue.theme import Theme
 
 
 class Settings:
@@ -59,6 +60,13 @@ class Settings:
         which it reads.
         """
         return getattr(django_settings, "HUE_TIME_FORMAT", Formats().time)
+
+    @property
+    def HUE_THEME(self) -> Theme | None:
+        """
+        A hue.theme.Theme that every page restyles hue's tokens with.
+        """
+        return getattr(django_settings, "HUE_THEME", None)
 
     @property
     def HUE_SHORTCUTS(self) -> type[ShortcutRegistry] | None:

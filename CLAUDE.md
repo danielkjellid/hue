@@ -166,7 +166,11 @@ working. **Never reference those from new code** — the block shrinks as compon
 and is deleted with the last of them.
 
 To restyle Hue, redefine a `--hue-*` ramp step and everything built on it moves with it, in
-both themes; to change one role only, redefine that alias.
+both themes; to change one role only, redefine that alias. From Python, `hue.theme.Theme`
+does the same through groups with a named field per token (`Accent`, `Status`, `Danger`,
+`Surfaces`, `Text`, `Borders`, `Categories`, `Fonts`, `Corners`), passed through
+`create_page_base(theme=)`, `HUE_THEME` or `configure_hue(theme=)`. A test holds the
+fields to the stylesheet, so a token added to the `@theme static` block needs a field too.
 
 ## Docs (`hue-docs/src/hue_docs/`)
 

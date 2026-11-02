@@ -15,6 +15,7 @@ from hue_docs.pages.guides import (
     installation,
     intro,
     shortcuts,
+    theming,
     usage,
 )
 
@@ -27,6 +28,7 @@ GUIDES: list[GuidePage] = [
     actions.PAGE,
     forms.PAGE,
     contexts.PAGE,
+    theming.PAGE,
     shortcuts.PAGE,
     django_views.PAGE,
     django_css.PAGE,

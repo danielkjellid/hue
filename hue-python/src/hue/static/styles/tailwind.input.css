@@ -243,8 +243,8 @@
   --color-category-gray: var(--color-fg-subtle);
 
   /* ----------------------------------------------------------- typography */
-  /* Hue loads no webfonts. Name the faces you want by redefining these three
-     from your own stylesheet, then load them however you like. */
+  /* Hue loads no webfonts. Name the faces you want through a Theme's fonts,
+     or by redefining these three, then load them however you like. */
 
   --font-ui: "Figtree", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
   --font-body: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;

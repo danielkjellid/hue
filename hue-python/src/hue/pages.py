@@ -8,6 +8,7 @@ from htmy import Context, SafeStr, html
 from hue import html as hue_html
 from hue.context import HueContext
 from hue.shortcuts import ShortcutHost
+from hue.theme import Theme
 from hue.types.core import Component, ComponentType
 from hue.utils import render_if
 
@@ -60,6 +61,10 @@ class BasePage:
     @cached_property
     def extra_css_urls(self) -> list[str]:
         return []
+
+    @cached_property
+    def theme(self) -> Theme | None:
+        return None
 
     @cached_property
     def css_url(self) -> str:
@@ -155,6 +160,10 @@ class BasePage:
                     self.theme_script(),
                     html.script(src=self.js_url, type="module"),
                     html.link(rel="stylesheet", href=self.css_url, type="text/css"),
+                    # Between hue's stylesheet and the app's, so it overrides
+                    # the one and gives way to the other. Its values are held
+                    # to CSS spellings, so the text cannot close the element.
+                    render_if(self.theme, lambda theme: html.style(SafeStr(theme.css))),
                     *extra_css_links,
                 ),
                 hue_html.body()
@@ -179,13 +188,16 @@ def create_page_base(
     html_title_factory: Callable[[str], str],
     extra_css_urls: list[str] | None = None,
     theme_storage_key: str = BasePage.theme_storage_key,
+    theme: Theme | None = None,
 ) -> type[BasePage]:
     """
     Bind the asset URLs and title formatter for an app and return its Page class.
+    theme restyles hue's tokens on every page.
     """
     html_title_factory_func = html_title_factory
     _extra_css_urls = extra_css_urls or []
     _theme_storage_key = theme_storage_key
+    _theme = theme
 
     class Page(BasePage):
         theme_storage_key = _theme_storage_key
@@ -201,6 +213,10 @@ def create_page_base(
         @cached_property
         def extra_css_urls(self) -> list[str]:
             return _extra_css_urls
+
+        @cached_property
+        def theme(self) -> Theme | None:
+            return _theme
 
         def html_title_factory(self) -> Callable[[str], str]:
             return html_title_factory_func

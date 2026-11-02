@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from hue.formats import Formats
 from hue.shortcuts import ShortcutRegistry
+from hue.theme import Theme
 from starlette.applications import Starlette
 
 from hue_fastapi.assets import add_asset_routes
@@ -43,6 +44,7 @@ class HueConfig:
     html_title_factory: Callable[[str], str] = _default_title
     formats: Formats = field(default_factory=Formats)
     shortcuts: type[ShortcutRegistry] | None = None
+    theme: Theme | None = None
 
 
 def configure_hue(
@@ -55,6 +57,7 @@ def configure_hue(
     html_title_factory: Callable[[str], str] = _default_title,
     formats: Formats | None = None,
     shortcuts: type[ShortcutRegistry] | None = None,
+    theme: Theme | None = None,
 ) -> HueConfig:
     """
     Attach hue to a FastAPI application and serve its assets.
@@ -62,7 +65,8 @@ def configure_hue(
     Pass css_url when the application compiles its own stylesheet: hue's built
     CSS holds only the classes hue itself uses, so an app writing Tailwind
     classes of its own needs a build that sees both. shortcuts is the app's
-    ShortcutRegistry, which every page binds.
+    ShortcutRegistry, which every page binds, and theme a hue.theme.Theme
+    that every page restyles hue's tokens with.
 
     csrf is required rather than defaulted, so turning protection off is a
     decision someone made on purpose.
@@ -75,6 +79,7 @@ def configure_hue(
         html_title_factory=html_title_factory,
         formats=formats or Formats(),
         shortcuts=shortcuts,
+        theme=theme,
     )
     app.state.hue = config
     add_asset_routes(app)
