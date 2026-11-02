@@ -15,6 +15,7 @@ from typing import Literal
 from htmy import Context, SafeStr, html
 from htmy.renderer import Renderer
 
+from hue import palette
 from hue.formats import Formats
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -31,7 +32,6 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.base import ChainableComponent
 from hue.ui.molecules._days import (
     Event,
-    EventColor,
     Placed,
     Slot,
     add_months,
@@ -63,26 +63,6 @@ FIRST = date(2, 1, 1)
 LAST = date(9998, 12, 31)
 
 
-# Keyed by the Literal so mypy keeps them exhaustive. An event is a tint of
-# its colour with a bar of it down the start edge; the text stays the
-# foreground, so a tint never has to clear contrast on its own.
-_TINT: dict[EventColor, str] = {
-    1: "border-chart-1 bg-chart-1/15 hover:bg-chart-1/25",
-    2: "border-chart-2 bg-chart-2/15 hover:bg-chart-2/25",
-    3: "border-chart-3 bg-chart-3/15 hover:bg-chart-3/25",
-    4: "border-chart-4 bg-chart-4/15 hover:bg-chart-4/25",
-    5: "border-chart-5 bg-chart-5/15 hover:bg-chart-5/25",
-    6: "border-chart-6 bg-chart-6/15 hover:bg-chart-6/25",
-}
-_SOLID: dict[EventColor, str] = {
-    1: "bg-chart-1",
-    2: "bg-chart-2",
-    3: "bg-chart-3",
-    4: "bg-chart-4",
-    5: "bg-chart-5",
-    6: "bg-chart-6",
-}
-
 _TOOLBAR = (
     "flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2"
 )
@@ -96,9 +76,13 @@ _NUMBER = (
 _NUMBER_TODAY = "aria-[current=date]:bg-accent aria-[current=date]:text-accent-fg"
 _NUMBER_LINK = "hover:bg-surface-hover aria-[current=date]:hover:bg-accent-hover"
 
+# An event is a tint of its colour with a bar of it down the start edge; the
+# text stays the foreground, so a tint never has to clear contrast on its
+# own. The colour is the --hue-mark its button sets.
 _EVENT = (
     "w-full min-w-0 cursor-pointer rounded-sm border-s-[3px] px-1.5 text-start "
-    "text-xs font-medium text-fg"
+    "text-xs font-medium text-fg border-(--hue-mark) bg-(--hue-mark)/15 "
+    "hover:bg-(--hue-mark)/25"
 )
 _CHIP = "block h-5 truncate leading-5"
 # A timed event in a list is a dot, its time and its title, with no fill.
@@ -106,7 +90,7 @@ _DOTTED = (
     "flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-1 text-start "
     "text-xs font-medium leading-5 text-fg hover:bg-surface-hover"
 )
-_DOT = "size-2 flex-none rounded-full"
+_DOT = "size-2 flex-none rounded-full bg-(--hue-mark)"
 _TIME = "flex-none text-2xs tabular-nums text-fg-muted"
 # A month cell on a narrow screen holds bars rather than words: the chip
 # keeps its tint and the dotted item its dot, and the text is for wider
@@ -168,6 +152,7 @@ class EventButton(ChainableComponent):
             self._attrs["data-event-id"] = event.id
         if not event.timed:
             self._attrs["data-all-day"] = ""
+        self._attrs["style"] = (event.color or palette.accent).style
 
     def _render(self, context: Context) -> Component:
         starts, ends = stamps(self._props["event"], Formats.from_context(context))
@@ -560,7 +545,6 @@ class Draw:
                 classnames(
                     _EVENT,
                     _CHIP,
-                    _TINT[event.tone],
                     FOCUS_RING_INSET,
                     {"rounded-s-none": before, "rounded-e-none": after},
                     {_COMPACT: compact, _MOVABLE: self.movable},
@@ -592,9 +576,7 @@ class Draw:
                 )
             )
             .content(
-                html.span(
-                    aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])
-                ),
+                html.span(aria_hidden="true", class_=_DOT),
                 html.span(
                     self.clock(starts), class_=classnames(_TIME, {_HIDDEN: compact})
                 ),
@@ -815,7 +797,6 @@ def _timed(
         .class_(
             classnames(
                 _EVENT,
-                _TINT[event.tone],
                 FOCUS_RING_INSET,
                 "h-full overflow-hidden py-0.5 leading-4",
                 "flex items-baseline gap-1.5" if short else "block",
@@ -1149,7 +1130,7 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         )
         .content(
             html.span(when, class_="text-xs tabular-nums text-fg-muted"),
-            html.span(aria_hidden="true", class_=classnames(_DOT, _SOLID[event.tone])),
+            html.span(aria_hidden="true", class_=_DOT),
             html.span(
                 html.span(*draw.title_of(event), class_="font-semibold"),
                 render_if(

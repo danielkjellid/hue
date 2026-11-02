@@ -164,10 +164,8 @@ def test_an_event_that_cannot_be_drawn_is_refused(starts, ends, message):
         Event("Broken", starts, ends)
 
 
-def test_an_event_needs_a_title_and_one_of_the_six_colours():
+def test_an_event_needs_a_title():
     with pytest.raises(ValueError, match="title"):
         Event("", date(2026, 10, 14))
-    with pytest.raises(ValueError, match="one of 1 to 6"):
-        Event("Loud", date(2026, 10, 14), color=7)  # type: ignore[arg-type]
     assert Event("Open", date(2026, 10, 14)).ends is None
     assert Event("Moment", datetime(2026, 10, 14, 9)).timed is True

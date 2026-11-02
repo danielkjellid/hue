@@ -1,10 +1,8 @@
 import json
-import re
-from pathlib import Path
 
 import pytest
 
-import hue
+from hue import palette
 from hue.renderer import render_tree
 from hue.ui import (
     AreaChart,
@@ -15,7 +13,6 @@ from hue.ui import (
     PieChart,
     ScatterChart,
 )
-from hue.ui.molecules.chart import _SWATCHES
 from tests._a11y import assert_attr, assert_selector, select
 
 _DAYS = ["Mon", "Tue", "Wed"]
@@ -243,7 +240,32 @@ class TestPieChart:
             "Pending",
             "Draft",
         ]
-        assert_selector(html, "figure > ul li:nth-child(2) span.bg-chart-2")
+        swatch = select(html, "figure > ul li:nth-child(2) span")[0]
+        assert swatch["style"] == palette.teal.style
+
+    @pytest.mark.asyncio
+    async def test_colors_names_a_slice_and_the_rest_keep_their_places(
+        self, context_args
+    ):
+        brand = palette.Color("#e11d48", dark="#fb7185")
+        html = await render_tree(
+            _pie().colors({"Draft": brand}), context_args=context_args
+        )
+        assert _spec(html)["colors"] == [
+            palette.accent.css,
+            palette.teal.css,
+            "light-dark(#e11d48, #fb7185)",
+        ]
+        assert select(html, "figure > ul li:last-child span")[0]["style"] == (
+            brand.style
+        )
+
+    @pytest.mark.asyncio
+    async def test_colors_refuses_a_label_it_does_not_draw(self, context_args):
+        with pytest.raises(ValueError, match="'Void'"):
+            await render_tree(
+                _pie().colors({"Void": palette.teal}), context_args=context_args
+            )
 
     @pytest.mark.asyncio
     async def test_past_six_slices_the_rest_are_grouped_as_other(self, context_args):
@@ -256,7 +278,8 @@ class TestPieChart:
         assert spec["series"][0]["values"] == [5, 40, 30, 20, 10, 3]
         # The table still lists every slice.
         assert len(select(html, "tbody tr")) == 7
-        assert_selector(html, "figure > ul li:last-child span.bg-chart-6")
+        other = select(html, "figure > ul li:last-child span")[0]
+        assert other["style"] == palette.gray.style
 
     @pytest.mark.asyncio
     async def test_six_slices_are_all_drawn(self, context_args):
@@ -485,7 +508,7 @@ class TestScatterChart:
                 .series(_POINTS, label="4")
                 .series(_POINTS, label="5")
                 .series(_POINTS, label="6"),
-                "at most 5",
+                "first 5 series",
             ),
             (_scatter().series(_POINTS, label="Orders"), "differ"),
         ],
@@ -516,14 +539,3 @@ class TestScatterChart:
     def test_refuses_bubbles_it_cannot_place(self, points, match):
         with pytest.raises(ValueError, match=match):
             BubbleChart().series(points, label="s")
-
-
-def test_every_swatch_is_a_token():
-    # The legend's classes and the tokens chart-draw.js reads are named apart.
-    # A --color-chart-N token is what gives bg-chart-N a colour.
-    tokens = (
-        Path(hue.__file__).parent / "static/styles/tailwind.input.css"
-    ).read_text()
-    for swatch in _SWATCHES:
-        name = swatch.removeprefix("bg-")
-        assert re.search(rf"--color-{name}:", tokens), swatch

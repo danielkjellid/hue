@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING, Any, Literal, get_args
 
 from hue._declared import Bound, Pairs, Urls
 from hue.formats import Formats
+from hue.palette import Color
 from hue.shortcuts import ShortcutRegistry
 from hue.ui.molecules import _calendar_views as views
 from hue.ui.molecules._calendar_views import CalendarView
-from hue.ui.molecules._days import EventColor, month_grid, week_of
+from hue.ui.molecules._days import month_grid, week_of
 from hue.ui.molecules.calendar import Event
 from hue.ui.molecules.date_picker import Weekday
 
@@ -57,13 +58,14 @@ class Layer:
     Personal. Called a layer here because Calendar is the component.
 
     key is what an Event names in layer and what the URL hides it by. The
-    name is what the sidebar and the dialog show, and color is the chart
-    token its events take unless they chose their own.
+    name is what the sidebar and the dialog show, and color is what its
+    events take unless they chose their own. Without one, a layer takes the
+    next palette colour by its place among the layers.
     """
 
     key: str
     name: str
-    color: EventColor = 1
+    color: Color | None = None
 
 
 @dataclass(frozen=True, slots=True)

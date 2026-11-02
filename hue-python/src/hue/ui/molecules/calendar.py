@@ -20,7 +20,7 @@ from hue.ui.molecules._calendar_views import (
     Draw,
     Href,
 )
-from hue.ui.molecules._days import Event, EventColor
+from hue.ui.molecules._days import Event
 from hue.ui.molecules.date_picker import Weekday
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
@@ -28,7 +28,7 @@ from hue.utils import classnames, render_if
 if TYPE_CHECKING:
     from hue.calendar import _Declaration
 
-__all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
+__all__ = ["Calendar", "CalendarView", "Event"]
 
 # date() is a modifier below, which hides the type by that name inside the
 # class, as Formats' fields do.

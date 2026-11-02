@@ -61,6 +61,7 @@ def snippet(example: Example) -> str:
 # Names an example uses that hue.ui does not export, and where they come from.
 _ELSEWHERE = {
     "html": "from hue import html",
+    "palette": "from hue import palette",
     "toast": "from hue import toast",
 }
 # The datetime module's types and hue.js's helpers, each gathered into one

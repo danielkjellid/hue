@@ -46,7 +46,8 @@ _CHART_OF = f"""async index => {{
     holder.append(document.createElement("canvas"));
     document.body.append(holder);
     const probe = draw(holder.firstChild, {{
-        kind: "pie", labels: ["a"], series: [{{ values: [1], display: ["1"] }}]
+        kind: "pie", labels: ["a"], colors: ["red"],
+        series: [{{ values: [1], display: ["1"] }}],
     }});
     const Chart = probe.constructor;
     probe.destroy();

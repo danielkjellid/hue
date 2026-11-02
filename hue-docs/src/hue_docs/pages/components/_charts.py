@@ -89,11 +89,25 @@ def loading(name: str) -> list[ComponentType]:
 
 def theme(name: str) -> list[ComponentType]:
     return [
+        pr.h2(f"Colours of {name}"),
+        pr.p(
+            f"`colors()` gives a series or slice of {_a(name)} a colour by its "
+            "label, so one category can keep the same colour from chart to chart "
+            "and on a `Calendar`. The rest keep their defaults. A colour is one "
+            "of the `hue.palette` presets (`accent`, `teal`, `orange`, `purple`, "
+            "`yellow` and `gray`), or a `Color` of your own with a value for "
+            "light mode and, optionally, one for dark mode. A label the chart "
+            "does not draw raises a `ValueError`."
+        ),
+        pr.code(
+            "from hue import palette\n\n"
+            'BRAND = palette.Color("#e11d48", dark="#fb7185")\n\n'
+            f'{name}().colors({{"Card": BRAND, "Invoice": palette.teal}})'
+        ),
         pr.h2(f"{name} in dark mode"),
         pr.p(
-            f"{_a(name, start=True)} paints with the `chart-1` to `chart-6` "
-            "tokens, read at the "
-            "moment it is drawn. A canvas holds colours, not the tokens they "
+            f"{_a(name, start=True)} paints with its colours as they resolve at "
+            "the moment it is drawn. A canvas holds colours, not the tokens they "
             "came from, so the chart watches `data-theme` on the `html` element "
             "and draws itself again, without animation, when the value "
             "changes. Animation is also off for anyone whose system asks for "
@@ -164,8 +178,8 @@ def series_data(name: str) -> list[ComponentType]:
             "one value per "
             "label. `labels()` names the points, `series()` gives the values the "
             "chart is about, drawn in the accent, and `compare()` adds a second "
-            "series to read the first against, drawn in the muted grey of "
-            "`chart-6`. Each series takes a `label`, which names it in the legend, "
+            "series to read the first against, drawn in the muted `gray`. Each "
+            "series takes a `label`, which names it in the legend, "
             "the tooltip and the table."
         ),
         pr.code(
@@ -204,9 +218,9 @@ def slice_data(name: str) -> list[ComponentType]:
         pr.h2(f"Giving {name} its data"),
         pr.p(
             f"`slices()` takes each part of {_a(name)} as a label and a value, in "
-            "the order they go round. Each slice gets its own colour from the "
-            "chart palette, and the legend below the chart names every slice "
-            "it draws with its swatch."
+            "the order they go round. Each slice gets its own colour, the next "
+            "palette preset unless `colors()` names one, and the legend below "
+            "the chart names every slice it draws with its swatch."
         ),
         pr.code(
             "(\n"
@@ -224,7 +238,7 @@ def slice_data(name: str) -> list[ComponentType]:
         ),
         pr.h3(f"More than six slices in {_a(name).replace('`', '')}"),
         pr.p(
-            "The chart palette has six colours. Past six slices, the five "
+            "The palette has six presets. Past six slices, the five "
             "largest are drawn in place and the rest are added up into one "
             "slice called `Other`. A slice you named `Other` joins that one rather "
             "than appearing twice. The table a screen reader is given still "
@@ -255,9 +269,10 @@ def point_data(name: str, shape: str) -> list[ComponentType]:
         pr.p(
             f"`series()` adds one set of {shape} points to {_a(name)}, with a "
             "label that names it in the tooltip and the table. Call it again "
-            "for another set, drawn in the next colour of the chart palette, "
-            "up to five. The sixth colour is the grey other charts mute a "
-            "comparison with, so it is not offered as a series."
+            "for another set, drawn in the next palette preset. The chart picks "
+            "colours for five series. The sixth preset is the grey other charts "
+            "mute a comparison with, so a sixth series and any after it need a "
+            "colour from `colors()`."
         ),
         pr.p(
             "`x_label()` and `y_label()` name the axes and are required. They are "
