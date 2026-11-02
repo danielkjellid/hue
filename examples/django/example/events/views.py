@@ -81,7 +81,6 @@ def delete_entry(request: HttpRequest, id: str) -> None:
 
 
 class EventsView(AppView):
-    wide = True
     router = Router[HttpRequest]()
 
     events = build_calendar_state(

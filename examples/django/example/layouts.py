@@ -16,16 +16,12 @@ from hue.ui import (
     SidebarSection,
     ToastRegion,
 )
-from hue.utils import classnames
 from hue_django.views import HueView
 
 from example.invoices.models import Invoice
 
 
 class AppView(HueView):
-    #: A page that wants the room a table does not, such as a calendar.
-    wide = False
-
     def layout(
         self, body: ComponentType, context: HueContext[HttpRequest]
     ) -> ComponentType:
@@ -59,9 +55,7 @@ class AppView(HueView):
                         )
                     )
                 ),
-                html.main()
-                .class_(classnames("example-page", {"example-page-wide": self.wide}))
-                .content(body),
+                html.main().class_("example-page").content(body),
                 # Once per page, and there before the first toast: a live
                 # region made together with its content is not read out.
                 ToastRegion(),
