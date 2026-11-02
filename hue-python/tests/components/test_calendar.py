@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+from htmy.renderer import default
 
 from hue.formats import Formats
 from hue.renderer import render_tree
@@ -606,6 +607,25 @@ class TestYear:
         quiet = select(html, "a[href='/cal/day/2026-10-15/']")[0]
         assert quiet["aria-label"] == "Thursday 15 October 2026"
         assert quiet.select_one("span[aria-hidden]") is None
+
+    @pytest.mark.asyncio
+    async def test_no_render_strings_the_whole_year_into_one_list(
+        self, context_args, monkeypatch
+    ):
+        # Freeing a list of some 4,500 nodes overflowed Pyodide's stack and
+        # took down the Cloudflare Worker; 3,000 was still fine there.
+        longest = 0
+        run = default._ComponentRenderer.run
+
+        async def measured(self):  # type: ignore[no-untyped-def]
+            nonlocal longest
+            out = await run(self)
+            longest = max(longest, sum(1 for _ in self._root.iter_nodes()))
+            return out
+
+        monkeypatch.setattr(default._ComponentRenderer, "run", measured)
+        await _html(_calendar(_FREEZE).view("year"), context_args)
+        assert 0 < longest < 1000
 
 
 class TestAgenda:

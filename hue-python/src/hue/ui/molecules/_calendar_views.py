@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Literal
 
-from htmy import Context, html
+from htmy import Context, SafeStr, html
+from htmy.renderer import Renderer
 
 from hue.formats import Formats
 from hue.types.core import Component, ComponentType
@@ -895,10 +896,28 @@ def year(draw: Draw) -> ComponentType:
     year = draw.cursor.year
     placed = place(draw.events, date(year, 1, 1), date(year, 12, 31), draw.formats)
     return html.div(
-        *(_mini(draw, date(year, month, 1), placed) for month in range(1, 13)),
+        *(_Apart(_mini(draw, date(year, month, 1), placed)) for month in range(1, 13)),
         class_="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-8 "
         "gap-y-6 p-4",
     )
+
+
+class _Apart:
+    """
+    A part rendered on its own and handed back as finished markup.
+
+    htmy's renderer strings a page into one linked list, a node per tag,
+    text and gap, and freeing that list recurses once per node. A year is
+    some 4,500 of them, past what Pyodide's stack holds, so it took down the
+    Cloudflare Worker that runs the docs' demos. A month at a time keeps
+    each list a few hundred long.
+    """
+
+    def __init__(self, part: ComponentType) -> None:
+        self._part = part
+
+    async def htmy(self, context: Context) -> Component:
+        return SafeStr(await Renderer().render(self._part, context))
 
 
 def _mini(draw: Draw, month: date, placed: dict[date, list[Placed]]) -> ComponentType:
