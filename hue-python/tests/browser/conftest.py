@@ -23,6 +23,7 @@ from hue import assets
 from hue.context import HueContextArgs
 from hue.pages import create_page_base
 from hue.renderer import render_tree
+from hue.theme import Theme
 from hue.types.core import ComponentType
 
 ORIGIN = "http://hue.test"
@@ -47,9 +48,17 @@ class _Request:
     """
 
 
-def render_page(*components: ComponentType, dir: str | None = None) -> str:
+def render_page(
+    *components: ComponentType, dir: str | None = None, styled: Theme | None = None
+) -> str:
+    page = _Page if styled is None else create_page_base(
+        css_url=assets.CSS_URL,
+        js_url=assets.JS_URL,
+        html_title_factory=lambda title: title,
+        theme=styled,
+    )
     coroutine = render_tree(
-        _Page(title="Test", body=html.main(*components, class_="p-8")),
+        page(title="Test", body=html.main(*components, class_="p-8")),
         context_args=HueContextArgs(request=_Request(), csrf_token="tok"),
     )
     # Playwright's sync API keeps an event loop running on this thread.
@@ -80,8 +89,8 @@ def show(browser: Browser) -> Iterator[Show]:
     """
     Open components on a fresh page and return it once Alpine has started.
 
-    width and height set the viewport, theme the colour scheme, dir the
-    page's direction, and platform what navigator.platform says, a Mac unless
+    width and height set the viewport, theme the colour scheme, styled a
+    hue Theme for the page, dir the page's direction, and platform what navigator.platform says, a Mac unless
     told otherwise. An uncaught error or console error on the page fails
     the test.
     """
@@ -93,6 +102,7 @@ def show(browser: Browser) -> Iterator[Show]:
         width: int = 1280,
         height: int = 800,
         theme: str = "light",
+        styled: Theme | None = None,
         dir: str | None = None,
         platform: str = "MacIntel",
     ) -> Page:
@@ -112,7 +122,7 @@ def show(browser: Browser) -> Iterator[Show]:
             "console",
             lambda msg: errors.append(msg.text) if msg.type == "error" else None,
         )
-        document = render_page(*components, dir=dir)
+        document = render_page(*components, dir=dir, styled=styled)
 
         def fulfil(route, request) -> None:  # type: ignore[no-untyped-def]
             path = request.url.removeprefix(ORIGIN).split("?")[0]

@@ -74,7 +74,9 @@ def _build() -> ComponentType:
         pr.p(
             "CSS variables and a `data-theme` attribute on the document drive "
             "colour and dark mode. Toggle the switch in the "
-            "top bar to see every component respond to the dark theme."
+            "top bar to see every component respond to the dark theme. ",
+            pr.link("Theming", "/theming/"),
+            " covers restyling those variables from Python with a `Theme`.",
         ),
     )
 

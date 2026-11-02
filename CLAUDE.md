@@ -165,8 +165,13 @@ A `LEGACY` block at the bottom of that file holds the pre-design-system names
 working. **Never reference those from new code** — the block shrinks as components migrate
 and is deleted with the last of them.
 
-To restyle Hue, redefine a `--hue-*` ramp step and everything built on it moves with it, in
-both themes; to change one role only, redefine that alias.
+Each tone (accent, success, warning, danger, info) reads its own ramp alias, `--hue-accent-*`
+and so on, which points at a raw ramp by default; dark-mode tints are `color-mix()` of the
+tone's 500 step rather than a literal, so a replaced ramp carries through. `hue.theme.Theme`
+restyles from Python (a `Ramp` per tone, plus single colour, font and radius tokens by name)
+and is passed through `create_page_base(theme=)`, `HUE_THEME` or `configure_hue(theme=)`.
+Its token names are `Literal`s that a test holds to the stylesheet, so a token added there
+gets added to `ColorToken` too.
 
 ## Docs (`hue-docs/src/hue_docs/`)
 

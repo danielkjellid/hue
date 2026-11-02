@@ -4,6 +4,7 @@ from htmy import Context
 from hue.assets import CSS_URL, JS_URL, versioned_url
 from hue.context import HueContext
 from hue.pages import BasePage
+from hue.theme import Theme
 from hue.types.core import Component
 
 from hue_fastapi.config import HueConfig, get_config
@@ -32,6 +33,10 @@ class Page(BasePage):
     @property
     def extra_css_urls(self) -> list[str]:  # type: ignore[override]
         return list(self._config.extra_css_urls)
+
+    @property
+    def theme(self) -> Theme | None:  # type: ignore[override]
+        return self._config.theme
 
     def html_title_factory(self) -> Callable[[str], str]:
         return self._config.html_title_factory

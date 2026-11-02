@@ -2,6 +2,7 @@ from collections.abc import Callable
 from functools import cached_property
 
 from hue.pages import BasePage
+from hue.theme import Theme
 
 from hue_django.conf import settings
 from hue_django.middleware import CSS_URL, JS_URL, versioned_url
@@ -27,6 +28,10 @@ class Page(BasePage):
     @cached_property
     def extra_css_urls(self) -> list[str]:
         return settings.HUE_EXTRA_CSS_URLS
+
+    @cached_property
+    def theme(self) -> Theme | None:
+        return settings.HUE_THEME
 
     def html_title_factory(self) -> Callable[[str], str]:
         return settings.HUE_HTML_TITLE_FACTORY

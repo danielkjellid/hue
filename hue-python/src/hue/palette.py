@@ -19,10 +19,20 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-# A colour is written into a style attribute and a chart's JSON, so it is held
-# to the characters a CSS colour is spelled with. A semicolon, colon, quote or
-# brace could otherwise add a declaration of its own.
+# A colour is written into a style attribute, a chart's JSON and a theme's
+# style element, so it is held to the characters a CSS colour is spelled
+# with. A semicolon, colon, quote or brace could otherwise add a declaration
+# of its own.
 _SPELLING = re.compile(r"[#\w\s(),.%/+-]+")
+
+
+def css_colour(value: str) -> str:
+    """
+    The value, once it is known to be spelled like a CSS colour.
+    """
+    if not _SPELLING.fullmatch(value):
+        raise ValueError(f"{value!r} is not a CSS colour.")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,8 +47,8 @@ class Color:
 
     def __post_init__(self) -> None:
         for value in (self.light, self.dark):
-            if value is not None and not _SPELLING.fullmatch(value):
-                raise ValueError(f"{value!r} is not a CSS colour.")
+            if value is not None:
+                css_colour(value)
 
     @property
     def css(self) -> str:
