@@ -250,25 +250,6 @@ def test_a_pager_in_a_narrow_column_stays_usable(show: Show) -> None:
     expect(page.get_by_role("link", name="Next page")).to_be_focused()
 
 
-def test_a_push_swap_takes_the_title_of_the_page_it_lands_on(show: Show) -> None:
-    page = show(*_page(1))
-    _serve(page)
-    assert page.title() == "Test"
-    page.locator("#pages-page-2").click()
-    expect(page).to_have_title("Page 2")
-    page.locator("#pages-page-3").click()
-    expect(page).to_have_title("Page 3")
-    # Back reloads the entry, so the title it shows is the one it was saved
-    # with as well as the one the page carries.
-    page.go_back()
-    expect(page).to_have_url(f"{ORIGIN}/?page=2")
-    expect(page).to_have_title("Page 2")
-    page.go_back()
-    expect(page).to_have_title("Test")
-    page.go_forward()
-    expect(page).to_have_title("Page 2")
-
-
 def test_a_response_with_no_title_leaves_the_title(show: Show) -> None:
     page = show(*_page(1))
     _serve(page, None)

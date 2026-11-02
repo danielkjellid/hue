@@ -24,7 +24,7 @@ from hue.ui import (
     Switch,
     TextInput,
 )
-from tests.browser.conftest import Show
+from tests.browser.conftest import TRAPPED, Show
 
 HOME = "http://hue.test/"
 
@@ -287,6 +287,7 @@ def test_an_overlay_from_a_linked_card_covers_the_viewport(show: Show) -> None:
     expect(panel).to_be_visible()
     # The scrim is the dialog's parent, fixed over the whole viewport.
     _covers_viewport(panel.locator("xpath=.."))
+    page.wait_for_function(TRAPPED)
     page.keyboard.press("Escape")
     expect(panel).to_be_hidden()
 
