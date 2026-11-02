@@ -17,6 +17,7 @@ from pydantic.json_schema import (
 
 from hue.context import HueContext, HueContextArgs
 from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
+from hue.pages import BasePage
 from hue.renderer import render_tree
 from hue.scope import request_scope
 from hue.shortcuts import ShortcutHost, ShortcutRegistry, shortcuts
@@ -373,16 +374,9 @@ class Router[T_Request]:
         wanted = set(values)
         return [row for row in rows if str(resolve_value(row, key)) in wanted]
 
-    async def _call_view_func(
-        self,
-        view_func: ViewFunc,
-        view_instance: object,
-        request: T_Request,
-        context: HueContext[T_Request],
-        **kwargs: Any,
-    ) -> Any:
+    async def _call(self, func: Callable[..., Any], /, *args: Any) -> Any:
         """
-        Call the handler and return its result.
+        Call a handler or a layout and return its result.
 
         A coroutine function is awaited on the loop. Anything else goes
         through _run_sync, which is where an integration keeps blocking work
@@ -390,14 +384,31 @@ class Router[T_Request]:
         behind a plain sync decorator looks sync until it is called, so a
         result that turns out to be awaitable is awaited as well.
         """
-        if inspect.iscoroutinefunction(view_func):
-            return await view_func(view_instance, request, context, **kwargs)
-        result = await self._run_sync(
-            partial(view_func, view_instance, request, context, **kwargs)
-        )
+        if inspect.iscoroutinefunction(func):
+            return await func(*args)
+        result = await self._run_sync(func, *args)
         if inspect.isawaitable(result):
             result = await result
         return result
+
+    async def _lay_out(
+        self, view_instance: object, body: ComponentType, context: HueContext[Any]
+    ) -> ComponentType:
+        """
+        Draw a page's body inside the layout of every class its view inherits
+        from, the view's own class innermost and the base outermost.
+
+        Each class's layout wraps only its own layer, read from that class
+        rather than inherited, so a subclass nests inside its parent's shell
+        without calling super(). The router runs every layer, which lets a
+        sync layer and an async one share a page.
+        """
+        for cls in type(view_instance).__mro__:
+            if (layout := cls.__dict__.get("layout")) is not None:
+                body = await self._call(
+                    layout.__get__(view_instance, cls), body, context
+                )
+        return body
 
     async def _run_sync[R](self, func: Callable[..., R], /, *args: Any) -> R:
         """
@@ -485,9 +496,13 @@ class Router[T_Request]:
             # on live the same length, for the same reason.
             with request_scope() as owns_queue:
                 context = HueContext(**self._get_context_args(request))
-                result = await self._call_view_func(
-                    view_func, view_instance, request, context, **kwargs
+                result = await self._call(
+                    partial(view_func, view_instance, request, context, **kwargs)
                 )
+                if isinstance(result, BasePage):
+                    result.body = await self._lay_out(
+                        view_instance, result.body, context
+                    )
 
                 if isinstance(result, HueResponse):
                     status_code = result.status_code

@@ -7,7 +7,9 @@ from htmy import html
 from pydantic import BaseModel, ConfigDict, Field, Json, TypeAdapter
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
+from hue.context import HueContext
 from hue.exceptions import AJAXRequiredError, BodyValidationError, DuplicateRouteError
+from hue.pages import create_page_base
 from hue.router import (
     HueResponse,
     RawResponse,
@@ -15,7 +17,8 @@ from hue.router import (
     _sequence_fields,
     check_unique_routes,
 )
-from hue.types.core import Component
+from hue.types.core import Component, ComponentType
+from tests._a11y import assert_selector
 from tests.conftest import MockRequest, MockRouter
 
 AJAX = {"X-Requested-With": "XMLHttpRequest"}
@@ -426,3 +429,53 @@ def test_two_routes_on_one_path_and_method_are_refused():
 
 def test_one_path_takes_one_route_per_method():
     check_unique_routes([_route("GET", "x/", "show"), _route("POST", "x/", "save")])
+
+
+Page = create_page_base(css_url="/c.css", js_url="/j.js", html_title_factory=str)
+
+
+class AppView:
+    section = "Home"
+
+    async def layout(
+        self, body: ComponentType, context: HueContext[MockRequest]
+    ) -> Component:
+        return html.div(body, id="app", data_section=self.section)
+
+
+class AdminView(AppView):
+    def layout(
+        self, body: ComponentType, context: HueContext[MockRequest]
+    ) -> Component:
+        return html.main(body, id="admin")
+
+
+class SettingsView(AdminView):
+    section = "Settings"
+
+    async def index(self, request, context) -> Page:
+        return Page(title="T", body=html.p("Page body"))
+
+
+@pytest.mark.asyncio
+async def test_a_page_nests_in_every_layout_its_view_inherits(
+    router: MockRouter, mock_request: type[MockRequest]
+):
+    ran: list[object] = []
+    original = router._run_sync
+
+    async def spy(func, /, *args):
+        ran.append(func)
+        return await original(func, *args)
+
+    router._run_sync = spy  # type: ignore[method-assign]
+
+    wrapped = router._wrap_view(SettingsView.index, require_ajax=False)
+    html_result, _ = await wrapped(SettingsView(), mock_request())
+    # The base outermost, each layer from its own class, none of them
+    # calling super(). The base reads what the subclass set.
+    app = 'body > div#app[data-section="Settings"]'
+    assert_selector(html_result, f"{app} > main#admin > p")
+    # The sync layer runs off the loop, as a sync handler does, because a
+    # layout reading the signed-in user is reading the database.
+    assert [getattr(func, "__func__", None) for func in ran] == [AdminView.layout]
