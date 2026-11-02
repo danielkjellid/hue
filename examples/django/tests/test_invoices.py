@@ -117,9 +117,10 @@ def test_an_action_the_table_does_not_have_is_not_found(invoices):
 def test_the_rows_are_counted_and_sliced_in_the_database(
     invoices, django_assert_num_queries
 ):
-    # One count and one page. A table that walked the queryset to find out
-    # how long it is would make one query and read every row.
-    with django_assert_num_queries(2):
+    # One count and one page, and the layout's own count of pending
+    # invoices. A table that walked the queryset to find out how long it is
+    # would make one query and read every row.
+    with django_assert_num_queries(3):
         _read()
 
 

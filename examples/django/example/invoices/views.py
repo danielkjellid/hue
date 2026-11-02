@@ -12,17 +12,17 @@ from typing import Any
 
 from django.db.models import QuerySet
 from django.http import HttpRequest
-from hue import html, toast
+from hue import toast
 from hue.context import HueContext
 from hue.datatable import BulkAction, Filter, TableState, build_datatable_state
 from hue.types.core import ComponentType
-from hue.ui import Badge, Column, DataTable, Dialog, Stack, Text, ToastRegion
+from hue.ui import Badge, Column, DataTable, Dialog, Stack, Text
 from hue.ui.atoms.icon import HueIcon
 from hue_django.pages import Page
 from hue_django.router import Router
-from hue_django.views import HueView
 
 from example.invoices.models import Invoice
+from example.layouts import AppView
 
 _TONES = {
     Invoice.Status.PAID: "success",
@@ -72,7 +72,7 @@ def _status(row: Mapping[str, Any]) -> ComponentType:
     return Badge().variant(_TONES[status]).dot().content(status.label)  # type: ignore[arg-type]
 
 
-class InvoicesView(HueView):
+class InvoicesView(AppView):
     router = Router[HttpRequest]()
 
     invoices = build_datatable_state(
@@ -118,18 +118,11 @@ class InvoicesView(HueView):
     ) -> Page:
         return Page(
             title="Invoices",
-            body=html.main()
-            .class_("example-page")
+            body=Stack()
+            .spacing("lg")
+            .align_items("items-stretch")
             .content(
-                Stack()
-                .spacing("lg")
-                .align_items("items-stretch")
-                .content(
-                    Text("Invoices").variant("title-2").tag("h1"),
-                    DataTable.from_state(self.invoices),
-                ),
-                # Once per page, and there before the first toast: a live
-                # region made together with its content is not read out.
-                ToastRegion(),
+                Text("Invoices").variant("title-2").tag("h1"),
+                DataTable.from_state(self.invoices),
             ),
         )

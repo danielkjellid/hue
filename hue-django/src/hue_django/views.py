@@ -22,6 +22,7 @@ from hue.exceptions import (
 )
 from hue.pages import BasePage
 from hue.router import PAGE_ROUTE, RawResponse, Route, check_unique_routes
+from hue.types.core import ComponentType
 
 from hue_django.router import Router
 
@@ -144,6 +145,11 @@ class HueView(_BaseView):
     index (sync or async) handles the initial GET and returns a Page. Fragment
     routes are added with the router and are AJAX-only.
 
+    layout (sync or async, optional) draws the app shell around the page's
+    body. Each class's layout wraps the one its subclasses define, so a
+    subclass nests inside its parent's shell on its own: do not call
+    super().layout(), or the parent's shell is drawn twice.
+
         class LoginView(HueView):
             router = Router[HttpRequest]()
 
@@ -167,6 +173,10 @@ class HueView(_BaseView):
         def index(
             self, request: HttpRequest, context: HueContext[HttpRequest]
         ) -> BasePage | Awaitable[BasePage]: ...
+
+        def layout(
+            self, body: ComponentType, context: HueContext[HttpRequest]
+        ) -> ComponentType | Awaitable[ComponentType]: ...
 
     @classmethod
     def _build_urls(cls) -> UrlPatterns:
