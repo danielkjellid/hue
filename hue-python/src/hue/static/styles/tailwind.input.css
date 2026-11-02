@@ -125,59 +125,6 @@
   --hue-white-700: rgb(255 255 255 / 0.8);
   --hue-white-800: rgb(255 255 255 / 0.9);
   --hue-white-900: #FFFFFF;
-
-  /* Each tone's ramp, which its tokens are built on. A Theme replaces one
-     to recolour that tone in both modes without touching the others. */
-  --hue-accent-50: var(--hue-blue-50);
-  --hue-accent-100: var(--hue-blue-100);
-  --hue-accent-200: var(--hue-blue-200);
-  --hue-accent-300: var(--hue-blue-300);
-  --hue-accent-400: var(--hue-blue-400);
-  --hue-accent-500: var(--hue-blue-500);
-  --hue-accent-600: var(--hue-blue-600);
-  --hue-accent-700: var(--hue-blue-700);
-  --hue-accent-800: var(--hue-blue-800);
-  --hue-accent-900: var(--hue-blue-900);
-  --hue-info-50: var(--hue-blue-50);
-  --hue-info-100: var(--hue-blue-100);
-  --hue-info-200: var(--hue-blue-200);
-  --hue-info-300: var(--hue-blue-300);
-  --hue-info-400: var(--hue-blue-400);
-  --hue-info-500: var(--hue-blue-500);
-  --hue-info-600: var(--hue-blue-600);
-  --hue-info-700: var(--hue-blue-700);
-  --hue-info-800: var(--hue-blue-800);
-  --hue-info-900: var(--hue-blue-900);
-  --hue-success-50: var(--hue-green-50);
-  --hue-success-100: var(--hue-green-100);
-  --hue-success-200: var(--hue-green-200);
-  --hue-success-300: var(--hue-green-300);
-  --hue-success-400: var(--hue-green-400);
-  --hue-success-500: var(--hue-green-500);
-  --hue-success-600: var(--hue-green-600);
-  --hue-success-700: var(--hue-green-700);
-  --hue-success-800: var(--hue-green-800);
-  --hue-success-900: var(--hue-green-900);
-  --hue-warning-50: var(--hue-yellow-50);
-  --hue-warning-100: var(--hue-yellow-100);
-  --hue-warning-200: var(--hue-yellow-200);
-  --hue-warning-300: var(--hue-yellow-300);
-  --hue-warning-400: var(--hue-yellow-400);
-  --hue-warning-500: var(--hue-yellow-500);
-  --hue-warning-600: var(--hue-yellow-600);
-  --hue-warning-700: var(--hue-yellow-700);
-  --hue-warning-800: var(--hue-yellow-800);
-  --hue-warning-900: var(--hue-yellow-900);
-  --hue-danger-50: var(--hue-red-50);
-  --hue-danger-100: var(--hue-red-100);
-  --hue-danger-200: var(--hue-red-200);
-  --hue-danger-300: var(--hue-red-300);
-  --hue-danger-400: var(--hue-red-400);
-  --hue-danger-500: var(--hue-red-500);
-  --hue-danger-600: var(--hue-red-600);
-  --hue-danger-700: var(--hue-red-700);
-  --hue-danger-800: var(--hue-red-800);
-  --hue-danger-900: var(--hue-red-900);
 }
 
 /* Three low-opacity layers read as one cohesive lift and give the shadow a
@@ -240,46 +187,46 @@
      decorative only in light mode: gradient fills under a line that already
      encodes the data, nothing that carries meaning on its own. */
 
-  --color-accent: var(--hue-accent-700);
-  --color-accent-hover: var(--hue-accent-800);
-  --color-accent-active: var(--hue-accent-900);
+  --color-accent: var(--hue-blue-700);
+  --color-accent-hover: var(--hue-blue-800);
+  --color-accent-active: var(--hue-blue-900);
   --color-accent-fg: #FFFFFF;
-  --color-accent-subtle: var(--hue-accent-50);
-  --color-accent-subtle-hover: var(--hue-accent-100);
-  --color-accent-border: var(--hue-accent-200);
-  --color-accent-text: var(--hue-accent-700);
-  --color-accent-vivid: var(--hue-accent-500);
+  --color-accent-subtle: var(--hue-blue-50);
+  --color-accent-subtle-hover: var(--hue-blue-100);
+  --color-accent-border: var(--hue-blue-200);
+  --color-accent-text: var(--hue-blue-700);
+  --color-accent-vivid: var(--hue-blue-500);
 
   /* --------------------------------------------------------------- status */
   /* -text is the tone used as text and clears 4.5:1 on its own -subtle
      background; -fg is what goes on top of the solid fill. Only danger ships a
      -fg, because it is the only status tone this system fills with. */
 
-  --color-success: var(--hue-success-700);
-  --color-success-text: var(--hue-success-800);
-  --color-success-subtle: var(--hue-success-50);
-  --color-success-border: var(--hue-success-200);
-  --color-success-vivid: var(--hue-success-500);
+  --color-success: var(--hue-green-700);
+  --color-success-text: var(--hue-green-800);
+  --color-success-subtle: var(--hue-green-50);
+  --color-success-border: var(--hue-green-200);
+  --color-success-vivid: var(--hue-green-500);
 
-  --color-warning: var(--hue-warning-700);
-  --color-warning-text: var(--hue-warning-900);
-  --color-warning-subtle: var(--hue-warning-50);
-  --color-warning-border: var(--hue-warning-200);
-  --color-warning-vivid: var(--hue-warning-500);
+  --color-warning: var(--hue-yellow-700);
+  --color-warning-text: var(--hue-yellow-900);
+  --color-warning-subtle: var(--hue-yellow-50);
+  --color-warning-border: var(--hue-yellow-200);
+  --color-warning-vivid: var(--hue-yellow-500);
 
-  --color-danger: var(--hue-danger-700);
-  --color-danger-hover: var(--hue-danger-800);
+  --color-danger: var(--hue-red-700);
+  --color-danger-hover: var(--hue-red-800);
   --color-danger-fg: #FFFFFF;
-  --color-danger-text: var(--hue-danger-800);
-  --color-danger-subtle: var(--hue-danger-50);
-  --color-danger-border: var(--hue-danger-200);
-  --color-danger-vivid: var(--hue-danger-500);
+  --color-danger-text: var(--hue-red-800);
+  --color-danger-subtle: var(--hue-red-50);
+  --color-danger-border: var(--hue-red-200);
+  --color-danger-vivid: var(--hue-red-500);
 
-  --color-info: var(--hue-info-700);
-  --color-info-text: var(--hue-info-800);
-  --color-info-subtle: var(--hue-info-50);
-  --color-info-border: var(--hue-info-200);
-  --color-info-vivid: var(--hue-info-500);
+  --color-info: var(--hue-blue-700);
+  --color-info-text: var(--hue-blue-800);
+  --color-info-subtle: var(--hue-blue-50);
+  --color-info-border: var(--hue-blue-200);
+  --color-info-vivid: var(--hue-blue-500);
 
   /* ----------------------------------------------------------- categories */
   /* For categories a reader has to tell apart: a chart's series and slices,
@@ -528,43 +475,43 @@
   --color-border-input: #3F3F50;
   --color-border-hover: #55556D;
 
-  --color-accent: var(--hue-accent-500);
-  --color-accent-hover: var(--hue-accent-400);
-  --color-accent-active: var(--hue-accent-300);
+  --color-accent: var(--hue-blue-500);
+  --color-accent-hover: var(--hue-blue-400);
+  --color-accent-active: var(--hue-blue-300);
   --color-accent-fg: #06141C;
-  --color-accent-subtle: color-mix(in srgb, var(--hue-accent-500) 14%, transparent);
-  --color-accent-subtle-hover: color-mix(in srgb, var(--hue-accent-500) 22%, transparent);
-  --color-accent-border: color-mix(in srgb, var(--hue-accent-500) 38%, transparent);
-  --color-accent-text: var(--hue-accent-400);
-  --color-accent-vivid: var(--hue-accent-500);
+  --color-accent-subtle: rgb(0 172 255 / 0.14);
+  --color-accent-subtle-hover: rgb(0 172 255 / 0.22);
+  --color-accent-border: rgb(0 172 255 / 0.38);
+  --color-accent-text: var(--hue-blue-400);
+  --color-accent-vivid: var(--hue-blue-500);
 
-  --color-success: var(--hue-success-400);
-  --color-success-text: var(--hue-success-300);
-  --color-success-subtle: color-mix(in srgb, var(--hue-success-500) 13%, transparent);
-  --color-success-border: color-mix(in srgb, var(--hue-success-500) 34%, transparent);
-  --color-success-vivid: var(--hue-success-400);
+  --color-success: var(--hue-green-400);
+  --color-success-text: var(--hue-green-300);
+  --color-success-subtle: rgb(45 202 114 / 0.13);
+  --color-success-border: rgb(45 202 114 / 0.34);
+  --color-success-vivid: var(--hue-green-400);
 
-  --color-warning: var(--hue-warning-400);
-  --color-warning-text: var(--hue-warning-300);
-  --color-warning-subtle: color-mix(in srgb, var(--hue-warning-500) 13%, transparent);
-  --color-warning-border: color-mix(in srgb, var(--hue-warning-500) 34%, transparent);
-  --color-warning-vivid: var(--hue-warning-400);
+  --color-warning: var(--hue-yellow-400);
+  --color-warning-text: var(--hue-yellow-300);
+  --color-warning-subtle: rgb(255 194 51 / 0.13);
+  --color-warning-border: rgb(255 194 51 / 0.34);
+  --color-warning-vivid: var(--hue-yellow-400);
 
-  --color-danger: var(--hue-danger-400);
-  --color-danger-hover: var(--hue-danger-300);
+  --color-danger: var(--hue-red-400);
+  --color-danger-hover: var(--hue-red-300);
   /* red-400 is light enough that white on it is 2.9:1. On a dark canvas the
      danger fill takes near-black text, the same inversion as the accent. */
   --color-danger-fg: #1A0208;
-  --color-danger-text: var(--hue-danger-300);
-  --color-danger-subtle: color-mix(in srgb, var(--hue-danger-500) 14%, transparent);
-  --color-danger-border: color-mix(in srgb, var(--hue-danger-500) 36%, transparent);
-  --color-danger-vivid: var(--hue-danger-400);
+  --color-danger-text: var(--hue-red-300);
+  --color-danger-subtle: rgb(245 61 107 / 0.14);
+  --color-danger-border: rgb(245 61 107 / 0.36);
+  --color-danger-vivid: var(--hue-red-400);
 
-  --color-info: var(--hue-info-400);
-  --color-info-text: var(--hue-info-300);
-  --color-info-subtle: color-mix(in srgb, var(--hue-info-500) 13%, transparent);
-  --color-info-border: color-mix(in srgb, var(--hue-info-500) 34%, transparent);
-  --color-info-vivid: var(--hue-info-400);
+  --color-info: var(--hue-blue-400);
+  --color-info-text: var(--hue-blue-300);
+  --color-info-subtle: rgb(0 172 255 / 0.13);
+  --color-info-border: rgb(0 172 255 / 0.34);
+  --color-info-vivid: var(--hue-blue-400);
 
   --color-category-teal: var(--hue-teal-300);
   --color-category-orange: var(--hue-orange-400);

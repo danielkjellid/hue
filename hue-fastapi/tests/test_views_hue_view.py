@@ -2,7 +2,7 @@ import pytest
 from fastapi import Depends
 from hue import html
 from hue.context import HueContext
-from hue.theme import Theme
+from hue.theme import Fonts, Theme
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -284,7 +284,7 @@ async def test_page_reads_configuration_at_render_time(client_for):
         css_url="/static/app.css",
         extra_css_urls=["/extra.css"],
         html_title_factory=lambda title: f"{title} | Test",
-        theme=Theme(fonts={"ui": "Geist"}),
+        theme=Theme(fonts=Fonts(ui="Geist")),
     )
     async with client_for(app) as client:
         response = await client.get("/myview/")

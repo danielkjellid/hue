@@ -2,28 +2,24 @@ import pytest
 from htmy import html
 
 from hue.palette import Color
-from hue.theme import Ramp, Theme
+from hue.theme import Accent, Danger, Surfaces, Theme
 
-_VIOLET = Ramp(
-    [
-        "#F5F3FF",
-        "#EDE9FE",
-        "#DDD6FE",
-        "#C4B5FD",
-        "#A78BFA",
-        "#8B5CF6",
-        "#7C3AED",
-        "#6D28D9",
-        "#5B21B6",
-        "#4C1D95",
-    ]
-)
+_VIOLET = [
+    "#F5F3FF",
+    "#EDE9FE",
+    "#DDD6FE",
+    "#C4B5FD",
+    "#A78BFA",
+    "#8B5CF6",
+    "#7C3AED",
+    "#6D28D9",
+    "#5B21B6",
+    "#4C1D95",
+]
 _THEME = Theme(
-    accent=_VIOLET,
-    colors={
-        "surface": Color("#FAFAFA", dark="#101010"),
-        "danger": Color("#FF0000"),
-    },
+    accent=Accent.from_scale(_VIOLET),
+    surfaces=Surfaces(base=Color("#FAFAFA", dark="#101010")),
+    danger=Danger(fill=Color("#FF0000")),
 )
 _TOKENS = ("accent", "accent-subtle", "surface", "danger", "success")
 
@@ -46,8 +42,7 @@ _TOKENS = ("accent", "accent-subtle", "surface", "danger", "success")
             "dark",
             [
                 "rgb(139, 92, 246)",
-                # The dark tint is the ramp's 500 at 14%, so it follows the
-                # ramp. Chrome writes a mixed colour in this form.
+                # The scale's 500 at 14%, which Chrome writes in this form.
                 "color(srgb 0.545098 0.360784 0.964706 / 0.14)",
                 "rgb(16, 16, 16)",
                 # One value holds in both modes.
