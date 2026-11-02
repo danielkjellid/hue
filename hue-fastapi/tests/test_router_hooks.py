@@ -3,6 +3,7 @@ The request hooks hue's core reads through, which a table, a filter and a
 toast all depend on beyond what a single fragment exercises.
 """
 
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import File, HTTPException, UploadFile
@@ -82,9 +83,9 @@ async def test_url_for_follows_the_mount_the_request_came_through(client_for):
     assert "/b/ /b/links/2/" in b.text
 
 
-def test_starlette_errors_pass_through():
-    assert Router()._passes_through(HTTPException(status_code=404))
-    assert not Router()._passes_through(ValueError())
+def test_starlette_errors_keep_their_status():
+    assert Router()._refusal(HTTPException(status_code=404)) == HTTPStatus.NOT_FOUND
+    assert Router()._refusal(ValueError()) is None
 
 
 class Shortcuts(ShortcutRegistry):

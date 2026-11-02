@@ -113,6 +113,16 @@ def test_a_demo_route_answers(client: TestClient) -> None:
     assert "Invoice sent" in response.text
 
 
+def test_the_declared_calendar_demo_opens_its_dialog(client: TestClient) -> None:
+    # Two views share /demos/calendar/, and the other's {view}/{day}/ page
+    # route used to answer this post with a 405.
+    response = client.post(
+        "/demos/calendar/schedule/dialog/", headers={"X-Alpine-Request": "true"}
+    )
+    assert response.status_code == 200
+    assert "New event" in response.text
+
+
 @pytest.mark.parametrize(
     "number,shown", [("abc", 1), ("0", 1), ("2", 2), ("99", 4), ("²", 1)]
 )

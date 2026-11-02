@@ -31,6 +31,11 @@ FOCUS_RING_INSET = (
 )
 
 
+#: The small uppercase heading at the top of a panel or over a column of
+#: days, which a filter's legend and a calendar's sidebar section are too.
+PANEL_LABEL = "font-ui text-2xs font-bold uppercase tracking-[0.05em] text-fg-muted"
+
+
 type ControlSize = Literal["sm", "md", "lg"]
 
 #: The heights of the box-shaped controls - inputs, native selects, the
