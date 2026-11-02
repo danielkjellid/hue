@@ -693,6 +693,9 @@ def _hours(draw: Draw) -> ComponentType:
         ),
         aria_hidden="true",
         class_="relative",
+        # The columns' midnight line, so the border under All day reads as
+        # one double line across the gutter too.
+        style="background: linear-gradient(var(--color-border) 1px, transparent 1px)",
     )
 
 
