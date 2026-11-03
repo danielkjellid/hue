@@ -11,9 +11,17 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 from typing import Any, Protocol
 from urllib.parse import urlencode
@@ -21,11 +29,18 @@ from urllib.parse import urlencode
 from htmy import Context, html
 
 from hue import toast
+from hue.js import call, unsafe
 from hue.router import PAGE_ROUTE, HueResponse
 from hue.types.core import ComponentType
+from hue.ui._styles import PANEL_LABEL
+from hue.ui.atoms.button import Button
+from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.atoms.input import TextInput
-from hue.utils import render_if
+from hue.ui.atoms.input import NumberInput, TextInput
+from hue.ui.atoms.radio import Radio
+from hue.ui.molecules.popover import Popover
+from hue.ui.navigation import swap
+from hue.utils import classnames, render_if
 
 type Pairs = tuple[tuple[str, str], ...]
 
@@ -288,6 +303,381 @@ class Declaration[R: Routes]:
             toast.danger(f"{label} failed", description=description)
             return refused or HTTPStatus.INTERNAL_SERVER_ERROR, None
         return HTTPStatus.OK, made
+
+
+# ----------------------------------------------------------------------
+# Filters, which a table and a calendar declare the same way
+# ----------------------------------------------------------------------
+
+# The count on the Filter button: how many answers are on, beside the
+# word rather than instead of it, so the button still says what it opens.
+_FILTER_COUNT = (
+    "ms-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full "
+    "bg-accent px-1 font-ui text-2xs font-bold tabular-nums text-accent-fg"
+)
+
+# The groups are ruled off from each other by a wrapper around each
+# fieldset rather than by the fieldset itself: a fieldset draws its top
+# border through the middle of its legend and puts its padding under it.
+_GROUPS = "flex flex-col divide-y divide-border"
+_GROUP = "py-4 first:pt-0 last:pb-0"
+_OPTIONS = "flex flex-col gap-3"
+
+# The applied row: a whole line of the band, which basis-full takes, and
+# the last of them whatever order the controls were written in -
+# otherwise a full-width row in the middle of them splits the group.
+_APPLIED_ROW = (
+    "order-last flex basis-full flex-wrap items-center gap-2 "
+    "border-t border-border pt-2"
+)
+_LEGEND = classnames("mb-2 block w-full p-0", PANEL_LABEL)
+_CHIP = (
+    "inline-flex items-center gap-1.5 rounded-sm border border-border "
+    "bg-canvas-subtle py-0.5 ps-2 pe-1.5 text-sm text-fg "
+    "hover:border-border-hover hover:bg-surface-hover"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Filter:
+    """
+    One way of narrowing a table or a calendar, and the name it goes by in
+    the URL.
+
+    With options it is a list to tick, and multiple says whether more than
+    one can be on at once. Without options it is a field to type a value
+    into, and numeric makes that a number field. Either way the answers
+    arrive in the state rows() or events() is handed, and the table or the
+    calendar draws the panel, the count on the trigger and the chips that
+    undo it. An option's value cannot hold a comma, which is what the URL
+    puts between answers.
+
+        Filter("status", "Status", options=[("paid", "Paid")])
+        Filter("min", "Minimum amount", numeric=True, prefix="USD")
+    """
+
+    name: str
+    label: str
+    options: Sequence[tuple[str, str]] = ()
+    multiple: bool = True
+    numeric: bool = False
+    prefix: str | None = None
+    placeholder: str | None = None
+
+    def __post_init__(self) -> None:
+        for option, _ in self.options:
+            if "," in option:
+                raise ValueError(
+                    f"The {self.name!r} filter has an option of {option!r}. The "
+                    "URL joins a filter's answers with a comma, so it would come "
+                    "back as two answers and never be ticked. Give it a value "
+                    "without a comma; the label can say anything."
+                )
+
+    def accepts(self, value: str) -> bool:
+        """
+        Whether this filter can be given an answer: one of its options when
+        it has them, a finite number when it is numeric, and anything else
+        otherwise. Anyone can type into a query string, and rows() should
+        not have to guard against it. NaN and infinity parse as decimals, and
+        are no amount anything is at least.
+        """
+        if self.options:
+            return any(value == option for option, _ in self.options)
+        if self.numeric:
+            try:
+                return Decimal(value).is_finite()
+            except InvalidOperation:
+                return False
+        return True
+
+
+class Narrowed:
+    """
+    The part of a state that holds what each filter was told, read with
+    chosen() for a filter that can hold several answers and value() for one
+    that holds a single answer, so rows() or events() never has to know how
+    the query string spells them.
+    """
+
+    __slots__ = ()
+
+    filters: Mapping[str, tuple[str, ...]]
+
+    def chosen(self, name: str) -> tuple[str, ...]:
+        """
+        Everything picked in one filter, empty when nothing was.
+        """
+        return self.filters.get(name, ())
+
+    def value(self, name: str) -> str | None:
+        """
+        The one answer a single-value filter holds, or None.
+        """
+        picked = self.chosen(name)
+        return picked[0] if picked else None
+
+
+def filters_in(
+    filters: Iterable[Filter], asked: Mapping[str, list[str]]
+) -> dict[str, tuple[str, ...]]:
+    """
+    What each filter was told.
+
+    Each answer the filter does not accept is dropped. A typed answer is
+    read whole, commas and all, because only a list is spelled with commas
+    between its answers.
+    """
+    found: dict[str, tuple[str, ...]] = {}
+    for declared in filters:
+        read = (
+            many(asked, declared.name)
+            if declared.options
+            else (one(asked, declared.name),)
+        )
+        values = tuple(v for v in read if v and declared.accepts(v))
+        if values:
+            found[declared.name] = values if declared.multiple else values[:1]
+    return found
+
+
+def filters_id(key: str) -> str:
+    """
+    The id of the filters' form, which the fields it carries name, and the
+    start of its trigger's.
+    """
+    return f"{key}-filters"
+
+
+def filter_form(
+    bound: Bound,
+    filters: Sequence[Filter],
+    picked: Mapping[str, tuple[str, ...]],
+    *,
+    target: str,
+) -> ComponentType:
+    """
+    The other ways of narrowing: a panel of filters behind one button, and
+    a chip for each one that is on.
+
+    The panel is a GET form that submits itself as soon as anything in it
+    changes. There is no Apply button, since the chips already show what is
+    on and can undo it.
+    """
+    return html.div(
+        html.form(
+            _filter_panel(bound, filters, picked),
+            id=filters_id(bound.key),
+            method="get",
+            action=bound.urls.read,
+            # No box of its own: the controls belong to the band around
+            # them, and this is only here to be submitted.
+            class_="contents",
+            **{
+                "x-ref": "form",
+                **swap(target),
+                "@change": "apply()",
+                # An empty field is not an answer, and a URL people are
+                # meant to send each other should not carry one.
+                "@submit": "dropEmpty()",
+            },
+        ),
+        _applied_chips(),
+        class_="contents",
+        # The table's script, which reads only the controls in this form.
+        **{"x-data": call("hueTableFilters", bound.key)},
+    )
+
+
+def _filter_panel(
+    bound: Bound, declared: Sequence[Filter], picked: Mapping[str, tuple[str, ...]]
+) -> ComponentType:
+    """
+    One popover holding every filter, each in a legended group.
+    """
+    return (
+        Popover()
+        .label("Filter")
+        .placement("bottom-end")
+        .trigger(
+            Button()
+            .variant("outline")
+            .size("sm")
+            .id(f"{filters_id(bound.key)}-trigger")
+            .content(
+                HueIcon("list-filter"),
+                "Filter",
+                html.span(
+                    class_=_FILTER_COUNT,
+                    **{
+                        "x-show": "applied.length",
+                        "x-text": "applied.length",
+                        "x-cloak": True,
+                    },
+                ),
+            )
+        )
+        .content(
+            html.div(
+                html.div(
+                    html.span("Filter", class_=PANEL_LABEL),
+                    Button()
+                    .variant("link")
+                    .size("xs")
+                    .content("Clear")
+                    .x_on("click", unsafe("clear()")),
+                    class_="mb-3 flex items-center justify-between gap-3",
+                ),
+                html.div(
+                    *(
+                        _filter_group(bound, one, picked.get(one.name, ()))
+                        for one in declared
+                    ),
+                    class_=_GROUPS,
+                ),
+            )
+        )
+    )
+
+
+def _filter_group(
+    bound: Bound, declared: Filter, picked: tuple[str, ...]
+) -> ComponentType:
+    """
+    One filter as a fieldset with a legend. A set of options that answer
+    one question is a group, and the legend is how a screen reader hears the
+    question before the answers.
+    """
+    if not declared.options:
+        answers: ComponentType = _filter_field(bound, declared, picked)
+    elif declared.multiple:
+        answers = html.div(*_filter_options(bound, declared, picked), class_=_OPTIONS)
+    else:
+        answers = html.div(*_filter_choice(bound, declared, picked), class_=_OPTIONS)
+    return html.div(
+        html.fieldset(html.legend(declared.label, class_=_LEGEND), answers),
+        class_=_GROUP,
+    )
+
+
+def _filter_options(
+    bound: Bound, declared: Filter, picked: tuple[str, ...]
+) -> list[ComponentType]:
+    """
+    A box to tick for every option a filter offers.
+    """
+    return [
+        Checkbox()
+        .name(bound.declaration.param(declared.name))
+        .value(option)
+        .label(label)
+        .checked(option in picked)
+        # Every box in the group submits the same name, so the id
+        # cannot come from it: the label beside each one has to point
+        # at that one and not at the first of them. Nor from the value,
+        # which can hold a space or match another option once hyphenated.
+        .id(f"{bound.key}-filter-{declared.name}-{index}")
+        .data("filter", declared.name)
+        .data("filter-label", declared.label)
+        .data("option", label)
+        for index, (option, label) in enumerate(declared.options)
+    ]
+
+
+def _filter_choice(
+    bound: Bound, declared: Filter, picked: tuple[str, ...]
+) -> list[ComponentType]:
+    """
+    A radio for every option, for a filter that takes one answer.
+
+    The server keeps only the first answer, so boxes would let a reader tick
+    two and see a chip for one that does nothing. A radio is undone by its
+    chip or by Clear, since clicking it again leaves it on.
+
+    The radios sit in the filter's own fieldset. A RadioGroup would add a
+    second fieldset, with no legend, inside the one that asks the question.
+    Each id uses the option's position in the list, since the value is the
+    caller's text and may hold a space.
+    """
+    name = bound.declaration.param(declared.name)
+    selected = picked[0] if picked else None
+    radios: list[ComponentType] = []
+    for index, (option, label) in enumerate(declared.options):
+        radio = (
+            Radio()
+            .value(option)
+            .label(label)
+            .id(f"{bound.key}-filter-{declared.name}-{index}")
+            .data("filter", declared.name)
+            .data("filter-label", declared.label)
+            .data("option", label)
+        )
+        radio._apply_group(
+            name=name,
+            group_id=f"{bound.key}-filter-{declared.name}",
+            selected=selected,
+            card=False,
+            disabled=False,
+            required=False,
+            input_attrs={},
+        )
+        radios.append(radio)
+    return radios
+
+
+def _filter_field(
+    bound: Bound, declared: Filter, picked: tuple[str, ...]
+) -> ComponentType:
+    """
+    A text or number field, for a filter with no options to tick.
+
+    Both the name and the id carry the key, so two tables or calendars on a
+    page keep their own answers.
+    """
+    field = NumberInput() if declared.numeric else TextInput()
+    field.name(bound.declaration.param(declared.name))
+    field.label(declared.label).hidden_label().size("sm")
+    field.id(f"{bound.key}-filter-{declared.name}")
+    field.value(picked[0] if picked else "")
+    field.data("filter", declared.name).data("filter-label", declared.label)
+    if declared.prefix is not None:
+        field.prefix(declared.prefix)
+    if declared.placeholder is not None:
+        field.placeholder(declared.placeholder)
+    return field
+
+
+def _applied_chips() -> ComponentType:
+    """
+    Everything that is on, and one press to remove any of it.
+
+    The chips take a full line of the band, so a narrowed table or calendar
+    says so above what it shows as well as inside the closed popover.
+    """
+    return html.div(
+        html.template(
+            html.button(
+                html.span(**{"x-text": "chip.filterLabel + ': ' + chip.label"}),
+                HueIcon("x").class_("size-3"),
+                type="button",
+                class_=_CHIP,
+                data_chip="",
+                **{
+                    "@click": "remove(chip)",
+                    ":aria-label": "'Remove filter ' + chip.filterLabel + ': ' "
+                    "+ chip.label",
+                },
+            ),
+            **{"x-for": "chip in applied", ":key": "chip.filter + chip.value"},
+        ),
+        Button()
+        .variant("link")
+        .size("xs")
+        .content("Clear all")
+        .x_on("click", unsafe("clear()")),
+        class_=_APPLIED_ROW,
+        **{"x-ref": "chips", "x-show": "applied.length", "x-cloak": True},
+    )
 
 
 class SearchInput(TextInput):

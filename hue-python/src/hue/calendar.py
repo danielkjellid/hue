@@ -85,7 +85,15 @@ from hue._calendar_state import (
     today_in,
     zone_of,
 )
-from hue._declared import Declaration, Pairs, Routes, many, one
+from hue._declared import (
+    Declaration,
+    Filter,
+    Pairs,
+    Routes,
+    filters_in,
+    many,
+    one,
+)
 from hue.context import HueContext
 from hue.formats import Formats
 from hue.router import HueResponse
@@ -110,6 +118,7 @@ __all__ = [
     "CalendarNavigation",
     "CalendarShortcuts",
     "CalendarState",
+    "Filter",
     "Layer",
     "build_calendar_state",
 ]
@@ -144,10 +153,11 @@ class _Declaration(Declaration[Routes]):
     show and hide, save and delete are what the dialog and the popover do,
     repeats are the rules the dialog offers by key and label, and search
     is the placeholder of the search box, which exists when it is given.
+    filters are the other ways of narrowing it, declared as a table's are.
     view and week_start are the defaults the URL leaves out.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - every argument is a part of the declaration
         self,
         router: Routes,
         *,
@@ -158,6 +168,7 @@ class _Declaration(Declaration[Routes]):
         delete: DeleteHandler | None = None,
         repeats: Mapping[str, str] | None = None,
         search: str | None = None,
+        filters: Sequence[Filter] = (),
         view: CalendarView = "week",
         week_start: Weekday = "monday",
     ) -> None:
@@ -168,6 +179,7 @@ class _Declaration(Declaration[Routes]):
         self.delete = delete
         self.repeats = dict(repeats or {})
         self.search = search
+        self.filters = list(filters)
         self.view = view
         self.week_start = week_start
         # The binding for each page being rendered, made by whichever part
@@ -195,6 +207,12 @@ class _Declaration(Declaration[Routes]):
             raise ValueError(
                 f"{self.key} has a layer called {taken!r}. The URL joins the "
                 f"hidden layers with a comma, so it would come back as two."
+            )
+        for taken in [f.name for f in self.filters if f.name in (*STATE, *FIELDS)]:
+            raise ValueError(
+                f"{self.key} has a filter called {taken!r}, which is what the "
+                f"calendar already calls part of its state or a field of its "
+                f"dialog. Name it something else."
             )
         if self.repeats and self.save is None:
             raise ValueError(
@@ -319,7 +337,8 @@ class _Declaration(Declaration[Routes]):
         one is the default, and a hidden layer nobody declared is dropped.
         Anyone can type into a query string, and it is never an error page.
         """
-        own, others = self._split(values, (*STATE, *FIELDS))
+        filtered = (f.name for f in self.filters)
+        own, others = self._split(values, (*STATE, *FIELDS, *filtered))
         given = {name: one(own, name) or "" for name in FIELDS if name in own}
         return self._state_from(own, today), Posted(**given), others
 
@@ -337,6 +356,7 @@ class _Declaration(Declaration[Routes]):
             week_start=start if start in WEEKDAYS else self.week_start,  # type: ignore[arg-type]
             weekdays=one(asked, WEEKDAYS_ONLY) == "1",
             layers=tuple(key for key in declared if key not in hidden),
+            filters=filters_in(self.filters, asked),
         )
 
     async def _bind(
@@ -473,16 +493,17 @@ class _Declaration(Declaration[Routes]):
     def _covering(self, asked: CalendarState, first: date, last: date) -> CalendarState:
         """
         A state that asks events() for these days alone, in every layer and
-        with no search: what the overlap check and a lookup by id ask with,
-        since an event the reader has hidden or searched away is still
-        there. events() reads first and last, which follow the view, so a
-        copy is pointed at the days by hand.
+        with no search or filter: what the overlap check and a lookup by
+        id ask with, since an event the reader has hidden, searched or
+        filtered away is still there. events() reads first and last, which
+        follow the view, so a copy is pointed at the days by hand.
         """
         covering = replace(
             asked,
             query="",
             hidden=(),
             layers=tuple(layer.key for layer in self.layers),
+            filters={},
         )
         object.__setattr__(covering, "first", first)
         object.__setattr__(covering, "last", last)

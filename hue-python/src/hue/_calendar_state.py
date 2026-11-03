@@ -6,11 +6,12 @@ its layers, its state, the names of its parts and the binding to one request.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from hue._declared import Bound, Pairs, Urls
+from hue._declared import Bound, Narrowed, Pairs, Urls
 from hue.formats import Formats
 from hue.shortcuts import ShortcutRegistry
 from hue.ui.molecules import _calendar_views as views
@@ -67,16 +68,16 @@ class Layer:
 
 
 @dataclass(frozen=True, slots=True)
-class CalendarState:
+class CalendarState(Narrowed):
     """
     What was asked for, read off the request and written back into every
     link and form the calendar builds.
 
     events() reads first and last, the first and last day it has to cover:
     the view's own days, and the six weeks of the month around date, which
-    the sidebar's picker marks. It reads query and layers, the keys of the
-    layers to show, and narrows on those. The rest says how the view is
-    drawn.
+    the sidebar's picker marks. It reads query, layers, the keys of the
+    layers to show, and the filters, through chosen() and value(), and
+    narrows on those. The rest says how the view is drawn.
     """
 
     date: _Day
@@ -86,6 +87,8 @@ class CalendarState:
     week_start: Weekday = "monday"
     weekdays: bool = False
     layers: tuple[str, ...] = ()
+    # Out of the hash, so a state can still key a cache: a dict has none.
+    filters: Mapping[str, tuple[str, ...]] = field(default_factory=dict, hash=False)
     first: _Day = field(init=False)
     last: _Day = field(init=False)
 
@@ -293,5 +296,7 @@ class BoundCalendar(Bound):
             HIDE: ",".join(state.hidden),
             START: state.week_start if state.week_start != declared.week_start else "",
             WEEKDAYS_ONLY: "1" if state.weekdays else "",
+            # One parameter per filter, its answers joined as the table's are.
+            **{name: ",".join(values) for name, values in state.filters.items()},
         }
         return {name: value for name, value in asked.items() if value}

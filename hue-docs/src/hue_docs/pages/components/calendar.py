@@ -510,7 +510,7 @@ async def index(self, request: HttpRequest, context: HueContext[HttpRequest]) ->
 
 
 _DECLARATION = """from hue import html
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue.calendar import CalendarState, Filter, Layer, build_calendar_state
 from hue.ui import Calendar, Event, MiniCalendar
 
 
@@ -522,6 +522,8 @@ def events_for(request: HttpRequest, asked: CalendarState) -> list[Event]:
     )
     if asked.query:
         found = found.filter(title__icontains=asked.query)
+    if rooms := asked.chosen("room"):
+        found = found.filter(room__in=rooms)
     return [entry.event() for entry in found]
 
 
@@ -549,6 +551,7 @@ class EventsView(HueView):
         delete=delete_entry,
         repeats={"weekly": "Every week", "monthly": "Every month"},
         search="Search events",
+        filters=[Filter("room", "Room", options=[("3b", "3B"), ("huddle", "Huddle")])],
     )
 
     async def index(
@@ -854,7 +857,7 @@ def _usage() -> ComponentType:
             "to the same state."
         ),
         pr.code(_NAVIGATION),
-        pr.h2("Calendar layers, search and view options"),
+        pr.h2("Calendar layers and search"),
         pr.p(
             "Each `Layer` is one of the calendars a reader can show or hide: a "
             "key, a name and a chart colour, 1 by default. The `MiniCalendar` "
@@ -872,8 +875,32 @@ def _usage() -> ComponentType:
             'match, such as 2 events match "re". Responses leave the box alone, '
             "so the caret stays in it while the events change."
         ),
+        pr.h2("Filters on a declared Calendar"),
         pr.p(
-            "The view options sit behind one button beside the search: which "
+            "`filters` takes a list of `Filter`, the same class a declared "
+            "`DataTable` uses, imported from `hue.calendar` or `hue.datatable`. "
+            "Each filter gets a parameter in the URL, a group in the panel "
+            "behind the Filter button at the end of the row above the "
+            "calendar, and a chip under the row for every answer, which "
+            "removes that answer."
+        ),
+        pr.p(
+            "`events()` reads the answers off the state: "
+            '`asked.chosen("room")` for a filter that holds several, and '
+            '`asked.value("room")` for one that holds a single answer. An answer '
+            "the filter does not offer is dropped before `events()` sees it. The "
+            "overlap check and a lookup by id ignore the filters, as they ignore "
+            "the search, so an event filtered out of view still counts as an "
+            "overlap."
+        ),
+        pr.p(
+            "A filter cannot share a name with anything the calendar already "
+            "puts in the URL or the dialog posts, such as `date`, `view` or "
+            "`title`. A declaration with one raises a `ValueError`."
+        ),
+        pr.h2("View options on a declared Calendar"),
+        pr.p(
+            "The view options sit behind one button at the end of the row: which "
             "day the week starts on, and Weekdays only, which leaves the weekend "
             "out. Each change submits at once."
         ),

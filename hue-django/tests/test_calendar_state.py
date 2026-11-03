@@ -24,7 +24,13 @@ from django.test import Client, override_settings
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
-from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarShortcuts,
+    CalendarState,
+    Filter,
+    Layer,
+    build_calendar_state,
+)
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
 from hue.ui import Calendar, Event, MiniCalendar
@@ -385,26 +391,36 @@ def test_the_overlap_check_answers_in_the_dialogs_own_region(mounted):
     assert re.fullmatch(r'<div id="events-overlap">\s*</div>', cleared.strip())
 
 
-def test_the_overlap_check_asks_for_the_drafts_days_in_every_layer_unsearched(
+def test_the_overlap_check_asks_for_the_drafts_days_in_every_layer_unnarrowed(
     mounted,
 ):
     asked: list[Any] = []
 
     def events(request: Any, state: CalendarState) -> list[Event]:
         asked.append((state.first, state.last, state.query, state.layers))
+        asked.append(dict(state.filters))
         return []
 
-    mounted(events=events)
-    # The view is on March, with a search and a hidden layer; the draft
-    # is far away from both. Only its own day is asked for, in every layer
-    # and with no search, or a far draft reads thousands of days a
-    # keystroke and a clash the reader cannot see goes unmentioned.
+    mounted(events=events, filters=[Filter("room", "Room", options=[("a", "A")])])
+    # The view is on March, with a search, a filter and a hidden layer; the
+    # draft is far away from all of them. Only its own day is asked for, in
+    # every layer and with no search or filter, or a far draft reads
+    # thousands of days a keystroke and a clash the reader cannot see goes
+    # unmentioned.
     _act(
         "overlaps",
         **_fields(starts="9998-12-30", ends="9998-12-30"),
-        **{"events-date": "2026-03-02", "events-q": "re", "events-hide": "home"},
+        **{
+            "events-date": "2026-03-02",
+            "events-q": "re",
+            "events-hide": "home",
+            "events-room": "a",
+        },
     )
-    assert asked == [(date(9998, 12, 30), date(9998, 12, 30), "", ("work", "home"))]
+    assert asked == [
+        (date(9998, 12, 30), date(9998, 12, 30), "", ("work", "home")),
+        {},
+    ]
 
 
 def test_the_overlap_warning_names_two_counts_the_rest_and_skips_itself(mounted):

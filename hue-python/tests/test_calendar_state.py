@@ -14,7 +14,13 @@ import pytest
 
 from hue import calendar as declared
 from hue import html, scope
-from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarShortcuts,
+    CalendarState,
+    Filter,
+    Layer,
+    build_calendar_state,
+)
 from hue.context import HueContext, HueContextArgs
 from hue.formats import Formats
 from hue.js import unsafe
@@ -320,6 +326,38 @@ async def test_the_parts_of_one_page_share_one_fetch(context_args):
 
     await _drawn(_declared(events=events, search="Search events"), context_args)
     assert len(asked) == 1
+
+
+# Filters
+
+
+_ROOMS = Filter("room", "Room", options=[("a", "Room A"), ("b", "Room B")])
+
+
+@pytest.mark.asyncio
+async def test_filters_reach_events_and_every_link_keeps_them(context_args):
+    seen: list[CalendarState] = []
+
+    def events(request: Any, asked: CalendarState) -> list[Event]:
+        seen.append(asked)
+        return []
+
+    html = await _drawn(
+        _declared(events=events, filters=[_ROOMS]),
+        context_args,
+        **{"events-room": "a,nowhere"},
+    )
+    # An answer the filter does not offer is dropped where it enters.
+    assert seen[0].chosen("room") == ("a",)
+    assert "events-room=a" in _href(html, "events-next")
+    assert_attr(html, "form#events-filters input#events-filter-room-0", "checked")
+    carried = select(html, "input[form=events-filters]")
+    assert "events-room" not in {one["name"] for one in carried}
+
+
+def test_a_filter_cannot_take_a_name_the_calendar_uses():
+    with pytest.raises(ValueError, match="filter called 'date'"):
+        _declared(filters=[Filter("date", "Date")])
 
 
 # Navigation of the page's own

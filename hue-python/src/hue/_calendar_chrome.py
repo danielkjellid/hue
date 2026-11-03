@@ -33,7 +33,7 @@ from hue._calendar_state import (
     timezone_name,
     view_options_id,
 )
-from hue._declared import carried, search_form, search_id
+from hue._declared import carried, filter_form, filters_id, search_form, search_id
 from hue.js import Expression, call, close, unsafe
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
@@ -482,8 +482,8 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
 
 def band(bound: BoundCalendar) -> ComponentType:
     """
-    The row above the calendar: the search, how many it found, and the view
-    options.
+    The row above the calendar: the search, how many it found, the
+    filters with a chip for each answer, and the view options.
 
     Left alone by every response, so the search keeps its caret and an
     open options panel stays open. The count and the state each form
@@ -513,6 +513,12 @@ def band(bound: BoundCalendar) -> ComponentType:
             ),
         ),
         html.span(class_="flex-1"),
+        render_when(
+            bool(declared.filters),
+            filter_form(
+                bound, declared.filters, state.filters, target=views.region_id(key)
+            ),
+        ),
         _options(bound),
         # Tied to each form by id, since the forms themselves are left alone.
         html.div(
@@ -524,6 +530,14 @@ def band(bound: BoundCalendar) -> ComponentType:
             *carried(
                 bound.query(state, without={START, WEEKDAYS_ONLY}),
                 form=view_options_id(key),
+            ),
+            *(
+                carried(
+                    bound.query(state, without={f.name for f in declared.filters}),
+                    form=filters_id(key),
+                )
+                if declared.filters
+                else ()
             ),
             id=f"{key}-carried",
             hidden=True,
