@@ -45,6 +45,9 @@ django_settings_module = "example.settings"
 ##########
 
 [tool.deptry]
+# The distribution is hue-ui but the import is hue, and an editable install
+# does not tell deptry that.
+package_module_name_map = { "hue-ui" = "hue" }
 known_first_party = ["example"]
 
 ##########
