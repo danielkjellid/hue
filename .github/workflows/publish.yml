@@ -14,6 +14,11 @@ permissions:
   contents: read
   actions: read
 
+env:
+  INDEX: ${{ github.ref_type == 'tag' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+  # Skips files already uploaded, so a failed run can be rerun.
+  CHECK: ${{ github.ref_type == 'tag' && 'https://pypi.org/simple/' || 'https://test.pypi.org/simple/' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -65,26 +70,39 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  # PyPI registers a trusted publisher for one project per environment, so each
+  # package publishes from its own job and environment (pypi-hue-ui,
+  # testpypi-hue-django and so on). hue-ui goes first so the integrations
+  # never point at a missing pin.
+  publish-hue-ui:
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_type == 'tag' && 'pypi' || 'testpypi' }}
+    environment: ${{ github.ref_type == 'tag' && 'pypi' || 'testpypi' }}-hue-ui
     permissions:
       id-token: write
-    env:
-      INDEX: ${{ github.ref_type == 'tag' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
-      CHECK: ${{ github.ref_type == 'tag' && 'https://pypi.org/simple/' || 'https://test.pypi.org/simple/' }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
-
       - uses: astral-sh/setup-uv@v6
+      - run: uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" dist/hue_ui-*
 
-      # hue-ui goes first so the integrations never point at a missing pin.
-      # --check-url skips files already uploaded, so a failed run can be rerun.
-      - name: Publish
-        run: |
-          uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" dist/hue_ui-*
-          uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" dist/hue_django-* dist/hue_fastapi-*
+  publish-integration:
+    needs: publish-hue-ui
+    strategy:
+      matrix:
+        package: [hue-django, hue-fastapi]
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_type == 'tag' && 'pypi' || 'testpypi' }}-${{ matrix.package }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@v6
+      - env:
+          PACKAGE: ${{ matrix.package }}
+        run: uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" "dist/${PACKAGE//-/_}-"*
