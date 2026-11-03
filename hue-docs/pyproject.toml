@@ -5,7 +5,7 @@ description = "Documentation site generator for the hue component library"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "hue>=0.1.0",
+    "hue-ui>=0.0.1",
     # Pin to the htmy version hue-python is built against; newer htmy (0.9+)
     # removed APIs that hue imports (e.g. htmy.core.Tag).
     "htmy==0.8.2",
@@ -26,7 +26,7 @@ package = false
 
 [tool.uv.sources]
 
-hue = { path = "../hue-python", editable = true }
+hue-ui = { path = "../hue-python", editable = true }
 hue-fastapi = { path = "../hue-fastapi", editable = true }
 
 [dependency-groups]
@@ -49,6 +49,9 @@ extend = "../ruff.toml"
 ##########
 
 [tool.deptry]
+# The distribution is hue-ui but the import is hue, and an editable install
+# does not tell deptry that.
+package_module_name_map = { "hue-ui" = "hue" }
 known_first_party = ["hue_docs"]
 extend_exclude = ["tests", "test_.*\\.py", "worker"]
 

@@ -1,11 +1,16 @@
 [project]
 name = "hue-fastapi"
-version = "0.1.0"
+version = "0.0.1"
 description = "FastAPI integration for the hue component library"
 readme = "README.md"
 requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Daniel Kjellid", email = "daniel@kjellid.no" },
+]
 dependencies = [
-    "hue>=0.1.0",
+    "hue-ui==0.0.1",
     "fastapi>=0.115",
     "htmy>=0.8.2",
     "itsdangerous>=2.2",
@@ -13,9 +18,16 @@ dependencies = [
     "starlette>=0.40",
 ]
 
+[project.urls]
+Repository = "https://github.com/danielkjellid/hue"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [tool.uv.sources]
 
-hue = { path = "../hue-python", editable = true }
+hue-ui = { path = "../hue-python", editable = true }
 
 [dependency-groups]
 dev = [
@@ -35,6 +47,9 @@ extend = "../ruff.toml"
 ##########
 
 [tool.deptry]
+# The distribution is hue-ui but the import is hue, and an editable install
+# does not tell deptry that.
+package_module_name_map = { "hue-ui" = "hue" }
 known_first_party = ["hue_fastapi"]
 # Starlette imports it when it parses a form; nothing here names it.
 per_rule_ignores = { DEP002 = ["python-multipart"] }

@@ -1,6 +1,6 @@
 # hue-django
 
-Django integration for [hue](../hue-python): class-based views that render hue
+Django integration for [hue](https://github.com/danielkjellid/hue): class-based views that render hue
 pages and Alpine AJAX fragments, a router that understands Django path syntax,
 and middleware that serves hue's CSS and JS straight from the package.
 
