@@ -102,6 +102,7 @@ from hue.ui.molecules.table import (
 from hue.ui.molecules.table_of_contents import TableOfContents
 from hue.ui.molecules.tabs import Tab, Tabs
 from hue.ui.molecules.theme_switcher import ThemeSwitcher
+from hue.ui.molecules.timeline import Timeline, TimelineItem
 from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
 from hue.ui.navigation import CurrentPage
@@ -209,6 +210,8 @@ __all__ = [
     "Textarea",
     "ThemeSwitcher",
     "TimeInput",
+    "Timeline",
+    "TimelineItem",
     "Toast",
     "ToastRegion",
     "Tooltip",

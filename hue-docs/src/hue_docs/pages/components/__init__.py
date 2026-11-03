@@ -66,6 +66,7 @@ from hue_docs.pages.components import (
     textarea,
     theme_switcher,
     time_input,
+    timeline,
     toast,
     tooltip,
 )
@@ -133,6 +134,7 @@ COMPONENTS: list[ComponentPage] = [
     textarea.PAGE,
     theme_switcher.PAGE,
     time_input.PAGE,
+    timeline.PAGE,
     toast.PAGE,
     tooltip.PAGE,
 ]
