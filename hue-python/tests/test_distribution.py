@@ -70,7 +70,7 @@ class TestTheAssetGuard:
 
     @staticmethod
     def _hook(root: Path) -> AssetsBuildHook:
-        metadata = type("Metadata", (), {"name": "hue"})()
+        metadata = type("Metadata", (), {"name": "hue-ui"})()
         return AssetsBuildHook(str(root), {}, {}, metadata, "", "wheel")
 
     def test_a_release_without_the_assets_is_refused(self, tmp_path: Path) -> None:

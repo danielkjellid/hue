@@ -6,13 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "django>=5.0",
-    "hue>=0.1.0",
+    "hue-ui>=0.0.1",
     "hue-django>=0.1.0",
 ]
 
 [tool.uv.sources]
 
-hue = { path = "../../hue-python", editable = true }
+hue-ui = { path = "../../hue-python", editable = true }
 hue-django = { path = "../../hue-django", editable = true }
 
 [dependency-groups]
@@ -45,6 +45,9 @@ django_settings_module = "example.settings"
 ##########
 
 [tool.deptry]
+# The distribution is hue-ui but the import is hue, and an editable install
+# does not tell deptry that.
+package_module_name_map = { "hue-ui" = "hue" }
 known_first_party = ["example"]
 
 ##########

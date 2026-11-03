@@ -1,0 +1,90 @@
+name: publish
+
+# Releases hue-ui, hue-django and hue-fastapi together, at one version, through
+# PyPI trusted publishing: a v* tag goes to PyPI, and running the workflow by
+# hand goes to TestPyPI. Bump all three with `make version VERSION=x.y.z` in
+# hue-python before tagging.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # The tag push runs CI as well, so a release waits for it to pass.
+      - name: Wait for CI on this commit
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 30); do
+            run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --json databaseId -q '.[0].databaseId')
+            [ -n "$run" ] && break
+            sleep 10
+          done
+          [ -n "$run" ] || { echo "No CI run found for $GITHUB_SHA"; exit 1; }
+          gh run watch -R "$GITHUB_REPOSITORY" "$run" --exit-status
+
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      # make dist rebuilds the Alpine and chart bundles with esbuild.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the tag matches every package
+        if: github.ref_type == 'tag'
+        run: |
+          for p in hue-python hue-django hue-fastapi; do
+            version=$(cd $p && uv version --short)
+            if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+              echo "$p is at $version, but the tag is $GITHUB_REF_NAME"
+              exit 1
+            fi
+          done
+
+      - name: Build
+        run: |
+          make -C hue-python dist
+          (cd hue-django && uv build)
+          (cd hue-fastapi && uv build)
+          mkdir dist
+          cp hue-python/dist/* hue-django/dist/* hue-fastapi/dist/* dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_type == 'tag' && 'pypi' || 'testpypi' }}
+    permissions:
+      id-token: write
+    env:
+      INDEX: ${{ github.ref_type == 'tag' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+      CHECK: ${{ github.ref_type == 'tag' && 'https://pypi.org/simple/' || 'https://test.pypi.org/simple/' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: astral-sh/setup-uv@v6
+
+      # hue-ui goes first so the integrations never point at a missing pin.
+      # --check-url skips files already uploaded, so a failed run can be rerun.
+      - name: Publish
+        run: |
+          uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" dist/hue_ui-*
+          uv publish --trusted-publishing always --publish-url "$INDEX" --check-url "$CHECK" dist/hue_django-* dist/hue_fastapi-*

@@ -1,6 +1,6 @@
 # hue-fastapi
 
-FastAPI integration for [hue](../hue-python). It provides class-based views that render hue pages and Alpine AJAX fragments, a router that reads Starlette's path syntax, signed double-submit CSRF protection, and routes that serve hue's CSS and JS from the installed package.
+FastAPI integration for [hue](https://github.com/danielkjellid/hue). It provides class-based views that render hue pages and Alpine AJAX fragments, a router that reads Starlette's path syntax, signed double-submit CSRF protection, and routes that serve hue's CSS and JS from the installed package.
 
 ## Install
 

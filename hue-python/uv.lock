@@ -186,8 +186,8 @@ wheels = [
 ]
 
 [[package]]
-name = "hue"
-version = "0.1.0"
+name = "hue-ui"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "htmy" },
