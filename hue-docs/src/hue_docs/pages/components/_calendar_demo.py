@@ -6,7 +6,7 @@ from fastapi import Request
 from hue import html, toast
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContext
-from hue.ui import Calendar, Event, ToastRegion
+from hue.ui import Calendar, Event, MiniCalendar, ToastRegion
 from hue_fastapi import HueView, Page, Router
 
 # A list of events, so the narrowing below is plain Python. A database query
@@ -112,9 +112,16 @@ class ScheduleView(HueView):
         return Page(
             title="Schedule",
             body=html.div(
-                html.div(Calendar.from_state(self.schedule))
+                html.div(
+                    MiniCalendar.from_state(self.schedule).class_(
+                        "lg:w-60 lg:flex-none"
+                    ),
+                    html.div(Calendar.from_state(self.schedule)).class_(
+                        "min-w-0 flex-1"
+                    ),
+                )
                 .id("schedule-demo")
-                .class_("w-full"),
+                .class_("flex w-full flex-col gap-4 lg:flex-row lg:items-start"),
                 ToastRegion(),
             ).class_("p-4"),
         )

@@ -27,7 +27,7 @@ from hue import html
 from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
-from hue.ui import Calendar, Event
+from hue.ui import Calendar, Event, MiniCalendar
 
 from hue_django.pages import Page
 from hue_django.router import Router
@@ -155,7 +155,7 @@ def test_the_page_draws_the_state_the_url_asks_for(mounted):
 
 def test_the_sidebar_month_keeps_its_name_for_screen_readers_only(mounted):
     # Plain from where it sits, and the design shows no heading over it.
-    html = _render(Calendar.from_state(mounted().events), _request())
+    html = _render(MiniCalendar.from_state(mounted().events), _request())
     assert re.search(r'<legend[^>]*class="[^"]*sr-only[^"]*"[^>]*>\s*Go to a day', html)
 
 
@@ -330,6 +330,10 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
     assert "Created &quot;Pairing&quot;" in html or 'Created "Pairing"' in html
     assert re.search(r'<div id="events-dialog"[^>]*></div>', html)
     assert "Thursday 15 October 2026" in html
+    # The parts beside the calendar refresh from the same response, so the
+    # picker's marks and the state the forms carry follow the change.
+    assert re.search(r'<div id="events-side"[^>]*x-sync', html)
+    assert re.search(r'<div id="events-carried"[^>]*x-sync', html)
 
 
 def test_the_fields_become_the_event_the_handler_is_handed(mounted):

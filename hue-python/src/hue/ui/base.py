@@ -364,6 +364,14 @@ class ChainableComponent(ABC):
         self._attrs["x-autofocus"] = value or None
         return self
 
+    def x_sync(self, value: bool = True) -> Self:
+        """
+        Refresh this element from any AJAX response that carries its id,
+        wherever on the page the request was made.
+        """
+        self._attrs["x-sync"] = value or None
+        return self
+
     # ------------------------------------------------------------------
     # Alpine AJAX event handlers (events bubble, so these can sit on any
     # ancestor element). Alpine evaluates each, so each takes an expression.

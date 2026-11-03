@@ -114,6 +114,41 @@ class CalendarState:
         return cursor, cursor + timedelta(days=views._AGENDA_DAYS - 1)
 
 
+@dataclass(frozen=True, slots=True)
+class CalendarLink:
+    """
+    One place a declared calendar can go: its URL, and the day and view it
+    shows there, for a label such as November rather than Next.
+    """
+
+    href: str
+    date: _Day
+    view: CalendarView
+
+
+@dataclass(frozen=True, slots=True)
+class CalendarNavigation:
+    """
+    Where a declared calendar is for one request, and where it can go from
+    there, for controls of the page's own.
+
+    previous and next are one period back and on in the view shown, the
+    way the toolbar steps, and None past the days a calendar can draw.
+    today is the period around today, and views the same day in each view.
+    title is the range as the toolbar writes it. target is the id of the
+    calendar's region, which a link swaps in place of a page load.
+    """
+
+    date: _Day
+    view: CalendarView
+    title: str
+    target: str
+    previous: CalendarLink | None
+    next: CalendarLink | None
+    today: CalendarLink
+    views: dict[CalendarView, CalendarLink]
+
+
 def read_day(text: str) -> date | None:
     """
     A date typed or posted as YYYY-MM-DD, or None for anything else.
@@ -204,7 +239,7 @@ def help_id(key: str) -> str:
 
 def side_id(key: str) -> str:
     """
-    The id of the sidebar, which the toolbar's button opens.
+    The id of what MiniCalendar draws, which every response refreshes.
     """
     return f"{key}-side"
 
@@ -220,8 +255,8 @@ def view_options_id(key: str) -> str:
 class BoundCalendar(Bound):
     """
     One calendar for one request: what was asked, the events that answered,
-    and the reader's today. Every part of the calendar reads this from the
-    context and builds its links from it.
+    and the reader's today. Every part of the calendar is handed this and
+    builds its links from it.
     """
 
     declaration: _Declaration

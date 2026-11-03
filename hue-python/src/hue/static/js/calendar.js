@@ -3,10 +3,9 @@
  * a form cannot.
  *
  * A click on an empty part of a day, in the time grid, the month or the
- * agenda, opens the event dialog for that day, and the sidebar folds away
- * on a narrow screen. In the time grid the click also posts the half hour
- * under the pointer; everything else a new event starts with is the
- * server's to fill in.
+ * agenda, opens the event dialog for that day. In the time grid the click
+ * also posts the half hour under the pointer; everything else a new event
+ * starts with is the server's to fill in.
  *
  * With a move URL the events can be dragged, by one pointer drag for every
  * view, whose listeners the server declares on the calendar. In the time
@@ -62,7 +61,6 @@ export function registerCalendarData(Alpine) {
 			// A field of the dialog's, as the dialog posts it, under the key.
 			const param = (name) => `${key}-${name}`;
 			return {
-				calendarSide: false,
 				// Where the time grid was scrolled to before the last swap, which
 				// the grid drawn by the response starts from.
 				gridScroll: null,

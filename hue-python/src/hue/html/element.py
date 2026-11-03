@@ -119,10 +119,6 @@ class _AlpineAjaxRequestMixin:
         self._attrs["x-headers"] = value
         return self
 
-    def x_sync(self, value: bool = True) -> Self:
-        self._attrs["x-sync"] = value or None
-        return self
-
 
 class _FormControlElement(AlpineModelMixin, Element):
     """

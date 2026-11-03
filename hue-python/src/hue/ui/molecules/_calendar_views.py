@@ -230,13 +230,15 @@ class Draw:
     today: date | None
     start: Weekday
     weekdays: bool
-    events: list[Event]
-    href: Href | None
-    actions: Actions | None
-    own_id: str | None
+    events: list[Event] = field(default_factory=list)
+    href: Href | None = None
+    actions: Actions | None = None
+    own_id: str | None = None
     # Whether a declaration moves and resizes the events, which draws the
     # resize handle and lets a finger drag a chip rather than the page.
-    movable: bool
+    movable: bool = False
+    # New event, at the end of the toolbar, for a declaration that saves.
+    create: Button | None = None
     # The event Alpine AJAX focuses once a declaration's change is drawn.
     focus: Event | None = None
     # An event's popover content by the event's identity, built once however
@@ -375,6 +377,7 @@ class Draw:
                 class_=classnames(_TITLE, "outline-none"),
             ),
             render_if(self.href, self._switcher),
+            render_if(self.create, lambda button: button),
             class_=_TOOLBAR,
         )
 
@@ -398,8 +401,8 @@ class Draw:
 
     def _step(self, count: int, label: str, icon: str) -> ComponentType:
         glyph = HueIcon(icon).class_("size-3.5")
-        day = VIEWS[self.view].step(self.cursor, count)
-        if not FIRST <= day <= LAST:
+        day = stepped(self.view, self.cursor, count)
+        if day is None:
             return html.span(
                 glyph,
                 aria_label=label,
@@ -1161,6 +1164,15 @@ def _agenda_row(draw: Draw, placed: Placed) -> ComponentType:
         )
     )
     return draw.event(event, button)
+
+
+def stepped(view: CalendarView, cursor: date, count: int) -> date | None:
+    """
+    The day count pages of view on from cursor are around, or None past
+    the days a calendar can draw.
+    """
+    day = VIEWS[view].step(cursor, count)
+    return day if FIRST <= day <= LAST else None
 
 
 @dataclass(frozen=True)

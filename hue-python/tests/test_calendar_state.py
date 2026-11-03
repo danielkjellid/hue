@@ -15,13 +15,13 @@ import pytest
 from hue import calendar as declared
 from hue import html, scope
 from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
-from hue.context import HueContextArgs
+from hue.context import HueContext, HueContextArgs
 from hue.formats import Formats
 from hue.js import unsafe
 from hue.pages import create_page_base
 from hue.renderer import render_tree
 from hue.shortcuts import ShortcutRegistry, shortcuts
-from hue.ui import Calendar, Event
+from hue.ui import Calendar, Event, MiniCalendar
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 _TODAY = date(2026, 10, 14)
@@ -84,11 +84,17 @@ def _october(monkeypatch: pytest.MonkeyPatch) -> None:
 
 async def _drawn(declaration: Any, context_args: Any, **query: str) -> str:
     """
-    The page a view renders for this query.
+    The page a view renders for this query, with every part.
     """
     declaration._router.query = {name: [value] for name, value in query.items()}
-    page = Calendar.from_state(declaration)
-    return await render_tree(page, context_args=context_args)
+    return await render_tree(*_parts(declaration), context_args=context_args)
+
+
+def _parts(declaration: Any) -> tuple[Any, ...]:
+    return (
+        MiniCalendar.from_state(declaration),
+        Calendar.from_state(declaration),
+    )
 
 
 async def _asked(context_args: Any, **query: str) -> CalendarState:
@@ -259,8 +265,94 @@ async def test_something_that_is_not_an_event_is_refused_by_name(context_args):
 async def test_a_part_drawn_outside_its_calendar_says_what_it_belongs_to(
     context_args,
 ):
-    with pytest.raises(ValueError, match=r"part of a Calendar bound to a request"):
-        await render_tree(declared.Side(), context_args=context_args)
+    with pytest.raises(ValueError, match=r"MiniCalendar\.from_state\(\)"):
+        await render_tree(MiniCalendar(), context_args=context_args)
+
+
+@pytest.mark.asyncio
+async def test_the_calendar_alone_draws_its_search_but_no_sidebar(context_args):
+    html = await render_tree(
+        Calendar.from_state(_declared(layers=_LAYERS, search="Search events")),
+        context_args=context_args,
+    )
+    assert_selector(html, "#events-search")
+    assert_selector(html, "#events-options")
+    assert_no_selector(html, "#events-side")
+
+
+@pytest.mark.asyncio
+async def test_a_parts_own_classes_sit_outside_what_a_response_replaces(
+    context_args,
+):
+    # A response after a save redraws the sidebar without them, so they
+    # cannot be on the element it syncs.
+    html = await render_tree(
+        MiniCalendar.from_state(_declared()).class_("w-60").aria_label("Rooms"),
+        context_args=context_args,
+    )
+    # One label, since a browser keeps the first of two and a parser the last.
+    aside = re.search(r"<aside[^>]*>", html)
+    assert aside and re.findall(r'aria-label="([^"]*)"', aside[0]) == ["Rooms"]
+    assert_selector(html, "aside.w-60 > #events-side[x-sync]")
+    assert "w-60" not in select(html, "#events-side")[0]["class"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_fetch_is_not_kept_for_the_life_of_the_declaration(
+    context_args,
+):
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        raise RuntimeError("database down")
+
+    declaration = _declared(events=events)
+    with pytest.raises(RuntimeError):
+        await _drawn(declaration, context_args)
+    assert not declaration._pages
+
+
+@pytest.mark.asyncio
+async def test_the_parts_of_one_page_share_one_fetch(context_args):
+    asked: list[CalendarState] = []
+
+    def events(request: Any, state: CalendarState) -> list[Event]:
+        asked.append(state)
+        return _events(request, state)
+
+    await _drawn(_declared(events=events, search="Search events"), context_args)
+    assert len(asked) == 1
+
+
+# Navigation of the page's own
+
+
+def _navigation(**query: str) -> Any:
+    declaration = _declared(layers=_LAYERS)
+    declaration._router.query = {name: [value] for name, value in query.items()}
+    return declaration.navigation(HueContext(request=None, csrf_token="t"))
+
+
+def test_navigation_steps_by_the_view_and_keeps_the_rest_of_the_query():
+    nav = _navigation(
+        **{"events-view": "month", "events-date": "2026-10-20", "events-hide": "home"},
+        tab="all",
+    )
+    assert nav.title == "October 2026"
+    assert nav.target == "events-view"
+    assert (nav.previous.date, nav.next.date) == (date(2026, 9, 20), date(2026, 11, 20))
+    assert nav.next.href == (
+        "/events/?tab=all&events-view=month&events-date=2026-11-20&events-hide=home"
+    )
+    # Today's own date is the page with no date at all.
+    assert nav.today.href == "/events/?tab=all&events-view=month&events-hide=home"
+    assert nav.views["week"].href == (
+        "/events/?tab=all&events-date=2026-10-20&events-hide=home"
+    )
+
+
+def test_navigation_has_no_previous_before_the_first_day_a_calendar_draws():
+    nav = _navigation(**{"events-view": "year", "events-date": "0002-06-01"})
+    assert nav.previous is None
+    assert nav.next is not None
 
 
 # The declaration
@@ -300,7 +392,7 @@ class TestDrawn:
         html = await _drawn(
             _declared(layers=_LAYERS, search="Search events"), context_args
         )
-        assert_attr(html, "aside#events-side", "x-sync")
+        assert_attr(html, "#events-side", "x-sync")
         assert_attr(html, "#events-view", "x-sync")
         assert_selector(html, "#events-dialog")
         assert_attr(html, "form#events-search input[name=events-q]", "type", "search")
@@ -435,9 +527,7 @@ class TestDrawn:
         rooms = build_calendar_state(_Router(), key="rooms", events=_events)
         desks = build_calendar_state(_Router(), key="desks", events=_events)
         html = await render_tree(
-            Calendar.from_state(rooms),
-            Calendar.from_state(desks),
-            context_args=context_args,
+            *_parts(rooms), *_parts(desks), context_args=context_args
         )
         assert_selector(html, "#rooms-side")
         assert_selector(html, "#desks-side")
@@ -489,6 +579,12 @@ class TestKeys:
         assert (
             "Keyboard shortcuts" in select(html, "#events-options")[0].parent.get_text()
         )
+
+    @pytest.mark.asyncio
+    async def test_no_keys_are_on_without_a_calendar_to_press(self, _request):
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        await render_tree(MiniCalendar.from_state(_declared()), context_args=args)
+        assert shortcuts.used() == []
 
     @pytest.mark.asyncio
     async def test_without_a_save_or_a_search_those_keys_stay_off(self, _request):

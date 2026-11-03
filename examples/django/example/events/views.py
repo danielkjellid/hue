@@ -2,16 +2,18 @@
 One page with one declared calendar on it, backed by a real table.
 
 Everything the calendar does is on the declaration: the route the dialog
-posts to is registered here, at class scope, and the view draws it with
-Calendar.from_state(). The entries are plain rows; a series is one row and
-the rule, expanded here into the occurrences the days shown hold.
+posts to is registered here, at class scope, and the view lays out its
+parts with MiniCalendar.from_state() and Calendar.from_state(). The
+entries are plain rows; a series is one row and the rule, expanded here
+into the occurrences the days shown hold.
 """
 
 from django.db.models import Q
 from django.http import Http404, HttpRequest
+from hue import html
 from hue.calendar import CalendarState, Layer, build_calendar_state
 from hue.context import HueContext
-from hue.ui import Calendar, Event, Stack, Text
+from hue.ui import Calendar, Event, MiniCalendar, Stack, Text
 from hue_django.pages import Page
 from hue_django.router import Router
 
@@ -104,6 +106,9 @@ class EventsView(AppView):
             .align_items("items-stretch")
             .content(
                 Text("Events").variant("title-2").tag("h1"),
-                Calendar.from_state(self.events),
+                html.div(
+                    MiniCalendar.from_state(self.events).class_("events-sidebar"),
+                    html.div(Calendar.from_state(self.events)).class_("events-main"),
+                ).class_("events-layout"),
             ),
         )
