@@ -1,7 +1,8 @@
 name: docs deploy
 
-# Builds hue-docs and ships it to Cloudflare: production for main, a preview
-# version for every other branch.
+# Builds hue-docs and ships it to Cloudflare: production for a release tag, so
+# the docs describe what is on PyPI, and a preview version for every branch.
+# main's preview is aliased "next".
 #
 # The build runs here rather than in Cloudflare Workers Builds because that
 # image ships no Python and installs one with asdf, which compiles it from
@@ -54,6 +55,9 @@ jobs:
 
       - name: Build the site and the Worker
         working-directory: hue-docs
+        env:
+          # A branch is ahead of the last release, so it does not show its number.
+          HUE_DOCS_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && '' || 'next' }}
         run: make build worker
 
       - name: Ship it
@@ -68,19 +72,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$REF" = "refs/heads/main" ]; then
+          if [[ "$REF" == refs/tags/v* ]]; then
             output=$(uv run pywrangler deploy 2>&1 | tee /dev/stderr)
+          elif [[ "$REF" == refs/tags/* ]]; then
+            echo "Not a release tag, nothing to ship."
+            exit 0
           else
-            # An alias may not start or end with a hyphen, which a cut branch
-            # name can.
-            alias=$(printf '%s' "$BRANCH" \
-              | tr '[:upper:]' '[:lower:]' \
-              | sed 's/[^a-z0-9-]/-/g' \
-              | cut -c1-40 \
-              | sed 's/^-*//; s/-*$//')
+            if [ "$REF" = "refs/heads/main" ]; then
+              alias=next
+            else
+              # An alias may not start or end with a hyphen, which a cut
+              # branch name can.
+              alias=$(printf '%s' "$BRANCH" \
+                | tr '[:upper:]' '[:lower:]' \
+                | sed 's/[^a-z0-9-]/-/g' \
+                | cut -c1-40 \
+                | sed 's/^-*//; s/-*$//')
+            fi
             # A branch only ever uploads a preview version. Production moves
-            # on main alone, so a failed upload fails the step rather than
-            # falling back to a deploy.
+            # on a release tag alone, so a failed upload fails the step
+            # rather than falling back to a deploy.
             output=$(uv run pywrangler versions upload --preview-alias "$alias" 2>&1 \
                      | tee /dev/stderr)
           fi

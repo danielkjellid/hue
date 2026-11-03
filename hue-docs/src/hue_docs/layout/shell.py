@@ -4,6 +4,9 @@ The frame every docs page sits in: navigation, top bar, content, contents.
 
 from __future__ import annotations
 
+import os
+from importlib.metadata import version
+
 from htmy import html as h
 from hue import html
 from hue.js import unsafe
@@ -29,6 +32,12 @@ from hue_docs.model import NavGroup
 from hue_docs.site import url
 
 
+def _version() -> str:
+    # The deploy sets "next" for anything built from a branch, which is ahead of
+    # the last release. Read at render time: the demo Worker has no metadata.
+    return os.environ.get("HUE_DOCS_VERSION") or f"v{version('hue-ui')}"
+
+
 def _brand() -> ComponentType:
     return (
         html.a(
@@ -40,7 +49,7 @@ def _brand() -> ComponentType:
                 html.span("Hue").class_(
                     "block font-ui text-md font-bold leading-tight tracking-tight"
                 ),
-                html.span("Component library").class_(
+                html.span(f"Component library {_version()}").class_(
                     "block text-2xs tracking-wide text-fg-subtle"
                 ),
             ),
