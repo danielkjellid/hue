@@ -32,7 +32,7 @@ from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.breadcrumbs import Breadcrumbs
 from hue.ui.molecules.button_group import ButtonGroup
-from hue.ui.molecules.calendar import Calendar, Event
+from hue.ui.molecules.calendar import Calendar, Event, MiniCalendar
 from hue.ui.molecules.card import (
     Card,
     CardBody,
@@ -158,6 +158,7 @@ __all__ = [
     "MenuItem",
     "MenuLabel",
     "MenuSeparator",
+    "MiniCalendar",
     "NativeSelect",
     "NumberInput",
     "Pagination",

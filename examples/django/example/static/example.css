@@ -13,3 +13,31 @@
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
 }
+
+/* The events page: the mini calendar beside the filter and the calendar,
+   and above them on a narrow screen. */
+.events-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.events-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .events-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .events-sidebar {
+    flex: none;
+    width: 15rem;
+  }
+}

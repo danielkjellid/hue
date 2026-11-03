@@ -28,7 +28,13 @@ from hue.utils import classnames, render_if
 if TYPE_CHECKING:
     from hue.calendar import _Declaration
 
-__all__ = ["Calendar", "CalendarView", "Event", "EventColor"]
+__all__ = [
+    "Calendar",
+    "CalendarView",
+    "Event",
+    "EventColor",
+    "MiniCalendar",
+]
 
 # date() is a modifier below, which hides the type by that name inside the
 # class, as Formats' fields do.
@@ -57,8 +63,10 @@ class Calendar(ChainableComponent):
     def from_state(cls, declaration: _Declaration) -> Self:
         """
         The calendar a declaration describes, bound to the request of the
-        page it is rendered on, with the sidebar, the search and the event
-        dialog around it.
+        page it is rendered on: the search and the view options above it,
+        and New event and the event dialog when the declaration saves.
+        MiniCalendar draws the sidebar from the same declaration, wherever
+        the page puts it.
         """
         declaration.claim_keys()
         calendar = cls()
@@ -134,6 +142,7 @@ class Calendar(ChainableComponent):
             cursor=cursor,
             view=view,
             today=self._get_prop("today"),
+            create=self._get_prop("create"),
             start=self._get_prop("week_start", "monday"),
             weekdays=self._get_prop("weekdays", False),
             events=self._get_prop("events", []),
@@ -171,4 +180,34 @@ class Calendar(ChainableComponent):
             id=own_id,
             class_=classnames(_FRAME, self._get_prop("class_")),
             **attrs,
+        )
+
+
+class MiniCalendar(ChainableComponent):
+    """
+    The sidebar of a declared calendar: a picker to jump to a day by, the
+    layers to show and hide, and which timezone the times are in. Drawn
+    with MiniCalendar.from_state(), from the declaration the Calendar
+    beside it is drawn from.
+    """
+
+    category = None
+
+    @classmethod
+    def from_state(cls, declaration: _Declaration) -> Self:
+        """
+        The sidebar of the calendar a declaration describes, bound to the
+        request of the page it is rendered on. Its classes and attributes go
+        on its root, which no response replaces.
+        """
+        part = cls()
+        part._props["declaration"] = declaration
+        return part
+
+    def _render(self, context: Context) -> Component:
+        if (drawn := declared(self)) is not None:
+            return drawn
+        raise ValueError(
+            "MiniCalendar draws part of a declared calendar, and there is none "
+            "here. Draw it with MiniCalendar.from_state()."
         )

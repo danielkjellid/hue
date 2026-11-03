@@ -24,10 +24,16 @@ from django.test import Client, override_settings
 from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
-from hue.calendar import CalendarShortcuts, CalendarState, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarShortcuts,
+    CalendarState,
+    Filter,
+    Layer,
+    build_calendar_state,
+)
 from hue.context import HueContextArgs
 from hue.renderer import render_tree
-from hue.ui import Calendar, Event
+from hue.ui import Calendar, Event, MiniCalendar
 
 from hue_django.pages import Page
 from hue_django.router import Router
@@ -155,7 +161,7 @@ def test_the_page_draws_the_state_the_url_asks_for(mounted):
 
 def test_the_sidebar_month_keeps_its_name_for_screen_readers_only(mounted):
     # Plain from where it sits, and the design shows no heading over it.
-    html = _render(Calendar.from_state(mounted().events), _request())
+    html = _render(MiniCalendar.from_state(mounted().events), _request())
     assert re.search(r'<legend[^>]*class="[^"]*sr-only[^"]*"[^>]*>\s*Go to a day', html)
 
 
@@ -330,6 +336,10 @@ def test_a_save_reaches_the_handler_and_redraws_the_calendar_with_a_toast(mounte
     assert "Created &quot;Pairing&quot;" in html or 'Created "Pairing"' in html
     assert re.search(r'<div id="events-dialog"[^>]*></div>', html)
     assert "Thursday 15 October 2026" in html
+    # The parts beside the calendar refresh from the same response, so the
+    # picker's marks and the state the forms carry follow the change.
+    assert re.search(r'<div id="events-side"[^>]*x-sync', html)
+    assert re.search(r'<div id="events-carried"[^>]*x-sync', html)
 
 
 def test_the_fields_become_the_event_the_handler_is_handed(mounted):
@@ -381,26 +391,36 @@ def test_the_overlap_check_answers_in_the_dialogs_own_region(mounted):
     assert re.fullmatch(r'<div id="events-overlap">\s*</div>', cleared.strip())
 
 
-def test_the_overlap_check_asks_for_the_drafts_days_in_every_layer_unsearched(
+def test_the_overlap_check_asks_for_the_drafts_days_in_every_layer_unnarrowed(
     mounted,
 ):
     asked: list[Any] = []
 
     def events(request: Any, state: CalendarState) -> list[Event]:
         asked.append((state.first, state.last, state.query, state.layers))
+        asked.append(dict(state.filters))
         return []
 
-    mounted(events=events)
-    # The view is on March, with a search and a hidden layer; the draft
-    # is far away from both. Only its own day is asked for, in every layer
-    # and with no search, or a far draft reads thousands of days a
-    # keystroke and a clash the reader cannot see goes unmentioned.
+    mounted(events=events, filters=[Filter("room", "Room", options=[("a", "A")])])
+    # The view is on March, with a search, a filter and a hidden layer; the
+    # draft is far away from all of them. Only its own day is asked for, in
+    # every layer and with no search or filter, or a far draft reads
+    # thousands of days a keystroke and a clash the reader cannot see goes
+    # unmentioned.
     _act(
         "overlaps",
         **_fields(starts="9998-12-30", ends="9998-12-30"),
-        **{"events-date": "2026-03-02", "events-q": "re", "events-hide": "home"},
+        **{
+            "events-date": "2026-03-02",
+            "events-q": "re",
+            "events-hide": "home",
+            "events-room": "a",
+        },
     )
-    assert asked == [(date(9998, 12, 30), date(9998, 12, 30), "", ("work", "home"))]
+    assert asked == [
+        (date(9998, 12, 30), date(9998, 12, 30), "", ("work", "home")),
+        {},
+    ]
 
 
 def test_the_overlap_warning_names_two_counts_the_rest_and_skips_itself(mounted):

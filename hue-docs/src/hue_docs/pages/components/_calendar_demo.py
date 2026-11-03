@@ -4,9 +4,9 @@ from datetime import date, datetime
 
 from fastapi import Request
 from hue import html, toast
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue.calendar import CalendarState, Filter, Layer, build_calendar_state
 from hue.context import HueContext
-from hue.ui import Calendar, Event, ToastRegion
+from hue.ui import Calendar, Event, MiniCalendar, ToastRegion
 from hue_fastapi import HueView, Page, Router
 
 # A list of events, so the narrowing below is plain Python. A database query
@@ -70,11 +70,13 @@ def _day(moment: date | datetime) -> date:
 
 def events_for(request: Request, asked: CalendarState) -> list[Event]:
     query = asked.query.lower()
+    kind = asked.value("kind")
     return [
         event
         for event in EVENTS
         if event.layer in asked.layers
         and query in event.title.lower()
+        and kind in (None, "timed" if event.timed else "all_day")
         and _day(event.starts) <= asked.last
         and _day(event.ends or event.starts) >= asked.first
     ]
@@ -106,15 +108,30 @@ class ScheduleView(HueView):
         delete=delete_event,
         repeats={"weekdays": "Every weekday", "weekly": "Every week"},
         search="Search events",
+        filters=[
+            Filter(
+                "kind",
+                "Kind",
+                options=[("timed", "Timed"), ("all_day", "All day")],
+                multiple=False,
+            )
+        ],
     )
 
     async def index(self, request: Request, context: HueContext[Request]) -> Page:
         return Page(
             title="Schedule",
             body=html.div(
-                html.div(Calendar.from_state(self.schedule))
+                html.div(
+                    MiniCalendar.from_state(self.schedule).class_(
+                        "lg:w-60 lg:flex-none"
+                    ),
+                    html.div(Calendar.from_state(self.schedule)).class_(
+                        "min-w-0 flex-1"
+                    ),
+                )
                 .id("schedule-demo")
-                .class_("w-full"),
+                .class_("flex w-full flex-col gap-4 lg:flex-row lg:items-start"),
                 ToastRegion(),
             ).class_("p-4"),
         )

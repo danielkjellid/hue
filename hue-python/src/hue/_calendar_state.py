@@ -6,11 +6,12 @@ its layers, its state, the names of its parts and the binding to one request.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from hue._declared import Bound, Pairs, Urls
+from hue._declared import Bound, Narrowed, Pairs, Urls
 from hue.formats import Formats
 from hue.shortcuts import ShortcutRegistry
 from hue.ui.molecules import _calendar_views as views
@@ -67,16 +68,16 @@ class Layer:
 
 
 @dataclass(frozen=True, slots=True)
-class CalendarState:
+class CalendarState(Narrowed):
     """
     What was asked for, read off the request and written back into every
     link and form the calendar builds.
 
     events() reads first and last, the first and last day it has to cover:
     the view's own days, and the six weeks of the month around date, which
-    the sidebar's picker marks. It reads query and layers, the keys of the
-    layers to show, and narrows on those. The rest says how the view is
-    drawn.
+    the sidebar's picker marks. It reads query, layers, the keys of the
+    layers to show, and the filters, through chosen() and value(), and
+    narrows on those. The rest says how the view is drawn.
     """
 
     date: _Day
@@ -86,6 +87,8 @@ class CalendarState:
     week_start: Weekday = "monday"
     weekdays: bool = False
     layers: tuple[str, ...] = ()
+    # Out of the hash, so a state can still key a cache: a dict has none.
+    filters: Mapping[str, tuple[str, ...]] = field(default_factory=dict, hash=False)
     first: _Day = field(init=False)
     last: _Day = field(init=False)
 
@@ -112,6 +115,41 @@ class CalendarState:
         if self.view == "year":
             return date(cursor.year, 1, 1), date(cursor.year, 12, 31)
         return cursor, cursor + timedelta(days=views._AGENDA_DAYS - 1)
+
+
+@dataclass(frozen=True, slots=True)
+class CalendarLink:
+    """
+    One place a declared calendar can go: its URL, and the day and view it
+    shows there, for a label such as November rather than Next.
+    """
+
+    href: str
+    date: _Day
+    view: CalendarView
+
+
+@dataclass(frozen=True, slots=True)
+class CalendarNavigation:
+    """
+    Where a declared calendar is for one request, and where it can go from
+    there, for controls of the page's own.
+
+    previous and next are one period back and on in the view shown, the
+    way the toolbar steps, and None past the days a calendar can draw.
+    today is the period around today, and views the same day in each view.
+    title is the range as the toolbar writes it. target is the id of the
+    calendar's region, which a link swaps in place of a page load.
+    """
+
+    date: _Day
+    view: CalendarView
+    title: str
+    target: str
+    previous: CalendarLink | None
+    next: CalendarLink | None
+    today: CalendarLink
+    views: dict[CalendarView, CalendarLink]
 
 
 def read_day(text: str) -> date | None:
@@ -204,7 +242,7 @@ def help_id(key: str) -> str:
 
 def side_id(key: str) -> str:
     """
-    The id of the sidebar, which the toolbar's button opens.
+    The id of what MiniCalendar draws, which every response refreshes.
     """
     return f"{key}-side"
 
@@ -220,8 +258,8 @@ def view_options_id(key: str) -> str:
 class BoundCalendar(Bound):
     """
     One calendar for one request: what was asked, the events that answered,
-    and the reader's today. Every part of the calendar reads this from the
-    context and builds its links from it.
+    and the reader's today. Every part of the calendar is handed this and
+    builds its links from it.
     """
 
     declaration: _Declaration
@@ -258,5 +296,7 @@ class BoundCalendar(Bound):
             HIDE: ",".join(state.hidden),
             START: state.week_start if state.week_start != declared.week_start else "",
             WEEKDAYS_ONLY: "1" if state.weekdays else "",
+            # One parameter per filter, its answers joined as the table's are.
+            **{name: ",".join(values) for name, values in state.filters.items()},
         }
         return {name: value for name, value in asked.items() if value}

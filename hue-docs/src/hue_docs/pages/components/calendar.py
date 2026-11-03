@@ -8,7 +8,16 @@ from hue import html
 from hue.context import HueContext
 from hue.js import ajax, unsafe
 from hue.types.core import ComponentType
-from hue.ui import Alert, Button, Calendar, DatePicker, Empty, Event, Table
+from hue.ui import (
+    Alert,
+    Button,
+    Calendar,
+    DatePicker,
+    Empty,
+    Event,
+    MiniCalendar,
+    Table,
+)
 from hue.ui.molecules.calendar import CalendarView
 from hue_fastapi import HueFragmentsView, Page, Router
 
@@ -472,8 +481,37 @@ def declared_calendar() -> ComponentType:
     )
 
 
-_DECLARATION = """from hue.calendar import CalendarState, Layer, build_calendar_state
-from hue.ui import Calendar, Event
+_NAVIGATION = """from hue import html
+from hue.calendar import CalendarLink
+from hue.types.core import ComponentType
+from hue.utils import render_if
+
+
+async def index(self, request: HttpRequest, context: HueContext[HttpRequest]) -> Page:
+    nav = self.events.navigation(context)
+
+    def arrow(link: CalendarLink, label: str) -> ComponentType:
+        return html.a(label).href(link.href).x_target_push(nav.target)
+
+    return Page(
+        title="Events",
+        body=html.div(
+            html.nav(
+                render_if(nav.previous, lambda link: arrow(link, "Previous")),
+                arrow(nav.today, "Today"),
+                render_if(nav.next, lambda link: arrow(link, "Next")),
+                html.h2(nav.title),
+            )
+            .id("events-nav")
+            .x_sync(),
+            Calendar.from_state(self.events),
+        ),
+    )"""
+
+
+_DECLARATION = """from hue import html
+from hue.calendar import CalendarState, Filter, Layer, build_calendar_state
+from hue.ui import Calendar, Event, MiniCalendar
 
 
 def events_for(request: HttpRequest, asked: CalendarState) -> list[Event]:
@@ -484,6 +522,8 @@ def events_for(request: HttpRequest, asked: CalendarState) -> list[Event]:
     )
     if asked.query:
         found = found.filter(title__icontains=asked.query)
+    if rooms := asked.chosen("room"):
+        found = found.filter(room__in=rooms)
     return [entry.event() for entry in found]
 
 
@@ -511,12 +551,19 @@ class EventsView(HueView):
         delete=delete_entry,
         repeats={"weekly": "Every week", "monthly": "Every month"},
         search="Search events",
+        filters=[Filter("room", "Room", options=[("3b", "3B"), ("huddle", "Huddle")])],
     )
 
     async def index(
         self, request: HttpRequest, context: HueContext[HttpRequest]
     ) -> Page:
-        return Page(title="Events", body=Calendar.from_state(self.events))"""
+        return Page(
+            title="Events",
+            body=html.div(
+                MiniCalendar.from_state(self.events).class_("lg:w-60 lg:flex-none"),
+                html.div(Calendar.from_state(self.events)).class_("min-w-0 flex-1"),
+            ).class_("flex flex-col gap-4 lg:flex-row lg:items-start"),
+        )"""
 
 
 def _usage() -> ComponentType:
@@ -651,13 +698,27 @@ def _usage() -> ComponentType:
         pr.h2("Declare a Calendar on a view"),
         pr.p(
             "A `Calendar` declared once on a `HueView` with "
-            "`build_calendar_state()` keeps its state in the URL, fetches its "
-            "events through one function, and draws a sidebar, a search box, "
-            "view options and an event dialog around itself. The declaration "
-            "names the function that finds the events, the layers a reader can "
-            "show and hide, and what saves and deletes an event. "
-            "`Calendar.from_state()` draws it, bound to the request in the "
-            "context, so the view passes nothing else."
+            "`build_calendar_state()` keeps its state in the URL and fetches "
+            "its events through one function. The declaration names the "
+            "function that finds the events, the layers a reader can show and "
+            "hide, and what saves and deletes an event."
+        ),
+        pr.p(
+            "Two components draw it, each bound to the request in the context, "
+            "so the view passes nothing else. They share one fetch of the "
+            "events. The layout is the page's own, so its classes come from "
+            "your stylesheet: the example stacks the two below `lg` and puts the "
+            "`MiniCalendar` beside the `Calendar` above it."
+        ),
+        pr.bullets(
+            [
+                "`Calendar.from_state()` draws the calendar with the search box "
+                "and the view options above it, and New event and the event "
+                "dialog when there is a `save`.",
+                "`MiniCalendar.from_state()` draws a sidebar: a picker that "
+                "jumps to a day, the layers to show and hide, and the timezone. "
+                "It is optional.",
+            ]
         ),
         pr.p(
             "The example below is written for `hue-django`, with a Django "
@@ -706,7 +767,7 @@ def _usage() -> ComponentType:
             "`Event` between `asked.first` and `asked.last` that matches "
             "`asked.query` and belongs to one of `asked.layers`. `first` and "
             "`last` cover the days the view shows and the six weeks of the month "
-            "around `asked.date`, which the sidebar's picker marks. Anything "
+            "around `asked.date`, which the `MiniCalendar`'s picker marks. Anything "
             "other than an `Event` in what it returns raises a `TypeError`."
         ),
         pr.p(
@@ -748,9 +809,10 @@ def _usage() -> ComponentType:
         ),
         pr.p(
             "Previous, Today, Next, the view switcher and every day are links "
-            "to the page with one part changed. The search, the sidebar's picker "
-            "and layers and the view options are `GET` forms to the same page. "
-            "Alpine AJAX fetches the page and swaps the calendar in place, and the "
+            "to the page with one part changed. The search, the "
+            "`MiniCalendar`'s picker and layers and the view options are `GET` "
+            "forms to the same page. Alpine AJAX fetches the page and swaps the "
+            "calendar in place, and the "
             "address bar follows, so it reloads to the same calendar and can be "
             "sent to someone. With JavaScript off, the "
             "links and the search still work as full page loads."
@@ -766,14 +828,43 @@ def _usage() -> ComponentType:
             "calendars on one page keep separate state in one URL, and each "
             "carries the other's parameters through unchanged."
         ),
-        pr.h2("Calendar layers, search and view options"),
+        pr.h2("Navigate a declared Calendar from your own controls"),
+        pr.p(
+            "`navigation(context)` on the declaration says where the `Calendar` "
+            "is for this request and where it can go, for controls of your own, "
+            "such as a month header with its own arrows. It reads the query "
+            "alone, so it fetches no events."
+        ),
+        pr.bullets(
+            [
+                "`previous` and `next` step one period in the view shown, as the "
+                "toolbar's arrows do: a week in the week view, a month in the "
+                "month view. Each is `None` past the days a `Calendar` can draw.",
+                "`today` is the period around today, and `views` maps each view "
+                "to the same day in it.",
+                "Each is a `CalendarLink`, with the `href` and the `date` and "
+                "`view` it leads to, so a control can say November instead of "
+                "Next.",
+                "`title` is the range the toolbar shows, such as October 2026, "
+                "and `target` is the id of the `Calendar`'s region.",
+            ]
+        ),
+        pr.p(
+            "Give each link `x_target_push(nav.target)` so it swaps the "
+            "`Calendar` in place. Give the element around your controls an "
+            "`id()` and `x_sync()`, so each response refreshes their links along "
+            "with the `Calendar`. Without a target, each link is a full page load "
+            "to the same state."
+        ),
+        pr.code(_NAVIGATION),
+        pr.h2("Calendar layers and search"),
         pr.p(
             "Each `Layer` is one of the calendars a reader can show or hide: a "
-            "key, a name and a chart colour, 1 by default. The sidebar lists the "
-            "layers under Calendars as checkboxes. Unticking one adds its key to "
-            "`{key}-hide`, so the URL carries the hidden layers and a layer added "
-            "later shows up for someone following an old link. It is called a "
-            "layer because `Calendar` is the component."
+            "key, a name and a chart colour, 1 by default. The `MiniCalendar` "
+            "lists the layers under Calendars as checkboxes. Unticking one adds "
+            "its key to `{key}-hide`, so the URL carries the hidden layers and a "
+            "layer added later shows up for someone following an old link. It is "
+            "called a layer because `Calendar` is the component."
         ),
         pr.p(
             "`search` gives the `Calendar` a search box, a `GET` form that "
@@ -784,21 +875,43 @@ def _usage() -> ComponentType:
             'match, such as 2 events match "re". Responses leave the box alone, '
             "so the caret stays in it while the events change."
         ),
+        pr.h2("Filters on a declared Calendar"),
         pr.p(
-            "The view options sit behind one button: which day the week starts "
-            "on, and Weekdays only, which leaves the weekend out. Each change "
-            "submits at once."
+            "`filters` takes a list of `Filter`, the same class a declared "
+            "`DataTable` uses, imported from `hue.calendar` or `hue.datatable`. "
+            "Each filter gets a parameter in the URL, a group in the panel "
+            "behind the Filter button at the end of the row above the "
+            "calendar, and a chip under the row for every answer, which "
+            "removes that answer."
         ),
         pr.p(
-            "The sidebar also holds New event, when there is a `save`, and a "
-            "picker that jumps to a day and marks each day that has events. "
-            "Picking a day from the year view opens that day. Below the "
-            "`lg` breakpoint the sidebar is hidden behind a button at the start "
-            "of the toolbar."
+            "`events()` reads the answers off the state: "
+            '`asked.chosen("room")` for a filter that holds several, and '
+            '`asked.value("room")` for one that holds a single answer. An answer '
+            "the filter does not offer is dropped before `events()` sees it. The "
+            "overlap check and a lookup by id ignore the filters, as they ignore "
+            "the search, so an event filtered out of view still counts as an "
+            "overlap."
+        ),
+        pr.p(
+            "A filter cannot share a name with anything the calendar already "
+            "puts in the URL or the dialog posts, such as `date`, `view` or "
+            "`title`. A declaration with one raises a `ValueError`."
+        ),
+        pr.h2("View options on a declared Calendar"),
+        pr.p(
+            "The view options sit behind one button at the end of the row: which "
+            "day the week starts on, and Weekdays only, which leaves the weekend "
+            "out. Each change submits at once."
+        ),
+        pr.p(
+            "The `MiniCalendar`'s picker jumps to a day and marks each day that "
+            "has events. Picking a day from the year view opens that day. With a "
+            "`save`, New event sits at the end of the `Calendar`'s toolbar."
         ),
         pr.h2("Saving and deleting Calendar events"),
         pr.p(
-            "With a `save`, the sidebar has New event, a click on an empty part "
+            "With a `save`, the toolbar has New event, a click on an empty part "
             "of a day opens the dialog for that day, and an event's popover "
             "offers Edit and Duplicate. In the day and week views the click also "
             "fills in the half hour under the pointer. With a `delete`, the "
@@ -898,7 +1011,7 @@ def _usage() -> ComponentType:
             "In the month view and along the all-day row, a drag moves an event "
             "by whole days, counted from the day the reader took hold of, and "
             "keeps its times and length. Only the `Calendar`'s own days take a "
-            "drop. An event let go over the sidebar's picker, or anywhere off "
+            "drop. An event let go over the `MiniCalendar`'s picker, or anywhere off "
             "the calendar, stays where it was."
         ),
         pr.bullets(
@@ -1039,7 +1152,8 @@ def _usage() -> ComponentType:
             "where a declared `Calendar` is drawn, and like every shortcut they "
             "stay silent while someone types or a dialog is open. The arrow "
             "keys on their own are not among them: they move through the "
-            "sidebar's picker and any listbox, and the registry refuses them."
+            "`MiniCalendar`'s picker and any listbox, and the registry refuses "
+            "them."
         ),
         pr.p(
             "Only one `Calendar` on a page holds the keys, the first one the "
@@ -1055,8 +1169,8 @@ def _usage() -> ComponentType:
                 "outside what a response replaces, so a screen reader hears where "
                 "the calendar moved to. The search's count and the dialog's "
                 "overlap warning are status regions too.",
-                "In the sidebar's picker, a day with events has has events after "
-                "its name.",
+                "In the `MiniCalendar`'s picker, a day with events has \"has "
+                'events" after its name.',
                 "The dialog opens on its title field. When a save or a delete "
                 "closes it, focus goes to New event.",
                 "After a move or an Undo, the event that moved or came back "
@@ -1064,12 +1178,10 @@ def _usage() -> ComponentType:
                 "several days takes it on the day it starts. On a full month day "
                 "it takes the place of the last event shown, which moves into "
                 "+N more, so focus never lands in a closed popover.",
-                "The button that opens the sidebar below `lg` is named Calendar "
-                "tools and says whether the sidebar is open. Below `sm` the "
-                "dialog docks to the bottom edge as a sheet, as every `Dialog` "
-                "does.",
+                "Below `sm` the dialog docks to the bottom edge as a sheet, as "
+                "every `Dialog` does.",
                 "When the `Formats` in the context moves times into a timezone, "
-                "the sidebar says which one, such as Times in Europe/Oslo.",
+                "the `MiniCalendar` says which one, such as Times in Europe/Oslo.",
             ]
         ),
         pr.h2("A Calendar on a narrow screen"),
@@ -1135,9 +1247,9 @@ PAGE = ComponentPage(
         "A `Calendar` lays out events on a day, a week, a month, a year or the "
         "next 30 days. Handed its events, it is presentational, and `href()` "
         "turns its navigation into links to the app's own routes. Declared on "
-        "a view, it also searches, shows and hides layers, saves and deletes "
-        "events through a dialog, and moves them by drag or by key, with its "
-        "state in the URL."
+        "a view, it also searches, saves and deletes events through a dialog "
+        "and moves them by drag or by key, with its state in the URL, and "
+        "`MiniCalendar` adds a picker and the layers to show and hide."
     ),
     usage=_usage,
     panels=[
@@ -1245,6 +1357,7 @@ PAGE = ComponentPage(
         ),
         Note("warn", "A `Calendar` raises a `ValueError` without `date()`."),
     ],
+    parts=[MiniCalendar],
     related=[DatePicker, Table],
     # The declared demo first: its action route, schedule/<action>/, would
     # otherwise reach CalendarDemo's {view}/{day}/ first and be refused.

@@ -1,14 +1,17 @@
 """
-The parts a declared calendar draws around the Calendar itself: the frame,
-the sidebar, the band above it, the help dialog and the keys.
+The parts a declared calendar draws besides the Calendar itself: the frame
+around it, the search and view options above it, New event, the help
+dialog and the keys, and the sidebar MiniCalendar draws wherever the page
+puts it.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from htmy import Context, html
 
@@ -30,7 +33,7 @@ from hue._calendar_state import (
     timezone_name,
     view_options_id,
 )
-from hue._declared import bound_from, carried, search_form, search_id
+from hue._declared import carried, filter_form, filters_id, search_form, search_id
 from hue.js import Expression, call, close, unsafe
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
@@ -209,15 +212,14 @@ def _matches(bound: BoundCalendar) -> str:
 
 class Frame(ChainableComponent):
     """
-    Offers one binding to every part of a calendar rendered inside it, and
-    holds the slot the dialog lands in and the help for the keys.
+    The Calendar inside, with the slot the dialog lands in, the help for
+    the keys and the state a click posts.
 
-    Its x-data is hueCalendar, configured here: the sidebar on a narrow
-    screen, the click on an empty slot, and the drags and keys that move
-    an event, which the Calendar inside listens for. The slot says where
-    focus goes when the dialog closes under it: New event, the one control
-    that is always there, since what opened the dialog may be gone with
-    the sidebar's refresh.
+    Its x-data is hueCalendar, configured here: the click on an empty slot,
+    New event, and the drags and keys that move an event, which the
+    Calendar inside listens for. The slot says where focus goes when the
+    dialog closes under it: New event, which every response that closes
+    the dialog draws again, where what opened the dialog may be gone.
     """
 
     category: ClassVar[str | None] = None
@@ -225,9 +227,6 @@ class Frame(ChainableComponent):
     def __init__(self, bound: BoundCalendar) -> None:
         super().__init__()
         self._bound = bound
-
-    def htmy_context(self) -> Context:
-        return {BoundCalendar: self._bound}
 
     def _render(self, context: Context) -> Component:
         bound = self._bound
@@ -258,9 +257,33 @@ class Frame(ChainableComponent):
                 id=f"{key}-shortcuts",
                 **SYNC,
             ),
-            class_="flex flex-col gap-4 lg:flex-row lg:items-start",
+            # The whole state, for the script that opens the dialog from a
+            # click, read at the click since it moves under this root.
+            html.div(
+                *carried(bound.query(bound.state)),
+                id=state_id(key),
+                hidden=True,
+                **SYNC,
+            ),
+            class_="flex min-w-0 flex-col gap-3",
             **{"x-data": call("hueCalendar", config)},
         )
+
+
+def new_event(bound: BoundCalendar) -> ComponentType:
+    """
+    New event, at the end of the calendar's toolbar, which opens the dialog
+    empty.
+    """
+    return (
+        Button()
+        .variant("primary")
+        .size("sm")
+        .id(new_id(bound.key))
+        .x_autofocus(bound.focus == "new")
+        .content(HueIcon("plus"), "New event")
+        .x_on("click", unsafe("calendarCreate()"))
+    )
 
 
 def _help(bound: BoundCalendar, keys: type[ShortcutRegistry]) -> ComponentType:
@@ -328,127 +351,101 @@ def _help_row(label: str, *keys: ComponentType) -> ComponentType:
     )
 
 
-class Side(ChainableComponent):
+def side(
+    bound: BoundCalendar,
+    classes: str | None = None,
+    attrs: Mapping[str, Any] | None = None,
+) -> ComponentType:
     """
-    The sidebar: New event, a picker to jump by, the calendars to show and
+    What MiniCalendar draws: a picker to jump by, the calendars to show and
     hide, and which timezone the times are in.
 
-    Synced, so every response refreshes it: the picker's marks and the
-    state the toolbar's forms carry both live here. Below lg it is hidden
-    until the button in the toolbar opens it.
+    Everything inside is synced, so every response refreshes it: the
+    picker's marks and the state its forms carry both live there. The page's
+    classes and attributes go on the aside around it, which no response
+    replaces, so they outlast a change.
     """
-
-    category: ClassVar[str | None] = None
-
-    def _render(self, context: Context) -> Component:
-        bound = bound_from(context, BoundCalendar, self, "Calendar")
-        declared, state, key = bound.declaration, bound.state, bound.key
-        formats = bound.formats
-        view = views.region_id(key)
-        # Picking a day in the year view goes to that day; elsewhere the
-        # view stays and moves to it.
-        picked = replace(state, view="day" if state.view == "year" else state.view)
-        return html.aside(
-            render_when(
-                declared.save is not None,
-                Button()
-                .variant("primary")
-                .id(new_id(key))
-                .x_autofocus(bound.focus == "new")
-                .content(HueIcon("plus"), "New event")
-                .x_on("click", unsafe("calendarCreate()")),
-            ),
-            html.form(
-                DatePicker()
-                .name(declared.param(DATE))
-                .id(f"{key}-picker")
-                .label("Go to a day")
-                .hidden_label()
-                .size("sm")
-                .value(state.date)
-                .week_start(state.week_start)
-                .markers(*_marked(bound))
-                # Named so nothing in the picker's own scope, which has a
-                # day() of its own, can stand in for it.
-                .x_model(unsafe("pickedDay")),
-                *carried(bound.query(picked, without={DATE})),
-                method="get",
-                action=bound.urls.read,
-                **swap(view),
-                **{
-                    "x-data": (
-                        f"{{ pickedDay: {json.dumps([state.date.isoformat()])} }}"
-                    ),
-                    # After the tick, so the picker's hidden field holds
-                    # the new day before the form reads it.
-                    "x-init": (
-                        "$watch('pickedDay', "
-                        "() => $nextTick(() => $el.requestSubmit()))"
-                    ),
-                },
-            ),
-            render_when(
-                bool(declared.layers),
-                html.section(
-                    html.h2("Calendars", class_=PANEL_LABEL),
-                    html.ul(
-                        *(_layer_row(bound, layer) for layer in declared.layers),
-                        class_="flex flex-col gap-2",
-                    ),
-                    # The boxes sit outside the form, so they are read and
-                    # never submitted: a box can only submit itself while
-                    # it is ticked, and what the URL wants is the ones that
-                    # are not. One hidden field carries those, left out of
-                    # the URL while there are none.
-                    html.form(
-                        html.input_(
-                            type="hidden",
-                            name=declared.param(HIDE),
-                            **{
-                                ":value": "hiddenLayers.join(',')",
-                                ":disabled": "!hiddenLayers.length",
-                            },
-                        ),
-                        *carried(bound.query(bound.state, without={HIDE})),
-                        method="get",
-                        action=bound.urls.read,
-                        hidden=True,
-                        **swap(view),
-                        **{"x-ref": "form"},
-                    ),
+    declared, state, key = bound.declaration, bound.state, bound.key
+    formats = bound.formats
+    view = views.region_id(key)
+    # Picking a day in the year view goes to that day; elsewhere the view
+    # stays and moves to it.
+    picked = replace(state, view="day" if state.view == "year" else state.view)
+    inside = html.div(
+        html.form(
+            DatePicker()
+            .name(declared.param(DATE))
+            .id(f"{key}-picker")
+            .label("Go to a day")
+            .hidden_label()
+            .size("sm")
+            .value(state.date)
+            .week_start(state.week_start)
+            .markers(*_marked(bound))
+            # Named so nothing in the picker's own scope, which has a day()
+            # of its own, can stand in for it.
+            .x_model(unsafe("pickedDay")),
+            *carried(bound.query(picked, without={DATE})),
+            method="get",
+            action=bound.urls.read,
+            **swap(view),
+            **{
+                "x-data": f"{{ pickedDay: {json.dumps([state.date.isoformat()])} }}",
+                # After the tick, so the picker's hidden field holds the new
+                # day before the form reads it.
+                "x-init": (
+                    "$watch('pickedDay', () => $nextTick(() => $el.requestSubmit()))"
+                ),
+            },
+        ),
+        render_when(
+            bool(declared.layers),
+            html.section(
+                html.h2("Calendars", class_=PANEL_LABEL),
+                html.ul(
+                    *(_layer_row(bound, layer) for layer in declared.layers),
                     class_="flex flex-col gap-2",
-                    **{
-                        "x-data": (
-                            f"{{ hiddenLayers: {json.dumps(list(state.hidden))} }}"
-                        )
-                    },
                 ),
-            ),
-            render_if(
-                timezone_name(formats),
-                lambda name: html.p(
-                    HueIcon("clock").class_("size-3.5 flex-none"),
-                    f"Times in {name.replace('_', ' ')}",
-                    class_="flex items-center gap-1.5 text-xs text-fg-muted",
+                # The boxes sit outside the form, so they are read and never
+                # submitted: a box can only submit itself while it is
+                # ticked, and what the URL wants is the ones that are not.
+                # One hidden field carries those, left out of the URL while
+                # there are none.
+                html.form(
+                    html.input_(
+                        type="hidden",
+                        name=declared.param(HIDE),
+                        **{
+                            ":value": "hiddenLayers.join(',')",
+                            ":disabled": "!hiddenLayers.length",
+                        },
+                    ),
+                    *carried(bound.query(bound.state, without={HIDE})),
+                    method="get",
+                    action=bound.urls.read,
+                    hidden=True,
+                    **swap(view),
+                    **{"x-ref": "form"},
                 ),
+                class_="flex flex-col gap-2",
+                **{"x-data": f"{{ hiddenLayers: {json.dumps(list(state.hidden))} }}"},
             ),
-            # What the toolbar's forms send besides their own part, tied to
-            # each by id, and the whole state for the script that opens the
-            # dialog from a click.
-            html.div(
-                *carried(bound.query(state, without={QUERY}), form=search_id(key)),
-                *carried(
-                    bound.query(state, without={START, WEEKDAYS_ONLY}),
-                    form=view_options_id(key),
-                ),
-                html.div(*carried(bound.query(state)), id=state_id(key)),
-                hidden=True,
+        ),
+        render_if(
+            timezone_name(formats),
+            lambda name: html.p(
+                HueIcon("clock").class_("size-3.5 flex-none"),
+                f"Times in {name.replace('_', ' ')}",
+                class_="flex items-center gap-1.5 text-xs text-fg-muted",
             ),
-            id=side_id(key),
-            aria_label="Calendar tools",
-            class_="w-full flex-none flex-col gap-5 lg:flex lg:w-60",
-            **{":class": "calendarSide ? 'flex' : 'hidden lg:flex'", **SYNC},
-        )
+        ),
+        id=side_id(key),
+        class_="flex flex-col gap-5",
+        **SYNC,
+    )
+    return html.aside(
+        inside, class_=classes, **{"aria_label": "Calendar tools", **(attrs or {})}
+    )
 
 
 def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
@@ -483,54 +480,71 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
     )
 
 
-class Band(ChainableComponent):
+def band(bound: BoundCalendar) -> ComponentType:
     """
-    The row above the calendar: the button that opens the sidebar on a
-    narrow screen, the search, how many it found, and the view options.
+    The row above the calendar: the search, how many it found, the
+    filters with a chip for each answer, and the view options.
 
     Left alone by every response, so the search keeps its caret and an
-    open options panel stays open; the count inside it is synced by id.
+    open options panel stays open. The count and the state each form
+    carries besides its own part are synced by id.
     """
-
-    category: ClassVar[str | None] = None
-
-    def _render(self, context: Context) -> Component:
-        bound = bound_from(context, BoundCalendar, self, "Calendar")
-        declared, key = bound.declaration, bound.key
-        return html.div(
-            Button()
-            .variant("ghost")
-            .size("sm")
-            .icon_only("Calendar tools")
-            .class_("lg:hidden")
-            .aria_controls(side_id(key))
-            .content(HueIcon("panel-left"))
-            .x_on("click", unsafe("calendarSide = !calendarSide"))
-            .x_bind("aria-expanded", unsafe("calendarSide")),
-            render_when(
-                declared.search is not None,
-                search_form(
-                    bound,
-                    param=QUERY,
-                    label=declared.search or "",
-                    value=bound.state.query,
-                    target=views.region_id(key),
-                ),
+    declared, state, key = bound.declaration, bound.state, bound.key
+    searches = declared.search is not None
+    return html.div(
+        render_when(
+            searches,
+            search_form(
+                bound,
+                param=QUERY,
+                label=declared.search or "",
+                value=state.query,
+                target=views.region_id(key),
             ),
-            render_when(
-                declared.search is not None,
-                html.span(
-                    _matches(bound),
-                    id=f"{key}-matches",
-                    role="status",
-                    class_="text-sm tabular-nums text-fg-muted",
-                    **SYNC,
-                ),
+        ),
+        render_when(
+            searches,
+            html.span(
+                _matches(bound),
+                id=f"{key}-matches",
+                role="status",
+                class_="text-sm tabular-nums text-fg-muted",
+                **SYNC,
             ),
-            html.span(class_="flex-1"),
-            _options(bound),
-            class_="flex flex-wrap items-center gap-2",
-        )
+        ),
+        html.span(class_="flex-1"),
+        render_when(
+            bool(declared.filters),
+            filter_form(
+                bound, declared.filters, state.filters, target=views.region_id(key)
+            ),
+        ),
+        _options(bound),
+        # Tied to each form by id, since the forms themselves are left alone.
+        html.div(
+            *(
+                carried(bound.query(state, without={QUERY}), form=search_id(key))
+                if searches
+                else ()
+            ),
+            *carried(
+                bound.query(state, without={START, WEEKDAYS_ONLY}),
+                form=view_options_id(key),
+            ),
+            *(
+                carried(
+                    bound.query(state, without={f.name for f in declared.filters}),
+                    form=filters_id(key),
+                )
+                if declared.filters
+                else ()
+            ),
+            id=f"{key}-carried",
+            hidden=True,
+            **SYNC,
+        ),
+        class_="flex flex-wrap items-center gap-2",
+    )
 
 
 def _options(bound: BoundCalendar) -> ComponentType:
@@ -543,7 +557,6 @@ def _options(bound: BoundCalendar) -> ComponentType:
     names = bound.formats.day_names
     return (
         Popover()
-        .fit()
         .placement("bottom-end")
         .label("View options")
         .trigger(
@@ -575,7 +588,7 @@ def _options(bound: BoundCalendar) -> ComponentType:
                 id=view_options_id(key),
                 method="get",
                 action=bound.urls.read,
-                class_="flex w-52 flex-col gap-4",
+                class_="flex flex-col gap-4",
                 **swap(views.region_id(key)),
                 **{"@change": "$el.requestSubmit()"},
             ),

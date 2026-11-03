@@ -4,7 +4,9 @@ A calendar that knows where its own state lives.
 Calendar on its own draws the events it is handed. build_calendar_state,
 called at class scope, owns which day and view those are, reads them from
 the page's URL, fetches the events through events(), and registers the one
-route the dialog, the popover and a drag post to. The Calendars guide in
+route the dialog, the popover and a drag post to. Calendar.from_state()
+draws it with its search and view options, and MiniCalendar.from_state()
+draws its sidebar, wherever the page puts it. The Calendars guide in
 the docs says how to use it, from events() and save to dragging, Undo and
 the keys.
 
@@ -15,6 +17,7 @@ and what it draws around the Calendar in _calendar_chrome.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
@@ -22,17 +25,19 @@ from datetime import date
 from functools import partial
 from http import HTTPStatus
 from typing import Any, Literal
+from weakref import WeakKeyDictionary
 
 from htmy import Context, html
 
 from hue import toast
 from hue._calendar_chrome import (
     DRAGS,
-    Band,
     CalendarShortcuts,
     Frame,
-    Side,
+    band,
     keys_in,
+    new_event,
+    side,
     switch_on,
 )
 from hue._calendar_edit import (
@@ -70,6 +75,8 @@ from hue._calendar_state import (
     VIEWS,
     WEEKDAYS_ONLY,
     BoundCalendar,
+    CalendarLink,
+    CalendarNavigation,
     CalendarState,
     Layer,
     overlap_id,
@@ -78,18 +85,43 @@ from hue._calendar_state import (
     today_in,
     zone_of,
 )
-from hue._declared import Declaration, Pairs, Routes, many, one
+from hue._declared import (
+    Declaration,
+    Filter,
+    Pairs,
+    Routes,
+    filters_in,
+    many,
+    one,
+)
 from hue.context import HueContext
 from hue.formats import Formats
 from hue.router import HueResponse
 from hue.shortcuts import ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
-from hue.ui.molecules._calendar_views import FIRST, LAST, CalendarView, stamps
-from hue.ui.molecules.calendar import Calendar, Event
+from hue.ui.molecules._calendar_views import (
+    FIRST,
+    LAST,
+    CalendarView,
+    Draw,
+    region_id,
+    stamps,
+    stepped,
+)
+from hue.ui.molecules._calendar_views import VIEWS as VIEW_TABLE
+from hue.ui.molecules.calendar import Calendar, Event, MiniCalendar
 from hue.ui.molecules.date_picker import WEEKDAYS, Weekday
 from hue.utils import render_if
 
-__all__ = ["CalendarShortcuts", "CalendarState", "Layer", "build_calendar_state"]
+__all__ = [
+    "CalendarLink",
+    "CalendarNavigation",
+    "CalendarShortcuts",
+    "CalendarState",
+    "Filter",
+    "Layer",
+    "build_calendar_state",
+]
 
 
 # The group of keys that one calendar on a page holds, the first to ask.
@@ -121,10 +153,11 @@ class _Declaration(Declaration[Routes]):
     show and hide, save and delete are what the dialog and the popover do,
     repeats are the rules the dialog offers by key and label, and search
     is the placeholder of the search box, which exists when it is given.
+    filters are the other ways of narrowing it, declared as a table's are.
     view and week_start are the defaults the URL leaves out.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - every argument is a part of the declaration
         self,
         router: Routes,
         *,
@@ -135,6 +168,7 @@ class _Declaration(Declaration[Routes]):
         delete: DeleteHandler | None = None,
         repeats: Mapping[str, str] | None = None,
         search: str | None = None,
+        filters: Sequence[Filter] = (),
         view: CalendarView = "week",
         week_start: Weekday = "monday",
     ) -> None:
@@ -145,8 +179,14 @@ class _Declaration(Declaration[Routes]):
         self.delete = delete
         self.repeats = dict(repeats or {})
         self.search = search
+        self.filters = list(filters)
         self.view = view
         self.week_start = week_start
+        # The binding for each page being rendered, made by whichever part
+        # asks first, so events() runs once however many parts there are.
+        self._pages: WeakKeyDictionary[HueContext, asyncio.Task[BoundCalendar]] = (
+            WeakKeyDictionary()
+        )
         self._check()
         if self.edits:
             self._register_route(self._served(), self._act)
@@ -168,6 +208,12 @@ class _Declaration(Declaration[Routes]):
                 f"{self.key} has a layer called {taken!r}. The URL joins the "
                 f"hidden layers with a comma, so it would come back as two."
             )
+        for taken in [f.name for f in self.filters if f.name in (*STATE, *FIELDS)]:
+            raise ValueError(
+                f"{self.key} has a filter called {taken!r}, which is what the "
+                f"calendar already calls part of its state or a field of its "
+                f"dialog. Name it something else."
+            )
         if self.repeats and self.save is None:
             raise ValueError(
                 f"{self.key} offers repeats but has no save, and the dialog "
@@ -186,16 +232,34 @@ class _Declaration(Declaration[Routes]):
         saves = (DIALOG, OVERLAPS, SAVE, MOVE) if self.save is not None else ()
         return (*saves, *((DELETE,) if self.delete is not None else ()))
 
-    async def draw(self, calendar: Calendar, context: Context) -> Component:
+    async def draw(self, part: Calendar | MiniCalendar, context: Context) -> Component:
         """
-        The calendar bound to the request this page is rendered for, with
-        the sidebar, the search and the view options around it.
+        The Calendar or the MiniCalendar, bound to the request this page is
+        rendered for.
 
-        Calendar.from_state() hands over to this. The request is already in
+        Their from_state() hands over to this. The request is already in
         the context, so the view has nothing to pass.
         """
         hue = HueContext.from_context(context)
-        formats = Formats.from_context(context)
+        task = self._pages.get(hue)
+        if task is None:
+            task = self._pages[hue] = asyncio.ensure_future(self._bind_page(hue))
+        try:
+            bound = await task
+        except BaseException:
+            # Not kept: the traceback holds the context, which would keep
+            # its own weak key alive for as long as the declaration lives.
+            self._pages.pop(hue, None)
+            raise
+        if isinstance(part, MiniCalendar):
+            return side(bound, part._get_prop("class_"), part._get_base_html_attrs())
+        # On only where a Calendar is drawn, since every key presses one of
+        # its controls. The shortcut host reads them once the body is drawn.
+        switch_on(self, bound.shortcuts)
+        return self._drawn(part, bound)
+
+    async def _bind_page(self, hue: HueContext) -> BoundCalendar:
+        formats = hue.formats
         today = today_in(formats)
         asked, _, others = self._read(
             self._router._get_query_values(hue.request), today
@@ -204,11 +268,52 @@ class _Declaration(Declaration[Routes]):
         # calendar holds them on the page, claimed only when there is one.
         registry = keys_in(hue.shortcuts)
         keys = registry if registry and shortcuts.claim(_KEYS_CLAIM, self.key) else None
-        # On for the page, which the shortcut host reads once the whole
-        # body has rendered.
-        switch_on(self, keys)
-        bound = await self._bind(hue.request, asked, others, today, formats, keys=keys)
-        return self._drawn(calendar, bound)
+        return await self._bind(hue.request, asked, others, today, formats, keys=keys)
+
+    def navigation(self, context: HueContext[Any]) -> CalendarNavigation:
+        """
+        Where the calendar is for this request and where it can go, for
+        buttons of the page's own: previous, next, today and each view.
+        Read off the query alone, so no events are fetched for it.
+        """
+        today = today_in(context.formats)
+        query = self._router._get_query_values(context.request)
+        state, _, others = self._read(query, today)
+        bound = BoundCalendar(
+            self,
+            state,
+            [],
+            today,
+            self._urls_for(context.request, ()),
+            others,
+            context.formats,
+        )
+
+        def link(day: date, view: CalendarView) -> CalendarLink:
+            return CalendarLink(bound.href(date=day, view=view), day, view)
+
+        def step(count: int) -> CalendarLink | None:
+            day = stepped(state.view, state.date, count)
+            return None if day is None else link(day, state.view)
+
+        draw = Draw(
+            formats=context.formats,
+            cursor=state.date,
+            view=state.view,
+            today=today,
+            start=state.week_start,
+            weekdays=state.weekdays,
+        )
+        return CalendarNavigation(
+            date=state.date,
+            view=state.view,
+            title=VIEW_TABLE[state.view].title(draw),
+            target=region_id(self.key),
+            previous=step(-1),
+            next=step(1),
+            today=link(today, state.view),
+            views={view: link(state.date, view) for view in VIEWS},
+        )
 
     def claim_keys(self) -> None:
         """
@@ -232,7 +337,8 @@ class _Declaration(Declaration[Routes]):
         one is the default, and a hidden layer nobody declared is dropped.
         Anyone can type into a query string, and it is never an error page.
         """
-        own, others = self._split(values, (*STATE, *FIELDS))
+        filtered = (f.name for f in self.filters)
+        own, others = self._split(values, (*STATE, *FIELDS, *filtered))
         given = {name: one(own, name) or "" for name in FIELDS if name in own}
         return self._state_from(own, today), Posted(**given), others
 
@@ -250,6 +356,7 @@ class _Declaration(Declaration[Routes]):
             week_start=start if start in WEEKDAYS else self.week_start,  # type: ignore[arg-type]
             weekdays=one(asked, WEEKDAYS_ONLY) == "1",
             layers=tuple(key for key in declared if key not in hidden),
+            filters=filters_in(self.filters, asked),
         )
 
     async def _bind(
@@ -308,9 +415,9 @@ class _Declaration(Declaration[Routes]):
 
     def _drawn(self, calendar: Calendar, bound: BoundCalendar) -> ComponentType:
         """
-        The whole thing for one binding: the sidebar, then the search and
-        the view options above the calendar, inside the component that
-        offers the binding to every part of it.
+        The calendar for one binding, with its search and view options
+        above it, inside the frame its script, its dialog and its help live
+        in.
         """
         state = bound.state
         calendar.id(self.key).view(state.view).date(state.date).today(bound.today)
@@ -328,12 +435,10 @@ class _Declaration(Declaration[Routes]):
             calendar._attrs["x-on:click"] = "calendarSlot($event)"
             calendar._attrs.update(DRAGS)
             calendar._props["movable"] = True
+            calendar._props["create"] = new_event(bound)
         if self.edits:
             calendar.actions(lambda event: event_actions(bound, event))
-        return Frame(bound).content(
-            Side(),
-            html.div(Band(), calendar, class_="flex min-w-0 flex-1 flex-col gap-3"),
-        )
+        return Frame(bound).content(band(bound), calendar)
 
     def _draft(
         self, posted: Posted, formats: Formats
@@ -388,16 +493,17 @@ class _Declaration(Declaration[Routes]):
     def _covering(self, asked: CalendarState, first: date, last: date) -> CalendarState:
         """
         A state that asks events() for these days alone, in every layer and
-        with no search: what the overlap check and a lookup by id ask with,
-        since an event the reader has hidden or searched away is still
-        there. events() reads first and last, which follow the view, so a
-        copy is pointed at the days by hand.
+        with no search or filter: what the overlap check and a lookup by
+        id ask with, since an event the reader has hidden, searched or
+        filtered away is still there. events() reads first and last, which
+        follow the view, so a copy is pointed at the days by hand.
         """
         covering = replace(
             asked,
             query="",
             hidden=(),
             layers=tuple(layer.key for layer in self.layers),
+            filters={},
         )
         object.__setattr__(covering, "first", first)
         object.__setattr__(covering, "last", last)
@@ -726,15 +832,20 @@ class _Declaration(Declaration[Routes]):
     ) -> Any:
         """
         Drawn after the change, because the events have just moved under
-        it. The whole thing, with an empty slot: the response targets the
-        slot, which closes the dialog, and the synced parts refresh.
+        it. The calendar with an empty slot, since the response targets the
+        slot, which closes the dialog, and every other part beside it, so
+        the synced parts of whichever the page has refresh.
         """
         events = await self._fetch(request, bound.state)
         redrawn = replace(bound, events=events)
         if isinstance(focus, Event):
             focus = landing(redrawn, focus)
+        shown = replace(redrawn, focus=focus)
         return HueResponse(
-            component=self._drawn(Calendar(), replace(redrawn, focus=focus)),
+            component=html.div(
+                self._drawn(Calendar(), shown),
+                side(shown),
+            ),
             status_code=status,
         )
 

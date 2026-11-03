@@ -21,13 +21,9 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, QueryDict
 from django.test import Client
 from django.urls import NoReverseMatch, clear_url_caches, include, path, resolve
+from hue._declared import _filter_options
 from hue.context import HueContextArgs
-from hue.datatable import (
-    BulkAction,
-    Filter,
-    _filter_options,
-    build_datatable_state,
-)
+from hue.datatable import BulkAction, Filter, build_datatable_state
 from hue.renderer import render_tree
 from hue.ui import Dialog, Empty
 from hue.ui.molecules.datatable import Column, DataTable
