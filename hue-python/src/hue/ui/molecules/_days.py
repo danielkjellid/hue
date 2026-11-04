@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from typing import Any, Literal, get_args
 
@@ -27,6 +27,12 @@ _COLORS: tuple[int, ...] = get_args(EventColor.__value__)
 
 # The minutes in a day, where a timed event that runs past midnight is cut.
 MIDNIGHT = 24 * 60
+_DAY = timedelta(days=1)
+
+# How a timed event drawn as a bar meets its first and last day: across the
+# whole of every day it touches, from and to its times, or over the nights
+# it covers, which leaves the day it ends on free.
+type Spans = Literal["days", "times", "nights"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,3 +303,122 @@ def pack(spans: Sequence[tuple[int, int]]) -> list[Slot]:
         reach = max(reach, end)
     flush()
     return slots
+
+
+def long(event: Event, formats: Formats) -> bool:
+    """
+    A timed event of a day or more, which is drawn as a bar among the
+    whole-day events rather than through the hours.
+    """
+    if not event.timed:
+        return False
+    starts, ends = event.moments(formats)
+    return ends - starts >= _DAY
+
+
+def barred(event: Event, formats: Formats) -> bool:
+    """
+    Drawn as a bar: every whole-day event, and a timed one of a day or more.
+    """
+    return not event.timed or long(event, formats)
+
+
+@dataclass(frozen=True, slots=True)
+class Reach:
+    """
+    The days a bar runs over, and how far into the first it starts and into
+    the last it ends, as a share of the day: 0 is the midnight a day starts
+    at and 1 the midnight it ends at.
+    """
+
+    first: date
+    last: date
+    enters: float = 0.0
+    leaves: float = 1.0
+
+
+def reach(event: Event, formats: Formats, spans: Spans) -> Reach:
+    """
+    Where a bar runs. A whole-day event fills its days whatever spans says;
+    spans decides only for a timed one.
+    """
+    first, last = event.span(formats)
+    if not event.timed or spans == "days":
+        return Reach(first, last)
+    starts, ends = event.moments(formats)
+    if spans == "nights":
+        # The end down to the midnight before it, so the day it ends on is
+        # free unless it ends exactly at midnight, which is the same day.
+        return Reach(first, max(first, ends.date() - _DAY))
+    enters = (starts.hour * 60 + starts.minute) / MIDNIGHT
+    # The end is the midnight after last when the event ends on one.
+    leaves = (ends.hour * 60 + ends.minute) / MIDNIGHT if ends.date() == last else 1.0
+    return Reach(first, last, enters, leaves)
+
+
+@dataclass(frozen=True, slots=True)
+class Run:
+    """
+    One bar across one row of shown days: the columns it covers, how far
+    into the first and last, whether it goes on past either end of the row,
+    and the line of the row it is drawn on.
+    """
+
+    event: Event
+    first: int
+    last: int
+    enters: float
+    leaves: float
+    before: bool
+    after: bool
+    lane: int = 0
+
+
+def runs(
+    events: Iterable[Event], days: Sequence[date], formats: Formats, spans: Spans
+) -> list[Run]:
+    """
+    Every barred event across the row of shown days it touches, each on the
+    first line free where it runs, so a bar never jumps between lines from
+    one day to the next. One that comes on from the row before goes first,
+    then the longest of those that start together. A line is free from where
+    the bar before ends, so a stay that leaves at 11:00 and one that arrives
+    at 15:00 share a line on the day between when drawn by their times.
+
+    A bar that starts or ends on a day the row does not show, such as a
+    weekend left out, is squared off there and fills the day next to it.
+    """
+    found: list[Run] = []
+    for event in events:
+        if not barred(event, formats):
+            continue
+        at = reach(event, formats, spans)
+        columns = [n for n, day in enumerate(days) if at.first <= day <= at.last]
+        if not columns:
+            continue
+        first, last = columns[0], columns[-1]
+        before = days[first] != at.first
+        after = days[last] != at.last
+        found.append(
+            Run(
+                event,
+                first,
+                last,
+                0.0 if before else at.enters,
+                1.0 if after else at.leaves,
+                before,
+                after,
+            )
+        )
+    found.sort(key=lambda run: (run.first, not run.before, run.first - run.last))
+    # Where each line is taken to, in columns and shares of a day.
+    taken: list[float] = []
+    laid: list[Run] = []
+    for run in found:
+        starts = run.first + run.enters
+        lane = next((n for n, end in enumerate(taken) if end <= starts), len(taken))
+        if lane == len(taken):
+            taken.append(0.0)
+        taken[lane] = run.last + run.leaves
+        laid.append(replace(run, lane=lane))
+    return laid

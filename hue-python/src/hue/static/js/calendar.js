@@ -52,6 +52,15 @@ const GHOST =
 const DRAGGING = ["z-20", "opacity-90", "shadow-overlay"];
 const DROP = ["ring-2", "ring-inset", "ring-accent"];
 
+// The month cell under the pointer. A bar over several days sits in the cell
+// it starts in that week and is drawn across the others, so the cell it is
+// in is not the day it was taken hold of by.
+function cellAt(event) {
+	return document
+		.elementsFromPoint(event.clientX, event.clientY)
+		.find((element) => element.matches("[data-drop]"));
+}
+
 export function registerCalendarData(Alpine) {
 	Alpine.data(
 		"hueCalendar",
@@ -161,7 +170,7 @@ export function registerCalendarData(Alpine) {
 					// the pointer, is the day an event is taken hold of by: for a
 					// bar over several days, not the day it starts. Those move by
 					// whole days.
-					const cell = event.target.closest("[data-drop]");
+					const cell = event.target.closest("[data-drop]") && cellAt(event);
 					const row = event.target.closest("[data-all-day-row]");
 					const column = cell ?? (row ? this.columnAt(event.clientX) : event.target.closest("[data-timed]"));
 					if (!column) return;
@@ -262,9 +271,7 @@ export function registerCalendarData(Alpine) {
 				// the all-day row the day column, which the bar slides over to.
 				shiftDays(drag, event) {
 					const month = !("timed" in drag.column.dataset);
-					const found = month
-						? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-drop]")
-						: this.columnAt(event.clientX);
+					const found = month ? cellAt(event) : this.columnAt(event.clientX);
 					// The calendar's own days: the sidebar's picker has cells too.
 					const day = found && document.getElementById(key)?.contains(found) ? found : null;
 					// Off the calendar the event goes nowhere, whatever it passed over.

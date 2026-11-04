@@ -20,7 +20,7 @@ from hue.ui.molecules._calendar_views import (
     Draw,
     Href,
 )
-from hue.ui.molecules._days import Event, EventColor
+from hue.ui.molecules._days import Event, EventColor, Spans
 from hue.ui.molecules.date_picker import Weekday
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
@@ -102,6 +102,16 @@ class Calendar(ChainableComponent):
         self._props["week_start"] = value
         return self
 
+    def spans(self, value: Spans) -> Self:
+        """
+        How a timed event of a day or more meets its first and last day:
+        across the whole of each ("days", the default), from and to its
+        times ("times"), or over the nights it covers, leaving the day it
+        ends on free ("nights"). An event of whole days always fills them.
+        """
+        self._props["spans"] = value
+        return self
+
     def weekdays(self, value: bool = True) -> Self:
         """
         Leave Saturday and Sunday out of the week and the month.
@@ -155,6 +165,7 @@ class Calendar(ChainableComponent):
             tools=tuple(self._get_prop("tools", ())),
             start=self._get_prop("week_start", "monday"),
             weekdays=self._get_prop("weekdays", False),
+            spans=self._get_prop("spans", "days"),
             events=self._get_prop("events", []),
             href=self._get_prop("href"),
             actions=self._get_prop("actions"),

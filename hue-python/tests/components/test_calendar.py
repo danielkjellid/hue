@@ -40,6 +40,16 @@ def _href(day: date, view: str) -> str:
     return f"/cal/{view}/{day}/"
 
 
+# Three bars over Monday to Wednesday and an event on Tuesday, one more than
+# a month cell holds.
+_CROWDED = [
+    Event("A", date(2026, 10, 12), date(2026, 10, 14)),
+    Event("B", date(2026, 10, 12), date(2026, 10, 14)),
+    Event("C", date(2026, 10, 12), date(2026, 10, 14)),
+    Event("Talk", datetime(2026, 10, 13, 14)),
+]
+
+
 def _calendar(*events: Event) -> Calendar:
     return Calendar().date(_WEDNESDAY).events(events).href(_href)
 
@@ -427,16 +437,17 @@ class TestTimeGrid:
             "Conference", datetime(2026, 10, 11, 9), datetime(2026, 10, 14, 17)
         )
         html = await _html(_calendar(conference), context_args)
-        boxes = select(html, "li.absolute")
-        assert _days_of(boxes) == ["2026-10-12", "2026-10-13", "2026-10-14"]
-        assert "top: 0px; height: 1150px" in boxes[0]["style"]
-        assert "top: 0px; height: 814px" in boxes[2]["style"]
+        # A day or more is a bar along the all-day row, out of the hours.
+        assert select(html, "li.absolute") == []
+        bar = _event(html, "Conference").find_parent("li")
+        assert select(html, "[data-all-day-row] li") == [bar]
+        assert bar["style"] == "grid-column: 1 / 4; grid-row: 1"
 
     @pytest.mark.asyncio
     async def test_an_all_day_event_spans_its_columns(self, context_args):
         html = await _html(_calendar(_FREEZE), context_args)
         bar = _event(html, "Release freeze").find_parent("li")
-        assert bar["style"] == "grid-column: 5 / 7"
+        assert bar["style"] == "grid-column: 5 / 7; grid-row: 1"
         assert_attr(html, "button[data-all-day]", "data-starts", "2026-10-16")
         assert_attr(html, "button[data-all-day]", "data-ends", "2026-10-17")
 
@@ -548,6 +559,31 @@ class TestMonth:
         assert hidden == ["Talk 0", "Talk 1", "Talk 2"]
 
     @pytest.mark.asyncio
+    async def test_a_crowded_week_moves_its_last_line_of_bars_into_more(
+        self, context_args
+    ):
+        html = await _html(_calendar(*_CROWDED).view("month"), context_args)
+        for day in ("12", "13", "14"):
+            cell = select(html, f"td[data-date='2026-10-{day}']")[0]
+            more = cell.select_one("button[aria-label^='+']")
+            panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
+            # The third line goes into every day it covers, not only the
+            # crowded Tuesday, so it never breaks off halfway along.
+            assert panel.select_one("button[aria-label^='C,']") is not None
+
+    @pytest.mark.asyncio
+    async def test_a_focused_bar_trades_lines_to_stay_out_of_more(self, context_args):
+        calendar = _calendar(*_CROWDED).view("month")
+        calendar._props["focus"] = _CROWDED[2]
+        html = await _html(calendar, context_args)
+        focused = select(html, "[x-autofocus]")[0]
+        assert focused["aria-label"].startswith("C,")
+        assert focused.find_parent(attrs={"role": "dialog"}) is None
+        more = select(html, "td[data-date='2026-10-12'] button[aria-label^='+']")[0]
+        panel = more.find_parent(attrs={"x-data": True}).select_one("[role=dialog]")
+        assert panel.select_one("button[aria-label^='B,']") is not None
+
+    @pytest.mark.asyncio
     async def test_a_full_day_keeps_the_focused_event_out_of_more(self, context_args):
         extra = [Event(f"Talk {n}", datetime(2026, 10, 15, 14 + n)) for n in range(3)]
         calendar = _calendar(_AUDIT, _PAIRING, *extra).view("month")
@@ -576,7 +612,8 @@ class TestMonth:
         html = await _html(
             _calendar(offsite).view("month").actions(actions), context_args
         )
-        assert len(select(html, "button[data-all-day]")) == 19
+        # One bar a week, over the three weeks it covers.
+        assert len(select(html, "button[data-all-day]")) == 3
         assert calls == ["Offsite"]
 
     @pytest.mark.asyncio
@@ -624,7 +661,10 @@ class TestMonth:
         assert review.select("span")[1].get_text() == "13:00"
         freeze = _event(html, "Release freeze")
         assert "bg-chart-4/15" in freeze["class"]
-        assert len(select(html, "td[data-date='2026-10-17'] button[data-all-day]")) == 1
+        # One bar, from Friday's cell across Saturday's, which keeps its line.
+        assert len(select(html, "td[data-date='2026-10-16'] button[data-all-day]")) == 1
+        assert select(html, "td[data-date='2026-10-17'] button[data-all-day]") == []
+        assert_attr(html, "td[data-date='2026-10-17'] li", "aria-hidden", "true")
 
     @pytest.mark.asyncio
     async def test_an_event_from_the_day_before_leads_its_day_from_midnight(
