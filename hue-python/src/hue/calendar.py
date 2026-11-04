@@ -5,8 +5,10 @@ Calendar on its own draws the events it is handed. build_calendar_state,
 called at class scope, owns which day and view those are, reads them from
 the page's URL, fetches the events through events(), and registers the one
 route the dialog, the popover and a drag post to. Calendar.from_state()
-draws it with its search and view options, and MiniCalendar.from_state()
-draws its sidebar, wherever the page puts it. The Calendars guide in
+draws the calendar, its tools() the controls a page asks for in its
+toolbar, and MiniCalendar.from_state() the sidebar, wherever the page puts
+it. The declaration says what can be searched, filtered and saved, and
+draws none of it by itself. The Calendars guide in
 the docs says how to use it, from events() and save to dragging, Undo and
 the keys.
 
@@ -32,11 +34,16 @@ from htmy import Context, html
 from hue import toast
 from hue._calendar_chrome import (
     DRAGS,
+    CalendarFilters,
+    CalendarNewEvent,
+    CalendarSearch,
     CalendarShortcuts,
+    CalendarViewOptions,
     Frame,
-    band,
+    drawn_tools,
     keys_in,
-    new_event,
+    known_tools,
+    refreshed,
     side,
     switch_on,
 )
@@ -114,10 +121,14 @@ from hue.ui.molecules.date_picker import WEEKDAYS, Weekday
 from hue.utils import render_if
 
 __all__ = [
+    "CalendarFilters",
     "CalendarLink",
     "CalendarNavigation",
+    "CalendarNewEvent",
+    "CalendarSearch",
     "CalendarShortcuts",
     "CalendarState",
+    "CalendarViewOptions",
     "Filter",
     "Layer",
     "build_calendar_state",
@@ -253,9 +264,10 @@ class _Declaration(Declaration[Routes]):
             raise
         if isinstance(part, MiniCalendar):
             return side(bound, part._get_prop("class_"), part._get_base_html_attrs())
+        bound = replace(bound, tools=drawn_tools(part._get_prop("tools", ())))
         # On only where a Calendar is drawn, since every key presses one of
         # its controls. The shortcut host reads them once the body is drawn.
-        switch_on(self, bound.shortcuts)
+        switch_on(self, bound.shortcuts, bound.tools)
         return self._drawn(part, bound)
 
     async def _bind_page(self, hue: HueContext) -> BoundCalendar:
@@ -415,9 +427,8 @@ class _Declaration(Declaration[Routes]):
 
     def _drawn(self, calendar: Calendar, bound: BoundCalendar) -> ComponentType:
         """
-        The calendar for one binding, with its search and view options
-        above it, inside the frame its script, its dialog and its help live
-        in.
+        The calendar for one binding, inside the frame its script, its
+        dialog, its help and its tools' binding live in.
         """
         state = bound.state
         calendar.id(self.key).view(state.view).date(state.date).today(bound.today)
@@ -435,10 +446,9 @@ class _Declaration(Declaration[Routes]):
             calendar._attrs["x-on:click"] = "calendarSlot($event)"
             calendar._attrs.update(DRAGS)
             calendar._props["movable"] = True
-            calendar._props["create"] = new_event(bound)
         if self.edits:
             calendar.actions(lambda event: event_actions(bound, event))
-        return Frame(bound).content(band(bound), calendar)
+        return Frame(bound).content(calendar)
 
     def _draft(
         self, posted: Posted, formats: Formats
@@ -553,12 +563,20 @@ class _Declaration(Declaration[Routes]):
         # is an error before anything is written.
         urls = self._urls_for(request, self._served())
         bound = BoundCalendar(
-            self, asked, [], today, urls, others, formats, keys_in(context.shortcuts)
+            self,
+            asked,
+            [],
+            today,
+            urls,
+            others,
+            formats,
+            keys_in(context.shortcuts),
+            tools=known_tools(body.tools),
         )
         # On for this response too, whichever it is: the host that answers a
         # fragment replaces the page's, and a dialog that was cancelled makes
         # no request of its own to switch them back on.
-        switch_on(self, bound.shortcuts)
+        switch_on(self, bound.shortcuts, bound.tools)
 
         csrf_token: str = context.csrf_token
         if action == DIALOG:
@@ -844,7 +862,10 @@ class _Declaration(Declaration[Routes]):
         return HueResponse(
             component=html.div(
                 self._drawn(Calendar(), shown),
+                # Merged by id where the page has them: the sidebar, and the
+                # synced parts of the tools the post says the page drew.
                 side(shown),
+                *refreshed(shown),
             ),
             status_code=status,
         )

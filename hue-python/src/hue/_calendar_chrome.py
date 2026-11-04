@@ -1,14 +1,13 @@
 """
 The parts a declared calendar draws besides the Calendar itself: the frame
-around it, the search and view options above it, New event, the help
-dialog and the keys, and the sidebar MiniCalendar draws wherever the page
-puts it.
+around it, the help dialog and the keys, the tools a page hands its
+toolbar, and the sidebar MiniCalendar draws wherever the page puts it.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -33,7 +32,14 @@ from hue._calendar_state import (
     timezone_name,
     view_options_id,
 )
-from hue._declared import carried, filter_form, filters_id, search_form, search_id
+from hue._declared import (
+    bound_from,
+    carried,
+    filter_form,
+    filters_id,
+    search_form,
+    search_id,
+)
 from hue.js import Expression, call, close, unsafe
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
@@ -140,11 +146,16 @@ DRAGS = {
 }
 
 
-def switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) -> None:
+def switch_on(
+    declared: _Declaration,
+    registry: type[ShortcutRegistry] | None,
+    tools: frozenset[str],
+) -> None:
     """
     The calendar's keys, on for this response when the app's registry has
     them. Each one presses the control that does the same thing, so a key
-    and a click are the one code path.
+    and a click are the one code path, and the one for a tool is on only
+    when the page drew that tool.
     """
     if registry is None:
         return
@@ -158,11 +169,11 @@ def switch_on(declared: _Declaration, registry: type[ShortcutRegistry] | None) -
             for view, shortcut in _VIEW_KEYS.items()
         },
     }
-    if declared.save is not None:
+    if CalendarNewEvent.name in tools and CalendarNewEvent.declared_by(declared):
         pressed[CalendarShortcuts.calendar_new] = new_id(key)
     for shortcut, target in pressed.items():
         shortcuts.use(shortcut, action=_on(target, "click"))
-    if declared.search is not None:
+    if CalendarSearch.name in tools and CalendarSearch.declared_by(declared):
         shortcuts.use(
             CalendarShortcuts.calendar_search,
             action=_on(declared.param(QUERY), "focus"),
@@ -228,6 +239,10 @@ class Frame(ChainableComponent):
         super().__init__()
         self._bound = bound
 
+    def htmy_context(self) -> Context:
+        # The tools in the Calendar's toolbar read the binding from here.
+        return {BoundCalendar: self._bound}
+
     def _render(self, context: Context) -> Component:
         bound = self._bound
         key = bound.key
@@ -246,7 +261,12 @@ class Frame(ChainableComponent):
             "hour": views._HOUR,
             "snap": _SNAP,
         }
-        refocus = new_id(key) if bound.declaration.save is not None else None
+        # New event when the toolbar has it, else the view's heading, which
+        # is always drawn.
+        heading = views.control_id(key, "heading")
+        refocus = (
+            f"{new_id(key)} {heading}" if bound.declaration.save is not None else None
+        )
         return html.div(
             *self._children,
             html.div(id=slot_id(key), **{"data-hue-refocus": refocus}),
@@ -260,26 +280,28 @@ class Frame(ChainableComponent):
             # The whole state, for the script that opens the dialog from a
             # click, read at the click since it moves under this root.
             html.div(
-                *carried(bound.query(bound.state)),
+                *carried(bound.posted()),
                 id=state_id(key),
                 hidden=True,
                 **SYNC,
             ),
-            class_="flex min-w-0 flex-col gap-3",
+            carried_by_tools(bound),
+            class_="min-w-0",
             **{"x-data": call("hueCalendar", config)},
         )
 
 
 def new_event(bound: BoundCalendar) -> ComponentType:
     """
-    New event, at the end of the calendar's toolbar, which opens the dialog
-    empty.
+    New event, which opens the dialog empty. Synced, so the response that
+    sends focus back to it draws it again with x-autofocus.
     """
     return (
         Button()
         .variant("primary")
         .size("sm")
         .id(new_id(bound.key))
+        .x_sync()
         .x_autofocus(bound.focus == "new")
         .content(HueIcon("plus"), "New event")
         .x_on("click", unsafe("calendarCreate()"))
@@ -480,70 +502,210 @@ def _layer_row(bound: BoundCalendar, layer: Layer) -> ComponentType:
     )
 
 
-def band(bound: BoundCalendar) -> ComponentType:
+def matches(bound: BoundCalendar) -> ComponentType:
     """
-    The row above the calendar: the search, how many it found, the
-    filters with a chip for each answer, and the view options.
+    How many events the search found, synced so a change refreshes it.
+    """
+    return html.span(
+        _matches(bound),
+        id=f"{bound.key}-matches",
+        role="status",
+        class_="text-sm tabular-nums text-fg-muted",
+        **SYNC,
+    )
 
-    Left alone by every response, so the search keeps its caret and an
-    open options panel stays open. The count and the state each form
-    carries besides its own part are synced by id.
+
+def carried_by_tools(bound: BoundCalendar) -> ComponentType:
+    """
+    What the search, the filters and the view options each send besides
+    their own part, tied to each by id. Here rather than in the forms, which
+    no response replaces, so they always send the state the calendar is in.
     """
     declared, state, key = bound.declaration, bound.state, bound.key
-    searches = declared.search is not None
+    filtered = {f.name for f in declared.filters}
     return html.div(
-        render_when(
-            searches,
+        *(
+            carried(bound.query(state, without={QUERY}), form=search_id(key))
+            if declared.search is not None
+            else ()
+        ),
+        *(
+            carried(bound.query(state, without=filtered), form=filters_id(key))
+            if declared.filters
+            else ()
+        ),
+        *carried(
+            bound.query(state, without={START, WEEKDAYS_ONLY}),
+            form=view_options_id(key),
+        ),
+        id=f"{key}-carried",
+        hidden=True,
+        **SYNC,
+    )
+
+
+class _Tool(ChainableComponent):
+    """
+    A control for a declared calendar's toolbar, handed to Calendar's
+    tools() and bound to the calendar it is drawn in. It draws into the
+    toolbar's row through a wrapper with no box of its own, so an id or a
+    data attribute set on it lands there and a layout class has nothing to
+    act on.
+    """
+
+    category: ClassVar[str | None] = None
+    # What the binding and every post call it.
+    name: ClassVar[str]
+    # What the declaration has to have for it, as an error would say it, or
+    # None when it draws for any calendar.
+    needs: ClassVar[str | None] = None
+
+    @classmethod
+    def declared_by(cls, declaration: _Declaration) -> bool:
+        return True
+
+    @classmethod
+    def synced(cls, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        """
+        Its parts a response after a change refreshes by id.
+        """
+        return ()
+
+    def _render(self, context: Context) -> Component:
+        bound = bound_from(context, BoundCalendar, self, "Calendar")
+        if not self.declared_by(bound.declaration):
+            raise ValueError(
+                f"{type(self).__name__} needs {self.needs} on the declaration "
+                f"of {bound.key!r}. Give build_calendar_state {self.needs}, or "
+                f"leave {type(self).__name__} out of tools()."
+            )
+        return html.div(
+            *self._drawn(bound),
+            class_=classnames("contents", self._get_prop("class_")),
+            **self._get_base_html_attrs(),
+        )
+
+    def _drawn(self, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        raise NotImplementedError
+
+
+class CalendarSearch(_Tool):
+    """
+    The search box of a declared calendar, and how many events it found.
+    The declaration's search is its label, and with it drawn the / key
+    focuses it.
+    """
+
+    name = "search"
+    needs = "a search"
+
+    @classmethod
+    def declared_by(cls, declaration: _Declaration) -> bool:
+        return declaration.search is not None
+
+    @classmethod
+    def synced(cls, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        return (matches(bound),)
+
+    def _drawn(self, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        return (
             search_form(
                 bound,
                 param=QUERY,
-                label=declared.search or "",
-                value=state.query,
-                target=views.region_id(key),
+                label=bound.declaration.search or "",
+                value=bound.state.query,
+                target=views.region_id(bound.key),
             ),
-        ),
-        render_when(
-            searches,
-            html.span(
-                _matches(bound),
-                id=f"{key}-matches",
-                role="status",
-                class_="text-sm tabular-nums text-fg-muted",
-                **SYNC,
-            ),
-        ),
-        html.span(class_="flex-1"),
-        render_when(
-            bool(declared.filters),
-            filter_form(
-                bound, declared.filters, state.filters, target=views.region_id(key)
-            ),
-        ),
-        _options(bound),
-        # Tied to each form by id, since the forms themselves are left alone.
-        html.div(
-            *(
-                carried(bound.query(state, without={QUERY}), form=search_id(key))
-                if searches
-                else ()
-            ),
-            *carried(
-                bound.query(state, without={START, WEEKDAYS_ONLY}),
-                form=view_options_id(key),
-            ),
-            *(
-                carried(
-                    bound.query(state, without={f.name for f in declared.filters}),
-                    form=filters_id(key),
-                )
-                if declared.filters
-                else ()
-            ),
-            id=f"{key}-carried",
-            hidden=True,
-            **SYNC,
-        ),
-        class_="flex flex-wrap items-center gap-2",
+            matches(bound),
+        )
+
+
+class CalendarFilters(_Tool):
+    """
+    The Filter button of a declared calendar, with its panel and a chip
+    for each answer, for the filters the declaration names.
+    """
+
+    name = "filters"
+    needs = "filters"
+
+    @classmethod
+    def declared_by(cls, declaration: _Declaration) -> bool:
+        return bool(declaration.filters)
+
+    def _drawn(self, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        declared = bound.declaration
+        target = views.region_id(bound.key)
+        return (
+            filter_form(bound, declared.filters, bound.state.filters, target=target),
+        )
+
+
+class CalendarViewOptions(_Tool):
+    """
+    The view options of a declared calendar: which day the week starts on
+    and whether to leave the weekend out, behind one button.
+    """
+
+    name = "options"
+
+    def _drawn(self, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        return (_options(bound),)
+
+
+class CalendarNewEvent(_Tool):
+    """
+    New event, which opens a declared calendar's dialog empty, and which
+    the n key presses. It needs a save to make the event with.
+    """
+
+    name = "new"
+    needs = "a save"
+
+    @classmethod
+    def declared_by(cls, declaration: _Declaration) -> bool:
+        return declaration.save is not None
+
+    @classmethod
+    def synced(cls, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        return (new_event(bound),)
+
+    def _drawn(self, bound: BoundCalendar) -> tuple[ComponentType, ...]:
+        return (new_event(bound),)
+
+
+# Every tool by the name the binding and the posts know it by.
+TOOLS_BY_NAME: dict[str, type[_Tool]] = {
+    tool.name: tool
+    for tool in (CalendarSearch, CalendarFilters, CalendarViewOptions, CalendarNewEvent)
+}
+
+
+def drawn_tools(tools: Iterable[object]) -> frozenset[str]:
+    """
+    The names of the tools a Calendar was handed.
+    """
+    return frozenset(tool.name for tool in tools if isinstance(tool, _Tool))
+
+
+def known_tools(posted: str) -> frozenset[str]:
+    """
+    The tools a post names, less any name that is not a tool, since anyone
+    can post anything.
+    """
+    return frozenset(name for name in posted.split() if name in TOOLS_BY_NAME)
+
+
+def refreshed(bound: BoundCalendar) -> tuple[ComponentType, ...]:
+    """
+    The synced parts of the tools the page drew, for a response after a
+    change, which the page merges by id.
+    """
+    return tuple(
+        part
+        for name in sorted(bound.tools)
+        if TOOLS_BY_NAME[name].declared_by(bound.declaration)
+        for part in TOOLS_BY_NAME[name].synced(bound)
     )
 
 

@@ -16,9 +16,10 @@
  * tries the ids in the element's data-hue-refocus, in order.
  *
  * When none of those is left either, the nearest ancestor with an id that
- * is still on the page takes focus: the id in its own data-hue-refocus,
- * else its roving tab stop or current item, else the ancestor itself. A
- * calendar's dialog slot names New event that way, since the control that
+ * is still on the page takes focus: the first id in its own
+ * data-hue-refocus that is on the page, else its roving tab stop or
+ * current item, else the ancestor itself. A calendar's dialog slot names
+ * New event and then the view's heading that way, since the control that
  * closed the dialog went with it.
  *
  * It only acts when focus is on the body and the element it noted is gone
@@ -72,9 +73,14 @@ export function keepFocusThroughSwaps() {
 }
 
 function landing(ancestor) {
-	const named = ancestor.dataset.hueRefocus;
+	// The first of the ids it names that is on the page, in order.
+	const named = (ancestor.dataset.hueRefocus ?? "")
+		.split(" ")
+		.filter(Boolean)
+		.map((id) => document.getElementById(id))
+		.find(Boolean);
 	const to =
-		(named && document.getElementById(named)) ||
+		named ||
 		ancestor.querySelector('[tabindex="0"], [aria-current]') ||
 		ancestor;
 	if (to.tabIndex < 0 && !to.hasAttribute("tabindex"))

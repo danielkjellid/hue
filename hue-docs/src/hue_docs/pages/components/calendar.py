@@ -5,6 +5,12 @@ from typing import cast, get_args
 
 from fastapi import HTTPException, Request
 from hue import html
+from hue.calendar import (
+    CalendarFilters,
+    CalendarNewEvent,
+    CalendarSearch,
+    CalendarViewOptions,
+)
 from hue.context import HueContext
 from hue.js import ajax, unsafe
 from hue.types.core import ComponentType
@@ -510,7 +516,16 @@ async def index(self, request: HttpRequest, context: HueContext[HttpRequest]) ->
 
 
 _DECLARATION = """from hue import html
-from hue.calendar import CalendarState, Filter, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarFilters,
+    CalendarNewEvent,
+    CalendarSearch,
+    CalendarState,
+    CalendarViewOptions,
+    Filter,
+    Layer,
+    build_calendar_state,
+)
 from hue.ui import Calendar, Event, MiniCalendar
 
 
@@ -561,7 +576,14 @@ class EventsView(HueView):
             title="Events",
             body=html.div(
                 MiniCalendar.from_state(self.events).class_("lg:w-60 lg:flex-none"),
-                html.div(Calendar.from_state(self.events)).class_("min-w-0 flex-1"),
+                html.div(
+                    Calendar.from_state(self.events).tools(
+                        CalendarSearch(),
+                        CalendarFilters(),
+                        CalendarViewOptions(),
+                        CalendarNewEvent(),
+                    )
+                ).class_("min-w-0 flex-1"),
             ).class_("flex flex-col gap-4 lg:flex-row lg:items-start"),
         )"""
 
@@ -712,13 +734,26 @@ def _usage() -> ComponentType:
         ),
         pr.bullets(
             [
-                "`Calendar.from_state()` draws the calendar with the search box "
-                "and the view options above it, and New event and the event "
-                "dialog when there is a `save`.",
+                "`Calendar.from_state()` draws the calendar and, when there is a "
+                "`save`, its event dialog. Its toolbar has the steps, the title "
+                "and the view switcher, and nothing else until you hand it tools.",
+                "`tools()` on that `Calendar` adds controls to its toolbar, after "
+                "the view switcher and in the order you pass them: "
+                "`CalendarSearch()`, `CalendarFilters()`, `CalendarViewOptions()` "
+                "and `CalendarNewEvent()`, all from `hue.calendar`. A control "
+                "appears only where you add it, and its key, `/` or `n`, is on "
+                "only then.",
                 "`MiniCalendar.from_state()` draws a sidebar: a picker that "
                 "jumps to a day, the layers to show and hide, and the timezone. "
                 "It is optional.",
             ]
+        ),
+        pr.p(
+            "`CalendarSearch` needs a `search` on the declaration, "
+            "`CalendarFilters` needs `filters` and `CalendarNewEvent` needs a "
+            "`save`. Each raises a `ValueError` without it. A tool drawn anywhere "
+            "but in a declared `Calendar`'s `tools()` raises too, since it has no "
+            "calendar to read."
         ),
         pr.p(
             "The example below is written for `hue-django`, with a Django "
@@ -744,8 +779,8 @@ def _usage() -> ComponentType:
                 "registers no route.",
                 "`repeats` maps your own repeat keys to the labels the dialog "
                 "offers. It needs a `save`, and raises without one.",
-                "`search` is the label and placeholder of the search box, which "
-                "only exists when it is given.",
+                "`search` is the label and placeholder of the box "
+                "`CalendarSearch` draws.",
                 '`view` and `week_start` are the defaults, `"week"` and '
                 '`"monday"` unless you set them.',
             ]
@@ -867,8 +902,8 @@ def _usage() -> ComponentType:
             "called a layer because `Calendar` is the component."
         ),
         pr.p(
-            "`search` gives the `Calendar` a search box, a `GET` form that "
-            "submits 300 milliseconds after the last keystroke. Enter submits it "
+            "`CalendarSearch` draws the search box, a `GET` form that submits "
+            "300 milliseconds after the last keystroke. Enter submits it "
             "at once. Escape empties it, and leaves the key alone while the box "
             "is already empty, so Escape still reaches a dialog the calendar sits "
             "in. Beside the box, a count says how many events in the view's days "
@@ -880,9 +915,9 @@ def _usage() -> ComponentType:
             "`filters` takes a list of `Filter`, the same class a declared "
             "`DataTable` uses, imported from `hue.calendar` or `hue.datatable`. "
             "Each filter gets a parameter in the URL, a group in the panel "
-            "behind the Filter button at the end of the row above the "
-            "calendar, and a chip under the row for every answer, which "
-            "removes that answer."
+            "behind the Filter button `CalendarFilters` draws, and a chip on its "
+            "own line at the foot of the toolbar for every answer, which removes "
+            "that answer."
         ),
         pr.p(
             "`events()` reads the answers off the state: "
@@ -900,18 +935,19 @@ def _usage() -> ComponentType:
         ),
         pr.h2("View options on a declared Calendar"),
         pr.p(
-            "The view options sit behind one button at the end of the row: which "
-            "day the week starts on, and Weekdays only, which leaves the weekend "
-            "out. Each change submits at once."
+            "`CalendarViewOptions` draws the view options behind one button: "
+            "which day the week starts on, and Weekdays only, which leaves the "
+            "weekend out. Each change submits at once. It also has a Keyboard "
+            "shortcuts button."
         ),
         pr.p(
             "The `MiniCalendar`'s picker jumps to a day and marks each day that "
-            "has events. Picking a day from the year view opens that day. With a "
-            "`save`, New event sits at the end of the `Calendar`'s toolbar."
+            "has events. Picking a day from the year view opens that day."
         ),
         pr.h2("Saving and deleting Calendar events"),
         pr.p(
-            "With a `save`, the toolbar has New event, a click on an empty part "
+            "With a `save`, `CalendarNewEvent` can add New event to the toolbar, "
+            "a click on an empty part "
             "of a day opens the dialog for that day, and an event's popover "
             "offers Edit and Duplicate. In the day and week views the click also "
             "fills in the half hour under the pointer. With a `delete`, the "
@@ -1138,12 +1174,13 @@ def _usage() -> ComponentType:
                 "day, week, month, year or 30 days.",
                 "`d`, `w`, `m`, `y` and `a` switch to the day, week, month, year "
                 "and agenda views.",
-                "`n` opens New event, when there is a `save`.",
-                "`/` focuses the search box, when there is a `search`.",
+                "`n` opens New event, when there is a `save` and a `CalendarNewEvent`.",
+                "`/` focuses the search box, when there is a `search` and a "
+                "`CalendarSearch`.",
                 "`?` opens a dialog listing every shortcut on for the page, the "
                 "app's own included, and the Alt keys that move an event. The "
-                "view options have a Keyboard shortcuts button that opens it "
-                "too.",
+                "`CalendarViewOptions` has a Keyboard shortcuts button that opens "
+                "it too.",
             ]
         ),
         pr.p(
@@ -1172,7 +1209,7 @@ def _usage() -> ComponentType:
                 "In the `MiniCalendar`'s picker, a day with events has \"has "
                 'events" after its name.',
                 "The dialog opens on its title field. When a save or a delete "
-                "closes it, focus goes to New event.",
+                "closes it, focus goes to New event if the toolbar has one.",
                 "After a move or an Undo, the event that moved or came back "
                 "takes focus as the `Calendar` is swapped in. An event drawn on "
                 "several days takes it on the day it starts. On a full month day "
@@ -1357,7 +1394,22 @@ PAGE = ComponentPage(
         ),
         Note("warn", "A `Calendar` raises a `ValueError` without `date()`."),
     ],
-    parts=[MiniCalendar],
+    import_line=(
+        "from hue.ui import Calendar, MiniCalendar\n"
+        "from hue.calendar import (\n"
+        "    CalendarFilters,\n"
+        "    CalendarNewEvent,\n"
+        "    CalendarSearch,\n"
+        "    CalendarViewOptions,\n"
+        ")"
+    ),
+    parts=[
+        MiniCalendar,
+        CalendarSearch,
+        CalendarFilters,
+        CalendarViewOptions,
+        CalendarNewEvent,
+    ],
     related=[DatePicker, Table],
     # The declared demo first: its action route, schedule/<action>/, would
     # otherwise reach CalendarDemo's {view}/{day}/ first and be refused.
