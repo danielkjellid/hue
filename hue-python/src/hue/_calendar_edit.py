@@ -83,6 +83,9 @@ class Posted:
     occurrence: str = ""
     # Set on the request an Undo makes, whose own toast offers no undo.
     undo: str = ""
+    # The tools the page drew, by name, so a response switches on the keys
+    # and refreshes the parts of those and no others.
+    tools: str = ""
 
 
 FIELDS = tuple(each.name for each in fields(Posted))
@@ -267,7 +270,7 @@ def undo_button(
         method="post",
         target=slot_id(bound.key),
         body={
-            **dict(bound.query(bound.state)),
+            **dict(bound.posted()),
             **undo.fields,
             declared.param("undo"): "1",
         },
@@ -464,7 +467,7 @@ def event_dialog(
         .errors({param(name): message for name, message in errors.items()})
         .class_("gap-4")
         .content(
-            *carried(bound.query(bound.state)),
+            *carried(bound.posted()),
             csrf(declared, csrf_token),
             *carried(
                 [(param("id"), posted.id), (param("occurrence"), posted.occurrence)]
@@ -622,7 +625,7 @@ def event_actions(bound: BoundCalendar, event: Event) -> list[ComponentType]:
     """
     declared = bound.declaration
     slot = slot_id(bound.key)
-    carried: dict[str, Any] = dict(bound.query(bound.state))
+    carried: dict[str, Any] = dict(bound.posted())
     fields = {**carried, **_fields(bound, event)}
 
     def then_close(expression: Expression) -> Expression:

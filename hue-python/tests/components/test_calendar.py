@@ -75,6 +75,10 @@ class TestFrame:
         status = select(html, "#cal-status")[0]
         assert status.get_text() == f"12 {_DASH} 18 October 2026"
         assert_attr(html, "#cal > #cal-view", "x-sync")
+        # The toolbar sits outside what is swapped, so the tools beside it
+        # keep their state, and refreshes its own part by id instead.
+        assert_attr(html, "#cal > div > #cal-toolbar", "x-sync")
+        assert_no_selector(html, "#cal-view #cal-toolbar")
         assert_attr(html, "#cal-next", "x-target.push", "cal-view")
         assert_attr(html, "nav[aria-label=View] a", "x-target.push", "cal-view")
         # Inside the region it swaps, so every response already carries it;
@@ -91,7 +95,7 @@ class TestFrame:
         html = await _html(_calendar().id("cal"), context_args)
         assert_attr(html, "#cal-view", "data-hue-refocus", "cal-heading")
         assert_no_selector(html, "#cal-switch-month[data-hue-refocus]")
-        assert_attr(html, "#cal-view h2#cal-heading", "tabindex", "-1")
+        assert_attr(html, "#cal-toolbar h2#cal-heading", "tabindex", "-1")
         assert_no_selector(html, "[x-on\\:ajax\\:merged]")
         plain = await _html(_calendar(), context_args)
         assert_no_selector(plain, "[data-hue-refocus]")
