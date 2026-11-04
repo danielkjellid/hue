@@ -8,7 +8,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.formats import Formats
-from hue.types.core import Component
+from hue.types.core import Component, ComponentType
 from hue.ui._styles import LOADING
 from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules._calendar_views import (
@@ -63,10 +63,10 @@ class Calendar(ChainableComponent):
     def from_state(cls, declaration: _Declaration) -> Self:
         """
         The calendar a declaration describes, bound to the request of the
-        page it is rendered on: the search and the view options above it,
-        and New event and the event dialog when the declaration saves.
-        MiniCalendar draws the sidebar from the same declaration, wherever
-        the page puts it.
+        page it is rendered on, with the event dialog when the declaration
+        saves. tools() adds the search, the filters, the view options and
+        New event to its toolbar, and MiniCalendar draws the sidebar from
+        the same declaration, wherever the page puts it.
         """
         declaration.claim_keys()
         calendar = cls()
@@ -126,6 +126,16 @@ class Calendar(ChainableComponent):
         self._props["actions"] = value
         return self
 
+    def tools(self, *tools: ComponentType) -> Self:
+        """
+        The controls of a declared calendar's toolbar, after the view
+        switcher and in the order given: CalendarSearch, CalendarFilters,
+        CalendarViewOptions and CalendarNewEvent from hue.calendar. Without
+        them the toolbar has the steps, the title and the switcher alone.
+        """
+        self._props["tools"] = tools
+        return self
+
     def _render(self, context: Context) -> Component:
         if (drawn := declared(self)) is not None:
             return drawn
@@ -142,7 +152,7 @@ class Calendar(ChainableComponent):
             cursor=cursor,
             view=view,
             today=self._get_prop("today"),
-            create=self._get_prop("create"),
+            tools=tuple(self._get_prop("tools", ())),
             start=self._get_prop("week_start", "monday"),
             weekdays=self._get_prop("weekdays", False),
             events=self._get_prop("events", []),
@@ -168,8 +178,8 @@ class Calendar(ChainableComponent):
                     **SYNC,
                 ),
             ),
+            draw.toolbar(title),
             html.div(
-                draw.toolbar(title),
                 VIEWS[view].render(draw),
                 id=draw.region,
                 class_=LOADING,

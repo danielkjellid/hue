@@ -25,6 +25,7 @@ from django.urls import clear_url_caches, include, path, resolve
 from hue import calendar as declared
 from hue import html
 from hue.calendar import (
+    CalendarNewEvent,
     CalendarShortcuts,
     CalendarState,
     Filter,
@@ -73,7 +74,10 @@ def _view(**given: Any) -> Any:
         events = build_calendar_state(router, key="events", **given)
 
         async def index(self, request: Any, context: Any) -> Any:
-            return Page(title="Events", body=Calendar.from_state(self.events))
+            # New event with a save, as a page that offers it draws it.
+            tools = [CalendarNewEvent()] if self.events.save is not None else []
+            body = Calendar.from_state(self.events).tools(*tools)
+            return Page(title="Events", body=body)
 
     return EventsView
 
@@ -884,7 +888,13 @@ def test_an_undone_delete_hands_focus_to_the_event_it_made_again(mounted):
 
 def test_an_undone_create_hands_focus_to_new_event(mounted):
     mounted()
-    posted = {"events-id": "9", "events-title": "Pairing", "events-undo": "1"}
+    # From a page that drew New event, which the post names.
+    posted = {
+        "events-id": "9",
+        "events-title": "Pairing",
+        "events-undo": "1",
+        "events-tools": "new",
+    }
     marked = _autofocused(_act("delete", **posted).content.decode())
     assert len(marked) == 1
     assert 'id="events-new"' in marked[0]

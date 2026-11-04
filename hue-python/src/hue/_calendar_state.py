@@ -35,6 +35,9 @@ HIDE = "hide"
 START = "start"
 WEEKDAYS_ONLY = "weekdays"
 STATE = (VIEW, DATE, QUERY, HIDE, START, WEEKDAYS_ONLY)
+# What a post calls the tools the page drew, a field of the dialog's
+# Posted, so it never enters the URL.
+TOOLS = "tools"
 
 # The actions the one POST route serves.
 DIALOG = "dialog"
@@ -275,6 +278,17 @@ class BoundCalendar(Bound):
     # Where focus lands once a change is drawn: an event, New event after
     # an undone create, or nowhere in particular.
     focus: Event | Literal["new"] | None = None
+    # The names of the tools the page drew in the toolbar.
+    tools: frozenset[str] = frozenset()
+
+    def posted(self) -> list[tuple[str, str]]:
+        """
+        The state as every post sends it: the query, and the tools the page
+        drew, which go no further than the response.
+        """
+        tools = " ".join(sorted(self.tools))
+        named = [(self.declaration.param(TOOLS), tools)] if tools else []
+        return [*self.query(self.state), *named]
 
     def href(self, **changes: Any) -> str:
         """

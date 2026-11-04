@@ -47,7 +47,7 @@ from hue.ui.molecules.date_picker import Weekday
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.tabs import Tab, Tabs
-from hue.ui.navigation import swap
+from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
 
 type CalendarView = Literal["day", "week", "month", "year", "agenda"]
@@ -86,7 +86,8 @@ _SOLID: dict[EventColor, str] = {
 _TOOLBAR = (
     "flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2"
 )
-_TITLE = "min-w-0 flex-1 truncate font-ui text-md font-semibold tabular-nums"
+_TOOLS = "flex flex-auto flex-wrap items-center justify-end gap-2"
+_TITLE = "min-w-0 flex-auto truncate font-ui text-md font-semibold tabular-nums"
 # The number of a day, a disc so today can be filled. It is marked on the
 # link itself in a grid cell and on the header around it in the time grid.
 _NUMBER = (
@@ -195,8 +196,8 @@ def stamps(event: Event, formats: Formats) -> tuple[str, str]:
 
 def region_id(own_id: str) -> str:
     """
-    The id of what a calendar's links swap: the toolbar and the view, under
-    the frame, so the status outside them stays to be refreshed.
+    The id of what a calendar's links swap: the view, under the frame and
+    below the toolbar, which with the status refreshes by id instead.
     """
     return f"{own_id}-view"
 
@@ -237,8 +238,8 @@ class Draw:
     # Whether a declaration moves and resizes the events, which draws the
     # resize handle and lets a finger drag a chip rather than the page.
     movable: bool = False
-    # New event, at the end of the toolbar, for a declaration that saves.
-    create: Button | None = None
+    # The controls a declared calendar was handed for its toolbar.
+    tools: tuple[ComponentType, ...] = ()
     # The event Alpine AJAX focuses once a declaration's change is drawn.
     focus: Event | None = None
     # An event's popover content by the event's identity, built once however
@@ -368,16 +369,33 @@ class Draw:
         )
 
     def toolbar(self, title: str) -> ComponentType:
+        """
+        The row above the view, outside the region a link swaps. The steps,
+        the title and the switcher are refreshed by id from every response
+        instead, and the tools after them are left alone, so a search keeps
+        its caret and an open popover stays open while the view changes.
+        """
         return html.div(
-            render_when(self.href is not None, self._steps()),
-            html.h2(
-                title,
-                id=self.heading,
-                tabindex=None if self.region is None else "-1",
-                class_=classnames(_TITLE, "outline-none"),
+            html.div(
+                render_when(self.href is not None, self._steps()),
+                html.h2(
+                    title,
+                    id=self.heading,
+                    tabindex=None if self.region is None else "-1",
+                    class_=classnames(_TITLE, "outline-none"),
+                ),
+                render_if(self.href, self._switcher),
+                id=self._stable("toolbar"),
+                class_="contents",
+                **(SYNC if self.region is not None else {}),
             ),
-            render_if(self.href, self._switcher),
-            render_if(self.create, lambda button: button),
+            # One group that fills the rest of its line, so the tools wrap
+            # under the title together and a search among them takes the
+            # slack, rather than splitting across the row.
+            render_when(
+                bool(self.tools),
+                html.div(*self.tools, class_=_TOOLS),
+            ),
             class_=_TOOLBAR,
         )
 

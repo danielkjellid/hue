@@ -11,7 +11,14 @@ into the occurrences the days shown hold.
 from django.db.models import Q
 from django.http import Http404, HttpRequest
 from hue import html
-from hue.calendar import CalendarState, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarNewEvent,
+    CalendarSearch,
+    CalendarState,
+    CalendarViewOptions,
+    Layer,
+    build_calendar_state,
+)
 from hue.context import HueContext
 from hue.ui import Calendar, Event, MiniCalendar, Stack, Text
 from hue_django.pages import Page
@@ -108,7 +115,11 @@ class EventsView(AppView):
                 Text("Events").variant("title-2").tag("h1"),
                 html.div(
                     MiniCalendar.from_state(self.events).class_("events-sidebar"),
-                    html.div(Calendar.from_state(self.events)).class_("events-main"),
+                    html.div(
+                        Calendar.from_state(self.events).tools(
+                            CalendarSearch(), CalendarViewOptions(), CalendarNewEvent()
+                        )
+                    ).class_("events-main"),
                 ).class_("events-layout"),
             ),
         )

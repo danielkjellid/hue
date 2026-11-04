@@ -4,7 +4,16 @@ from datetime import date, datetime
 
 from fastapi import Request
 from hue import html, toast
-from hue.calendar import CalendarState, Filter, Layer, build_calendar_state
+from hue.calendar import (
+    CalendarFilters,
+    CalendarNewEvent,
+    CalendarSearch,
+    CalendarState,
+    CalendarViewOptions,
+    Filter,
+    Layer,
+    build_calendar_state,
+)
 from hue.context import HueContext
 from hue.ui import Calendar, Event, MiniCalendar, ToastRegion
 from hue_fastapi import HueView, Page, Router
@@ -126,9 +135,14 @@ class ScheduleView(HueView):
                     MiniCalendar.from_state(self.schedule).class_(
                         "lg:w-60 lg:flex-none"
                     ),
-                    html.div(Calendar.from_state(self.schedule)).class_(
-                        "min-w-0 flex-1"
-                    ),
+                    html.div(
+                        Calendar.from_state(self.schedule).tools(
+                            CalendarSearch(),
+                            CalendarFilters(),
+                            CalendarViewOptions(),
+                            CalendarNewEvent(),
+                        )
+                    ).class_("min-w-0 flex-1"),
                 )
                 .id("schedule-demo")
                 .class_("flex w-full flex-col gap-4 lg:flex-row lg:items-start"),

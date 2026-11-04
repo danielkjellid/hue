@@ -15,8 +15,12 @@ import pytest
 from hue import calendar as declared
 from hue import html, scope
 from hue.calendar import (
+    CalendarFilters,
+    CalendarNewEvent,
+    CalendarSearch,
     CalendarShortcuts,
     CalendarState,
+    CalendarViewOptions,
     Filter,
     Layer,
     build_calendar_state,
@@ -78,6 +82,10 @@ def _events(request: Any, asked: CalendarState) -> list[Event]:
     ]
 
 
+def _noop(request: Any, given: Any) -> None:
+    return None
+
+
 def _declared(router: _Router | None = None, **given: Any) -> Any:
     given.setdefault("events", _events)
     return build_calendar_state(router or _Router(), key="events", **given)
@@ -97,9 +105,18 @@ async def _drawn(declaration: Any, context_args: Any, **query: str) -> str:
 
 
 def _parts(declaration: Any) -> tuple[Any, ...]:
+    """
+    The sidebar and the calendar, with every tool the declaration can draw.
+    """
+    tools = [
+        *([CalendarSearch()] if declaration.search is not None else []),
+        *([CalendarFilters()] if declaration.filters else []),
+        CalendarViewOptions(),
+        *([CalendarNewEvent()] if declaration.save is not None else []),
+    ]
     return (
         MiniCalendar.from_state(declaration),
-        Calendar.from_state(declaration),
+        Calendar.from_state(declaration).tools(*tools),
     )
 
 
@@ -276,14 +293,34 @@ async def test_a_part_drawn_outside_its_calendar_says_what_it_belongs_to(
 
 
 @pytest.mark.asyncio
-async def test_the_calendar_alone_draws_its_search_but_no_sidebar(context_args):
+async def test_a_calendar_draws_only_the_tools_it_is_handed(context_args):
+    # A declaration that can search, filter and save draws none of it by
+    # itself, so a new tool in a release never appears on a page unasked.
+    full = _declared(layers=_LAYERS, search="Search", filters=[_ROOMS], save=_noop)
+    html = await render_tree(Calendar.from_state(full), context_args=context_args)
+    for absent in ("search", "filters", "options", "new", "side"):
+        assert_no_selector(html, f"#events-{absent}")
     html = await render_tree(
-        Calendar.from_state(_declared(layers=_LAYERS, search="Search events")),
+        Calendar.from_state(full).tools(CalendarViewOptions()),
         context_args=context_args,
     )
-    assert_selector(html, "#events-search")
     assert_selector(html, "#events-options")
-    assert_no_selector(html, "#events-side")
+    assert_no_selector(html, "#events-search")
+
+
+@pytest.mark.asyncio
+async def test_a_tool_needs_what_it_draws_on_the_declaration(context_args):
+    with pytest.raises(ValueError, match="CalendarSearch needs a search"):
+        await render_tree(
+            Calendar.from_state(_declared()).tools(CalendarSearch()),
+            context_args=context_args,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_tool_outside_a_calendar_says_where_it_belongs(context_args):
+    with pytest.raises(ValueError, match=r"part of a Calendar bound to a request"):
+        await render_tree(CalendarViewOptions(), context_args=context_args)
 
 
 @pytest.mark.asyncio
@@ -513,7 +550,9 @@ class TestDrawn:
         assert_attr(html, "#events-new", "@click", "calendarCreate()")
         assert_attr(html, "#events", "x-on:click", "calendarSlot($event)")
         # Where focus goes when the dialog closes under it.
-        assert_attr(html, "#events-dialog", "data-hue-refocus", "events-new")
+        assert_attr(
+            html, "#events-dialog", "data-hue-refocus", "events-new events-heading"
+        )
         edits = [
             b
             for b in select(html, "button")
@@ -617,6 +656,17 @@ class TestKeys:
         assert (
             "Keyboard shortcuts" in select(html, "#events-options")[0].parent.get_text()
         )
+
+    @pytest.mark.asyncio
+    async def test_a_tools_key_is_on_only_where_the_tool_is_drawn(self, _request):
+        # The declaration can search and save, but the page drew neither, so
+        # n and / would press nothing and the help would list them anyway.
+        args = HueContextArgs(request=None, csrf_token="t", shortcuts=_Keys)
+        able = _declared(save=_noop, search="Search")
+        await render_tree(Calendar.from_state(able), context_args=args)
+        names = {item.shortcut.name for item in shortcuts.used()}
+        assert "calendar_today" in names
+        assert not {"calendar_new", "calendar_search"} & names
 
     @pytest.mark.asyncio
     async def test_no_keys_are_on_without_a_calendar_to_press(self, _request):
