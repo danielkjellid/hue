@@ -12,12 +12,16 @@ from hue.formats import Formats
 from hue.ui.molecules._days import (
     Event,
     Placed,
+    Reach,
     Slot,
     add_months,
+    barred,
     minutes,
     month_grid,
     pack,
     place,
+    reach,
+    runs,
     week_of,
 )
 
@@ -171,3 +175,87 @@ def test_an_event_needs_a_title_and_one_of_the_six_colours():
         Event("Loud", date(2026, 10, 14), color=7)  # type: ignore[arg-type]
     assert Event("Open", date(2026, 10, 14)).ends is None
     assert Event("Moment", datetime(2026, 10, 14, 9)).timed is True
+
+
+# Bars: how far an event reaches, and how it runs across a row of days
+
+_STAY = Event("Lise", datetime(2026, 10, 16, 15), datetime(2026, 10, 19, 11))
+
+
+@pytest.mark.parametrize(
+    ("event", "spans", "expected"),
+    [
+        # Friday 15:00 to Monday 11:00, each way.
+        (_STAY, "days", Reach(date(2026, 10, 16), date(2026, 10, 19))),
+        (
+            _STAY,
+            "times",
+            Reach(date(2026, 10, 16), date(2026, 10, 19), 15 / 24, 11 / 24),
+        ),
+        (_STAY, "nights", Reach(date(2026, 10, 16), date(2026, 10, 18))),
+        # Ending at midnight, the last day is the one before, and whole.
+        (
+            Event("Retreat", datetime(2026, 10, 16, 18), datetime(2026, 10, 19)),
+            "times",
+            Reach(date(2026, 10, 16), date(2026, 10, 18), 18 / 24, 1.0),
+        ),
+        (
+            Event("Retreat", datetime(2026, 10, 16, 18), datetime(2026, 10, 19)),
+            "nights",
+            Reach(date(2026, 10, 16), date(2026, 10, 18)),
+        ),
+        # Whole days fill their days whichever way is asked.
+        (
+            Event("Offsite", date(2026, 10, 19), date(2026, 10, 21)),
+            "times",
+            Reach(date(2026, 10, 19), date(2026, 10, 21)),
+        ),
+    ],
+)
+def test_a_bar_reaches_its_days_as_spans_says(event, spans, expected):
+    assert reach(event, Formats(), spans) == expected
+
+
+def test_a_timed_event_is_a_bar_from_a_whole_day_long():
+    starts = datetime(2026, 10, 16, 15)
+    assert barred(Event("Day", starts, starts + timedelta(days=1)), Formats())
+    almost = Event("Almost", starts, starts + timedelta(hours=23, minutes=59))
+    assert not barred(almost, Formats())
+
+
+def test_bars_keep_one_line_across_the_row_and_share_freed_lines():
+    week = [date(2026, 10, 12) + timedelta(days=n) for n in range(7)]
+    laid = runs(
+        [
+            Event("Wed", date(2026, 10, 14)),
+            Event("Long", date(2026, 10, 12), date(2026, 10, 15)),
+            Event("Late", date(2026, 10, 17), date(2026, 10, 18)),
+        ],
+        week,
+        Formats(),
+        "days",
+    )
+    lanes = {run.event.title: (run.first, run.last, run.lane) for run in laid}
+    # The long bar takes the first line from Monday; Wednesday goes under
+    # it for the day they share, and the weekend has the first line again.
+    assert lanes == {"Long": (0, 3, 0), "Wed": (2, 2, 1), "Late": (5, 6, 0)}
+
+
+def test_a_bar_past_the_row_or_a_hidden_day_is_squared_and_fills_its_end():
+    weekdays = [date(2026, 10, 12) + timedelta(days=n) for n in range(5)]
+    (run,) = runs([_STAY], weekdays, Formats(), "times")
+    # Friday from 15:00, then on over a weekend the row leaves out.
+    assert (run.first, run.last, run.enters, run.leaves) == (4, 4, 15 / 24, 1.0)
+    assert (run.before, run.after) == (False, True)
+
+
+def test_a_bar_from_the_week_before_keeps_the_top_line_and_shares_a_turnover():
+    week = [date(2026, 10, 19) + timedelta(days=n) for n in range(7)]
+    arrives = Event("Ola", datetime(2026, 10, 19, 15), datetime(2026, 10, 22, 11))
+    by_times = runs([arrives, _STAY], week, Formats(), "times")
+    # Lise comes on from Sunday and leaves at 11:00; Ola arrives at 15:00
+    # on the same line.
+    assert {run.event.title: run.lane for run in by_times} == {"Lise": 0, "Ola": 0}
+    # Taking all of Monday, they need a line each, Lise's still the top one.
+    by_days = runs([arrives, _STAY], week, Formats(), "days")
+    assert {run.event.title: run.lane for run in by_days} == {"Lise": 0, "Ola": 1}

@@ -395,6 +395,74 @@ def weekdays_only() -> Calendar:
     )
 
 
+# Spans
+
+
+def by_days() -> Calendar:
+    return (
+        Calendar()
+        .view("month")
+        .date(date(2026, 10, 14))
+        .today(date(2026, 10, 14))
+        .events(
+            [
+                Event("Lise", datetime(2026, 10, 16, 15), datetime(2026, 10, 19, 11)),
+                Event(
+                    "Ola",
+                    datetime(2026, 10, 19, 15),
+                    datetime(2026, 10, 22, 11),
+                    color=3,
+                ),
+                Event("Cleaning", date(2026, 10, 19), color=6),
+            ]
+        )
+    )
+
+
+def by_times() -> Calendar:
+    return (
+        Calendar()
+        .view("month")
+        .date(date(2026, 10, 14))
+        .today(date(2026, 10, 14))
+        .spans("times")
+        .events(
+            [
+                Event("Lise", datetime(2026, 10, 16, 15), datetime(2026, 10, 19, 11)),
+                Event(
+                    "Ola",
+                    datetime(2026, 10, 19, 15),
+                    datetime(2026, 10, 22, 11),
+                    color=3,
+                ),
+                Event("Cleaning", date(2026, 10, 19), color=6),
+            ]
+        )
+    )
+
+
+def by_nights() -> Calendar:
+    return (
+        Calendar()
+        .view("month")
+        .date(date(2026, 10, 14))
+        .today(date(2026, 10, 14))
+        .spans("nights")
+        .events(
+            [
+                Event("Lise", datetime(2026, 10, 16, 15), datetime(2026, 10, 19, 11)),
+                Event(
+                    "Ola",
+                    datetime(2026, 10, 19, 15),
+                    datetime(2026, 10, 22, 11),
+                    color=3,
+                ),
+                Event("Cleaning", date(2026, 10, 19), color=6),
+            ]
+        )
+    )
+
+
 # Empty
 
 
@@ -670,6 +738,26 @@ def _usage() -> ComponentType:
             "`week_start()` sets the first column of the week and the month, "
             'and defaults to `"monday"`. `weekdays()` leaves Saturday and Sunday '
             "out of the week and month views."
+        ),
+        pr.h2("Events over several days in a Calendar"),
+        pr.p(
+            "An event over several days is one bar a week, from the day it "
+            "starts that week across the days after it, and keeps its line in "
+            "every cell it crosses. A timed event of a day or more is a bar too, "
+            "in the month and in the all-day row of the day and week views, "
+            "rather than a box through the hours. A month cell holds three "
+            "lines. When a day has more than that, its week shows two lines of "
+            "bars, and the bars on the lines below go into `+N more` on every "
+            "day they cover, with that day's other events."
+        ),
+        pr.p(
+            "`spans()` sets how a timed bar meets its first and last day. "
+            '`"days"`, the default, fills every day it touches. `"times"` starts '
+            "and ends it that far into its days, so a stay from Friday 15:00 to "
+            "Monday 11:00 starts five eighths of the way into Friday, and a stay "
+            "that arrives at 15:00 on Monday shares its line on that day. "
+            '`"nights"` covers the nights it spans and leaves the day it ends on '
+            "free. An event of whole days always fills them."
         ),
         pr.h2("Navigating a Calendar"),
         pr.p(
@@ -1335,6 +1423,16 @@ PAGE = ComponentPage(
             layout="stack",
             min_width=720,
             hint="`week_start()` and `weekdays()`",
+        ),
+        panel(
+            "Spans",
+            by_days,
+            by_times,
+            by_nights,
+            layout="stack",
+            min_width=720,
+            hint="`spans()`: the same two stays and a cleaning day, by days, by "
+            "times and by nights",
         ),
         panel("Empty", nothing_scheduled, layout="stack"),
         panel(

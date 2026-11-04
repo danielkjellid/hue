@@ -8,7 +8,7 @@ foot is the one place a view is defined.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from typing import Literal
 
@@ -33,12 +33,16 @@ from hue.ui.molecules._days import (
     Event,
     EventColor,
     Placed,
+    Run,
     Slot,
+    Spans,
     add_months,
+    barred,
     minutes,
     month_grid,
     pack,
     place,
+    runs,
     starts_on,
     week_of,
     weekend,
@@ -136,6 +140,14 @@ _SHORT = 45
 _TALL = 70
 # A month cell shows this many events, or one fewer and how many more.
 _PER_CELL = 3
+# A month cell's padding, as a class and as the length a bar's edges are
+# reckoned with, and one column from a cell's content width: the padding on
+# both sides and the 1px rule to the next cell, which a bar crosses. Each
+# moves with the other, and with the first cell's clear rule, which makes
+# every cell as wide inside as the rest.
+_CELL_PAD = "p-1"
+_PAD = "0.25rem"
+_PITCH = f"(100% + 2 * {_PAD} + 1px)"
 _NUMBER_IN_TODAY = (
     "group-aria-[current=date]:bg-accent group-aria-[current=date]:text-accent-fg"
 )
@@ -242,6 +254,8 @@ class Draw:
     tools: tuple[ComponentType, ...] = ()
     # The event Alpine AJAX focuses once a declaration's change is drawn.
     focus: Event | None = None
+    # How a timed bar meets its first and last day.
+    spans: Spans = "days"
     # An event's popover content by the event's identity, built once however
     # many days or cells the event is drawn in.
     panels: dict[int, ComponentType] = field(default_factory=dict, compare=False)
@@ -649,20 +663,6 @@ class Draw:
         return [day for day in days if not (self.weekdays and weekend(day))]
 
 
-@dataclass(frozen=True)
-class _Bar:
-    """
-    An all-day event across the columns of a week, from the first it covers
-    to the last, and whether it goes on past either end.
-    """
-
-    event: Event
-    first: int
-    last: int
-    before: bool
-    after: bool
-
-
 # Day and week
 
 
@@ -671,11 +671,17 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
     A column per day over twenty-four hours, with the all-day events in
     a row above and the hours down the side.
     """
-    placed = place(draw.events, days[0], days[-1], draw.formats)
+    formats = draw.formats
+    placed = place(
+        (event for event in draw.events if not barred(event, formats)),
+        days[0],
+        days[-1],
+        formats,
+    )
     # A column is never narrower than a time can be read in. At a phone's
     # width a week is wider than the screen and the rows scroll together.
     columns = f"grid-template-columns: 4rem repeat({len(days)}, minmax(4.5rem, 1fr))"
-    bars = _bars(days, placed)
+    bars = runs(draw.events, days, formats, draw.spans)
     return html.div(
         html.div(
             html.div(),
@@ -698,7 +704,7 @@ def time_grid(draw: Draw, days: list[date]) -> ComponentType:
                     style=(
                         f"grid-column: 2 / -1; grid-template-columns: "
                         f"repeat({len(days)}, minmax(0, 1fr)); "
-                        "grid-auto-flow: row dense; grid-auto-rows: 1.25rem"
+                        "grid-auto-rows: 1.25rem"
                     ),
                 ),
                 html.div(class_="min-h-7 border-s border-border"),
@@ -738,32 +744,31 @@ def _day_head(draw: Draw, day: date) -> ComponentType:
     )
 
 
-def _bars(days: list[date], placed: dict[date, list[Placed]]) -> list[_Bar]:
+def _bar(draw: Draw, bar: Run) -> ComponentType:
     """
-    Each all-day event once, across every shown day it covers. Keyed by
-    identity: two events alike in every field are still two events.
+    One bar along the all-day row, across the columns it covers. An end at
+    a time sits that far into its day, by a margin that is a share of the
+    columns the bar spans.
     """
-    found: dict[int, _Bar] = {}
-    for index, day in enumerate(days):
-        for each in placed.get(day, []):
-            if each.event.timed:
-                continue
-            known = found.get(id(each.event))
-            found[id(each.event)] = _Bar(
-                each.event,
-                index if known is None else known.first,
-                index,
-                each.continues_before if known is None else known.before,
-                each.continues_after,
-            )
-    return list(found.values())
-
-
-def _bar(draw: Draw, bar: _Bar) -> ComponentType:
+    columns = bar.last - bar.first + 1
+    style = [
+        f"grid-column: {bar.first + 1} / {bar.last + 2}",
+        f"grid-row: {bar.lane + 1}",
+    ]
+    if bar.enters:
+        style.append(f"margin-inline-start: {bar.enters / columns * 100:.3f}%")
+    if bar.leaves < 1:
+        style.append(f"margin-inline-end: {(1 - bar.leaves) / columns * 100:.3f}%")
     return html.li(
         draw.chip(bar.event, bar.before, bar.after),
-        class_=classnames("flex", {"ms-0.5": not bar.before, "me-0.5": not bar.after}),
-        style=f"grid-column: {bar.first + 1} / {bar.last + 2}",
+        class_=classnames(
+            "flex",
+            {
+                "ms-0.5": not bar.before and not bar.enters,
+                "me-0.5": not bar.after and bar.leaves == 1,
+            },
+        ),
+        style="; ".join(style),
     )
 
 
@@ -917,10 +922,20 @@ def month(draw: Draw) -> ComponentType:
     rather than a grid widget: every event is a control to read and
     open, and browse-mode table navigation already announces the
     weekday with each cell.
+
+    An event over several days is one bar per week, in the cell it starts
+    in that week and drawn across the cells after it, on the same line of
+    each, so it reads as one stretch and a screen reader hears it once a
+    week rather than once a day.
     """
     formats = draw.formats
     rows = [draw.shown(row) for row in month_grid(draw.cursor, draw.start)]
-    placed = place(draw.events, rows[0][0], rows[-1][-1], formats)
+    placed = place(
+        (event for event in draw.events if not barred(event, formats)),
+        rows[0][0],
+        rows[-1][-1],
+        formats,
+    )
     return html.table(
         html.caption(formats.month(draw.cursor), class_="sr-only"),
         html.thead(
@@ -939,7 +954,7 @@ def month(draw: Draw) -> ComponentType:
         html.tbody(
             *(
                 html.tr(
-                    *(_cell(draw, day, placed.get(day, [])) for day in row),
+                    *_week(draw, row, placed),
                     class_="border-b border-border last:border-b-0",
                 )
                 for row in rows
@@ -949,31 +964,114 @@ def month(draw: Draw) -> ComponentType:
     )
 
 
-def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
+def _week(
+    draw: Draw, row: list[date], placed: dict[date, list[Placed]]
+) -> list[ComponentType]:
+    """
+    One week's cells. Every bar keeps its line across the week, so when a
+    day has more than its cell holds the whole row shows one line of bars
+    fewer than a cell holds, and the bars below go into +N more on every day
+    they cover.
+    """
+    laid = runs(draw.events, row, draw.formats, draw.spans)
+    timed = [placed.get(day, []) for day in row]
+    lines, starting = _lines(laid, len(row))
+    count = 1 + max((run.lane for run in laid), default=-1)
+    fits = count <= _PER_CELL and all(
+        1 + max(taken, default=-1) + len(items) <= _PER_CELL
+        for taken, items in zip(lines, timed, strict=True)
+    )
+    shown = count if fits else _PER_CELL - 1
+    # The bar that takes focus after a change stays in sight, by trading
+    # lines with the last one shown: focus on an element inside a closed
+    # popover falls to the page. A whole line moves, so no two bars on one
+    # line meet.
+    focused = next(
+        (run for run in laid if run.event is draw.focus and not run.before), None
+    )
+    if focused is not None and focused.lane >= shown:
+        last, moved = shown - 1, focused.lane
+        swap = {last: moved, moved: last}
+        laid = [replace(run, lane=swap.get(run.lane, run.lane)) for run in laid]
+        lines, starting = _lines(laid, len(row))
+    hidden = [
+        [
+            _placed(draw, run.event, day)
+            for run in laid
+            if run.lane >= shown and run.first <= column <= run.last
+        ]
+        for column, day in enumerate(row)
+    ]
+    return [
+        _cell(
+            draw,
+            day,
+            [starting[column].get(lane, []) for lane in range(shown)],
+            max((lane for lane in lines[column] if lane < shown), default=-1),
+            timed[column],
+            hidden[column],
+        )
+        for column, day in enumerate(row)
+    ]
+
+
+def _lines(
+    laid: list[Run], columns: int
+) -> tuple[list[set[int]], list[dict[int, list[Run]]]]:
+    """
+    By column, every line a bar is on there, and the bars that start there.
+    """
+    lines: list[set[int]] = [set() for _ in range(columns)]
+    starting: list[dict[int, list[Run]]] = [{} for _ in range(columns)]
+    for run in laid:
+        starting[run.first].setdefault(run.lane, []).append(run)
+        for column in range(run.first, run.last + 1):
+            lines[column].add(run.lane)
+    return lines, starting
+
+
+def _cell(
+    draw: Draw,
+    day: date,
+    starting: list[list[Run]],
+    top: int,
+    timed: list[Placed],
+    hidden: list[Placed],
+) -> ComponentType:
     outside = (day.year, day.month) != (draw.cursor.year, draw.cursor.month)
-    shown = items if len(items) <= _PER_CELL else items[: _PER_CELL - 1]
-    hidden = items[len(shown) :]
+    room = _PER_CELL - (top + 1)
+    items = timed if len(hidden) + len(timed) <= room else timed[: room - 1]
+    hidden = [*hidden, *timed[len(items) :]]
     # The copy that takes focus after a change stays in sight: focus on an
     # element inside a closed popover falls to the page.
     held = next(
         (
             each
             for each in hidden
-            if each.event is draw.focus and not each.continues_before
+            # A bar is kept in sight by its line, in _week.
+            if not barred(each.event, draw.formats)
+            and each.event is draw.focus
+            and not each.continues_before
         ),
         None,
     )
-    if held:
-        shown, hidden = (
-            [*shown[:-1], held],
-            [shown[-1], *(each for each in hidden if each is not held)],
+    if held and items:
+        items, hidden = (
+            [*items[:-1], held],
+            [items[-1], *(each for each in hidden if each is not held)],
         )
     return html.td(
         draw.number(day),
         render_when(
-            bool(shown),
+            top >= 0 or bool(items),
             html.ul(
-                *(draw.item(each, compact=True) for each in shown),
+                *(_line(draw, starting[lane]) for lane in range(top + 1)),
+                *(draw.item(each, compact=True) for each in items),
+                # Room kept for bars that start in other cells is no list of
+                # this day's events, and a screen reader would say it is one.
+                aria_hidden=None
+                if items or any(starting[lane] for lane in range(top + 1))
+                else "true",
                 class_="mt-1 flex flex-col gap-0.5",
             ),
         ),
@@ -983,13 +1081,66 @@ def _cell(draw: Draw, day: date, items: list[Placed]) -> ComponentType:
         # day is not.
         data_drop="",
         class_=classnames(
-            "h-28 overflow-hidden border-e border-border p-1 align-top last:border-e-0 "
+            # Clipped down only: a bar runs on over the cells beside it.
+            "h-28 overflow-x-visible overflow-y-clip border-e border-border "
+            "align-top first:border-s first:border-s-transparent last:border-e-0 "
             "max-md:h-16",
+            _CELL_PAD,
             {
                 _WEEKEND: outside or weekend(day),
                 "text-fg-subtle": outside,
             },
         ),
+    )
+
+
+def _placed(draw: Draw, event: Event, day: date) -> Placed:
+    """
+    A bar's event on one day of it, for the list of a day it has no line on.
+    """
+    first, last = event.span(draw.formats)
+    return Placed(event, day, day > first, day < last)
+
+
+def _line(draw: Draw, bars: list[Run]) -> ComponentType:
+    """
+    One line of a month cell, as tall as a bar: the bars that start on it
+    here this week, drawn on across the cells after it, or room kept for
+    one that passes through or for a line the row uses elsewhere. Two can
+    start on one line in one cell, a stay that leaves and one that arrives.
+    """
+    return html.li(
+        *(_month_bar(draw, bar) for bar in bars),
+        aria_hidden=None if bars else "true",
+        # Above the cells it is drawn across, whose own backgrounds come
+        # after it in the page.
+        class_=classnames("relative h-5 flex-none max-md:h-2", {"z-[1]": bool(bars)}),
+    )
+
+
+def _month_bar(draw: Draw, run: Run) -> ComponentType:
+    # Edges from the start of this cell's content: a bar that goes on runs
+    # to the cell's edge, and one that starts or ends at a time sits that
+    # far into its day.
+    start = (
+        f"-{_PAD}"
+        if run.before
+        else "0px"
+        if not run.enters
+        else f"({run.enters:.4f} * {_PITCH} - {_PAD})"
+    )
+    across = f"{run.last - run.first} * {_PITCH}"
+    end = (
+        f"({across} + 100% + {_PAD})"
+        if run.after
+        else f"({across} + 100%)"
+        if run.leaves == 1
+        else f"({across} + {run.leaves:.4f} * {_PITCH} - {_PAD})"
+    )
+    return html.div(
+        draw.chip(run.event, run.before, run.after, compact=True),
+        class_="absolute inset-y-0 flex",
+        style=f"inset-inline-start: calc({start}); width: calc({end} - {start})",
     )
 
 
