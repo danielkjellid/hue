@@ -327,7 +327,7 @@ dev = [
 
 [[package]]
 name = "hue-fastapi"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "../hue-fastapi" }
 dependencies = [
     { name = "fastapi" },
@@ -360,7 +360,7 @@ dev = [
 
 [[package]]
 name = "hue-ui"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "../hue-python" }
 dependencies = [
     { name = "htmy" },
