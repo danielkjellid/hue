@@ -16,8 +16,7 @@ class Part(ChainableComponent):
     The root offers a frozen state object through htmy_context, and each part
     asks for it with _state, which raises outside the root. A part draws its
     element with _wired, which is where the caller's attributes and the part's
-    own meet. Its classes are default_class, empty here and filled in by a
-    styled subclass, followed by whatever class_() added.
+    own meet. Its classes are _classes, followed by whatever class_() added.
     """
 
     category: ClassVar[str | None] = None
@@ -44,7 +43,15 @@ class Part(ChainableComponent):
         """
         return self._children
 
-    def _wired(self, **wiring: object) -> dict[str, object]:
+    def _classes(self, context: Context) -> str:
+        """
+        The part's own classes: default_class, empty here and set by a styled
+        subclass. A look that depends on a prop or on the root around the
+        part overrides this instead.
+        """
+        return self.default_class
+
+    def _wired(self, context: Context, **wiring: object) -> dict[str, object]:
         """
         The caller's attributes with the part's wiring on top, so a caller can
         add to a part and never unwire it.
@@ -53,9 +60,6 @@ class Part(ChainableComponent):
         modifiers write @ and :, so a caller's handler lands beside the part's
         rather than in its place.
         """
-        merged = {
-            **self._get_base_html_attrs(),
-            **wiring,
-            "class_": classnames(self.default_class, self._get_prop("class_")) or None,
-        }
+        classes = classnames(self._classes(context), self._get_prop("class_"))
+        merged = {**self._get_base_html_attrs(), **wiring, "class_": classes or None}
         return {key: value for key, value in merged.items() if value is not None}

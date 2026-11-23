@@ -100,6 +100,7 @@ class DialogRoot(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 **overlay_root(
                     overlay_state(starts_open, return_to=TRIGGER if refocus else None)
                 ),
@@ -142,12 +143,13 @@ class DialogScrim(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 **{
                     "x-show": "open",
                     "x-cloak": True,
                     **(DISMISS_ON_SCRIM if state.dismissible else {}),
                     **HOLDS_FOCUS,
-                }
+                },
             ),
         )
 
@@ -167,6 +169,7 @@ class DialogPanel(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 role="alertdialog" if state.destructive else "dialog",
                 aria_modal="true",
                 **{
@@ -194,7 +197,9 @@ class DialogTitle(Part):
 
     def _render(self, context: Context) -> Component:
         self._state(context, DialogState)
-        return html.h2(*self._content(), **self._wired(**{"x-bind:id": TITLE_ID}))
+        return html.h2(
+            *self._content(), **self._wired(context, **{"x-bind:id": TITLE_ID})
+        )
 
 
 class DialogDescription(Part):
@@ -205,7 +210,9 @@ class DialogDescription(Part):
 
     def _render(self, context: Context) -> Component:
         self._state(context, DialogState)
-        return html.p(*self._content(), **self._wired(**{"x-bind:id": DESCRIPTION_ID}))
+        return html.p(
+            *self._content(), **self._wired(context, **{"x-bind:id": DESCRIPTION_ID})
+        )
 
 
 class DialogClose(Part):
@@ -217,7 +224,7 @@ class DialogClose(Part):
         self._state(context, DialogState)
         return html.button(
             *self._content(),
-            **self._wired(type="button", **{"x-on:click": "close()"}),
+            **self._wired(context, type="button", **{"x-on:click": "close()"}),
         )
 
 

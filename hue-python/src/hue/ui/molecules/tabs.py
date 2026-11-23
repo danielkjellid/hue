@@ -6,7 +6,6 @@ from htmy import Context
 from typing_extensions import Self
 
 from hue.headless import tabs as headless
-from hue.headless.part import Part
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.utils import classnames, render_if
@@ -90,13 +89,13 @@ class Tabs(headless.TabsRoot):
         return self
 
     def htmy_context(self) -> Context:
-        return {_Look: _Look(self._get_prop("segmented", False))}
+        return {
+            **super().htmy_context(),
+            _Look: _Look(self._get_prop("segmented", False)),
+        }
 
-    def _render(self, context: Context) -> Component:
-        segmented: bool = self._get_prop("segmented", False)
-        return _dressed(
-            headless.TabsRoot(), self, _ROW_SEGMENTED if segmented else _ROW
-        )
+    def _classes(self, context: Context) -> str:
+        return _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW
 
 
 class Tab(headless.Tab):
@@ -119,41 +118,25 @@ class Tab(headless.Tab):
         )
 
     def _render(self, context: Context) -> Component:
-        look = context.get(_Look)
-        if not isinstance(look, _Look):
+        if not isinstance(context.get(_Look), _Look):
             raise ValueError(
                 "A Tab only means something inside Tabs, which is what says "
                 "how the row is drawn and which of them you are on."
             )
-        segmented = look.segmented
-        return _dressed(
-            headless.Tab(),
-            self,
-            classnames(
-                # A link, and never underlined: the rule under the tab you are
-                # on is the mark, and a second one under the words is noise.
-                "no-underline",
-                SEGMENTED_ITEM if segmented else _TAB,
-                _SEGMENTED_TAB if segmented else _UNDERLINE_TAB,
-                # Picked rather than layered: the track already colours its own
-                # items, and two colours on one element resolve by stylesheet
-                # order rather than by intent.
-                _UNREACHABLE if self.unreachable else "" if segmented else _IDLE,
-                # Inset, because the scrolling row clips a ring drawn outside it.
-                FOCUS_RING_INSET,
-            ),
+        return super()._render(context)
+
+    def _classes(self, context: Context) -> str:
+        segmented: bool = context[_Look].segmented
+        return classnames(
+            # A link, and never underlined: the rule under the tab you are
+            # on is the mark, and a second one under the words is noise.
+            "no-underline",
+            SEGMENTED_ITEM if segmented else _TAB,
+            _SEGMENTED_TAB if segmented else _UNDERLINE_TAB,
+            # Picked rather than layered: the track already colours its own
+            # items, and two colours on one element resolve by stylesheet
+            # order rather than by intent.
+            _UNREACHABLE if self.unreachable else "" if segmented else _IDLE,
+            # Inset, because the scrolling row clips a ring drawn outside it.
+            FOCUS_RING_INSET,
         )
-
-
-def _dressed[P: Part](part: P, styled: P, look: str) -> P:
-    """
-    part, set up as styled is, wearing look before whatever class_() added.
-    The look depends on a prop or the row around it, which a class-level
-    default_class cannot.
-    """
-    part._props = {
-        **styled._props,
-        "class_": classnames(look, styled._get_prop("class_")),
-    }
-    part._attrs = styled._attrs
-    return part.content(*styled._content())

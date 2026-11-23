@@ -125,7 +125,9 @@ canonical templates. The shape:
   internal wiring spelled `x-on:` / `x-bind:`. A part has no classes and no `Literal`
   axes, only `aria-*` / `data-*` state for a style to answer. `hue.ui` styles a part by
   subclassing it with `default_class`, or by composing it with `class_()`
-  (`hue/headless/select.py` and `ui/molecules/select.py` are the template).
+  (`hue/headless/select.py` and `ui/molecules/select.py` are the template). A look that
+  depends on a prop or on context overrides `_classes(context)` instead, as the styled
+  `Tabs` does for `segmented()`.
 
 ### Utilities (`hue-python/src/hue/utils.py`) — reuse these
 

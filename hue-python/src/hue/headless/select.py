@@ -141,13 +141,14 @@ class SelectRoot(AlpineModelMixin, FormElementMixin, Part):
         self._refuse_x_data()
         value: str = self._get_prop("value") or ""
         attrs = self._wired(
+            context,
             **{
                 "x-data": call("hueSelect", value, self._get_prop("placeholder", "")),
                 # Focus leaving closes the list too, so tabbing away or
                 # clicking into another document does not leave it open.
                 "x-on:click.outside": "hide()",
                 "x-on:focusout": "leave($event)",
-            }
+            },
         )
         attrs.pop("id", None)
         submitted = {key: attrs.pop(key) for key in ("x-model", "form") if key in attrs}
@@ -176,6 +177,7 @@ class SelectTrigger(Part):
         return html.button(
             *self._content(),
             **self._wired(
+                context,
                 type="button",
                 id=state.control_id,
                 role="combobox",
@@ -207,11 +209,12 @@ class SelectValue(Part):
         return html.span(
             state.placeholder if state.chosen is None else state.chosen,
             **self._wired(
+                context,
                 **{
                     "data-placeholder": "" if state.chosen is None else None,
                     "x-text": "label || placeholder",
                     "x-bind:data-placeholder": "label ? null : ''",
-                }
+                },
             ),
         )
 
@@ -226,6 +229,7 @@ class SelectListbox(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 id=state.listbox_id,
                 role="listbox",
                 aria_label=state.label,
@@ -252,6 +256,7 @@ class SelectGroup(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 role="group",
                 **{
                     # Two groups may share a label, so the label's id comes
@@ -272,7 +277,7 @@ class SelectGroupLabel(Part):
         self._state(context, SelectState)
         return html.div(
             *self._content(),
-            **self._wired(**{"x-bind:id": f"$id('{_GROUP_SCOPE}')"}),
+            **self._wired(context, **{"x-bind:id": f"$id('{_GROUP_SCOPE}')"}),
         )
 
 
@@ -316,6 +321,7 @@ class SelectOption(Part):
         return html.div(
             *self._content(),
             **self._wired(
+                context,
                 id=option_id,
                 role="option",
                 aria_selected="true" if value in state.values else "false",

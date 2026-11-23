@@ -73,13 +73,14 @@ class TabsRoot(SwapsTarget, Part):
         return html.nav(
             *self._content(),
             **self._wired(
+                context,
                 **{
                     # Chrome scrolls a focused tab in only once it is wholly
                     # out of view, so one cut off at the edge stays cut off.
                     "x-on:focusin": "$event.target.scrollIntoView("
                     "{ inline: 'nearest', block: 'nearest' })",
                     **self._sync_attrs(),
-                }
+                },
             ),
         )
 
@@ -132,7 +133,8 @@ class Tab(Part):
         state = self._state(context, TabsState)
         if self.unreachable:
             return html.a(
-                *self._content(), **self._wired(role="link", aria_disabled="true")
+                *self._content(),
+                **self._wired(context, role="link", aria_disabled="true"),
             )
         href: str = self._get_prop("href")
         current: bool = self._get_prop(
@@ -144,6 +146,7 @@ class Tab(Part):
         return html.a(
             *self._content(),
             **self._wired(
+                context,
                 href=href,
                 aria_current="page" if current else None,
                 **swap(state.target, current=current),
