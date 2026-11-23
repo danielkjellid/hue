@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 from hue.base import ChainableComponent, declared
 from hue.formats import Formats
+from hue.navigation import SYNC
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import LOADING
 from hue.ui.molecules._calendar_views import (
@@ -22,7 +23,6 @@ from hue.ui.molecules._calendar_views import (
 )
 from hue.ui.molecules._days import Event, EventColor, Spans
 from hue.ui.molecules.date_picker import Weekday
-from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if
 
 if TYPE_CHECKING:

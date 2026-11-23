@@ -511,8 +511,8 @@ class ShortcutHost:
             id="hue-shortcuts",
             hidden="",
             aria_hidden="true",
-            # hue.ui.navigation.SYNC, spelled out: hue.ui imports this module,
-            # so this module cannot import from hue.ui.
+            # hue.navigation.SYNC, spelled out: hue.navigation imports
+            # hue.context, which imports this module.
             **{"x-sync": ""},
         )
 

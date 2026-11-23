@@ -7,9 +7,9 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.navigation import CurrentPage, SwapsTarget, swap
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
-from hue.ui.navigation import CurrentPage, SwapsTarget, swap
 from hue.utils import classnames, render_if
 
 # Scrolls rather than wraps on a narrow screen: a row of tabs folded onto
