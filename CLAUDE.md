@@ -118,6 +118,14 @@ canonical templates. The shape:
   `ruff.toml` in the package bans it, so the parts can move into a distribution of their
   own. What both need (`ChainableComponent` in `hue/base.py`, `hue.utils`, `hue.js`)
   lives in core modules outside `hue.ui`.
+- A headless widget is a root and its parts, each a `Part` (`hue/headless/part.py`).
+  The root offers a frozen state object through `htmy_context`; a part reads it with
+  `_state()`, which raises outside the root, and builds its ids from it. A part draws its
+  element through `_wired()`: the caller's attributes first, the part's wiring on top,
+  internal wiring spelled `x-on:` / `x-bind:`. A part has no classes and no `Literal`
+  axes, only `aria-*` / `data-*` state for a style to answer. `hue.ui` styles a part by
+  subclassing it with `default_class`, or by composing it with `class_()`
+  (`hue/headless/select.py` and `ui/molecules/select.py` are the template).
 
 ### Utilities (`hue-python/src/hue/utils.py`) — reuse these
 
