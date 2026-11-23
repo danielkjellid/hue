@@ -12,9 +12,9 @@ def _build() -> ComponentType:
         pr.lead("Add Hue to your project and wire up its bundled assets."),
         pr.h2("Install the package"),
         pr.p("Using uv:"),
-        pr.code("uv add hue", language="bash"),
+        pr.code("uv add hue-ui", language="bash"),
         pr.p("Or with pip:"),
-        pr.code("pip install hue", language="bash"),
+        pr.code("pip install hue-ui", language="bash"),
         pr.p(
             "With Django or FastAPI, install the integration instead. It "
             "depends on Hue and adds views, a router and the asset routes:"

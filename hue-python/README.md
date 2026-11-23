@@ -28,3 +28,13 @@ uv add hue-fastapi  # FastAPI
 All three packages release together under the same version number.
 
 Source, docs and issues: https://github.com/danielkjellid/hue
+
+## For coding agents
+
+The docs for each release ship inside the package as Markdown, starting at
+`hue/docs/llms.txt`, so an agent reads the docs for the version you installed.
+A skill teaches the agent where to find them and how Hue code is written:
+
+```sh
+npx skills add danielkjellid/hue --skill hue
+```

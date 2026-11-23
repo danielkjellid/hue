@@ -41,8 +41,15 @@ build-js: node_modules package.json ; $(info $(M) building js bundles) @
 .PHONY: build
 build: build-css build-js
 
+# The docs as Markdown, for a consumer's agent to read from the installed
+# package. Generated from hue-docs, so not committed.
+.PHONY: docs
+docs: ; $(info $(M) writing the docs as markdown) @
+	$Q rm -rf $(BASE)/src/hue/docs
+	$Q $(MAKE) -C $(BASE)/../hue-docs markdown OUT=$(BASE)/src/hue/docs
+
 .PHONY: dist
-dist: build ; $(info $(M) building the wheel and sdist) @
+dist: build docs ; $(info $(M) building the wheel and sdist) @
 	$Q cd $(BASE) && $(UV) build
 
 # hue-django and hue-fastapi release in lockstep with hue-ui and pin it exactly,

@@ -5,11 +5,13 @@ The whole site, frozen to files and indexed for search.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from hue_docs.app import REDIRECTS, frame_paths, page_paths
+from hue_docs.markdown import md_path
 
 
 def test_every_page_and_frame_is_written(frozen: Path) -> None:
@@ -38,3 +40,24 @@ def test_the_favicon_redirect_is_at_the_domain_s_root(frozen: Path) -> None:
     # Browsers ask for /favicon.ico whatever path the site is served under.
     lines = (frozen / "_redirects").read_text().splitlines()
     assert any(line.startswith("/favicon.ico ") for line in lines)
+
+
+def test_llms_txt_lists_every_page_as_markdown(frozen: Path) -> None:
+    index = (frozen / "llms.txt").read_text()
+    for path in page_paths():
+        assert f"]({md_path(path)})" in index, path
+        assert (frozen / md_path(path)).exists(), path
+
+
+def test_every_markdown_link_resolves(frozen: Path) -> None:
+    # The links are relative so the same files work inside the wheel, which
+    # breaks quietly whenever a page moves.
+    broken = [
+        (page.name, target)
+        for page in frozen.rglob("*.md")
+        for target in re.findall(r"\]\(([^)\s]+)\)", page.read_text())
+        if "://" not in target
+        and not target.startswith("#")
+        and not (page.parent / target.split("#")[0]).exists()
+    ]
+    assert not broken
