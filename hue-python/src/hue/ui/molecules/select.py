@@ -10,12 +10,12 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless._overlay import anchor
 from hue.js import call
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
-from hue.ui.molecules import _overlay
 from hue.utils import classes_if, classnames, render_if
 
 # The field's own shell, laid out as a row: the value takes the space and
@@ -240,7 +240,7 @@ class Select(FieldControl):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                **_overlay.anchor("bottom-start", "$refs.trigger"),
+                **anchor("bottom-start", "$refs.trigger"),
             },
         )
         hidden = html.input_(

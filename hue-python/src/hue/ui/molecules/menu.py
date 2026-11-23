@@ -6,6 +6,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent, Clickable
+from hue.headless._overlay import anchor
 from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
@@ -110,7 +111,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
                 "x-on:keydown.up.prevent": "$focus.wrap().previous()",
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
-                **_overlay.anchor(placement, find_trigger),
+                **anchor(placement, find_trigger),
                 **_overlay.HOLDS_FOCUS,
             },
         )
