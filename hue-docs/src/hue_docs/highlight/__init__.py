@@ -53,10 +53,13 @@ class Highlighter:
             # A cache cut off mid-write is only lost work: it fills again.
             self.cache = {}
         self._recording: dict[str, tuple[str, str]] | None = None
+        self._plain = False
 
     def __call__(self, code: str, lang: str) -> str:
         if lang not in LANGUAGES:
             raise HighlightError(f"No highlighting set up for {lang!r}.")
+        if self._plain:
+            return f'<pre data-language="{lang}"><code>{escape(code)}</code></pre>'
         key = _key(code, lang)
         if key in self.cache:
             return self.cache[key]
@@ -78,6 +81,18 @@ class Highlighter:
             self._fill(self._recording.values())
         finally:
             self._recording = None
+
+    @contextmanager
+    def plain(self) -> Iterator[None]:
+        """
+        Unhighlighted blocks that name their language, for the Markdown
+        export, which needs neither Shiki nor node.
+        """
+        self._plain = True
+        try:
+            yield
+        finally:
+            self._plain = False
 
     def _fill(self, items: Iterable[tuple[str, str]]) -> None:
         batch = [{"code": code, "lang": lang} for code, lang in items]

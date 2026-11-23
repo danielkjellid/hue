@@ -17,6 +17,9 @@ node_modules/
 # hue-python/README or CLAUDE.md.
 hue-python/src/hue/static/styles/tailwind.css
 
+# Written by `make docs` in hue-python from hue-docs, for the wheel.
+hue-python/src/hue/docs/
+
 # The design guide is version-controlled as the zip beside it; the extracted
 # folder is a local working copy.
 Hue-Component-Library-Design-System/

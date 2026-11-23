@@ -33,6 +33,13 @@ build: .venv build-css ; $(info $(M) freezing into $(DIST)/) @
 	$Q test -d $(BASE)/$(SRC)/highlight/node_modules || $(MAKE) highlight-deps
 	$Q cd $(BASE) && PYTHONPATH=src $(UV) run python -m hue_docs.freeze $(DIST)
 
+# The pages as Markdown with an llms.txt index, written to OUT. hue-python's
+# make dist puts them in the wheel; make build writes them beside the site.
+.PHONY: markdown
+markdown: .venv ; $(info $(M) writing markdown to $(OUT)) @
+	$Q test -n "$(OUT)" || { echo "OUT is required"; exit 1; }
+	$Q cd $(BASE) && PYTHONPATH=src $(UV) run python -m hue_docs.markdown $(abspath $(OUT))
+
 # Live pages over a fresh build's stylesheet, scripts and search index.
 # New Tailwind classes need another run, since nothing watches the CSS.
 .PHONY: serve

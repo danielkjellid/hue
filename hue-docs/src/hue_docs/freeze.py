@@ -1,6 +1,7 @@
 """
 Write the site to static files: every page and frame as the app serves it, the
-scripts the pages load, and the search index over the pages.
+scripts the pages load, the search index over the pages, and the same pages
+as Markdown with an llms.txt index for agents.
 
 The stylesheet is built by the Makefile into the same directory first, since
 the Tailwind CLI is a separate step.
@@ -27,6 +28,7 @@ from hue_docs.app import (
     page_paths,
 )
 from hue_docs.highlight import highlight
+from hue_docs.markdown import write_markdown
 from hue_docs.render import COULD_NOT_RENDER
 from hue_docs.site import url
 
@@ -80,6 +82,8 @@ def freeze(out: Path = DIST) -> None:
         "".join(f"{url(old)} {url(new)} 301\n" for old, new in REDIRECTS.items())
         + f"{FAVICON} {url(FAVICON_FILE)} 301\n"
     )
+
+    write_markdown(out)
 
     shutil.rmtree(out / "pagefind", ignore_errors=True)
     asyncio.run(_index(out, pages))
