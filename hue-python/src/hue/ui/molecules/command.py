@@ -14,7 +14,7 @@ from hue.ui import _shortcut
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.molecules import _overlay
-from hue.ui.molecules.select import _labelled_group
+from hue.ui.molecules.select import _GROUP_LABEL
 from hue.utils import classnames, render_if
 
 _PANEL = (
@@ -230,7 +230,23 @@ class CommandGroup(ChainableComponent):
         return self
 
     def _render(self, context: Context) -> Component:
-        return _labelled_group(self, "hue-command-group", "flex flex-col [&+&]:mt-2")
+        # Two groups may share a label, so the label's id comes from Alpine's
+        # $id in a scope of the group's own rather than from what it is called.
+        return html.div(
+            html.div(
+                self._get_prop("label", ""),
+                class_=_GROUP_LABEL,
+                **{":id": "$id('hue-command-group')"},
+            ),
+            *self._children,
+            role="group",
+            **{
+                "class_": "flex flex-col [&+&]:mt-2",
+                "x-id": "['hue-command-group']",
+                ":aria-labelledby": "$id('hue-command-group')",
+                **self._get_base_html_attrs(),
+            },
+        )
 
 
 class CommandItem(ChainableComponent):
