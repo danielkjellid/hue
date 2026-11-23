@@ -1,9 +1,9 @@
 import pytest
 
+from hue.headless._overlay import TRIGGER
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, Dialog, Popover, Tooltip
-from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -128,7 +128,7 @@ class TestDialog:
         html = await render_tree(_dialog().open(), context_args=context_args)
         state = select(html, "[x-data]")[0]["x-data"]
         assert state.startswith("{ open: true")
-        assert f"{_overlay.TRIGGER}?.focus()" in state
+        assert f"{TRIGGER}?.focus()" in state
 
     @pytest.mark.asyncio
     async def test_started_open_it_finds_a_trigger_inside_a_tooltip(self, context_args):
@@ -138,7 +138,7 @@ class TestDialog:
             Tooltip().content("Invite").trigger(Button().icon_only("Invite"))
         )
         html = await render_tree(dialog.open(), context_args=context_args)
-        assert f"{_overlay.TRIGGER}?.focus()" in select(html, "[x-data]")[0]["x-data"]
+        assert f"{TRIGGER}?.focus()" in select(html, "[x-data]")[0]["x-data"]
         assert_selector(html, "button[data-hue-trigger]")
         assert_no_selector(html, "[x-ref]")
 

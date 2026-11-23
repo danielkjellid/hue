@@ -6,6 +6,15 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless._overlay import (
+    DISMISS_ON_SCRIM,
+    HOLDS_FOCUS,
+    OVERLAY_IDS,
+    accessible_name,
+    overlay_root,
+    overlay_state,
+    wire_trigger,
+)
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
@@ -137,7 +146,7 @@ class Drawer(_overlay.WrapsTrigger):
         dismissible: bool = self._get_prop("dismissible", True)
         starts_open: bool = self._get_prop("open", False)
 
-        find_trigger = _overlay.wire_trigger(
+        find_trigger = wire_trigger(
             trigger, popup="dialog", on={"click": "open = true"}
         )
 
@@ -159,7 +168,7 @@ class Drawer(_overlay.WrapsTrigger):
             **{
                 "role": "dialog",
                 "aria_modal": "true",
-                **_overlay.accessible_name("Drawer", title, self._get_prop("label")),
+                **accessible_name("Drawer", title, self._get_prop("label")),
                 # inert takes the page behind out of the tab order, noscroll
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
@@ -181,8 +190,8 @@ class Drawer(_overlay.WrapsTrigger):
                     # which is the only thing timing the pair.
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
-                    **(_overlay.DISMISS_ON_SCRIM if dismissible else {}),
-                    **_overlay.HOLDS_FOCUS,
+                    **(DISMISS_ON_SCRIM if dismissible else {}),
+                    **HOLDS_FOCUS,
                 },
             ),
             class_=self._get_prop("class_"),
@@ -192,12 +201,12 @@ class Drawer(_overlay.WrapsTrigger):
                 # Opened by its trigger, the focus trap hands focus back on
                 # close. Started open by the server, there was nothing to hand
                 # back, so close() sends it to the trigger instead.
-                **_overlay.overlay_root(
-                    _overlay.overlay_state(
+                **overlay_root(
+                    overlay_state(
                         starts_open, return_to=find_trigger if starts_open else None
                     )
                 ),
-                "x-id": _overlay.OVERLAY_IDS,
+                "x-id": OVERLAY_IDS,
                 **self._get_base_html_attrs(),
             },
         )

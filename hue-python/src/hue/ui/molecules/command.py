@@ -7,6 +7,12 @@ from typing_extensions import Self
 
 from hue.base import ChainableComponent
 from hue.context import HueContext
+from hue.headless._overlay import (
+    DISMISS_ON_SCRIM,
+    HOLDS_FOCUS,
+    overlay_root,
+    wire_trigger,
+)
 from hue.js import Expression, call, expect
 from hue.shortcuts import Shortcut, Steps, binding, parse_keys
 from hue.types.core import Component, ComponentType
@@ -102,7 +108,7 @@ class Command(ChainableComponent):
             registry.check("the palette's hotkey", hotkey)
         trigger: ChainableComponent | None = self._get_prop("trigger")
         if trigger is not None:
-            _overlay.wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
+            wire_trigger(trigger, popup="dialog", on={"click": "open = true"})
 
         search = html.div(
             HueIcon("search").class_("size-4 flex-none text-fg-subtle"),
@@ -186,13 +192,13 @@ class Command(ChainableComponent):
                     "x-transition:enter-start": "opacity-0",
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
-                    **_overlay.DISMISS_ON_SCRIM,
-                    **_overlay.HOLDS_FOCUS,
+                    **DISMISS_ON_SCRIM,
+                    **HOLDS_FOCUS,
                 },
             ),
             class_=self._get_prop("class_"),
             **{
-                **_overlay.overlay_root(
+                **overlay_root(
                     call(
                         "hueCommand",
                         self._get_prop("open", False),

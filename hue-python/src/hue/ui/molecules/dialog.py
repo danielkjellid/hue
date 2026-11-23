@@ -6,6 +6,16 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless._overlay import (
+    DESCRIPTION_ID,
+    DISMISS_ON_SCRIM,
+    HOLDS_FOCUS,
+    OVERLAY_IDS,
+    accessible_name,
+    overlay_root,
+    overlay_state,
+    wire_trigger,
+)
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if
@@ -126,7 +136,7 @@ class Dialog(_overlay.WrapsTrigger):
         destructive: bool = self._get_prop("destructive", False)
         starts_open: bool = self._get_prop("open", False)
 
-        find_trigger = _overlay.wire_trigger(
+        find_trigger = wire_trigger(
             trigger, popup="dialog", on={"click": "open = true"}
         )
 
@@ -144,11 +154,11 @@ class Dialog(_overlay.WrapsTrigger):
             **{
                 "role": "alertdialog" if destructive else "dialog",
                 "aria_modal": "true",
-                **_overlay.accessible_name("Dialog", title, self._get_prop("label")),
+                **accessible_name("Dialog", title, self._get_prop("label")),
                 # Announced with the title only where the wrong answer cannot
                 # be undone; elsewhere it is read in order like any other text.
                 ":aria-describedby": (
-                    _overlay.DESCRIPTION_ID if destructive and description else None
+                    DESCRIPTION_ID if destructive and description else None
                 ),
                 # inert takes the page behind out of the tab order, noscroll
                 # stops it scrolling under the scrim, and the trap returns
@@ -174,8 +184,8 @@ class Dialog(_overlay.WrapsTrigger):
                     # which is the only thing timing the pair.
                     "x-transition:leave": _overlay.LEAVING,
                     "x-transition:leave-end": "opacity-0",
-                    **(_overlay.DISMISS_ON_SCRIM if dismissible else {}),
-                    **_overlay.HOLDS_FOCUS,
+                    **(DISMISS_ON_SCRIM if dismissible else {}),
+                    **HOLDS_FOCUS,
                 },
             ),
             class_=self._get_prop("class_"),
@@ -185,12 +195,12 @@ class Dialog(_overlay.WrapsTrigger):
                 # Opened by its trigger, the focus trap hands focus back on
                 # close. Started open by the server, there was nothing to hand
                 # back, so close() sends it to the trigger instead.
-                **_overlay.overlay_root(
-                    _overlay.overlay_state(
+                **overlay_root(
+                    overlay_state(
                         starts_open, return_to=find_trigger if starts_open else None
                     )
                 ),
-                "x-id": _overlay.OVERLAY_IDS,
+                "x-id": OVERLAY_IDS,
                 # For a control outside its scope, such as a shortcut.
                 "x-on:hue:open": "open = true",
                 **self._get_base_html_attrs(),
