@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import modelable
 from hue.formats import DIRECTIVE, Formats
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
@@ -21,7 +22,6 @@ from hue.ui._styles import (
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import modelable
 from hue.ui.form import FieldControl
 from hue.ui.molecules import _overlay
 from hue.ui.molecules.date_picker import (

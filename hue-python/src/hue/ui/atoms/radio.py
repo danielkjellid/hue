@@ -5,6 +5,7 @@ from typing import ClassVar
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms._choice import (
     CHOICE_BOX,
@@ -13,7 +14,6 @@ from hue.ui.atoms._choice import (
     description_id,
     label_id,
 )
-from hue.ui.base import ChainableComponent
 from hue.ui.form import FieldControl
 from hue.ui.molecules.field import (
     error_component,

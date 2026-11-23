@@ -1,5 +1,6 @@
 import pytest
 
+from hue.base import ChainableComponent
 from hue.renderer import render_tree
 from hue.ui import (
     Sidebar,
@@ -12,7 +13,6 @@ from hue.ui import (
     SidebarSection,
     SidebarSpacer,
 )
-from hue.ui.base import ChainableComponent
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 

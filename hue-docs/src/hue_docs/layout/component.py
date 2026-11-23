@@ -5,6 +5,7 @@ A component's page: what it is, how to use it, its panels, its API.
 from __future__ import annotations
 
 from hue import html
+from hue.base import ChainableComponent
 from hue.types.core import ComponentType
 from hue.ui import (
     Table,
@@ -14,7 +15,6 @@ from hue.ui import (
     TableHeader,
     TableRow,
 )
-from hue.ui.base import ChainableComponent
 from hue.utils import render_if, render_when
 
 from hue_docs.layout import prose as pr

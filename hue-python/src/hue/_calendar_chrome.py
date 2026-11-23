@@ -40,6 +40,7 @@ from hue._declared import (
     search_form,
     search_id,
 )
+from hue.base import ChainableComponent
 from hue.js import Expression, call, close, unsafe
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
@@ -50,7 +51,6 @@ from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
 from hue.ui.atoms.radio import Radio, RadioGroup
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _calendar_views as views
 from hue.ui.molecules._calendar_views import CalendarView
 from hue.ui.molecules.date_picker import WEEKDAYS, DatePicker

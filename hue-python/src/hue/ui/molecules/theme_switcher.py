@@ -5,10 +5,10 @@ from typing import NamedTuple
 from htmy import Context
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules.segmented_control import SegmentedControl, SegmentedOption
 from hue.utils import classnames
 

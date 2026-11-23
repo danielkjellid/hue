@@ -7,13 +7,13 @@ from typing import Any, Literal, get_args
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import modelable
 from hue.formats import Formats
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import modelable
 from hue.ui.form import FieldControl
 from hue.ui.molecules.field import (
     error_component,

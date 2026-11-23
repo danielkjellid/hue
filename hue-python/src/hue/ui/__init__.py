@@ -1,3 +1,4 @@
+from hue.base import ChainableComponent
 from hue.ui.atoms.avatar import Avatar, AvatarGroup
 from hue.ui.atoms.badge import Badge
 from hue.ui.atoms.button import Button
@@ -27,7 +28,6 @@ from hue.ui.atoms.stack import Stack
 from hue.ui.atoms.switch import Switch
 from hue.ui.atoms.text import Label, Text
 from hue.ui.atoms.textarea import Textarea
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules.accordion import Accordion, AccordionItem
 from hue.ui.molecules.alert import Alert, Banner
 from hue.ui.molecules.breadcrumbs import Breadcrumbs

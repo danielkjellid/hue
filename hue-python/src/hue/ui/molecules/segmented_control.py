@@ -6,10 +6,10 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent, Clickable
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING, SEGMENTED_ITEM, SEGMENTED_TRACK
-from hue.ui.base import ChainableComponent, Clickable
 from hue.utils import classnames
 
 type SegmentedSize = Literal["sm", "md", "lg"]

@@ -5,10 +5,10 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import Clickable, FormElementMixin
 from hue.types.core import Component, ComponentType
 from hue.types.html import AriaHasPopup
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import Clickable, FormElementMixin
 from hue.utils import classnames
 
 type ButtonVariant = Literal[

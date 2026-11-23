@@ -64,7 +64,7 @@ Before finishing any change, run `make lint` (and the relevant tests) — or use
 ## The chainable-component pattern
 
 Every UI element subclasses `ChainableComponent`
-(`hue-python/src/hue/ui/base.py`). Read `atoms/button.py` and `molecules/callout.py` as the
+(`hue-python/src/hue/base.py`). Read `atoms/button.py` and `molecules/callout.py` as the
 canonical templates. The shape:
 
 - State lives in `self._props`, `self._attrs`, and `self._children`.
@@ -113,6 +113,11 @@ canonical templates. The shape:
 - Build Tailwind class strings with the helpers in `hue-python/src/hue/utils.py`
   (see below). Export every new component from `hue-python/src/hue/ui/__init__.py`
   (add the import *and* the alphabetized `__all__` entry).
+- `hue.headless` holds the unstyled parts that `hue.ui` styles: structure, ARIA, Alpine
+  behaviour and the form contract, with no classes. It never imports `hue.ui`; a
+  `ruff.toml` in the package bans it, so the parts can move into a distribution of their
+  own. What both need (`ChainableComponent` in `hue/base.py`, `hue.utils`, `hue.js`)
+  lives in core modules outside `hue.ui`.
 
 ### Utilities (`hue-python/src/hue/utils.py`) — reuse these
 

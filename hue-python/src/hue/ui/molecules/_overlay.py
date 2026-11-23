@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from htmy import html
 
+from hue.base import ChainableComponent
 from hue.types.core import ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
 
 # Alpine mints the ids, so two overlays on a page cannot share one.

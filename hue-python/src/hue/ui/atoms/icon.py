@@ -8,8 +8,8 @@ from xml.etree import ElementTree as ET
 from htmy import Context, Formatter, Properties, PropertyValue, SafeStr, html
 
 from hue.assets import icons_path
+from hue.base import ChainableComponent
 from hue.types.core import Component
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 # An icon resolver turns an icon name into raw SVG markup. It is just a

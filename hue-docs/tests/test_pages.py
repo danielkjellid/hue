@@ -21,7 +21,7 @@ import pytest
 from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from hue import ui
-from hue.ui.base import ChainableComponent
+from hue.base import ChainableComponent
 
 import hue_docs
 from hue_docs.app import REDIRECTS, demo_app, frame_paths, page_paths

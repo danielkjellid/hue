@@ -15,6 +15,7 @@ from typing import Literal
 from htmy import Context, SafeStr, html
 from htmy.renderer import Renderer
 
+from hue.base import ChainableComponent
 from hue.formats import Formats
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -28,7 +29,6 @@ from hue.ui._styles import (
 )
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules._days import (
     Event,
     EventColor,

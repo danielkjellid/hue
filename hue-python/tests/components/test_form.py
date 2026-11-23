@@ -1,10 +1,10 @@
 import pytest
 from htmy import Context
 
+from hue.base import ChainableComponent
 from hue.renderer import render_tree
 from hue.types.core import Component
 from hue.ui import Form, TextInput
-from hue.ui.base import ChainableComponent
 from tests._a11y import assert_attr, assert_no_selector, assert_selector
 
 

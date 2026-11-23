@@ -6,9 +6,9 @@ from typing import ClassVar
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
-from hue.ui.base import ChainableComponent
 from hue.ui.navigation import CurrentPage, SwapsTarget, swap
 from hue.utils import classnames, render_if
 

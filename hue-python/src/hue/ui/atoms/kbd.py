@@ -3,9 +3,9 @@ from __future__ import annotations
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.shortcuts import FUNCTION_KEY, KEYS, Key
 from hue.types.core import Component, ComponentType
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 # Which key "mod" means, and whether the modifiers are drawn as Apple's glyphs

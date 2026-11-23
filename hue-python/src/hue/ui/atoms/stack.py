@@ -5,10 +5,10 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.spacing import SPACE_BETWEEN, Size
 from hue.types.core import Component
 from hue.types.css import AlignItems, JustifyContent
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type StackPosition = Literal["relative", "absolute", "fixed", "sticky"]

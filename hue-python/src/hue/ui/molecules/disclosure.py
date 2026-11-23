@@ -3,11 +3,11 @@ from __future__ import annotations
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.js import unsafe
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
 # A band rather than a row: the header is a tinted strip and what it opens

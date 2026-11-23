@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent, declared
 from hue.formats import Formats
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import LOADING
-from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules._calendar_views import (
     FIRST,
     LAST,
