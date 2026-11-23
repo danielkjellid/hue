@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
 
-from htmy import Context, html
+from htmy import Context
 from typing_extensions import Self
 
-from hue.base import ChainableComponent
-from hue.navigation import CurrentPage, SwapsTarget, swap
+from hue.headless import tabs as headless
+from hue.headless.part import Part
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING_INSET, SEGMENTED_ITEM, SEGMENTED_TRACK
 from hue.utils import classnames, render_if
@@ -55,28 +54,16 @@ _UNREACHABLE = "cursor-not-allowed text-fg-disabled hover:bg-transparent"
 
 
 @dataclass(frozen=True, slots=True)
-class TabsState:
+class _Look:
     """
-    How the row is drawn and where a tab lands, offered to every tab in
-    it. A tab reads it and draws itself, so it does not have to be a
-    child of the row to belong to it.
+    How the row around a tab is drawn, which is all a tab needs from the
+    styled Tabs rather than the headless root.
     """
 
-    segmented: bool = False
-    target: str | None = None
-
-    @classmethod
-    def from_context(cls, context: Context) -> TabsState:
-        found = context.get(cls)
-        if isinstance(found, cls):
-            return found
-        raise ValueError(
-            "A Tab only means something inside Tabs, which is what says "
-            "how the row is drawn and which of them you are on."
-        )
+    segmented: bool
 
 
-class Tabs(SwapsTarget):
+class Tabs(headless.TabsRoot):
     """
     A row of links to the sections of one thing, and which of them you
     are on.
@@ -102,69 +89,20 @@ class Tabs(SwapsTarget):
         self._props["segmented"] = value
         return self
 
-    def current(self, value: str) -> Self:
-        """
-        The path of the page you are on, set once rather than per tab.
-
-        A tab is marked by its own href: the one that matches, and the
-        one that leads to the section this page is inside. Tab.exact()
-        opts a tab out of that.
-        """
-        self._props["current"] = value
-        return self
-
-    def label(self, value: str) -> Self:
-        """
-        What the row of tabs is for, which is what a screen reader reads
-        before the tabs themselves.
-        """
-        self._props["label"] = value
-        return self
-
     def htmy_context(self) -> Context:
-        return {
-            CurrentPage: CurrentPage(self._get_prop("current")),
-            TabsState: TabsState(
-                self._get_prop("segmented", False), self._get_prop("target")
-            ),
-        }
+        return {_Look: _Look(self._get_prop("segmented", False))}
 
     def _render(self, context: Context) -> Component:
-        own_id: str | None = self._attrs.get("id")
-        if own_id is not None:
-            # A swap replaces every tab, and the id is how focus finds the
-            # new one. By position, since an href can be anything.
-            for index, child in enumerate(self._children):
-                if isinstance(child, Tab):
-                    child._attrs.setdefault("id", f"{own_id}-tab-{index}")
-        return html.nav(
-            *self._children,
-            aria_label=self._get_prop("label"),
-            class_=classnames(
-                _ROW_SEGMENTED if self._get_prop("segmented", False) else _ROW,
-                self._get_prop("class_"),
-            ),
-            **{
-                # Chrome scrolls a focused tab in only once it is wholly
-                # out of view, so one cut off at the edge stays cut off.
-                "x-on:focusin": "$event.target.scrollIntoView("
-                "{ inline: 'nearest', block: 'nearest' })",
-                **self._sync_attrs(),
-                **self._get_base_html_attrs(),
-            },
+        segmented: bool = self._get_prop("segmented", False)
+        return _dressed(
+            headless.TabsRoot(), self, _ROW_SEGMENTED if segmented else _ROW
         )
 
 
-class Tab(ChainableComponent):
+class Tab(headless.Tab):
     """
     One tab: a link to one section, and a count or a state after its name.
     """
-
-    category: ClassVar[str | None] = None
-
-    def href(self, value: str) -> Self:
-        self._props["href"] = value
-        return self
 
     def badge(self, value: ComponentType) -> Self:
         """
@@ -174,78 +112,48 @@ class Tab(ChainableComponent):
         self._props["badge"] = value
         return self
 
-    def current(self, value: bool = True) -> Self:
-        """
-        Mark this as the page you are on, where the row's own current()
-        cannot tell - a tab that stands for a path of its own, say.
-        """
-        self._props["current"] = value
-        return self
-
-    def exact(self, value: bool = True) -> Self:
-        """
-        Mark this only on its own path, not on the pages under it.
-        """
-        self._props["exact"] = value
-        return self
-
-    def disabled(self, value: bool = True) -> Self:
-        """
-        A section there is nothing in yet.
-
-        Rendered as a link with no href, which the Tab key skips. It keeps
-        the link role and aria-disabled, so a screen reader still reads it
-        as a link that is unavailable. On a span, aria-disabled is never
-        read out.
-        """
-        self._props["disabled"] = value
-        return self
-
-    def _render(self, context: Context) -> Component:
-        state = TabsState.from_context(context)
-        href: str | None = self._get_prop("href")
-        unreachable: bool = self._get_prop("disabled", False) or href is None
-        current: bool = self._get_prop(
-            "current",
-            CurrentPage.from_context(context).marks(
-                href, exact=self._get_prop("exact", False)
-            ),
-        )
-        segmented = state.segmented
-        classes = classnames(
-            # A link, and never underlined: the rule under the tab you are
-            # on is the mark, and a second one under the words is noise.
-            "no-underline",
-            SEGMENTED_ITEM if segmented else _TAB,
-            _SEGMENTED_TAB if segmented else _UNDERLINE_TAB,
-            # Picked rather than layered: the track already colours its own
-            # items, and two colours on one element resolve by stylesheet
-            # order rather than by intent.
-            _UNREACHABLE if unreachable else "" if segmented else _IDLE,
-            # Inset, because the scrolling row clips a ring drawn outside it.
-            FOCUS_RING_INSET,
-        )
-        children = (
+    def _content(self) -> tuple[ComponentType, ...]:
+        return (
             *self._children,
             render_if(self._get_prop("badge"), lambda badge: badge),
         )
 
-        if unreachable:
-            return html.a(
-                *children,
-                role="link",
-                aria_disabled="true",
-                class_=classes,
-                **self._get_base_html_attrs(),
+    def _render(self, context: Context) -> Component:
+        look = context.get(_Look)
+        if not isinstance(look, _Look):
+            raise ValueError(
+                "A Tab only means something inside Tabs, which is what says "
+                "how the row is drawn and which of them you are on."
             )
-
-        return html.a(
-            *children,
-            href=href,
-            aria_current="page" if current else None,
-            class_=classes,
-            **{
-                **swap(state.target, current=current),
-                **self._get_base_html_attrs(),
-            },
+        segmented = look.segmented
+        return _dressed(
+            headless.Tab(),
+            self,
+            classnames(
+                # A link, and never underlined: the rule under the tab you are
+                # on is the mark, and a second one under the words is noise.
+                "no-underline",
+                SEGMENTED_ITEM if segmented else _TAB,
+                _SEGMENTED_TAB if segmented else _UNDERLINE_TAB,
+                # Picked rather than layered: the track already colours its own
+                # items, and two colours on one element resolve by stylesheet
+                # order rather than by intent.
+                _UNREACHABLE if self.unreachable else "" if segmented else _IDLE,
+                # Inset, because the scrolling row clips a ring drawn outside it.
+                FOCUS_RING_INSET,
+            ),
         )
+
+
+def _dressed[P: Part](part: P, styled: P, look: str) -> P:
+    """
+    part, set up as styled is, wearing look before whatever class_() added.
+    The look depends on a prop or the row around it, which a class-level
+    default_class cannot.
+    """
+    part._props = {
+        **styled._props,
+        "class_": classnames(look, styled._get_prop("class_")),
+    }
+    part._attrs = styled._attrs
+    return part.content(*styled._content())

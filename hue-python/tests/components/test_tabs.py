@@ -2,6 +2,9 @@ import pytest
 
 from hue import html as hue_html
 from hue.base import ChainableComponent
+from hue.headless.tabs import Tab as HeadlessTab
+from hue.headless.tabs import TabsRoot
+from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Tab, Tabs
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
@@ -137,3 +140,45 @@ class TestTabs:
             await render_tree(
                 Tab().href("/stray").content("Stray"), context_args=context_args
             )
+
+
+class TestTabsParts:
+    @pytest.mark.asyncio
+    async def test_parts_wire_themselves_inside_markup_of_the_callers(
+        self, context_args
+    ):
+        html = await render_tree(
+            TabsRoot()
+            .id("row")
+            .label("Settings")
+            .target("panel")
+            .current("/settings/team")
+            .content(
+                hue_html.div(
+                    HeadlessTab().href("/settings/account").content("Account"),
+                    HeadlessTab().href("/settings/team").content("Team"),
+                )
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, "nav#row", "aria-label", "Settings")
+        assert_attr(html, "nav div > a[aria-current=page]", "x-target.replace", "panel")
+        assert_attr(html, 'a[href="/settings/account"]', "x-target.push", "panel")
+        assert_no_selector(html, "[class]")
+
+    @pytest.mark.asyncio
+    async def test_a_caller_adds_to_a_part_and_cannot_unwire_it(self, context_args):
+        html = await render_tree(
+            TabsRoot()
+            .x_on("focusin", unsafe("track()"))
+            .content(HeadlessTab().disabled().role("button").content("Gone")),
+            context_args=context_args,
+        )
+        assert_attr(html, "a", "role", "link")
+        assert_attr(html, "nav", "@focusin", "track()")
+        assert "scrollIntoView" in select(html, "nav")[0]["x-on:focusin"]
+
+    @pytest.mark.asyncio
+    async def test_a_part_outside_its_root_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="TabsState"):
+            await render_tree(HeadlessTab().href("/stray"), context_args=context_args)
