@@ -7,7 +7,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
-from hue.headless._overlay import anchor
+from hue.headless._overlay import TRIGGER, anchor
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules import _overlay
@@ -134,7 +134,7 @@ class Tooltip(_overlay.WrapsTrigger):
         )
 
         # The control's own mark, which renders before anything it opens.
-        popup_open = f"({_overlay.TRIGGER}?.getAttribute('aria-expanded') === 'true')"
+        popup_open = f"({TRIGGER}?.getAttribute('aria-expanded') === 'true')"
 
         return html.span(
             render_if(trigger, lambda control: control),

@@ -1,8 +1,8 @@
 import pytest
 
+from hue.headless._overlay import TRIGGER
 from hue.renderer import render_tree
 from hue.ui import Button, DropdownMenu, Popover
-from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -26,7 +26,7 @@ class TestPopover:
             html,
             '[role="dialog"]',
             "x-anchor.fixed.bottom-start.offset.6",
-            _overlay.TRIGGER,
+            TRIGGER,
         )
 
     @pytest.mark.asyncio
@@ -92,7 +92,10 @@ class TestPopover:
             _popover().label("Something else"), context_args=context_args
         )
         assert_attr(
-            html, '[role="dialog"]', ":aria-labelledby", "$id('hue-popover-title')"
+            html,
+            '[role="dialog"]',
+            "x-bind:aria-labelledby",
+            "$id('hue-popover-title')",
         )
         assert_no_selector(html, '[role="dialog"][aria-label]')
 
@@ -104,4 +107,4 @@ class TestPopover:
         )
         assert_attr(html, '[role="dialog"]', "aria-label", "Columns")
         # Nothing to point at.
-        assert_no_selector(html, "[\\:aria-labelledby]")
+        assert_no_selector(html, "[x-bind\\:aria-labelledby]")

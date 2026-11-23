@@ -1,5 +1,6 @@
 import pytest
 
+from hue.headless._overlay import TRIGGER
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.shortcuts import Shortcut, ShortcutRegistry
@@ -12,7 +13,6 @@ from hue.ui import (
     Tooltip,
 )
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 from tests._shortcuts import Shortcuts
 
@@ -61,7 +61,7 @@ class TestDropdownMenu:
             html,
             '[role="menu"]',
             "x-anchor.fixed.bottom-end.offset.6",
-            _overlay.TRIGGER,
+            TRIGGER,
         )
         assert_selector(html, "button[aria-haspopup][data-hue-trigger]", count=1)
 

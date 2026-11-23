@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from htmy import Context, html
+from htmy import Context
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless import dialog as headless
 from hue.types.core import Component, ComponentType
+from hue.ui.atoms.icon import HueIcon
 from hue.ui.molecules import _overlay
-from hue.utils import classnames, render_if
+from hue.utils import classnames, render_if, render_when
 
 type DialogSize = Literal["sm", "md", "lg"]
 
@@ -120,79 +122,83 @@ class Dialog(_overlay.WrapsTrigger):
         size: DialogSize = self._get_prop("size", "md")
         title: str | None = self._get_prop("title")
         description: str | None = self._get_prop("description")
+        label: str | None = self._get_prop("label")
         footer: tuple[ComponentType, ...] = self._get_prop("footer", ())
         trigger: ChainableComponent | None = self._get_prop("trigger")
         dismissible: bool = self._get_prop("dismissible", True)
-        destructive: bool = self._get_prop("destructive", False)
-        starts_open: bool = self._get_prop("open", False)
 
-        find_trigger = _overlay.wire_trigger(
-            trigger, popup="dialog", on={"click": "open = true"}
+        panel = (
+            headless.DialogPanel()
+            .class_(
+                classnames(
+                    "relative flex flex-col overflow-hidden",
+                    "border-border bg-surface-raised shadow-overlay",
+                    _SHEET,
+                    _SIZES[size],
+                )
+            )
+            .content(
+                _overlay.grabber("sm:hidden"),
+                _overlay.header_row(
+                    render_if(
+                        title,
+                        lambda text: headless.DialogTitle()
+                        .class_(_overlay.TITLE)
+                        .content(text),
+                    ),
+                    render_if(
+                        description,
+                        lambda text: headless.DialogDescription()
+                        .class_(_overlay.DESCRIPTION)
+                        .content(text),
+                    ),
+                    render_when(
+                        dismissible,
+                        headless.DialogClose()
+                        .aria_label("Close")
+                        .class_(_overlay.CLOSE)
+                        .content(HueIcon("x").class_("size-4")),
+                    ),
+                ),
+                _overlay.body(self._children),
+                _overlay.footer(footer),
+            )
+        )
+        if label is not None:
+            panel.label(label)
+
+        scrim = (
+            headless.DialogScrim()
+            .class_(
+                classnames(
+                    _overlay.SCRIM, "items-end justify-center sm:items-center sm:p-4"
+                )
+            )
+            .content(panel)
+        )
+        scrim._attrs.update(
+            {
+                "x-transition:enter": "transition-opacity duration-[180ms]",
+                "x-transition:enter-start": "opacity-0",
+                # The panel's own way out runs while this class is on, which
+                # is the only thing timing the pair.
+                "x-transition:leave": _overlay.LEAVING,
+                "x-transition:leave-end": "opacity-0",
+            }
         )
 
-        panel = html.div(
-            _overlay.grabber("sm:hidden"),
-            _overlay.header(title, description, dismissible=dismissible),
-            _overlay.body(self._children),
-            _overlay.footer(footer),
-            class_=classnames(
-                "relative flex flex-col overflow-hidden",
-                "border-border bg-surface-raised shadow-overlay",
-                _SHEET,
-                _SIZES[size],
-            ),
-            **{
-                "role": "alertdialog" if destructive else "dialog",
-                "aria_modal": "true",
-                **_overlay.accessible_name("Dialog", title, self._get_prop("label")),
-                # Announced with the title only where the wrong answer cannot
-                # be undone; elsewhere it is read in order like any other text.
-                ":aria-describedby": (
-                    _overlay.DESCRIPTION_ID if destructive and description else None
+        root = (
+            headless.DialogRoot()
+            .open(self._get_prop("open", False))
+            .dismissible(dismissible)
+            .destructive(self._get_prop("destructive", False))
+            .class_(self._get_prop("class_", ""))
+            .content(
+                render_if(
+                    trigger, lambda control: headless.DialogTrigger().content(control)
                 ),
-                # inert takes the page behind out of the tab order, noscroll
-                # stops it scrolling under the scrim, and the trap returns
-                # focus to whatever opened it.
-                "x-trap.inert.noscroll": "open",
-            },
+                scrim,
+            )
         )
-
-        return html.div(
-            render_if(trigger, lambda control: control),
-            html.div(
-                panel,
-                class_=classnames(
-                    _overlay.SCRIM,
-                    "items-end justify-center sm:items-center sm:p-4",
-                ),
-                **{
-                    "x-show": "open",
-                    "x-cloak": True,
-                    "x-transition:enter": "transition-opacity duration-[180ms]",
-                    "x-transition:enter-start": "opacity-0",
-                    # The panel's own way out runs while this class is on,
-                    # which is the only thing timing the pair.
-                    "x-transition:leave": _overlay.LEAVING,
-                    "x-transition:leave-end": "opacity-0",
-                    **(_overlay.DISMISS_ON_SCRIM if dismissible else {}),
-                    **_overlay.HOLDS_FOCUS,
-                },
-            ),
-            class_=self._get_prop("class_"),
-            **{
-                # Escape always closes, dismissible or not: a modal with no
-                # way out is a trap, whatever the question was.
-                # Opened by its trigger, the focus trap hands focus back on
-                # close. Started open by the server, there was nothing to hand
-                # back, so close() sends it to the trigger instead.
-                **_overlay.overlay_root(
-                    _overlay.overlay_state(
-                        starts_open, return_to=find_trigger if starts_open else None
-                    )
-                ),
-                "x-id": _overlay.OVERLAY_IDS,
-                # For a control outside its scope, such as a shortcut.
-                "x-on:hue:open": "open = true",
-                **self._get_base_html_attrs(),
-            },
-        )
+        root._attrs.update(self._attrs)
+        return root

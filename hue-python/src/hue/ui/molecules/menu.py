@@ -6,7 +6,13 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent, Clickable
-from hue.headless._overlay import anchor
+from hue.headless._overlay import (
+    HOLDS_FOCUS,
+    anchor,
+    overlay_root,
+    overlay_state,
+    wire_trigger,
+)
 from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
@@ -81,7 +87,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
         placement: MenuPlacement = self._get_prop("placement", "bottom-start")
         trigger: ChainableComponent | None = self._get_prop("trigger")
 
-        find_trigger = _overlay.wire_trigger(
+        find_trigger = wire_trigger(
             trigger,
             popup="menu",
             on={
@@ -112,7 +118,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
                 "x-on:keydown.home.prevent": "$focus.first()",
                 "x-on:keydown.end.prevent": "$focus.last()",
                 **anchor(placement, find_trigger),
-                **_overlay.HOLDS_FOCUS,
+                **HOLDS_FOCUS,
             },
         )
 
@@ -121,7 +127,7 @@ class DropdownMenu(_overlay.WrapsTrigger):
             menu,
             class_=classnames("inline-flex", self._get_prop("class_")),
             **{
-                **_overlay.overlay_root(_overlay.overlay_state(return_to=find_trigger)),
+                **overlay_root(overlay_state(return_to=find_trigger)),
                 # Tab leaves the menu rather than walking it. The items are
                 # out of the tab order, so the browser's own Tab already goes
                 # to whatever follows the trigger - but only if the panel is
