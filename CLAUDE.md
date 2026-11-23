@@ -143,7 +143,7 @@ canonical templates. The shape:
   condition rather than a value. Writing `render_if(flag or None, lambda _: …)` is the
   smell this replaces: `render_if` tests against `None`, so a `False` would render.
 
-AJAX swaps have their helpers in `hue-python/src/hue/ui/navigation.py`: `swap(target)` for
+AJAX swaps have their helpers in `hue-python/src/hue/navigation.py`: `swap(target)` for
 a link or form that swaps a region and pushes its URL, `SYNC` for an element that
 refreshes itself from any response that carries it, and the `SwapsTarget` mixin for a
 component whose links swap a region it sits outside of.
