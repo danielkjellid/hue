@@ -777,7 +777,7 @@ class TestEventPopover:
         panel = root.select_one("[role=dialog]")
         # Named by the heading Popover draws, rather than a label beside one.
         assert "aria-label" not in panel.attrs
-        assert panel[":aria-labelledby"] == "$id('hue-popover-title')"
+        assert panel["x-bind:aria-labelledby"] == "$id('hue-popover-title')"
         assert panel.select_one("[\\:id]").get_text(strip=True) == "Design review"
         # Fixed, because the time grid scrolls and would clip the panel.
         assert panel["x-anchor.fixed.bottom-start.offset.6"].startswith("$root")

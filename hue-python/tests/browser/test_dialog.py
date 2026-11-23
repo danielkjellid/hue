@@ -124,3 +124,26 @@ def test_escape_returns_focus_to_the_trigger(show: Show) -> None:
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog", name="Invite")).to_be_hidden()
     expect(trigger).to_be_focused()
+
+
+def test_started_open_it_keeps_focus_inside_and_hands_it_to_the_trigger(
+    show: Show,
+) -> None:
+    page = show(
+        Dialog()
+        .title("Invite")
+        .open()
+        .trigger(Button().content("Invite"))
+        .content(Button().content("Inside"))
+    )
+    close = page.get_by_role("button", name="Close")
+    inside = page.get_by_role("button", name="Inside")
+    page.wait_for_function(TRAPPED)
+    expect(close).to_be_focused()
+    page.keyboard.press("Shift+Tab")
+    expect(inside).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(close).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog", name="Invite")).to_be_hidden()
+    expect(page.get_by_role("button", name="Invite")).to_be_focused()

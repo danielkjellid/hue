@@ -1,9 +1,17 @@
 import pytest
 
+from hue import html as markup
+from hue.headless._overlay import TRIGGER
+from hue.headless.dialog import (
+    DialogPanel,
+    DialogRoot,
+    DialogScrim,
+    DialogTitle,
+    DialogTrigger,
+)
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, Dialog, Popover, Tooltip
-from hue.ui.molecules import _overlay
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 
@@ -49,14 +57,14 @@ class TestDialog:
     async def test_it_is_modal_and_named_by_its_title(self, context_args):
         html = await render_tree(_dialog(), context_args=context_args)
         assert_attr(html, '[role="dialog"]', "aria-modal", "true")
-        assert_attr(html, '[role="dialog"]', ":aria-labelledby")
+        assert_attr(html, '[role="dialog"]', "x-bind:aria-labelledby")
 
     @pytest.mark.asyncio
     async def test_without_a_title_the_label_names_it(self, context_args):
         dialog = Dialog().label("Invite teammates").content("Who should join?")
         html = await render_tree(dialog, context_args=context_args)
         assert_attr(html, '[role="dialog"]', "aria-label", "Invite teammates")
-        assert_no_selector(html, "[\\:aria-labelledby]")
+        assert_no_selector(html, "[x-bind\\:aria-labelledby]")
 
     @pytest.mark.asyncio
     async def test_a_dialog_with_no_name_is_refused(self, context_args):
@@ -76,7 +84,7 @@ class TestDialog:
     ):
         html = await render_tree(_dialog().destructive(), context_args=context_args)
         assert_selector(html, '[role="alertdialog"]')
-        assert_attr(html, '[role="alertdialog"]', ":aria-describedby")
+        assert_attr(html, '[role="alertdialog"]', "x-bind:aria-describedby")
 
     @pytest.mark.asyncio
     async def test_an_ordinary_dialog_leaves_the_description_to_be_read(
@@ -86,7 +94,7 @@ class TestDialog:
         # use for it; in order, it arrives where it belongs.
         html = await render_tree(_dialog(), context_args=context_args)
         assert_selector(html, '[role="dialog"]')
-        assert_no_selector(html, "[\\:aria-describedby]")
+        assert_no_selector(html, "[x-bind\\:aria-describedby]")
 
     @pytest.mark.asyncio
     async def test_only_a_press_that_began_on_the_scrim_closes_it(self, context_args):
@@ -128,7 +136,7 @@ class TestDialog:
         html = await render_tree(_dialog().open(), context_args=context_args)
         state = select(html, "[x-data]")[0]["x-data"]
         assert state.startswith("{ open: true")
-        assert f"{_overlay.TRIGGER}?.focus()" in state
+        assert f"{TRIGGER}?.focus()" in state
 
     @pytest.mark.asyncio
     async def test_started_open_it_finds_a_trigger_inside_a_tooltip(self, context_args):
@@ -138,7 +146,7 @@ class TestDialog:
             Tooltip().content("Invite").trigger(Button().icon_only("Invite"))
         )
         html = await render_tree(dialog.open(), context_args=context_args)
-        assert f"{_overlay.TRIGGER}?.focus()" in select(html, "[x-data]")[0]["x-data"]
+        assert f"{TRIGGER}?.focus()" in select(html, "[x-data]")[0]["x-data"]
         assert_selector(html, "button[data-hue-trigger]")
         assert_no_selector(html, "[x-ref]")
 
@@ -155,3 +163,37 @@ class TestDialog:
         )
         html = await render_tree(dialog, context_args=context_args)
         assert "querySelector" not in select(html, "[x-data]")[0]["x-data"]
+
+
+class TestDialogParts:
+    @pytest.mark.asyncio
+    async def test_a_caller_adds_to_a_part_and_cannot_unwire_it(self, context_args):
+        html = await render_tree(
+            DialogRoot().content(
+                DialogScrim().content(
+                    DialogPanel()
+                    .role("region")
+                    .x_on("keydown", unsafe("track()"))
+                    .content(markup.div(DialogTitle().content("Invite"))),
+                )
+            ),
+            context_args=context_args,
+        )
+        panel = "[x-trap\\.inert\\.noscroll]"
+        assert_attr(html, panel, "role", "dialog")
+        assert_attr(html, panel, "@keydown", "track()")
+        # Named by the title it found inside the caller's own markup.
+        assert_attr(html, panel, "x-bind:aria-labelledby")
+
+    @pytest.mark.asyncio
+    async def test_a_part_outside_its_root_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="DialogPanel"):
+            await render_tree(DialogPanel().label("Invite"), context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_a_trigger_that_is_not_a_control_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="one hue component"):
+            await render_tree(
+                DialogRoot().content(DialogTrigger().content("Invite")),
+                context_args=context_args,
+            )

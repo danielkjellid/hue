@@ -9,7 +9,7 @@ from typing_extensions import Self
 
 from hue.base import modelable
 from hue.formats import DIRECTIVE, Formats
-from hue.headless._overlay import anchor
+from hue.headless._overlay import HOLDS_FOCUS, anchor, wire_trigger
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -24,7 +24,6 @@ from hue.ui._styles import (
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
-from hue.ui.molecules import _overlay
 from hue.ui.molecules.date_picker import (
     DatePicker,
     DatePickerMode,
@@ -292,7 +291,7 @@ class _PickerInput(FieldControl):
         if inert:
             button.disabled()
         else:
-            _overlay.wire_trigger(button, popup="dialog", on={"click": "toggle()"})
+            wire_trigger(button, popup="dialog", on={"click": "toggle()"})
             button.aria_controls(popover_id)
 
         grid = _Grid(
@@ -365,7 +364,7 @@ class _PickerInput(FieldControl):
                 "x-cloak": True,
                 "x-transition.opacity": "",
                 **anchor("bottom-start", "$refs.shell"),
-                **_overlay.HOLDS_FOCUS,
+                **HOLDS_FOCUS,
             },
         )
         chips = html.ul(

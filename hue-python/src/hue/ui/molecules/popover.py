@@ -6,7 +6,14 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
-from hue.headless._overlay import anchor
+from hue.headless._overlay import (
+    HOLDS_FOCUS,
+    accessible_name,
+    anchor,
+    overlay_root,
+    overlay_state,
+    wire_trigger,
+)
 from hue.types.core import Component
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if, render_when
@@ -80,7 +87,7 @@ class Popover(_overlay.WrapsTrigger):
         panel_id = "$id('hue-popover')"
         title_id = "$id('hue-popover-title')"
 
-        find_trigger = _overlay.wire_trigger(
+        find_trigger = wire_trigger(
             trigger,
             popup="dialog",
             on={"click": "open = !open"},
@@ -122,14 +129,17 @@ class Popover(_overlay.WrapsTrigger):
             ),
             **{
                 ":id": panel_id,
-                **_overlay.accessible_name(
-                    "Popover", title, self._get_prop("label"), title_id=title_id
+                **accessible_name(
+                    "Popover",
+                    title is not None,
+                    self._get_prop("label"),
+                    title_id=title_id,
                 ),
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
                 **anchor(placement, find_trigger),
-                **_overlay.HOLDS_FOCUS,
+                **HOLDS_FOCUS,
             },
         )
 
@@ -140,7 +150,7 @@ class Popover(_overlay.WrapsTrigger):
             **{
                 # close() puts focus back where it came from, which a click
                 # outside must not do - focus is wherever that click landed.
-                **_overlay.overlay_root(_overlay.overlay_state(return_to=find_trigger)),
+                **overlay_root(overlay_state(return_to=find_trigger)),
                 "x-id": "['hue-popover', 'hue-popover-title']",
                 "x-on:click.outside": "open = false",
                 # Tabbing out closes it too, or the panel would sit over
