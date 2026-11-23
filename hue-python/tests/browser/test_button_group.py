@@ -2,6 +2,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from hue import html
+from hue.base import ChainableComponent
 from hue.ui import (
     Button,
     ButtonGroup,
@@ -12,7 +13,6 @@ from hue.ui import (
     SelectOption,
     Tooltip,
 )
-from hue.ui.base import ChainableComponent
 from tests.browser.conftest import Show
 
 CORNERS = """

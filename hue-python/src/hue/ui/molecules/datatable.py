@@ -15,6 +15,7 @@ from typing import (
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent, declared
 from hue.formats import Formats
 from hue.js import unsafe
 from hue.types.core import UNDEFINED, Component, ComponentType
@@ -23,7 +24,6 @@ from hue.ui.atoms.button import Button
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.skeleton import Skeleton
-from hue.ui.base import ChainableComponent, declared
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.table import (
     CellAlign,

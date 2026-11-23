@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Literal
 
+from hue.base import ChainableComponent
 from hue.types.core import ComponentType
-from hue.ui.base import ChainableComponent
 from hue_fastapi import HueFragmentsView, HueView
 
 type Example = Callable[[], ComponentType]

@@ -5,6 +5,7 @@ from typing import ClassVar
 from htmy import Context, Fragment, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.context import HueContext
 from hue.js import Expression, call, expect
 from hue.shortcuts import Shortcut, Steps, binding, parse_keys
@@ -12,7 +13,6 @@ from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules import _overlay
 from hue.ui.molecules.select import _labelled_group
 from hue.utils import classnames, render_if

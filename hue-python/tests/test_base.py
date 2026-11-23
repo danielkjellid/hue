@@ -10,11 +10,11 @@ import pytest
 from htmy import Renderer
 
 from hue import ui
+from hue.base import Awaited
 from hue.exceptions import MissingHueContextError
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Button, TextInput
-from hue.ui.base import Awaited
 
 
 class TestChainableComponent:

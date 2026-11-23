@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from htmy import Context
 from typing_extensions import Self
 
-from hue.ui.base import ChainableComponent
+from hue.base import ChainableComponent
 
 __all__ = ["SYNC", "CurrentPage", "SwapsTarget", "swap"]
 

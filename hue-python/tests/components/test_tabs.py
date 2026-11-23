@@ -1,9 +1,9 @@
 import pytest
 
 from hue import html as hue_html
+from hue.base import ChainableComponent
 from hue.renderer import render_tree
 from hue.ui import Tab, Tabs
-from hue.ui.base import ChainableComponent
 from tests._a11y import assert_attr, assert_no_selector, assert_selector, select
 
 

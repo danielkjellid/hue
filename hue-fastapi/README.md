@@ -13,7 +13,9 @@ from fastapi import FastAPI
 from hue_fastapi import CsrfConfig, configure_hue
 
 app = FastAPI()
-configure_hue(app, csrf=CsrfConfig(secret_key=SECRET_KEY))  # also serves /__hue__/ assets
+configure_hue(
+    app, csrf=CsrfConfig(secret_key=SECRET_KEY)
+)  # also serves /__hue__/ assets
 ```
 
 You must pass `csrf`. Setting it to `None` turns hue's CSRF checks off, so the choice is always explicit.

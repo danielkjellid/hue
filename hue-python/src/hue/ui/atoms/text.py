@@ -6,8 +6,8 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
-from hue.ui.base import ChainableComponent
 from hue.utils import classes_if_else, classnames, render_when
 
 type TextTag = Literal["p", "span", "h1", "h2", "h3", "h4", "h5", "h6", "label"]

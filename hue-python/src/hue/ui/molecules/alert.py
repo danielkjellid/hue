@@ -5,10 +5,10 @@ from typing import ClassVar, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
 
 type AlertVariant = Literal["neutral", "info", "success", "warning", "danger"]

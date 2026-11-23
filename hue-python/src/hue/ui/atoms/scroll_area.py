@@ -3,9 +3,9 @@ from __future__ import annotations
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component
 from hue.ui._styles import FOCUS_RING
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 

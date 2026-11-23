@@ -12,7 +12,7 @@ Read `@CLAUDE.md` first — the "chainable-component pattern", "Component qualit
 
 ## Steps
 
-1. **Study the templates.** Read `hue-python/src/hue/ui/base.py` and a close sibling
+1. **Study the templates.** Read `hue-python/src/hue/base.py` and a close sibling
    (`hue-python/src/hue/ui/atoms/button.py` for an atom,
    `hue-python/src/hue/ui/molecules/alert.py` for a molecule) so the new file matches the
    established idiom exactly. Reuse base modifiers and `hue/utils.py` helpers — don't

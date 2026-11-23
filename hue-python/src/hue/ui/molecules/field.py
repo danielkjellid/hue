@@ -5,10 +5,10 @@ from typing import ClassVar
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.text import Label, required_marker
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if, render_when
 
 # The label column in the horizontal layout. Wide enough for two or three

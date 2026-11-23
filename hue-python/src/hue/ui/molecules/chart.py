@@ -10,11 +10,11 @@ from typing import Any, ClassVar, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames, render_if
 
 type ChartFormat = Literal["number", "percent", "currency"]

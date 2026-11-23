@@ -1,0 +1,7 @@
+extend = "../../../pyproject.toml"
+
+[lint]
+extend-select = ["TID251"]
+
+[lint.flake8-tidy-imports.banned-api]
+"hue.ui".msg = "hue.headless must not depend on hue.ui, which styles it. Move what you need into hue.headless or a core module such as hue.base."

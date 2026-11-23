@@ -6,8 +6,8 @@ from typing import Any, Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
-from hue.ui.base import ChainableComponent
 from hue.utils import classnames
 
 type CardVariant = Literal["bordered", "raised", "flat"]

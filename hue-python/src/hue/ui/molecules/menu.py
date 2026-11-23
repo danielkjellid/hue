@@ -5,11 +5,11 @@ from typing import Literal
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent, Clickable
 from hue.shortcuts import Shortcut, binding
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
 from hue.ui._styles import FOCUS_RING_INSET
-from hue.ui.base import ChainableComponent, Clickable
 from hue.ui.molecules import _overlay
 from hue.utils import classes_if, classnames, render_if, render_when
 

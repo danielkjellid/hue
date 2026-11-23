@@ -16,7 +16,7 @@ import typing
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from hue.ui.base import (
+from hue.base import (
     AlpineModelMixin,
     ChainableComponent,
     Clickable,

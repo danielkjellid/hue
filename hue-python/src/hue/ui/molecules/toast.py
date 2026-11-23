@@ -5,13 +5,13 @@ from collections.abc import Sequence
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.toast import INHERIT, ToastMessage, ToastVariant, toast
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.spinner import Spinner
-from hue.ui.base import ChainableComponent
 from hue.ui.navigation import SYNC
 from hue.utils import classnames, render_if, render_when
 

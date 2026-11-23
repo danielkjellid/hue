@@ -105,6 +105,7 @@ from hue._declared import (
     one,
     search_id,
 )
+from hue.base import ChainableComponent
 from hue.context import HueContext
 from hue.js import call, close, unsafe
 from hue.router import HueResponse
@@ -114,7 +115,6 @@ from hue.ui.atoms.button import Button, ButtonVariant
 from hue.ui.atoms.checkbox import Checkbox
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.kbd import Kbd
-from hue.ui.base import ChainableComponent
 from hue.ui.molecules.datatable import (
     SELECTED,
     Column,

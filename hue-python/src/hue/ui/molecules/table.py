@@ -8,9 +8,9 @@ from typing import (
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.base import ChainableComponent
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import LOADING
-from hue.ui.base import ChainableComponent
 from hue.ui.navigation import SYNC
 from hue.utils import classes_if_else, classnames, render_if
 

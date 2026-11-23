@@ -6,9 +6,9 @@ from htmy import Context
 from htmy.core import Tag, TagWithProps
 from typing_extensions import Self
 
+from hue.base import AlpineModelMixin, ChainableComponent
 from hue.js import Expression, expect
 from hue.types.core import Component, ComponentType
-from hue.ui.base import AlpineModelMixin, ChainableComponent
 
 
 class Element(ChainableComponent):
