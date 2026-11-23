@@ -130,7 +130,10 @@ class Popover(_overlay.WrapsTrigger):
             **{
                 ":id": panel_id,
                 **accessible_name(
-                    "Popover", title, self._get_prop("label"), title_id=title_id
+                    "Popover",
+                    title is not None,
+                    self._get_prop("label"),
+                    title_id=title_id,
                 ),
                 "x-show": "open",
                 "x-cloak": True,

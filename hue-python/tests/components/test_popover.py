@@ -92,7 +92,10 @@ class TestPopover:
             _popover().label("Something else"), context_args=context_args
         )
         assert_attr(
-            html, '[role="dialog"]', ":aria-labelledby", "$id('hue-popover-title')"
+            html,
+            '[role="dialog"]',
+            "x-bind:aria-labelledby",
+            "$id('hue-popover-title')",
         )
         assert_no_selector(html, '[role="dialog"][aria-label]')
 
@@ -104,4 +107,4 @@ class TestPopover:
         )
         assert_attr(html, '[role="dialog"]', "aria-label", "Columns")
         # Nothing to point at.
-        assert_no_selector(html, "[\\:aria-labelledby]")
+        assert_no_selector(html, "[x-bind\\:aria-labelledby]")

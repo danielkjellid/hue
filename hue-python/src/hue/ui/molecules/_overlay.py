@@ -14,7 +14,7 @@ from htmy import html
 
 from hue.base import ChainableComponent
 from hue.headless._overlay import DESCRIPTION_ID, TITLE_ID
-from hue.types.core import ComponentType
+from hue.types.core import UNDEFINED, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.icon import HueIcon
 from hue.utils import classnames, render_if, render_when
@@ -60,6 +60,15 @@ def grabber(hidden_class: str = "") -> ComponentType:
     )
 
 
+TITLE = "font-ui text-lg font-bold leading-[1.3] tracking-[-0.015em] text-fg"
+DESCRIPTION = "mt-1 text-sm leading-[1.55] text-fg-muted"
+CLOSE = classnames(
+    "grid size-7 flex-none place-content-center rounded-sm",
+    "cursor-pointer text-fg-subtle hover:bg-surface-hover hover:text-fg",
+    FOCUS_RING,
+)
+
+
 def header(
     title: str | None,
     description: str | None,
@@ -69,44 +78,37 @@ def header(
     """
     Title, description and the close button, when there is any of them.
     """
+    return header_row(
+        render_if(title, lambda text: html.h2(text, class_=TITLE, **{":id": TITLE_ID})),
+        render_if(
+            description,
+            lambda text: html.p(text, class_=DESCRIPTION, **{":id": DESCRIPTION_ID}),
+        ),
+        render_when(
+            dismissible,
+            html.button(
+                HueIcon("x").class_("size-4"),
+                type="button",
+                aria_label="Close",
+                class_=CLOSE,
+                **{"x-on:click": "close()"},
+            ),
+        ),
+    )
+
+
+def header_row(
+    title: ComponentType, description: ComponentType, close: ComponentType
+) -> ComponentType:
+    """
+    The row the title and description sit in with the close button beside
+    them, drawn when there is any of the three.
+    """
     return render_when(
-        bool(title or description or dismissible),
+        any(part is not UNDEFINED for part in (title, description, close)),
         html.div(
-            html.div(
-                render_if(
-                    title,
-                    lambda text: html.h2(
-                        text,
-                        class_="font-ui text-lg font-bold leading-[1.3] "
-                        "tracking-[-0.015em] text-fg",
-                        **{":id": TITLE_ID},
-                    ),
-                ),
-                render_if(
-                    description,
-                    lambda text: html.p(
-                        text,
-                        class_="mt-1 text-sm leading-[1.55] text-fg-muted",
-                        **{":id": DESCRIPTION_ID},
-                    ),
-                ),
-                class_="min-w-0 flex-1",
-            ),
-            render_when(
-                dismissible,
-                html.button(
-                    HueIcon("x").class_("size-4"),
-                    type="button",
-                    aria_label="Close",
-                    class_=classnames(
-                        "grid size-7 flex-none place-content-center rounded-sm",
-                        "cursor-pointer text-fg-subtle hover:bg-surface-hover "
-                        "hover:text-fg",
-                        FOCUS_RING,
-                    ),
-                    **{"x-on:click": "close()"},
-                ),
-            ),
+            html.div(title, description, class_="min-w-0 flex-1"),
+            close,
             class_="flex items-start gap-4 px-5 pt-5 pb-3",
         ),
     )

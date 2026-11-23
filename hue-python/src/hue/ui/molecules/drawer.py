@@ -168,7 +168,7 @@ class Drawer(_overlay.WrapsTrigger):
             **{
                 "role": "dialog",
                 "aria_modal": "true",
-                **accessible_name("Drawer", title, self._get_prop("label")),
+                **accessible_name("Drawer", title is not None, self._get_prop("label")),
                 # inert takes the page behind out of the tab order, noscroll
                 # stops it scrolling under the scrim, and the trap returns
                 # focus to whatever opened it.
