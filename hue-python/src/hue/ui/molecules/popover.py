@@ -6,6 +6,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless._overlay import anchor
 from hue.types.core import Component
 from hue.ui.molecules import _overlay
 from hue.utils import classnames, render_if, render_when
@@ -127,7 +128,7 @@ class Popover(_overlay.WrapsTrigger):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                **_overlay.anchor(placement, find_trigger),
+                **anchor(placement, find_trigger),
                 **_overlay.HOLDS_FOCUS,
             },
         )

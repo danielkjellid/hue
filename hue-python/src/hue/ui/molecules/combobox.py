@@ -4,17 +4,14 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import modelable
+from hue.headless._overlay import anchor
+from hue.headless.select import SelectState, options
 from hue.js import call
 from hue.types.core import Component
 from hue.ui._styles import GROUP_STATES, TOKEN, TOKEN_REMOVE, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
-from hue.ui.molecules import _overlay
-from hue.ui.molecules.select import (
-    SelectState,
-    _options,
-    _widest,
-)
+from hue.ui.molecules.select import _widest
 from hue.utils import classnames, render_when
 
 # A minimum rather than a height: with several values chosen, the tokens wrap
@@ -130,7 +127,7 @@ class Combobox(FieldControl):
         placeholder: str = self._get_prop("placeholder", "")
 
         values = self._values()
-        labels = {o.option_value: o.option_label for o in _options(self._children)}
+        labels = {o.option_value: o.option_label for o in options(self._children)}
         chosen = [{"value": v, "label": labels.get(v, v)} for v in values]
 
         attrs = self._control_attrs(
@@ -271,7 +268,7 @@ class Combobox(FieldControl):
                 # Clicking an option would otherwise take focus from the field
                 # and close the list before the click arrived.
                 "x-on:mousedown.prevent": "",
-                **_overlay.anchor("bottom-start", "$refs.shell"),
+                **anchor("bottom-start", "$refs.shell"),
             },
         )
         root_attrs: dict[str, object] = {

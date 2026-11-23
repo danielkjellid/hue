@@ -1,5 +1,13 @@
 import pytest
 
+from hue import html as markup
+from hue.headless.select import (
+    SelectListbox,
+    SelectRoot,
+    SelectTrigger,
+    SelectValue,
+)
+from hue.headless.select import SelectOption as HeadlessOption
 from hue.js import unsafe
 from hue.renderer import render_tree
 from hue.ui import Select, SelectGroup, SelectOption
@@ -161,8 +169,8 @@ class TestSelectGroup:
         )
         # The id comes from Alpine, so two groups with one label stay apart.
         group = select(html, '[role="group"]')[0]
-        assert group[":aria-labelledby"] == "$id('hue-select-group')"
-        label = group.find(attrs={":id": "$id('hue-select-group')"})
+        assert group["x-bind:aria-labelledby"] == "$id('hue-select-group')"
+        label = group.find(attrs={"x-bind:id": "$id('hue-select-group')"})
         assert label.get_text(strip=True) == "Paid"
 
 
@@ -206,7 +214,7 @@ class TestSelectOption:
     async def test_the_value_is_quoted_for_alpine(self, context_args):
         # A quote in a value must not end the expression it is compared in.
         html = await self._option(SelectOption().value('a"b'), context_args)
-        assert_attr(html, '[role="option"]', ":aria-selected", 'chosen("a\\"b")')
+        assert_attr(html, '[role="option"]', "x-bind:aria-selected", 'chosen("a\\"b")')
 
     @pytest.mark.asyncio
     async def test_a_disabled_option_says_so(self, context_args):
@@ -227,3 +235,60 @@ class TestSelectOption:
     async def test_an_option_outside_a_select_is_refused(self, context_args):
         with pytest.raises(ValueError):
             await render_tree(SelectOption().value("pro"), context_args=context_args)
+
+
+class TestSelectParts:
+    @pytest.mark.asyncio
+    async def test_parts_wire_themselves_inside_markup_of_the_callers(
+        self, context_args
+    ):
+        html = await render_tree(
+            SelectRoot()
+            .name("plan")
+            .value("pro")
+            .content(
+                markup.div(SelectTrigger().content(SelectValue())),
+                SelectListbox().content(
+                    markup.div(HeadlessOption().value("pro").label("Pro"))
+                ),
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, "div > button#plan", "aria-controls", "plan-listbox")
+        assert_attr(html, "#plan-listbox div > [role=option]", "aria-selected", "true")
+        assert select(html, "button#plan span")[0].get_text() == "Pro"
+        assert_no_selector(html, "[x-data] [class]")
+
+    @pytest.mark.asyncio
+    async def test_a_caller_adds_to_a_part_and_cannot_unwire_it(self, context_args):
+        html = await render_tree(
+            SelectRoot()
+            .name("plan")
+            .content(
+                SelectTrigger()
+                .role("button")
+                .id("mine")
+                .x_on("click", unsafe("track()"))
+            ),
+            context_args=context_args,
+        )
+        assert_attr(html, "button#plan", "role", "combobox")
+        assert_attr(html, "button#plan", "@click", "track()")
+        assert_attr(html, "button#plan", "x-on:click", "open ? hide() : show()")
+
+    @pytest.mark.asyncio
+    async def test_a_part_outside_its_root_is_refused(self, context_args):
+        with pytest.raises(ValueError, match="SelectTrigger"):
+            await render_tree(SelectTrigger(), context_args=context_args)
+
+    @pytest.mark.asyncio
+    async def test_two_selects_with_the_same_options_share_no_id(self, context_args):
+        html = await render_tree(
+            markup.div(
+                Select().name("from").content(SelectOption().value("oslo")),
+                Select().name("to").content(SelectOption().value("oslo")),
+            ),
+            context_args=context_args,
+        )
+        ids = [tag["id"] for tag in select(html, "[id]")]
+        assert len(ids) == len(set(ids)) == 6

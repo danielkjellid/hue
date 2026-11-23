@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 from hue.base import modelable
 from hue.formats import DIRECTIVE, Formats
+from hue.headless._overlay import anchor
 from hue.js import call, unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
@@ -363,7 +364,7 @@ class _PickerInput(FieldControl):
                 "x-show": "open",
                 "x-cloak": True,
                 "x-transition.opacity": "",
-                **_overlay.anchor("bottom-start", "$refs.shell"),
+                **anchor("bottom-start", "$refs.shell"),
                 **_overlay.HOLDS_FOCUS,
             },
         )

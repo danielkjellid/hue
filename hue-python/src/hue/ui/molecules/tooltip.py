@@ -7,6 +7,7 @@ from htmy import Context, html
 from typing_extensions import Self
 
 from hue.base import ChainableComponent
+from hue.headless._overlay import anchor
 from hue.js import unsafe
 from hue.types.core import Component, ComponentType
 from hue.ui.molecules import _overlay
@@ -37,7 +38,7 @@ _ARROWS: dict[TooltipPlacement, str] = {
 
 def _anchored(side: str) -> str:
     # The arrow points one way, so the bubble keeps its side.
-    return json.dumps(_overlay.anchor(side, "$el.parentElement", flip=False))
+    return json.dumps(anchor(side, "$el.parentElement", flip=False))
 
 
 # ~400ms to open so a pointer crossing the toolbar does not trail bubbles,

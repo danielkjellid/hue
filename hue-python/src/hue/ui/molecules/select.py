@@ -1,22 +1,16 @@
 from __future__ import annotations
 
-import hashlib
-import json
-from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import ClassVar
 
 from htmy import Context, html
 from typing_extensions import Self
 
-from hue.base import ChainableComponent
-from hue.js import call
+from hue.headless import select as headless
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import CONTROL_SIZES, FIELD_SHELL, ControlSize
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.form import FieldControl
-from hue.ui.molecules import _overlay
-from hue.utils import classes_if, classnames, render_if
+from hue.utils import classnames, render_if
 
 # The field's own shell, laid out as a row: the value takes the space and
 # truncates, the chevron keeps its place at the end.
@@ -31,6 +25,9 @@ _TRIGGER = classnames(
     "not-aria-invalid:aria-expanded:ring-accent-subtle "
     "aria-invalid:aria-expanded:ring-2 aria-invalid:aria-expanded:ring-danger",
 )
+
+# The placeholder is quieter than a value. The part says which it is showing.
+_VALUE = "truncate [grid-area:1/1] data-placeholder:text-fg-subtle"
 
 _LISTBOX = (
     "z-70 max-h-70 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border "
@@ -53,62 +50,6 @@ _GROUP_LABEL = (
     "px-2 pb-1 pt-1.5 font-ui text-2xs font-bold uppercase tracking-[0.04em] "
     "text-fg-subtle"
 )
-
-
-def _labelled_group(
-    group: ChainableComponent, scope: str, class_: str | None = None
-) -> Component:
-    """
-    A run of options under a heading that names them, for Select and Command
-    alike.
-
-    Two groups may share a label, so the label's id comes from Alpine's $id
-    in a scope of the group's own rather than from what it is called.
-    """
-    return html.div(
-        html.div(
-            group._get_prop("label", ""),
-            class_=_GROUP_LABEL,
-            **{":id": f"$id('{scope}')"},
-        ),
-        *group._children,
-        role="group",
-        **{
-            **({"class_": class_} if class_ else {}),
-            "x-id": f"['{scope}']",
-            ":aria-labelledby": f"$id('{scope}')",
-            **group._get_base_html_attrs(),
-        },
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class SelectState:
-    """
-    Which select an option is in and what it holds, offered to every option
-    and group inside it, so they draw themselves without being handed either.
-    """
-
-    control_id: str
-    values: frozenset[str]
-
-    def option_id(self, value: str) -> str:
-        # A digest rather than a slug of the value: a slug folds "a b" and
-        # "a-b", and every value written in another script, into one id, and
-        # the keys find the active option by its id. It stays the same across
-        # renders, so a Combobox that redraws its options keeps its place.
-        digest = hashlib.blake2s(value.encode(), digest_size=4).hexdigest()
-        return f"{self.control_id}-option-{digest}"
-
-    @classmethod
-    def from_context(cls, context: Context) -> SelectState:
-        found = context.get(cls)
-        if isinstance(found, cls):
-            return found
-        raise ValueError(
-            "A SelectOption only means something inside a Select, which is "
-            "what holds the value it may be."
-        )
 
 
 class Select(FieldControl):
@@ -154,123 +95,64 @@ class Select(FieldControl):
         self._props["horizontal"] = value
         return self
 
-    def htmy_context(self) -> Context:
-        value: str | None = self._get_prop("value")
-        values = frozenset() if value is None else frozenset([value])
-        return {SelectState: SelectState(self._input_id(), values)}
-
     def _render(self, context: Context) -> Component:
         name = self._require_name()
-        control_id = self._input_id()
         size: ControlSize = self._get_prop("size", "md")
-        disabled: bool = self._get_prop("disabled", False)
-        error: str | None = self._error(context)
         value: str | None = self._get_prop("value")
         placeholder: str = self._get_prop("placeholder", "")
-        options = list(_options(self._children))
-        chosen = next((o for o in options if o.option_value == value), None)
-        listbox_id = f"{control_id}-listbox"
+        labels = (o.option_label for o in headless.options(self._children))
 
-        attrs = self._control_attrs(
-            context,
-            type="button",
-            id=control_id,
-            role="combobox",
-            aria_haspopup="listbox",
-            aria_controls=listbox_id,
-            aria_expanded="false",
-            aria_required="true" if self._get_prop("required", False) else None,
-            aria_invalid="true" if error is not None else None,
-            aria_describedby=self._describedby(context),
-            disabled=disabled or None,
-            class_=classnames(_TRIGGER, CONTROL_SIZES[size], self._get_prop("class_")),
-            **{
-                "x-ref": "trigger",
-                ":aria-expanded": "open",
-                ":aria-activedescendant": "active",
-                "x-on:click": "open ? hide() : show()",
-                "x-on:keydown": "key($event)",
-            },
+        root = (
+            headless.SelectRoot()
+            .name(name)
+            .id(self._input_id())
+            .label(self._get_prop("label") or name)
+            .placeholder(placeholder)
+            .disabled(self._get_prop("disabled", False))
+            .required(self._get_prop("required", False))
+            .invalid(self._error(context) is not None)
+            .class_("relative w-full")
         )
-        # A two-way binding and the form it belongs to go on the field that is
-        # submitted, which is the hidden input, not the button standing in for it.
-        moved = {key: attrs.pop(key) for key in ("x-model", "form") if attrs.get(key)}
-
-        trigger = html.button(
-            # Every label sits in the same grid cell, only the chosen one
-            # visible, so the trigger is as wide as its longest option the way
-            # a native select is, and choosing does not resize it.
-            html.span(
+        if value is not None:
+            root.value(value)
+        trigger = (
+            headless.SelectTrigger()
+            .class_(classnames(_TRIGGER, CONTROL_SIZES[size], self._get_prop("class_")))
+            .content(
+                # Every label sits in the same grid cell, only the chosen one
+                # visible, so the trigger is as wide as its longest option the
+                # way a native select is, and choosing does not resize it.
                 html.span(
-                    chosen.option_label if chosen is not None else placeholder,
-                    class_=classnames(
-                        "truncate [grid-area:1/1]",
-                        classes_if(chosen is None, ["text-fg-subtle"]),
+                    headless.SelectValue().class_(_VALUE),
+                    *(
+                        html.span(text, class_="invisible truncate [grid-area:1/1]")
+                        for text in _widest(placeholder, *labels)
                     ),
-                    **{
-                        "x-text": "label || placeholder",
-                        # An object, since a string could not take away the
-                        # class the server drew the placeholder with.
-                        ":class": "{ 'text-fg-subtle': !label }",
-                    },
+                    class_="grid min-w-0 flex-1",
                 ),
-                *(
-                    html.span(text, class_="invisible truncate [grid-area:1/1]")
-                    for text in _widest(placeholder, *(o.option_label for o in options))
+                HueIcon("chevron-down").class_(
+                    "size-4 flex-none text-fg-subtle transition-transform "
+                    "duration-150 in-aria-expanded:rotate-180"
                 ),
-                class_="grid min-w-0 flex-1",
-            ),
-            HueIcon("chevron-down").class_(
-                "size-4 flex-none text-fg-subtle transition-transform duration-150 "
-                "in-aria-expanded:rotate-180"
-            ),
-            **attrs,
+            )
         )
-        listbox = html.div(
-            *self._children,
-            id=listbox_id,
-            role="listbox",
-            aria_label=self._get_prop("label") or name,
-            class_=_LISTBOX,
-            **{
-                "x-ref": "listbox",
-                # The keys are handled on the trigger, so a press on a group
-                # label, the padding or the scrollbar must not take focus.
-                "x-on:mousedown.prevent": "",
-                "x-show": "open",
-                "x-cloak": True,
-                "x-transition.opacity": "",
-                **_overlay.anchor("bottom-start", "$refs.trigger"),
-            },
+        listbox = headless.SelectListbox().class_(_LISTBOX).content(*self._children)
+        # The fade is part of the look, so the part does not bring it.
+        listbox._attrs["x-transition.opacity"] = ""
+
+        # What the caller set on the Select describes the control, which is
+        # the trigger. A two-way binding and the form it belongs to go on the
+        # field that is submitted, which the root draws.
+        attrs = self._control_attrs(
+            context, aria_describedby=self._describedby(context)
         )
-        hidden = html.input_(
-            type="hidden",
-            name=name,
-            value=value or "",
-            # A disabled field is left out of what the form submits.
-            disabled=disabled or None,
-            **{
-                "x-ref": "input",
-                ":value": "value",
-                **moved,
-            },
-        )
-        return self._field(
-            context,
-            html.div(
-                hidden,
-                trigger,
-                listbox,
-                class_="relative w-full",
-                **{
-                    "x-data": call("hueSelect", value or "", placeholder),
-                    # Focus leaving closes the list too, so tabbing away or
-                    # clicking into another document does not leave it open.
-                    "x-on:click.outside": "hide()",
-                    "x-on:focusout": "leave($event)",
-                },
-            ),
-        )
+        attrs.pop("id", None)
+        for key in ("x-model", "form"):
+            if attrs.get(key):
+                root._attrs[key] = attrs.pop(key)
+        trigger._attrs.update(attrs)
+
+        return self._field(context, root.content(trigger, listbox))
 
 
 def _widest(*texts: str) -> list[str]:
@@ -285,59 +167,27 @@ def _widest(*texts: str) -> list[str]:
     return sorted(filter(None, texts), key=len, reverse=True)[:3]
 
 
-def _options(children: tuple[ComponentType, ...]) -> Iterator[SelectOption]:
-    """
-    Every option among children, including those inside groups.
-    """
-    for child in children:
-        if isinstance(child, SelectOption):
-            yield child
-        elif isinstance(child, SelectGroup):
-            yield from _options(child._children)
-
-
-class SelectGroup(ChainableComponent):
+class SelectGroup(headless.SelectGroup):
     """
     A labelled run of options inside a Select.
     """
-
-    category: ClassVar[str | None] = None
 
     def label(self, value: str) -> Self:
         self._props["label"] = value
         return self
 
-    def _render(self, context: Context) -> Component:
-        return _labelled_group(self, "hue-select-group")
+    def _content(self) -> tuple[ComponentType, ...]:
+        label = headless.SelectGroupLabel().class_(_GROUP_LABEL)
+        return (label.content(self._get_prop("label", "")), *self._children)
 
 
-class SelectOption(ChainableComponent):
+class SelectOption(headless.SelectOption):
     """
     One choice in a Select: its value, what it is called, and optionally a
     description under the label, an icon before it and metadata after it.
     """
 
-    category: ClassVar[str | None] = None
-
-    @property
-    def option_value(self) -> str:
-        return str(self._get_prop("value", ""))
-
-    @property
-    def option_label(self) -> str:
-        return str(self._get_prop("label", self.option_value))
-
-    def value(self, value: str) -> Self:
-        self._props["value"] = value
-        return self
-
-    def label(self, value: str) -> Self:
-        """
-        What the option is called, shown in the list and in the trigger once
-        it is chosen.
-        """
-        self._props["label"] = value
-        return self
+    default_class: ClassVar[str] = _OPTION
 
     def description(self, value: str) -> Self:
         self._props["description"] = value
@@ -354,22 +204,13 @@ class SelectOption(ChainableComponent):
         self._props["icon"] = value
         return self
 
-    def disabled(self, value: bool = True) -> Self:
-        self._props["disabled"] = value
-        return self
-
-    def _render(self, context: Context) -> Component:
-        state = SelectState.from_context(context)
-        value = self.option_value
-        disabled: bool = self._get_prop("disabled", False)
-        description: str | None = self._get_prop("description")
-        option_id = state.option_id(value)
-        return html.div(
+    def _content(self) -> tuple[ComponentType, ...]:
+        return (
             render_if(self._get_prop("icon"), lambda icon: icon),
             html.span(
                 html.span(self.option_label, class_="block truncate"),
                 render_if(
-                    description,
+                    self._get_prop("description"),
                     lambda text: html.span(
                         text, class_="block truncate text-sm font-normal text-fg-muted"
                     ),
@@ -385,18 +226,4 @@ class SelectOption(ChainableComponent):
                     "in-data-active:text-fg-muted in-aria-selected:text-fg-muted",
                 ),
             ),
-            id=option_id,
-            role="option",
-            aria_selected="true" if value in state.values else "false",
-            aria_disabled="true" if disabled else None,
-            class_=classnames(_OPTION, self._get_prop("class_")),
-            **{
-                "data-value": value,
-                "data-label": self.option_label,
-                ":aria-selected": f"chosen({json.dumps(value)})",
-                ":data-active": f"active === {json.dumps(option_id)} || null",
-                "x-on:click": "choose($el)",
-                "x-on:mousemove": "activate($el)",
-            },
-            **self._get_base_html_attrs(),
         )
