@@ -17,6 +17,7 @@ from htmy.renderer import Renderer
 
 from hue.base import ChainableComponent
 from hue.formats import Formats
+from hue.navigation import SYNC, swap
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import (
     DASH,
@@ -51,7 +52,6 @@ from hue.ui.molecules.date_picker import Weekday
 from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.tabs import Tab, Tabs
-from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
 
 type CalendarView = Literal["day", "week", "month", "year", "agenda"]

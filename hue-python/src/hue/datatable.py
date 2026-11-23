@@ -108,6 +108,7 @@ from hue._declared import (
 from hue.base import ChainableComponent
 from hue.context import HueContext
 from hue.js import call, close, unsafe
+from hue.navigation import SYNC, swap
 from hue.router import HueResponse
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import PANEL_LABEL
@@ -128,7 +129,6 @@ from hue.ui.molecules.empty import Empty
 from hue.ui.molecules.pagination import Pagination, record_range
 from hue.ui.molecules.popover import Popover
 from hue.ui.molecules.table import form_id, rows_id
-from hue.ui.navigation import SYNC, swap
 from hue.utils import render_when
 
 # What each part of the state is called in the query string.

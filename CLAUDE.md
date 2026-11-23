@@ -125,7 +125,9 @@ canonical templates. The shape:
   internal wiring spelled `x-on:` / `x-bind:`. A part has no classes and no `Literal`
   axes, only `aria-*` / `data-*` state for a style to answer. `hue.ui` styles a part by
   subclassing it with `default_class`, or by composing it with `class_()`
-  (`hue/headless/select.py` and `ui/molecules/select.py` are the template).
+  (`hue/headless/select.py` and `ui/molecules/select.py` are the template). A look that
+  depends on a prop or on context overrides `_classes(context)` instead, as the styled
+  `Tabs` does for `segmented()`.
 
 ### Utilities (`hue-python/src/hue/utils.py`) — reuse these
 
@@ -143,7 +145,7 @@ canonical templates. The shape:
   condition rather than a value. Writing `render_if(flag or None, lambda _: …)` is the
   smell this replaces: `render_if` tests against `None`, so a `False` would render.
 
-AJAX swaps have their helpers in `hue-python/src/hue/ui/navigation.py`: `swap(target)` for
+AJAX swaps have their helpers in `hue-python/src/hue/navigation.py`: `swap(target)` for
 a link or form that swaps a region and pushes its URL, `SYNC` for an element that
 refreshes itself from any response that carries it, and the `SwapsTarget` mixin for a
 component whose links swap a region it sits outside of.

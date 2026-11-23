@@ -42,6 +42,7 @@ from hue._declared import (
 )
 from hue.base import ChainableComponent
 from hue.js import Expression, call, close, unsafe
+from hue.navigation import SYNC, swap
 from hue.shortcuts import Shortcut, ShortcutRegistry, shortcuts
 from hue.types.core import Component, ComponentType
 from hue.ui import _shortcut
@@ -56,7 +57,6 @@ from hue.ui.molecules._calendar_views import CalendarView
 from hue.ui.molecules.date_picker import WEEKDAYS, DatePicker
 from hue.ui.molecules.dialog import Dialog
 from hue.ui.molecules.popover import Popover
-from hue.ui.navigation import SYNC, swap
 from hue.utils import classnames, render_if, render_when
 
 if TYPE_CHECKING:

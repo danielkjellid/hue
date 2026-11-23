@@ -7,12 +7,12 @@ from math import ceil
 from htmy import Context, html
 from typing_extensions import Self
 
+from hue.navigation import SwapsTarget
 from hue.types.core import Component, ComponentType
 from hue.ui._styles import DASH, FOCUS_RING, STEP, STEP_IDLE, STEP_SPENT
 from hue.ui.atoms.button import Button
 from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.native_select import NativeSelect
-from hue.ui.navigation import SwapsTarget
 from hue.utils import classnames, render_if
 
 _BAR = "flex w-full flex-wrap items-center justify-between gap-4"

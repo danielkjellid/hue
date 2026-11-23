@@ -30,6 +30,7 @@ from htmy import Context, html
 
 from hue import toast
 from hue.js import call, unsafe
+from hue.navigation import swap
 from hue.router import PAGE_ROUTE, HueResponse
 from hue.types.core import ComponentType
 from hue.ui._styles import PANEL_LABEL
@@ -39,7 +40,6 @@ from hue.ui.atoms.icon import HueIcon
 from hue.ui.atoms.input import NumberInput, TextInput
 from hue.ui.atoms.radio import Radio
 from hue.ui.molecules.popover import Popover
-from hue.ui.navigation import swap
 from hue.utils import classnames, render_if
 
 type Pairs = tuple[tuple[str, str], ...]

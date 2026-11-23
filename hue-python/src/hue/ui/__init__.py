@@ -1,4 +1,5 @@
 from hue.base import ChainableComponent
+from hue.navigation import CurrentPage
 from hue.ui.atoms.avatar import Avatar, AvatarGroup
 from hue.ui.atoms.badge import Badge
 from hue.ui.atoms.button import Button
@@ -105,7 +106,6 @@ from hue.ui.molecules.theme_switcher import ThemeSwitcher
 from hue.ui.molecules.timeline import Timeline, TimelineItem
 from hue.ui.molecules.toast import Toast, ToastRegion
 from hue.ui.molecules.tooltip import Tooltip
-from hue.ui.navigation import CurrentPage
 
 __all__ = [
     "Accordion",

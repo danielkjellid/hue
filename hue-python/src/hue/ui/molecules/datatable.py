@@ -18,6 +18,7 @@ from typing_extensions import Self
 from hue.base import ChainableComponent, declared
 from hue.formats import Formats
 from hue.js import unsafe
+from hue.navigation import swap
 from hue.types.core import UNDEFINED, Component, ComponentType
 from hue.ui._styles import FOCUS_RING
 from hue.ui.atoms.button import Button
@@ -38,7 +39,6 @@ from hue.ui.molecules.table import (
     form_id,
     rows_id,
 )
-from hue.ui.navigation import swap
 from hue.utils import classnames, render_if
 
 if TYPE_CHECKING:
